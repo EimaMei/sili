@@ -1,0 +1,16 @@
+# Folders
+.vscode/
+build/**
+source/test
+games/
+res
+hpl-vscode/
+
+# Files 
+*.exe
+*.dll
+*.o
+.DS_Store
+*.7z
+*.zip
+*.hide
