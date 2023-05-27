@@ -22,13 +22,13 @@ Go to [example.c](example.c) to see examples for almost every feature in the STL
 
 # TODO
 ## Features
+- !! Documentation (ideally everything should be in the header).
 - Directory IO.
-- `rfind` for `siArray`.
-- Reverse functions for `siString` and `siArray`.
 - `siTime`.
 - Threading.
 - `siVariant` from `std::variant`.
 - Named operators.
+- `siRandom`
 
 # Improvements
 - Improve si_array_make.

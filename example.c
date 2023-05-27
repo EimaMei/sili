@@ -2,13 +2,27 @@
 #include <sili.h>
 #include <stdio.h>
 
-#define EXAMPLE_SI_STRING     1
-#define EXAMPLE_SI_ARRAY      1
-#define EXAMPLE_SI_PAIR       1
-#define EXAMPLE_SI_FILE       1
-#define EXAMPLE_SI_OPTIONAL   1
+#define EXAMPLE_SI_ENABLE_ALL 1
+
+#define EXAMPLE_SI_STRING     0
+#define EXAMPLE_SI_ARRAY      0
+#define EXAMPLE_SI_PAIR       0
+#define EXAMPLE_SI_FILE       0
+#define EXAMPLE_SI_OPTIONAL   0
 
 
+#if EXAMPLE_SI_ENABLE_ALL == 1
+	#undef EXAMPLE_SI_STRING
+	#undef EXAMPLE_SI_ARRAY
+	#undef EXAMPLE_SI_PAIR
+	#undef EXAMPLE_SI_FILE
+	#undef EXAMPLE_SI_OPTIONAL
+
+	#define EXAMPLE_SI_ARRAY      1
+	#define EXAMPLE_SI_PAIR       1
+	#define EXAMPLE_SI_FILE       1
+	#define EXAMPLE_SI_OPTIONAL   1
+#endif
 
 #if EXAMPLE_SI_OPTIONAL == 1
 	siOptional(char*) create(bool value) {
@@ -16,10 +30,7 @@
 	}
 #endif
 
-
-
 int main(void) {
-
 	#if EXAMPLE_SI_STRING == 1
 	/* Example 1.0: General string usage */
 	{
@@ -125,6 +136,9 @@ int main(void) {
 		si_string_strip(&str);
 		printf("After: '%s' (len: '%zd')\n", str, si_string_len(str));
 
+		si_string_reverse(&str);
+		printf("Str in reverse: %s\n", str);
+
 		si_string_free(str);
 	}
 	#endif
@@ -134,7 +148,7 @@ int main(void) {
 	{
 		printf("==============\n\n==============\nExample 2.0:\n");
 
-		siArray(i32) array = si_array_make((i32[]){3, 2, 4, 234, 294});
+		siArray(i32) array = si_array_make((i32[]){3, 234, 2, 4, 294, 234, 23});
 
 		usize count = 0;
 		foreach (num, array) {
@@ -142,8 +156,9 @@ int main(void) {
 			count++;
 		}
 
-		isize value = si_array_find(array, 234);
-		printf("Number '234' is at: array[%zd]\n", value);
+		isize find_pos = si_array_find(array, 234);
+		isize rfind_pos = si_array_rfind(array, 234);
+		printf("The 1st number '234' is at 'array[%zd]', while the 2nd one is at 'array[%zd]'\n", find_pos, rfind_pos);
 
 		usize previous_len = si_array_len(array);
 		si_array_append(&array, SI_INT32_MAX); /* si_array_push_back does the same thing. */
@@ -162,6 +177,25 @@ int main(void) {
 
 		si_array_free(array);
 		si_array_free(copy);
+	}
+	/* Example 2.1: Other usages. */
+	{
+		printf("==============\n\n==============\nExample 2.1:\n");
+		siArray(i32) array = si_array_make((i32[]){1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+
+		printf("Array in regular order: ");
+		foreach (num, array) {
+			printf("%i ", *num);
+		}
+		printf("\n");
+
+		si_array_reverse(&array);
+		printf("Array in reverse order: ");
+
+		foreach (num, array) {
+			printf("%i,", *num);
+		}
+		printf("\n");
 	}
 	#endif
 
