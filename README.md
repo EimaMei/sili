@@ -1,5 +1,5 @@
 # sili.h STL
-A public domain STL alternative to C/C++ standard libraries, featuring many improvements and fixes for better development.
+A public domain STL alternative to C/C++ standard libraries, featuring many improvements and fixes for better development. Made specifically for C99 and up, but can also be used in C++.
 
 # Features
 - Standard types (`u8`, `i32`, `u64` etc).
@@ -7,15 +7,29 @@ A public domain STL alternative to C/C++ standard libraries, featuring many impr
 - Useful macros (`typeof()`, `SI_ASSERT`/`SI_STATIC_ASSERT`, `SI_BIT`, `foreach` etc).
 - Robust string implementation (`siString`, fully compatible with `char*`).
 - Better arrays (`siArray(<type>)`, compatible with other C arrays`).
-- Pair support like `std::pair` on C++ except better (`siPair(<type1>, <type2>)`).
+- Pair support like `std::pair` (`siPair(<type1>, <type2>)`).
 - `char` specific functions (`si_char_to_lower`, `si_char_is_space`, `si_hex_digit_to_int` etc).
-- ... and more to come
+- Path IO related functions (`si_path_exists`, `si_path_copy`, `si_path_get_fullname` etc).
+- A cross-platform file management functions (`si_file_open`, `si_file_read`, `si_file_write_line_at` etc).
+- `siOptional` type similar to `std::pair`.
+- ... and more to come!
 
 # Examples
-Go to [example.c](example.c) and enable/disable whatever example you'd like to. You can also unexpand the brackets to hide the examples you're not interested in viewing with your IDE of choice.
+Go to [example.c](example.c) to see examples for almost every feature in the STL. You can also unexpand the brackets to hide the examples you're not interested in viewing with your IDE of choice.
 
 # License
-`sili.h` is in the public domain, meaning you can do whatever you want with it and use it any shape of form you like.
+`sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded
 
 # TODO
-I'll fill this out when I am not lazy.
+## Features
+- Directory IO.
+- `rfind` for `siArray`.
+- Reverse functions for `siString` and `siArray`.
+- `siTime`.
+- Threading.
+- `siVariant` from `std::variant`.
+- Named operators.
+
+# Improvements
+- Improve si_array_make.
+- Possible better debugging improvements.

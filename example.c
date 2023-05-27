@@ -2,13 +2,25 @@
 #include <sili.h>
 #include <stdio.h>
 
-#define EXAMPLES_1_PLUS 1
-#define EXAMPLES_2_PLUS 1
-#define EXAMPLES_3_PLUS 1
+#define EXAMPLE_SI_STRING     1
+#define EXAMPLE_SI_ARRAY      1
+#define EXAMPLE_SI_PAIR       1
+#define EXAMPLE_SI_FILE       1
+#define EXAMPLE_SI_OPTIONAL   1
 
 
-int main() {
-	#if EXAMPLES_1_PLUS == 1
+
+#if EXAMPLE_SI_OPTIONAL == 1
+	siOptional(char*) create(bool value) {
+		return (value ? si_optional_make((char*)"Godzilla") : SI_OPTIONAL_NULL);
+	}
+#endif
+
+
+
+int main(void) {
+
+	#if EXAMPLE_SI_STRING == 1
 	/* Example 1.0: General string usage */
 	{
 		printf("==============\nExample 1.0:\n");
@@ -22,7 +34,7 @@ int main() {
 		char front = si_string_front(str);
 		char back = si_string_back(str);
 		usize length = si_string_len(str);
-		printf("front: '%c', back: '%c', len: '%ld'\n", front, back, length);
+		printf("front: '%c', back: '%c', len: '%zd'\n", front, back, length);
 
 		si_string_set(&str, "Different sentence");
 		printf("str: %s\n", str);
@@ -35,10 +47,10 @@ int main() {
 		printf("(\"%s\" == \"%s\") returns a '%s' boolean\n", str, str2, (result ? "true" : "false"));
 
 		isize pos = si_string_find(str, "sentence");
-		printf("The word 'sentence' was found at position %ld (Starting with the letter '%c')\n", pos, str[pos]);
+		printf("The word 'sentence' was found at position '%zd' (Starting with the letter '%c')\n", pos, str[pos]);
 
 		pos = si_string_find(str, "random");
-		printf("However, the word 'random' was not found, thus 'pos' equals to %ld\n", pos);
+		printf("However, the word 'random' was not found, thus 'pos' equals to %zd\n", pos);
 
 		si_string_replace(&str, "Different", "Completely new");
 		printf("str: %s\n", str);
@@ -50,27 +62,23 @@ int main() {
 		printf("str: %s\n", str);
 
 		si_string_clear(&str);
-		printf("Length of str: %ld\n", si_string_len(str));
+		printf("Length of str: %zd\n", si_string_len(str));
 
 
 		si_string_set(&str2, "one.two.three.four.five");
-		printf("Current str2: %s %li\n", str2, si_string_len(str2));
+		printf("Current str2: %s\n", str2);
 
 		siArray(siString) list = si_string_split(str2, ".");
-		printf("hi %p\n", list);
 		usize i;
 		for (i = 0; i < si_array_len(list); i++) {
-			printf("Element %ld: '%s'\n", i, list[i]);
+			printf("\tElement %zd: '%s'\n", i, list[i]);
 		}
-		printf("what\n");
 
 		si_string_free(str);
-		printf("what\n");
 		si_string_free(str2);
-		printf("what\n");
 	}
 
-	/* Example 1.1: Other usages. */
+	/* Example 1.1: int conversions, utilisation of 'char' functions. */
 	{
 		printf("==============\n\n==============\nExample 1.1:\n");
 
@@ -79,7 +87,7 @@ int main() {
 		printf("str: \"%s\"\n", str);
 
 		isize num = si_cstr_to_int("9300");
-		printf("num: %ld\n", num);
+		printf("num: %zd\n\n", num);
 
 
 		/* Join, upper, lower, title, capitalize */
@@ -104,12 +112,24 @@ int main() {
 		si_string_capitalize(&str);
 		printf("Capitalized str: \"%s\"\n", str);
 
+		si_string_free(str);
+	}
+
+	/* Example 1.2: Other. */
+	{
+		printf("==============\n\n==============\nExample 1.2:\n");
+
+		siString str = si_string_make("\t       trailing around gkjsljfdlkg        \r");
+		printf("Before: '%s' (len: '%zd')\n", str, si_string_len(str));
+
+		si_string_strip(&str);
+		printf("After: '%s' (len: '%zd')\n", str, si_string_len(str));
 
 		si_string_free(str);
 	}
 	#endif
 
-	#if EXAMPLES_2_PLUS == 1
+	#if EXAMPLE_SI_ARRAY == 1
 	/* Example 2.0: General array usage. */
 	{
 		printf("==============\n\n==============\nExample 2.0:\n");
@@ -118,22 +138,22 @@ int main() {
 
 		usize count = 0;
 		foreach (num, array) {
-			printf("Element %ld: %i\n", count, *num);
+			printf("Element %zd: %i\n", count, *num);
 			count++;
 		}
 
 		isize value = si_array_find(array, 234);
-		printf("Number '234' is at: array[%ld]\n", value);
+		printf("Number '234' is at: array[%zd]\n", value);
 
 		usize previous_len = si_array_len(array);
 		si_array_append(&array, SI_INT32_MAX); /* si_array_push_back does the same thing. */
 
-		i32* front_ptr = si_array_front(array).ptr;
-		i32* back_ptr = si_array_back(array).ptr;
-		printf("We now have %d elements instead of %ld. The front value is '%i', while the back value is '%X'\n", si_array_len(array), previous_len, *front_ptr, *back_ptr);
+		i32 front = si_any_get(si_array_front(array), i32);
+		i32 back = si_any_get(si_array_back(array), i32);
+		printf("We now have %zd elements instead of %zd. The front value is '%i', while the back value is '%X'\n", si_array_len(array), previous_len, front, back);
 
 		isize element_pos = si_array_replace(&array, 4, SI_INT32_MIN);
-		printf("The element at position '%ld' was replaced with: %X\n", element_pos, array[element_pos]);
+		printf("The element at position '%zd' was replaced with: %X\n", element_pos, array[element_pos]);
 
 		siArray(i32) copy = si_array_copy(array);
 		bool res = si_arrays_are_equal(array, copy);
@@ -145,7 +165,7 @@ int main() {
 	}
 	#endif
 
-	#if EXAMPLES_3_PLUS == 1
+	#if EXAMPLE_SI_PAIR == 1
 	/* Example 3.0: siPair (based on https://cplusplus.com/reference/utility/pair/pair/) */
 	{
 		printf("==============\n\n==============\nExample 3.0:\n");
@@ -166,6 +186,96 @@ int main() {
 		si_string_free(product1.first);
 		si_string_free(product2.first);
 		si_string_free(product4.first);
+	}
+	#endif
+
+	#if EXAMPLE_SI_FILE == 1
+	/* Example 4.0: siFile. */
+	{
+		printf("==============\n\n==============\nExample 4.0:\n");
+
+		siFile file = si_file_open("example.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
+		printf("About 'example.c':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", file.path, file.size);
+
+		siFile new_file = si_file_create("random.txt");
+		si_file_write(&new_file, "A silly file\nwith a sili newline.");
+		printf("About 'random.txt':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", file.path, file.size);
+
+		siString content = si_file_read(new_file);
+		printf("\tContent - '%s' (len: '%zd')\n", content, si_string_len(content));
+
+		siArray(siString) file_lines = si_file_readlines(file);
+		printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(file.path), si_array_len(file_lines));
+
+		usize i;
+		for (i = 0; i < si_array_len(file_lines); i++) {
+			si_string_strip(&file_lines[i]);
+			printf("\tLine %zd: '%s'\n", i, file_lines[i]);
+		}
+
+		si_file_write_at_line(&new_file, "but now we have a changed line\n", 1);
+		siArray(siString) new_file_lines = si_file_readlines(new_file);
+		printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(new_file.path), si_array_len(new_file_lines));
+
+		for (i = 0; i < si_array_len(new_file_lines); i++) {
+			si_string_strip(&new_file_lines[i]);
+			printf("\tLine %zd: '%s'\n", i, new_file_lines[i]);
+		}
+
+		si_string_free(content);
+
+		si_array_free(file_lines);
+		si_array_free(new_file_lines);
+
+		si_file_close(file);
+		si_file_close(new_file);
+	}
+	/* Example 4.1: 'si_path' functions. */
+	{
+		printf("==============\n\n==============\nExample 4.1:\n");
+
+		bool exist = si_path_exists("example.c");
+		printf("File 'example.c' %s\n", (exist ? "DOES exist" : "DOESN'T exist"));
+
+		exist = si_path_exists("random.txt");
+		if (!exist) {
+			printf("Since 'random.txt' doesn't exist, we'll just create one\n");
+
+			siFile file = si_file_open_mode("random.txt", SI_FILE_MODE_CREATE);
+			si_file_write(&file, "Creating files is too easy tbh.");
+			si_file_close(file);
+		}
+
+		bool res = si_path_copy("random.txt", "random-2.txt");
+		printf("Does 'random-2.txt' exist: '%zd' (res: '%zd')\n", si_path_exists("random-2.txt"), res);
+
+		res = si_path_move("random.txt", "renamed.txt");
+		printf("Does 'random.txt' exist: '%zd', but 'renamed.txt' outputs a '%zd' (res: '%zd')\n", si_path_exists("random.txt"), si_path_exists("renamed.txt"), res);
+
+		const char* path = "example.c";
+		siString full_path = si_path_get_fullname(path);
+		printf("Information about '%s':\n\tBase name - '%s'\n\tExtension - '%s'\n\tFull path - '%s'\n\tIs relative: %zd\n", path, si_path_base_name(path), si_path_extension(path), full_path, si_path_is_relative(path));
+
+		res = si_path_remove("random-2.txt");
+		printf("Does 'random-2.txt' exist: '%zd' (res: '%zd')\n", si_path_exists("random-2.txt"), res);
+
+		res = si_path_remove("renamed.txt");
+		printf("Does 'renamed.txt' exist: '%zd' (res: '%zd')\n", si_path_exists("renamed.txt"), res);
+
+		si_string_free(full_path);
+	}
+
+	#endif
+
+	#if EXAMPLE_SI_OPTIONAL == 1
+	/* Example 5.0: siOptional (based on https://en.cppreference.com/w/cpp/utility/optional). */
+	{
+		printf("==============\n\n==============\nExample 5.0:\n");
+
+		printf("create(false) returned '%s'\n", si_optional_if_no_value(create(false), (char*)"empty"));
+
+		siOptional(char*) str = create(true);
+		printf("create2(true) returned '%s'\n", si_any_get(str.value, char*));
 	}
 	#endif
 

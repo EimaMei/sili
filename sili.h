@@ -12,10 +12,14 @@ sili.h - An alternative to the C/C++ standard library.
 
 	- If you want to disable certain features, you can do:
 		- #define SI_PAIR_UNDEFINE
+		- #define SI_OPTIONAL_UNDEFINE
 		- #define SI_ARRAY_UNDEFINE
 		- #define SI_STRING_UNDEFINE
 		- #define SI_CHAR_UNDEFINE
+		- #define SI_FILE_UNDEFINE
 	before the SI_IMPLEMENTATION macro, as well as before any other include of `sili.h`.
+	- NOTE: Disabling certain features may or may not create 'undefined' compiler
+	errors at certain spots. Use it at your own risk
 
 ===========================================================================
 
@@ -28,7 +32,7 @@ WARNING
 	- This also means that many functions are not documented.
 
 CREDITS
-	- Ginger Bill's 'gb.h' for inspiring me to write this, as well as stuff taken from
+	- Ginger Bill's 'gb.h' for inspiring me to program the sili STL, as well as stuff taken from
 	library and implemented here.
 */
 
@@ -47,48 +51,26 @@ extern "C" {
 
 
 #if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(__powerpc64__) || defined(__ppc64__)
-	#ifndef SI_ARCH_64_BIT
 	#define SI_ARCH_64_BIT 1
-	#endif
 #else
-	#ifndef SI_ARCH_32_BIT
 	#define SI_ARCH_32_BIT 1
-	#endif
 #endif
 
-
-#ifndef SI_ENDIAN_ORDER
-#define SI_ENDIAN_ORDER
-	#define SI_IS_BIG_ENDIAN    (!*(u8*)&(u16){1})
-	#define SI_IS_LITTLE_ENDIAN (!SI_IS_BIG_ENDIAN)
-#endif
+#define SI_ENDIAN_BIG     (!*(siByte*)&(u16){1})
+#define SI_ENDIAN_LITTLE  (!SI_IS_BIG_ENDIAN)
 
 #if defined(_WIN32) || defined(_WIN64)
-	#ifndef SI_SYSTEM_WINDOWS
 	#define SI_SYSTEM_WINDOWS 1
-	#endif
 #elif defined(__APPLE__) && defined(__MACH__)
-	#ifndef SI_SYSTEM_OSX
 	#define SI_SYSTEM_OSX 1
-	#endif
 #elif defined(__unix__)
-	#ifndef SI_SYSTEM_UNIX
 	#define SI_SYSTEM_UNIX 1
-	#endif
 
 	#if defined(__linux__)
-		#ifndef SI_SYSTEM_LINUX
 		#define SI_SYSTEM_LINUX 1
-		#endif
 	#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-		#ifndef SI_SYSTEM_FREEBSD
 		#define SI_SYSTEM_FREEBSD 1
-		#endif
-	#else
-		#error This UNIX OS is not supported
 	#endif
-#else
-	#error This OS is not supported
 #endif
 
 #if defined(_MSC_VER)
@@ -103,20 +85,36 @@ extern "C" {
 
 #if defined(__STDC__)
 	#if defined(__STDC_VERSION__)
-		#if (__STDC_VERSION__ == 199409L)
+		#define SI_STANDARD_VERSION __STDC_VERSION__
+		#if (SI_STANDARD_VERSION == 199409L)
 			#define SI_STANDARD_C94 1
-		#elif (__STDC_VERSION__ == 199901L)
+		#elif (SI_STANDARD_VERSION == 199901L)
 			#define SI_STANDARD_C99 1
-		#elif (__STDC_VERSION__ == 201112L)
+		#elif (SI_STANDARD_VERSION == 201112L)
 			#define SI_STANDARD_C11 1
-		#elif (__STDC_VERSION__ == 201710L)
+		#elif (SI_STANDARD_VERSION == 201710L)
 			#define SI_STANDARD_C17 1
 			#define SI_STANDARD_C18 1
-		#elif (__STDC_VERSION__ >= 202311L)
+		#elif (SI_STANDARD_VERSION > 201710L)
 			#define SI_STANDARD_C23 1
 		#endif
 	#else
-		#define SI_STANDARD_C89 1
+		#if !defined(__cplusplus)
+			#define SI_STANDARD_C89 1
+		#else
+			#define SI_STANDARD_VERSION __cplusplus
+			#if (SI_STANDARD_VERSION == 199711L)
+				#define SI_STANDARD_CPP98 1
+			#elif (SI_STANDARD_VERSION == 201103L)
+				#define SI_STANDARD_CPP11 1
+			#elif (SI_STANDARD_VERSION == 201402L)
+				#define SI_STANDARD_CPP14 1
+			#elif (SI_STANDARD_VERSION == 201703L)
+				#define SI_STANDARD_CPP17 1
+			#elif (SI_STANDARD_VERSION == 202002L)
+				#define SI_STANDARD_CPP20 1
+			#endif
+		#endif
 	#endif
 #endif
 
@@ -125,76 +123,58 @@ extern "C" {
 #endif
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
-	#ifndef SI_CPU_X86
 	#define SI_CPU_X86 1
-	#endif
-	#ifndef SI_CACHE_LINE_SIZE
 	#define SI_CACHE_LINE_SIZE 64
-	#endif
 
 #elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc64__)
-	#ifndef SI_CPU_PPC
 	#define SI_CPU_PPC 1
-	#endif
-	#ifndef SI_CACHE_LINE_SIZE
 	#define SI_CACHE_LINE_SIZE 128
-	#endif
 
 #elif defined(__arm__)
-	#ifndef SI_CPU_ARM
 	#define SI_CPU_ARM 1
-	#endif
-	#ifndef SI_CACHE_LINE_SIZE
 	#define SI_CACHE_LINE_SIZE 64
-	#endif
 
 #elif defined(__MIPSEL__) || defined(__mips_isa_rev)
-	#ifndef SI_CPU_MIPS
 	#define SI_CPU_MIPS 1
-	#endif
-	#ifndef SI_CACHE_LINE_SIZE
 	#define SI_CACHE_LINE_SIZE 64
-	#endif
 
 #else
 	#error Unknown CPU Type
 #endif
 
 
-#ifndef SI_STATIC_ASSERT
-	#define SI_STATIC_ASSERT3(cond, msg) typedef char static_assertion_##msg[(!!(cond)) * 2 - 1] /* Note(EimaMei): This is absolutely stupid but somehow it works so who cares, really? */
-	#define SI_STATIC_ASSERT2(cond, line) SI_STATIC_ASSERT3(cond, static_assertion_at_line_##line)
-	#define SI_STATIC_ASSERT1(cond, line) SI_STATIC_ASSERT2(cond, line)
-
-	#define SI_STATIC_ASSERT(cond)        SI_STATIC_ASSERT1(cond, __LINE__)
-#endif
+#define SI_STATIC_ASSERT2(cond, msg) typedef char static_assertion_##msg[(!!(cond)) * 2 - 1] /* Note(EimaMei): This is absolutely stupid but somehow it works so who cares, really? */
+#define SI_STATIC_ASSERT1(cond, line) SI_STATIC_ASSERT2(cond, static_assertion_at_line_##line)
+#define SI_STATIC_ASSERT(cond) SI_STATIC_ASSERT1(cond, __LINE__)
 
 
 #if defined(SI_SYSTEM_WINDOWS)
-	#ifndef _CRT_SECURE_NO_WARNINGS
-	#define _CRT_SECURE_NO_WARNINGS
+	#if !defined(_CRT_SECURE_NO_WARNINGS)
+		#define _CRT_SECURE_NO_WARNINGS
 	#endif
 #endif
 
-#if defined(GB_SYSTEM_UNIX)
-	#define _GNU_SOURCE
+#if defined(SI_SYSTEM_UNIX)
+	#if !defined(_GNU_SOURCE)
+		#define _GNU_SOURCE
+	#endif
 	#define _LARGEFILE64_SOURCE
 #endif
 
 #if !defined(SI_SYSTEM_WINDOWS)
 	#include <stdlib.h>
 	#include <memory.h>
-	#include <stddef.h>
-
-	#if defined(SI_STANDARD_C89)
-		#define __USE_ISOC99
-		#include <stdio.h>
-		#undef __USE_ISOC99
-	#else
-		#include <stdio.h>
-	#endif
-
 	#include <stdarg.h>
+	#include <stddef.h>
+	#include <errno.h>
+	#include <unistd.h>
+
+	#include <sys/stat.h>
+	#include <sys/sendfile.h>
+	#include <sys/fcntl.h>
+
+	#include <stdio.h>
+
 #endif
 #if defined(SI_SYSTEM_WINDOWS)
 	#if !defined(SI_NO_WINDOWS_H)
@@ -217,31 +197,12 @@ extern "C" {
 #endif
 
 #if defined(SI_SYSTEM_OSX)
-
 #endif
 
 #if defined(SI_SYSTEM_UNIX)
 #endif
 
-#if defined(SI_COMPILER_MSVC)
-	#if _MSC_VER < 1300
-	typedef unsigned char       u8;
-	typedef char                i8;
-	typedef unsigned short     u16;
-	typedef short              i16;
-	typedef unsigned int       u32;
-	typedef int                i32;
-	#else
-	typedef unsigned __int8     u8;
-	typedef __int8              i8;
-	typedef unsigned __int16   u16;
-	typedef __int16            i16;
-	typedef unsigned __int32   u32;
-	typedef __int32            i32;
-	#endif
-	typedef unsigned __int64   u64;
-	typedef __int64            i64;
-#else
+#if !defined(u8)
 	typedef unsigned char       u8;
 	typedef char                i8;
 	typedef unsigned short     u16;
@@ -251,6 +212,18 @@ extern "C" {
 	typedef unsigned long long u64;
 	typedef long long          i64;
 #endif
+
+#if !defined(usize)
+	typedef size_t    usize;
+	typedef ptrdiff_t isize;
+#endif
+
+#if !defined(uintptr)
+	typedef usize uintptr;
+	typedef isize  intptr;
+#endif
+
+
 
 #define SI_UINT8_MAX 0xFF
 #define SI_UINT8_MIN 0x00
@@ -282,27 +255,7 @@ SI_STATIC_ASSERT(sizeof(u16) == 2);
 SI_STATIC_ASSERT(sizeof(u32) == 4);
 SI_STATIC_ASSERT(sizeof(u64) == 8);
 
-#define SI_BIT(x) (1 << (x))
-
-#define SI_KILO(x) (       (x) * (usize)1024)
-#define SI_MEGA(x) (SI_KILO(x) * (usize)1024)
-#define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
-#define SI_TERA(x) (SI_GIGA(x) * (usize)1024)
-
-#define SI_OKAY  0
-#define SI_ERROR -1
-
-#ifndef usize
-	typedef size_t    usize;
-	typedef ptrdiff_t isize;
-#endif
-
 SI_STATIC_ASSERT(sizeof(usize) == sizeof(isize));
-
-#ifndef rawptr
-	typedef void* rawptr;
-#endif
-
 
 #if !defined(bool)
 	typedef u8   b8;
@@ -310,38 +263,20 @@ SI_STATIC_ASSERT(sizeof(usize) == sizeof(isize));
 	typedef u32 b32;
 	typedef u64 b64;
 
-	typedef usize bool;
+	#ifndef __cplusplus
+		typedef usize bool;
 
-	#ifndef true
-		#define true (0 == 0)
-	#endif
-	#ifndef false
-		#define false (0 != 0)
-	#endif
-#endif
-
-#ifndef nil
-	#define nil NULL
-#endif
-
-
-#if defined(_WIN64)
-	typedef __int64          intptr;
-	typedef unsigned __int64 uintptr;
-#elif defined(_WIN32)
-	#ifndef _W64
-		#if !defined(__midl) && (defined(_X86_) || defined(_M_IX86)) && _MSC_VER >= 1300
-			#define _W64 __w64
-		#else
-			#define _W64
+		#ifndef true
+			#define true 1
+		#endif
+		#ifndef false
+			#define false 0
 		#endif
 	#endif
+#endif
 
-	typedef _W64 int          intptr;
-	typedef _W64 unsigned int uintptr;
-#else
-	typedef usize uintptr;
-	typedef isize  intptr;
+#if !defined(nil)
+	#define nil NULL
 #endif
 
 SI_STATIC_ASSERT(sizeof(uintptr) == sizeof(intptr));
@@ -352,29 +287,57 @@ typedef double f64;
 SI_STATIC_ASSERT(sizeof(f32) == 4);
 SI_STATIC_ASSERT(sizeof(f64) == 8);
 
+#if !defined(rawptr)
+	typedef void* rawptr;
+#endif
+
+typedef i8 siByte;
+
+
+#define SI_BIT(x) (1 << (x))
+
+#define SI_KILO(x) (       (x) * (usize)1024)
+#define SI_MEGA(x) (SI_KILO(x) * (usize)1024)
+#define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
+#define SI_TERA(x) (SI_GIGA(x) * (usize)1024)
+
+#define SI_OKAY  0
+#define SI_ERROR -1
+
+#define SI_UNUSED(x) (void)(x) /* NOTE(EimaMei) Should be used when you want to supress "parameter 'X' set but not used" errors. */
+
 
 typedef struct siAny {
 	usize type_width;
 	rawptr ptr;
 } siAny;
 
-#define si_any_make(value) (siAny){.type_width = sizeof(typeof(value)), .ptr = &(typeof(value)){value} }
-
+#define si_any_make(value) (siAny){sizeof(typeof(value)), &(typeof(value)){value} }
+#define si_any_get(any, type) ((any.ptr != NULL) ? *((type*)any.ptr) : (type)SI_ASSERT_NOT_NULL(any.ptr))
 
 #if !defined(__cplusplus)
 	#if defined(_MSC_VER) && _MSC_VER <= 1800
-	#define inline __inline
+		#define inline __inline
 	#elif !defined(__STDC_VERSION__)
-	#define inline __inline__
+		#define inline __inline__
 	#else
-	#define inline
+		#define inline
 	#endif
 #endif
 
 
-#define SI_ASSERT_MSG(condition, message) do { if (!(condition)) { fprintf(stderr, "Assertion \"%s\" at \"%s:%lli\"%s %s\n", #condition, __FILE__, (i64)__LINE__, (message != nil ? ":" : ""), (message != nil ? message : "")); abort(); } } while (0)
+usize si_impl_assert_msg(bool condition, const char* condition_str, const char* message, const char* file, i32 line) {
+	if (!condition) {
+		fprintf(stderr, "Assertion \"%s\" at \"%s:%d\"%s %s\n", condition_str, file, line, (message != nil ? ":" : ""), (message != nil ? message : ""));
+		abort();
+	}
+
+	return 0;
+}
+
+#define SI_ASSERT_MSG(condition, message) si_impl_assert_msg(condition, #condition, message, __FILE__, __LINE__)
 #define SI_ASSERT(condition) SI_ASSERT_MSG(condition, nil)
-#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG(((ptr) != NULL), #ptr " must not be NULL")
+#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != NULL, #ptr " must not be NULL")
 
 #if defined(SI_STANDARD_ANSI) || defined(SI_COMPILER_MSVC) /* NOTE(EimaMei): Fuck Microsoft */
 	#define typeof(value) __typeof__(value)
@@ -389,8 +352,11 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 	if (old_size == new_size) {
 		return ptr;
 	}
+	else if (new_size < old_size) {
+		new_size = old_size;
+	}
 
-	rawptr new_ptr = malloc((new_size < old_size) ? old_size : new_size);
+	rawptr new_ptr = malloc(new_size);
 	SI_ASSERT_NOT_NULL(new_ptr);
 
 	memcpy(new_ptr, ptr, old_size);
@@ -402,9 +368,11 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 
 #ifdef SI_IMPLEMENTATION
 	#define SI_PAIR_IMPLEMENTATION
+	#define SI_OPTIONAL_IMPLEMENTATION
 	#define SI_ARRAY_IMPLEMENTATION
 	#define SI_STRING_IMPLEMENTATION
 	#define SI_CHAR_IMPLEMENTATION
+	#define SI_FILE_IMPLEMENTATION
 #endif
 
 
@@ -430,8 +398,44 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 */
 
 #define siPair(type1, type2) struct { type1 first; type2 second; }
-#define si_pair_make(first_value, second_value) {.first = first_value, .second = second_value }
+#define si_pair_make(first_value, second_value) {first_value, second_value }
 #define si_pair_copy(pair) si_pair_make(pair.first, pair.second)
+
+#endif
+
+#if !defined(SI_OPTIONAL_UNDEFINE) || !defined(SI_OPTIONAL_IMPLEMENTATION)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siOptional           |
+	========================
+*/
+
+typedef struct siOptionalStruct {
+	siAny value;
+	bool has_value;
+} siOptionalStruct;
+
+#define siOptional(type) siOptionalStruct
+const siOptionalStruct SI_OPTIONAL_NULL = {{0, nil}, false};
+
+#define si_optional_make(value) (siOptionalStruct){si_any_make(value), true}
+#define si_optional_if_no_value_type(siOptional_var, or_value, type) (siOptional_var.has_value ? si_any_get(siOptional_var.value, type) : (type)or_value)
+#define si_optional_if_no_value(siOptional_var, or_value) si_optional_if_no_value_type(siOptional_var, or_value, typeof(or_value))
+/* NOTE(EimaMei): If the `siOptional` variable is empty, it'll return the 'or_value'. The type of `or_value` must be the same as the type for the `siOptional` variable. */
 
 #endif
 
@@ -465,8 +469,11 @@ typedef struct siArrayHeader {
 #define siArray(type) type*
 #define SI_ARRAY_HEADER(s) ((siArrayHeader*)s - 1)
 
-#define foreach(variable_name, array) __typeof__(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
-
+#if defined(SI_STANDARD_C89)
+	#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+#else
+	#define foreach(variable_name, array) for (typeof(array) variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+#endif
 
 /* siArray(void) si_array_make(rawptr array); */
 #define si_array_make(...) si_array_make_list(__VA_ARGS__, sizeof(*(__VA_ARGS__)), sizeof(__VA_ARGS__) / sizeof(*(__VA_ARGS__)))
@@ -474,10 +481,10 @@ siArray(void) si_array_make_list(rawptr list, usize sizeof_element, usize count)
 siArray(void) si_array_copy(siArray(void) array);
 siArray(void) si_array_make_reserve(usize sizeof_element, usize count);
 
-u32 si_array_len(siArray(void) array);
-u32 si_array_capacity(siArray(void) array);
-u32 si_array_type_width(siArray(void) array);
-u32 si_array_size_in_bytes(siArray(void) array);
+usize si_array_len(siArray(void) array);
+usize si_array_capacity(siArray(void) array);
+usize si_array_type_width(siArray(void) array);
+usize si_array_size_in_bytes(siArray(void) array);
 
 siAny si_array_at(siArray(void) array, usize index);
 siAny si_array_front(siArray(void) array);
@@ -485,6 +492,7 @@ siAny si_array_back(siArray(void) array);
 
 #define si_array_find(array, value) si_impl_array_find(array, si_any_make(value))
 #define si_array_replace(array, old, new) si_impl_array_replace(array, si_any_make(old), si_any_make(new))
+char* si_array_to_sistring(siArray(char*) array, const char* separator);
 
 #define si_array_append(array, value) si_impl_array_append(array, si_any_make(value))
 #define si_array_push_back(array, value) si_array_append(array, value)
@@ -497,7 +505,7 @@ isize si_array_free(siArray(void) array);
 /* NOTE(EimaMei): The actual implementations. */
 isize si_impl_array_append(rawptr array, siAny value);
 isize si_impl_array_find(rawptr array, siAny value);
-isize si_impl_array_replace(rawptr array, siAny old, siAny new);
+isize si_impl_array_replace(rawptr array, siAny old_value, siAny new_value);
 
 #endif
 
@@ -525,7 +533,11 @@ isize si_impl_array_replace(rawptr array, siAny old, siAny new);
 	typedef siArrayHeader siStringHeader;
 #else
 	typedef struct { u32 len; u32 capacity; u32 type_width; } siStringHeader;
-	#define foreach(variable_name, array) __typeof__(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+	#if defined(SI_STANDARD_C89)
+		#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+	#else
+		#define foreach(variable_name, array) for (typeof(array) variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+	#endif
 #endif
 
 typedef char* siString;
@@ -533,9 +545,10 @@ typedef char* siString;
 
 
 siString si_string_make(char* str);
-siString si_string_make_len(char* str, usize len);
 siString si_string_make_fmt(char* str, ...);
 siString si_string_make_int(isize num);
+siString si_string_make_len(char* str, usize len);
+siString si_string_make_reserve(usize len);
 
 siString si_string_copy(siString from);
 
@@ -547,17 +560,20 @@ char si_string_front(siString str);
 char si_string_back(siString str);
 
 isize si_string_find(siString str, const char* cstr);
-isize si_string_find_start(siString str, usize starting_index, const char* cstr);
+isize si_string_find_ex(siString str, usize start, usize end, const char* cstr);
+isize si_string_rfind(siString str, const char* cstr);
+isize si_string_rfind_ex(siString str, usize start, usize end, const char* cstr);
 
 isize si_string_join(siString* str, const char* cstr, const char* separator);
 isize si_string_set(siString* str, const char* cstr);
-isize si_string_replace(siString* str, const char* old, const char* new);
+isize si_string_replace(siString* str, const char* old_str, const char* new_str);
 isize si_string_trim(siString* str, const char* cut_set);
 
 isize si_string_upper(siString* str);
 isize si_string_lower(siString* str);
 isize si_string_title(siString* str);
 isize si_string_capitalize(siString* str);
+isize si_string_strip(siString* str); /* NOTE(EimaMei); This strips any leading or trailing spaces in the string. */
 
 isize si_string_append(siString* str, const char* other);
 isize si_string_append_len(siString* str, const char* other, usize other_len);
@@ -565,15 +581,7 @@ isize si_string_push_back(siString* str, char other);
 
 isize si_string_clear(siString* str);
 
-#if !defined(SI_ARRAY_UNDEFINE)
-	siArray(siString) si_string_split(siString str, const char* separator);
-#else
-	#if !defined(SI_PAIR_UNDEFINE)
-		typedef siPair(siString, usize) siPair_String_Usize; /* NOTE(EimaMei): This is ugly. */
-		/* NOTE(EimaMei): this version outputs a siPair as a return. */
-		siPair_String_Usize si_string_split(siString str, const char* separator);
-	#endif
-#endif
+siArray(siString) si_string_split(siString str, const char* separator);
 isize si_cstr_to_int(const char* str);
 
 bool si_strings_are_equal(const char* lhs, const char* rhs);
@@ -616,18 +624,105 @@ i32   si_hex_digit_to_int(char c);
 
 #endif
 
+#if !defined(SI_FILE_UNDEFINE)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	|  siFile & siPath     |
+	========================
+*/
+typedef enum siFileMode {
+	SI_FILE_MODE_READ = SI_BIT(0),
+	SI_FILE_MODE_WRITE = SI_BIT(1),
+	SI_FILE_MODE_READ_WRITE = SI_BIT(2),
+	SI_FILE_MODE_APPEND = SI_BIT(3),
+	SI_FILE_MODE_APPEND_READ = SI_BIT(4),
+	SI_FILE_MODE_CREATE = SI_BIT(5)
+} siFileMode;
+
+typedef struct siFile {
+	siString path;
+	usize size;
+	FILE* ptr;
+} siFile;
+
+#if defined(SI_SYSTEM_WINDOWS)
+	const char SI_PATH_SEPARATOR = '\\';
+#else
+	const char SI_PATH_SEPARATOR = '/';
+#endif
+
+/*
+	========================
+	|  siPath              |
+	========================
+*/
+bool si_path_exists(const char* path);
+isize si_path_copy(const char* existing_path, const char* new_path);
+isize si_path_move(const char* existing_path, const char* new_path);
+isize si_path_remove(const char* path);
+
+const char* si_path_base_name(const char* path);
+const char* si_path_extension(const char* path);
+siString si_path_get_fullname(const char* path);
+
+bool si_path_is_absolute(const char* path);
+bool si_path_is_relative(const char* path);
+
+/*
+	========================
+	|  siFile              |
+	========================
+*/
+siFile si_file_create(const char* path);
+siFile si_file_open(const char* path);
+siFile si_file_open_mode(const char* path, siFileMode mode);
+
+usize si_file_size(siFile file);
+void si_file_size_update(siFile* file);
+
+siString si_file_read(siFile file);
+siString si_file_read_at(siFile file, usize offset);
+siArray(siString) si_file_readlines(siFile file);
+
+isize si_file_write(siFile* file, const char* content);
+isize si_file_write_len(siFile* file, const char* content, usize len);
+isize si_file_write_at(siFile* file, const char* content, usize offset);
+isize si_file_write_at_line(siFile* file, const char* content, usize index);
+isize si_file_write_at_len(siFile* file, const char* content, usize content_len, usize offset);
+
+isize si_file_seek(siFile file, usize offset);
+isize si_file_seek_to_end(siFile file);
+
+isize si_file_close(siFile file);
+
+#endif
 
 
 
 
 
 #if defined(SI_PAIR_IMPLEMENTATION) && !defined(SI_PAIR_UNDEFINE)
+
 rawptr si_impl_pair_make(siAny first, siAny second) {
-	rawptr res = malloc(first.type_width + second.type_width);
+	siByte* res = malloc(first.type_width + second.type_width);
 	memcpy(res, first.ptr, first.type_width);
 	memcpy(res + first.type_width, second.ptr, second.type_width);
 
-	return res;
+	return (rawptr)res;
 }
 #endif
 
@@ -644,7 +739,7 @@ inline siArray(void) si_array_copy(siArray(void) array) {
 	return si_array_make_list(array, header->type_width, header->len);
 }
 siArray(void) si_array_make_reserve(usize sizeof_element, usize count) {
-	rawptr ptr = malloc(sizeof(siArrayHeader) + (sizeof_element * count));
+	siByte* ptr = malloc(sizeof(siArrayHeader) + (sizeof_element * count));
 	siArray(void) array = ptr + sizeof(siArrayHeader);
 
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
@@ -655,35 +750,35 @@ siArray(void) si_array_make_reserve(usize sizeof_element, usize count) {
 	return array;
 }
 
-inline u32 si_array_len(siArray(void) array) {
+inline usize si_array_len(siArray(void) array) {
 	return SI_ARRAY_HEADER(array)->len;
 }
-inline u32 si_array_capacity(siArray(void) array) {
+inline usize si_array_capacity(siArray(void) array) {
 	return SI_ARRAY_HEADER(array)->capacity;
 }
-inline u32 si_array_type_width(siArray(void) array) {
+inline usize si_array_type_width(siArray(void) array) {
 	return SI_ARRAY_HEADER(array)->type_width;
 }
-inline u32 si_array_size_in_bytes(siArray(void) array) {
+inline usize si_array_size_in_bytes(siArray(void) array) {
 	return si_array_len(array) * si_array_type_width(array);
 }
 
 inline siAny si_array_at(siArray(void) array, usize index) {
 	SI_ASSERT_MSG(index < si_array_len(array) || si_array_len(array) != 0, "Array is empty OR the provided index is too high.");
 
-	rawptr p = (array + index * si_array_type_width(array));
+	rawptr p = (siByte*)array + index * si_array_type_width(array);
 	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
 }
 inline siAny si_array_front(siArray(void) array) {
 	SI_ASSERT_MSG(si_array_len(array) != 0, "Array is empty.");
 
-	rawptr p = (array + 0 * si_array_type_width(array));
+	rawptr p = (siByte*)array + 0 * si_array_type_width(array);
 	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
 }
 inline siAny si_array_back(siArray(void) array) {
 	SI_ASSERT_MSG(si_array_len(array) != 0, "Array is empty.");
 
-	rawptr p = (array + (si_array_len(array) - 1) * si_array_type_width(array));
+	rawptr p = (siByte*)array + (si_array_len(array) - 1) * si_array_type_width(array);
 	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
 }
 
@@ -695,7 +790,7 @@ isize si_impl_array_find(rawptr array, siAny value) {
 
 	usize i;
 	for (i = 0; i < array_len; i++) {
-		if (memcmp(array + i * si_array_type_width(array), value.ptr, value.type_width) == 0) {
+		if (memcmp((siByte*)array + i * si_array_type_width(array), value.ptr, value.type_width) == 0) {
 			found = true;
 			break;
 		}
@@ -703,38 +798,60 @@ isize si_impl_array_find(rawptr array, siAny value) {
 
 	return (found ? i : SI_ERROR);
 }
+isize si_impl_array_replace(rawptr array, siAny old_value, siAny new_value) {
+	rawptr* array_pointer = (rawptr*)array;
+	SI_ASSERT_MSG(old_value.type_width <= si_array_type_width(*array_pointer) && new_value.type_width <= old_value.type_width, "The given value's sizeof is too large compared to the elements' in the array.");
 
-isize si_impl_array_replace(rawptr array, siAny old, siAny new) {
-	rawptr* array_pointer = array;
-	SI_ASSERT_MSG(old.type_width <= si_array_type_width(*array_pointer) && new.type_width <= old.type_width, "The given value's sizeof is too large compared to the elements' in the array.");
-
-	isize pos = si_impl_array_find(*array_pointer, old);
+	isize pos = si_impl_array_find(*array_pointer, old_value);
 	if (pos == SI_ERROR) {
 		return SI_ERROR;
 	}
 
-	memcpy(*array_pointer + pos * si_array_type_width(*array_pointer), new.ptr, new.type_width);
+	memcpy((siByte*)(*array_pointer) + pos * si_array_type_width(*array_pointer), new_value.ptr, new_value.type_width);
 
 	return pos;
 }
+siString si_array_to_sistring(siArray(char*) array, const char* separator) {
+	SI_ASSERT_NOT_NULL(array);
+
+	usize separator_len = si_cstr_len(separator);
+	usize total_size = 0;
+
+
+	foreach (str, array) {
+		total_size += si_cstr_len(*str) + separator_len;
+	}
+
+	siString result = si_string_make_reserve(total_size);
+	foreach (str, array) {
+		if (separator != nil && str != si_array_back(array).ptr) {
+			si_string_join(&result, separator, *str);
+		}
+		else {
+			si_string_append(&result, *str);
+		}
+	}
+
+	return result;
+}
 
 isize si_impl_array_append(rawptr array, siAny value) {
-	rawptr* array_pointer = array;
+	rawptr* array_pointer = (rawptr*)array;
 	siArrayHeader* header = SI_ARRAY_HEADER(*array_pointer);
 	SI_ASSERT_MSG((value.type_width <= header->type_width), "The given value's sizeof is too large compared to the elements' in the arra");
 
 	if (header->len == header->capacity) {
-		rawptr result = si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_width, sizeof(siArrayHeader) + 2 * header->capacity * header->type_width);
+		siByte* result = si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_width, sizeof(siArrayHeader) + 2 * header->capacity * header->type_width);
 		if (result == nil) {
 			return SI_ERROR;
 		}
-		*array_pointer = (result + sizeof(siArrayHeader));
-		header = result;
+		*array_pointer = (siByte*)result + sizeof(siArrayHeader);
+		header = (siArrayHeader*)result;
 
 		header->capacity *= 2;
 	}
 
-	rawptr res = memcpy(*array_pointer + header->len * header->type_width, value.ptr, header->type_width);
+	rawptr res = memcpy((siByte*)(*array_pointer) + header->len * header->type_width, value.ptr, header->type_width);
 	if (res == nil) {
 		return SI_ERROR;
 	}
@@ -748,7 +865,7 @@ isize si_array_clear(siArray(void) array) {
 		return SI_ERROR;
 	}
 
-	siAny** array_pointer = array;
+	rawptr* array_pointer = (rawptr*)array;
 
 	rawptr result = memset(*array_pointer, 0, si_array_size_in_bytes(*array_pointer));
 	if (result == nil) {
@@ -768,7 +885,7 @@ bool si_arrays_are_equal(siArray(void) lha, siArray(void) rha) {
 
 	usize i;
 	for (i = 0; i < lha_header->len; i++) {
-		if (memcmp(lha + i * lha_header->type_width, rha + i * lha_header->type_width, lha_header->type_width) != SI_OKAY) {
+		if (memcmp((siByte*)lha + i * lha_header->type_width, (siByte*)rha + i * lha_header->type_width, lha_header->type_width) != SI_OKAY) {
 			return false;
 		}
 	}
@@ -790,22 +907,16 @@ isize si_array_free(siArray(void) array) {
 
 #if defined(SI_STRING_IMPLEMENTATION) && !defined(SI_STRING_UNDEFINE)
 
-
 inline siString si_string_make(char* str) {
     return si_string_make_len(str, str ? si_cstr_len(str) : 0);
 }
 siString si_string_make_len(char* str, usize len) {
-	rawptr ptr = malloc(sizeof(siStringHeader) + (len + 1));
-	SI_ASSERT_NOT_NULL(ptr);
-
-	siString res_str = ptr + sizeof(siStringHeader);
+	siString res_str = si_string_make_reserve(len);
 	memcpy(res_str, str, len);
 	res_str[len] = '\0';
 
 	siStringHeader* header = SI_STRING_HEADER(res_str);
 	header->len = len;
-	header->capacity = len;
-	header->type_width = sizeof(char);
 
 	return res_str;
 }
@@ -825,6 +936,20 @@ siString si_string_make_fmt(char* str, ...) {
 	}
 
 	return si_string_make_len(buf, size);
+}
+siString si_string_make_reserve(usize len) {
+	rawptr ptr = malloc(sizeof(siStringHeader) + (len + 1));
+	SI_ASSERT_NOT_NULL(ptr);
+
+	siString res_str = (siString)ptr + sizeof(siStringHeader);
+	res_str[len] = '\0';
+
+	siStringHeader* header = SI_STRING_HEADER(res_str);
+	header->len = 0;
+	header->capacity = len;
+	header->type_width = sizeof(char);
+
+	return res_str;
 }
 siString si_string_make_int(isize num) {
 	usize count = 1;
@@ -898,17 +1023,18 @@ inline char si_string_back(siString str) {
 	return str[si_string_len(str) - 1];
 }
 
-isize si_string_find(siString str, const char* cstr) {
-	return si_string_find_start(str, 0, cstr);
+inline isize si_string_find(siString str, const char* cstr) {
+	return si_string_find_ex(str, 0, si_string_len(str), cstr);
 }
+isize si_string_find_ex(siString str, usize start, usize end, const char* cstr) {
+    SI_ASSERT_NOT_NULL(str);
 
-isize si_string_find_start(siString str, usize starting_index, const char* cstr) {
 	usize cstr_len = si_cstr_len(cstr);
 	bool found = false;
 
 	usize i;
 	usize cur_count = 0;
-	for (i = starting_index; i < si_string_len(str); i++) {
+	for (i = start; i < end; i++) {
 		if (str[i] == cstr[cur_count]) {
 			cur_count++;
 
@@ -924,6 +1050,34 @@ isize si_string_find_start(siString str, usize starting_index, const char* cstr)
 
 	return (found ? (i - cstr_len + 1) : SI_ERROR);
 }
+inline isize si_string_rfind(siString str, const char* cstr) {
+	return si_string_rfind_ex(str, si_string_len(str) - 1, 0, cstr);
+}
+isize si_string_rfind_ex(siString str, usize start, usize end, const char* cstr) {
+    SI_ASSERT_NOT_NULL(str);
+
+	usize cstr_len = si_cstr_len(cstr);
+	bool found = false;
+
+	usize i;
+	isize cur_count = cstr_len - 1;
+	for (i = start; i < end - 1; i--) {
+		if (str[i] == cstr[cur_count]) {
+			cur_count -= 1;
+
+			if (cur_count <= 0) {
+				found = true;
+				break;
+			}
+		}
+		else if (cur_count != 0) {
+			cur_count = 0;
+		}
+	}
+
+	return (found ? i : SI_ERROR);
+}
+
 isize si_string_join(siString* str, const char* cstr, const char* separator) {
 	usize cstr_len = si_cstr_len(cstr);
 	usize separator_len = si_cstr_len(separator);
@@ -933,7 +1087,7 @@ isize si_string_join(siString* str, const char* cstr, const char* separator) {
 	memcpy(tmp + separator_len, cstr, cstr_len);
 	tmp[separator_len + cstr_len] = '\0';
 
-	return si_string_append(str, tmp);
+	return si_string_append_len(str, tmp, separator_len + cstr_len);
 }
 isize si_string_set(siString* str, const char* cstr) {
 	usize cur_len = si_string_len(*str);
@@ -942,7 +1096,7 @@ isize si_string_set(siString* str, const char* cstr) {
 	siStringHeader* header = SI_STRING_HEADER(*str);
 	header->len += len - cur_len;
 
-	if (cur_len < len) {
+	if (header->capacity < header->len) {
 		isize result = si_string_make_space_for(str, len - cur_len);
 		SI_ASSERT_MSG(result == SI_OKAY, "Failed to make space for string");
 	}
@@ -953,12 +1107,12 @@ isize si_string_set(siString* str, const char* cstr) {
 
 	return SI_OKAY;
 }
-isize si_string_replace(siString* str, const char* old, const char* new) {
+isize si_string_replace(siString* str, const char* old_value, const char* new_value) {
 	usize str_len = si_string_len(*str);
-	usize new_len = si_cstr_len(new);
-	usize old_len = si_cstr_len(old);
+	usize new_len = si_cstr_len(new_value);
+	usize old_len = si_cstr_len(old_value);
 
-	isize pos = si_string_find(*str, old);
+	isize pos = si_string_find(*str, old_value);
 
 	siStringHeader* header = SI_STRING_HEADER(*str);
 	header->len += new_len - old_len;
@@ -972,31 +1126,31 @@ isize si_string_replace(siString* str, const char* old, const char* new) {
 		SI_ASSERT_MSG(result == SI_OKAY, "Failed to make space for string");
 
 		usize i, j;
-		char new_value = '\0';
+		char saved_value = '\0';
 		for (j = 0; j < new_len - old_len; j++) { /* NOTE(EimaMei): There is probably a much faster way to do this other than looping through the string multiple times. However, as a temporary solution, it works nicely. */
 			for (i = pos; i < str_len + new_len - old_len; i++) {
 				char og = (*str)[j + i];
-				(*str)[j + i] = new_value;
-				new_value = og;
+				(*str)[j + i] = saved_value;
+				saved_value = og;
 			}
 		}
 	}
 
 	if (old_len > new_len) {
 		usize i, j;
-		char new_value = '\0';
+		char saved_value = '\0';
 		for (j = 0; j < old_len - new_len; j++) {  /* NOTE(EimaMei): Read the previous comment above. */
 			for (i = str_len; i != (usize)SI_ERROR; i--) {
 				char og = (*str)[j + i];
-				(*str)[j + i] = new_value;
-				new_value = og;
+				(*str)[j + i] = saved_value;
+				saved_value = og;
 			}
 		}
 	}
 
 	usize i;
 	for (i = 0; i < new_len; i++) {
-		(*str)[i + pos] = new[i];
+		(*str)[i + pos] = new_value[i];
 	}
 
 	return pos;
@@ -1024,14 +1178,18 @@ isize si_string_trim(siString* str, const char* cut_set) {
 
 	return SI_OKAY;
 }
-isize si_string_upper(siString* str) {
+inline isize si_string_upper(siString* str) {
+	SI_ASSERT_NOT_NULL(str);
+
 	foreach (x, *str) {
 		*x = si_char_to_upper(*x);
 	}
 	return SI_OKAY;
 }
 
-isize si_string_lower(siString* str) {
+inline isize si_string_lower(siString* str) {
+	SI_ASSERT_NOT_NULL(str);
+
 	foreach (x, *str) {
 		*x = si_char_to_lower(*x);
 	}
@@ -1053,18 +1211,41 @@ isize si_string_title(siString* str) {
 
 	return SI_OKAY;
 }
-isize si_string_capitalize(siString* str) {
+inline isize si_string_capitalize(siString* str) {
+	SI_ASSERT_NOT_NULL(str);
+
 	if (si_string_len(*str) <= 0) {
 		return SI_ERROR;
 	}
 	si_string_lower(str);
-
 	**str = si_char_to_upper(**str);
 
 	return SI_OKAY;
 }
+isize si_string_strip(siString* str) {
+	SI_ASSERT_NOT_NULL(str);
 
-#if !defined(SI_ARRAY_UNDEFINE)
+	usize start = 0, end = 0;
+	foreach (x, *str) {
+		if (!si_char_is_space(*x)) {
+			break;
+		}
+		start += 1;
+	}
+
+	usize i;
+	for (i = si_string_len(*str) - 1; i < (usize)(-1); i--) {
+		if (!si_char_is_space((*str)[i])) {
+			break;
+		}
+		end += 1;
+	}
+	char* stripped_str = *str + start * SI_STRING_HEADER(*str)->type_width;
+	stripped_str[si_string_len(*str) - start - end] = '\0';
+
+	return si_string_set(str, stripped_str);
+}
+
 siArray(siString) si_string_split(siString str, const char* separator) {
 	usize separator_len = si_cstr_len(separator);
 
@@ -1074,7 +1255,7 @@ siArray(siString) si_string_split(siString str, const char* separator) {
 	siString original = str;
 
 	while (true) {
-		isize pos = si_string_find_start(str, begin_pos, separator);
+		isize pos = si_string_find_ex(str, begin_pos, si_string_len(str), separator);
 
 		if (pos == SI_ERROR) {
 			pos_buffer[count] = si_string_len(str);
@@ -1096,60 +1277,23 @@ siArray(siString) si_string_split(siString str, const char* separator) {
 
 	return res;
 }
-#else
-	#if !defined(SI_PAIR_UNDEFINE)
-		siPair_String_Usize si_string_split(siString str, const char* separator) {
-			usize separator_len = si_cstr_len(separator);
-
-			usize count = 0;
-			usize begin_pos = 0;
-			usize pos_buffer[si_string_len(str)];
-			siString original = str;
-
-			while (true) {
-				isize pos = si_string_find_start(str, begin_pos, separator);
-
-				if (pos == SI_ERROR) {
-					pos_buffer[count] = si_string_len(str);
-					count++;
-					break;
-				}
-				pos_buffer[count] = pos - begin_pos;
-				count++;
-
-				begin_pos = pos + separator_len;
-			}
-
-			siPair_String_Usize res;
-			res.second = count;
-			res.first = malloc(sizeof(siString) * count);
-
-			usize i;
-			for (i = 0; i < count; i++) {
-				res.first[i] = si_string_make_len(original, pos_buffer[i]);
-				original += pos_buffer[i] + separator_len;
-			}
-
-			return res;
-		}
-	#endif
-#endif
 
 inline isize si_string_append(siString* str, const char* other) {
 	return si_string_append_len(str, other, si_cstr_len(other));
 }
 isize si_string_append_len(siString* str, const char* other, usize other_len) {
-	usize cur_len = si_string_len(*str);
-
 	siStringHeader* header = SI_STRING_HEADER(*str);
+	usize previous_len = header->len;
 	header->len += other_len;
 
-	isize result = si_string_make_space_for(str, other_len);
-	SI_ASSERT_MSG(result == SI_OKAY, "Failed to make space for string");
+	if (header->capacity < header->len) {
+		isize result = si_string_make_space_for(str, other_len);
+		SI_ASSERT_MSG(result == SI_OKAY, "Failed to make space for string");
+	}
 
-	rawptr ptr = memcpy(*str + cur_len, other, other_len);
+	rawptr ptr = memcpy(*str + previous_len, other, other_len);
 	SI_ASSERT_NOT_NULL(ptr);
-	(*str)[cur_len + other_len] = '\0';
+	(*str)[header->len] = '\0';
 
 	return SI_OKAY;
 }
@@ -1163,7 +1307,7 @@ inline siString si_string_copy(siString from) {
 isize si_cstr_to_int(const char* str) {
 	SI_ASSERT_NOT_NULL(str);
     isize result = 0;
-    isize i = 0;
+    usize i = 0;
 	bool is_negative = false;
 
 	if (str[0] == '-') {
@@ -1171,7 +1315,7 @@ isize si_cstr_to_int(const char* str) {
 		is_negative = true;
 	}
 
-    for (i = i; i < si_cstr_len(str); i++) {
+    for ( ; i < si_cstr_len(str); i++) {
         if (str[i] >= '0' && str[i] <= '9') {
             result *= 10;
 
@@ -1237,13 +1381,16 @@ isize si_string_make_space_for(siString* str, usize add_len) {
 	rawptr new_ptr = si_realloc(ptr, old_size, new_size);
 	SI_ASSERT_NOT_NULL(new_ptr);
 
-	*str = new_ptr + sizeof(siStringHeader);
+	*str = (char*)new_ptr + sizeof(siStringHeader);
+
+	SI_STRING_HEADER(*str)->capacity += add_len;
 
 	return SI_OKAY;
 }
 #endif
 
 #if defined(SI_CHAR_IMPLEMENTATION) && !defined(SI_STRING_UNDEFINE)
+
 inline char si_char_to_lower(char c) {
 	if (c >= 'A' && c <= 'Z') {
 		return 'a' + (c - 'A');
@@ -1287,6 +1434,277 @@ i32 si_hex_digit_to_int(char c) {
 	}
 
 	return -1;
+}
+
+#endif
+
+#if defined(SI_FILE_IMPLEMENTATION) && !defined(SI_FILE_UNDEFINE)
+
+inline bool si_path_exists(const char* path) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	DWORD file_attrib = GetFileAttributes(path);
+	return file_attrib != INVALID_FILE_ATTRIBUTES;
+
+	#else
+
+	struct stat tmp;
+ 	return (stat(path, &tmp) == SI_OKAY);
+
+	#endif
+}
+isize si_path_copy(const char* existing_path, const char* new_path) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	return (CopyFile(existing_path, new_path, true) != 0);
+
+	#else
+
+	int existing_fd = open(existing_path, O_RDONLY, 0);
+	int new_fd      = open(new_path, O_WRONLY | O_CREAT, 0666);
+
+	struct stat stat_existing;
+	fstat(existing_fd, &stat_existing);
+
+	isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
+
+	close(new_fd);
+	close(existing_fd);
+
+	return size == stat_existing.st_size;
+
+	#endif
+}
+inline isize si_path_move(const char* existing_path, const char* new_path) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	return (MoveFile(existing_path, new_path) != 0);
+
+	#else
+
+	if (link(existing_path, new_path) == 0) {
+		return unlink(existing_path);
+	}
+	return SI_ERROR;
+
+	#endif
+}
+inline isize si_path_remove(const char* path) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path), 0, ".");
+	if (pos != SI_ERROR) {
+		return (DeleteFileA(path) != 0);
+	}
+	else {
+		return (RemoveDirectoryA(path) != 0);
+	}
+
+	#elif defined(SI_SYSTEM_OSX)
+
+	return unlink(filename);
+
+	#else
+
+	return remove(path);
+
+	#endif
+}
+
+inline const char* si_path_base_name(const char* path) {
+	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path) - 1, 0, &SI_PATH_SEPARATOR);
+
+	return (pos != SI_ERROR ? (path + pos + 1) : path);
+}
+inline const char* si_path_extension(const char* path) {
+	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path) - 1, 0, ".");
+
+	return (pos != SI_ERROR ? (path + pos + 1) : path);
+}
+inline siString si_path_get_fullname(const char* path) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	char buffer[MAX_PATH];
+	GetFullPathNameA(path, MAX_PATH, buffer, NULL);
+
+	return si_string_make(buffer);
+
+	#else
+
+	char actual_path[4096];
+	realpath(path, actual_path);
+
+	return si_string_make(actual_path);
+
+	#endif
+}
+
+inline bool si_path_is_absolute(const char* path) {
+	SI_ASSERT_NOT_NULL(path);
+
+	#if defined(SI_WINDOWS)
+	return (
+		si_cstr_len(path) > 2 &&
+		gb_char_is_alpha(path[0]) &&
+		(path[1] == ':' && path[2] == GB_PATH_SEPARATOR)
+	);
+	#else
+	return (1 < si_cstr_len(path) && path[0] == SI_PATH_SEPARATOR);
+	#endif
+}
+inline bool si_path_is_relative(const char* path) {
+	return !si_path_is_absolute(path);
+}
+
+
+
+
+inline siFile si_file_create(const char* path) {
+	return si_file_open_mode(path, SI_FILE_MODE_CREATE);
+}
+inline siFile si_file_open(const char* path) {
+	return si_file_open_mode(path, SI_FILE_MODE_READ);
+}
+siFile si_file_open_mode(const char* path, siFileMode mode) {
+	SI_ASSERT_NOT_NULL(path);
+
+	siString mode_str = nil;
+	switch (mode) {
+		case SI_FILE_MODE_READ: mode_str = "r"; break;
+		case SI_FILE_MODE_WRITE: mode_str = "w"; break;
+		case SI_FILE_MODE_READ_WRITE: mode_str = "r+"; break;
+		case SI_FILE_MODE_APPEND: mode_str = "a"; break;
+		case SI_FILE_MODE_APPEND_READ: mode_str = "a+"; break;
+		case SI_FILE_MODE_CREATE: mode_str = "w+"; break;
+		default: SI_ASSERT_MSG(mode_str != nil, "Provided mode doesn't exist"); break;
+	}
+
+	FILE* f = fopen(path, mode_str);
+
+	if (f == nil) {
+		siString message = nil;
+		switch (errno) {
+			case ENOENT: message = "Failed to read the provided file, as it doesn't exist."; break;
+			case EACCES: message = "Failed to read the provided file, as I don't have suffice permissions to read the file."; break;
+			case EINVAL: message = "Failed to read the provided file, as an invalid argument was given."; break;
+			default: message = "Failed to read the provided file due to an unspecified reason."; break;
+		}
+
+		SI_ASSERT_MSG(f != nil, message);
+	}
+
+	siFile result = {
+		si_path_get_fullname(path),
+		0,
+		f
+	};
+	si_file_size_update(&result);
+
+	return result;
+}
+
+usize si_file_size(siFile file) {
+	fseek(file.ptr, 0, SEEK_END);
+	usize size = ftell(file.ptr);
+	rewind(file.ptr);
+
+	return size;
+}
+inline void si_file_size_update(siFile* file) {
+	usize len = si_file_size(*file);
+	file->size = len;
+}
+
+inline siString si_file_read(siFile file) {
+	return si_file_read_at(file, 0);
+}
+siString si_file_read_at(siFile file, usize offset) {
+	SI_ASSERT_NOT_NULL(file.ptr);
+	usize read_len = file.size - offset;
+	char tmp[read_len];
+
+	si_file_seek(file, offset);
+	fread(tmp, read_len, 1, file.ptr);
+	si_file_seek_to_end(file);
+
+	return si_string_make_len(tmp, read_len);
+}
+siArray(siString) si_file_readlines(siFile file) {
+	siString buffer = si_file_read(file);
+	siArray(siString) res = si_string_split(buffer, "\n");
+	si_string_free(buffer);
+
+	return res;
+}
+
+inline isize si_file_write(siFile* file, const char* content) {
+	return si_file_write_at_len(file, content, si_cstr_len(content), 0);
+}
+inline isize si_file_write_len(siFile* file, const char* content, usize len) {
+	return si_file_write_at_len(file, content, len, 0);
+}
+inline isize si_file_write_at(siFile* file, const char* content, usize offset) {
+	return si_file_write_at_len(file, content, si_cstr_len(content), offset);
+}
+isize si_file_write_at_len(siFile* file, const char* content, usize content_len, usize offset) {
+	SI_ASSERT_NOT_NULL(file->ptr);
+	SI_ASSERT_NOT_NULL(content);
+
+	si_file_seek(*file, offset);
+	isize result = fwrite(content, content_len, 1, file->ptr);
+	si_file_seek_to_end(*file);
+
+	si_file_size_update(file);
+	return result;
+}
+isize si_file_write_at_line(siFile* file, const char* content, usize index) {
+	SI_ASSERT_NOT_NULL(file->ptr);
+
+	#if defined(SI_ARRAY_UNDEFINE)
+	SI_ASSERT_MSG(SI_ARRAY_UNDEFINE != 1, "siArray is undefined, cannot use this function.");
+
+	SI_UNUSED(file);
+	SI_UNUSED(content);
+	SI_UNUSED(index);
+
+	return SI_ERROR;
+	#else
+
+	siArray(siString) buffer = si_file_readlines(*file);
+	SI_ASSERT_MSG(0 <= index && index <= si_array_len(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
+
+	buffer[index] = (siString)content;
+	siString new_file_content = si_array_to_sistring(buffer, "\n");
+
+	siFile new_file = si_file_open_mode(file->path, SI_FILE_MODE_CREATE);
+	si_file_write_len(&new_file, new_file_content, si_string_len(new_file_content));
+
+	si_file_close(*file);
+	*file = new_file;
+
+	return SI_OKAY;
+	#endif
+}
+
+inline isize si_file_seek(siFile file, usize offset) {
+	SI_ASSERT_NOT_NULL(file.ptr);
+	return fseek(file.ptr, offset, SEEK_SET);
+}
+inline isize si_file_seek_to_end(siFile file) {
+	SI_ASSERT_NOT_NULL(file.ptr);
+	return fseek(file.ptr, 0, SEEK_SET);
+}
+
+isize si_file_close(siFile file) {
+	if (file.path != nil) {
+		si_string_free(file.path);
+	}
+
+	if (file.ptr != nil) {
+		fclose(file.ptr);
+	}
+
+	return SI_OKAY;
 }
 
 #endif
