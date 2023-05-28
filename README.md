@@ -12,6 +12,7 @@ A public domain STL alternative to C/C++ standard libraries, featuring many impr
 - Path IO related functions (`si_path_exists`, `si_path_copy`, `si_path_get_fullname` etc).
 - A cross-platform file management functions (`si_file_open`, `si_file_read`, `si_file_write_line_at` etc).
 - `siOptional` type similar to `std::pair`.
+- Cross-platform multi-thread support (`si_thread_create`, `si_thread_start`, `si_thread_join`).
 - ... and more to come!
 
 # Examples
@@ -24,12 +25,13 @@ Go to [example.c](example.c) to see examples for almost every feature in the STL
 ## Features
 - !! Documentation (ideally everything should be in the header).
 - Directory IO.
-- `siTime`.
-- Threading.
+- `siTime` (a bunch of macros for convenience).
 - `siVariant` from `std::variant`.
-- Named operators.
 - `siRandom`
+- `.sort()` for si_array
 
 # Improvements
 - Improve si_array_make.
+- Improve `si_sleep` when `siTime` comes.
 - Possible better debugging improvements.
+- Make thread priority values cross-platform.

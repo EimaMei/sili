@@ -9,7 +9,7 @@
 #define EXAMPLE_SI_PAIR       0
 #define EXAMPLE_SI_FILE       0
 #define EXAMPLE_SI_OPTIONAL   0
-
+#define EXAMPLE_SI_THREAD     0
 
 #if EXAMPLE_SI_ENABLE_ALL == 1
 	#undef EXAMPLE_SI_STRING
@@ -17,11 +17,14 @@
 	#undef EXAMPLE_SI_PAIR
 	#undef EXAMPLE_SI_FILE
 	#undef EXAMPLE_SI_OPTIONAL
+	#undef EXAMPLE_SI_THREAD
 
+	#define EXAMPLE_SI_STRING     1
 	#define EXAMPLE_SI_ARRAY      1
 	#define EXAMPLE_SI_PAIR       1
 	#define EXAMPLE_SI_FILE       1
 	#define EXAMPLE_SI_OPTIONAL   1
+	#define EXAMPLE_SI_THREAD     1
 #endif
 
 #if EXAMPLE_SI_OPTIONAL == 1
@@ -29,6 +32,34 @@
 		return (value ? si_optional_make((char*)"Godzilla") : SI_OPTIONAL_NULL);
 	}
 #endif
+
+#if EXAMPLE_SI_THREAD == 1
+	rawptr thread_test(rawptr arg) {
+		bool* loop = (bool*)arg;
+		i16 count = SI_INT16_MIN;
+
+		if (*loop) {
+			printf("We'll increment 'count' from %d to %d:\n", SI_INT16_MIN, SI_INT16_MAX);
+			si_sleep(2000);
+			while (count < SI_INT16_MAX) {
+				count += 1;
+				printf("%i\n", count);
+			}
+		}
+		else {
+			printf("'arg' equals to 'false', so I'll just do nothing and wait for like 3 seconds.\n");
+			si_sleep(3000);
+			printf("...and we're done! Exiting the thread now.\n");
+		}
+
+		typeof(count)* res = malloc(sizeof(count));
+		SI_ASSERT_NOT_NULL(res);
+		*res = count;
+
+		return res;
+	}
+#endif
+
 
 int main(void) {
 	#if EXAMPLE_SI_STRING == 1
@@ -311,6 +342,32 @@ int main(void) {
 		siOptional(char*) str = create(true);
 		printf("create2(true) returned '%s'\n", si_any_get(str.value, char*));
 	}
+	#endif
+
+	#if EXAMPLE_SI_THREAD == 1
+		siThread thread = si_thread_create(siFunc(thread_test), &(bool){false});
+		si_thread_start(&thread);
+
+		while (thread.is_running) {
+			printf("Even though 'thread' is currently sleeping, it's still running this exact second!\n");
+			si_sleep(1000);
+		}
+		printf("That loop returned a '%i'. Now we'll re-run the loop with the argument being 'true' instead.\n", *((i16*)thread.return_value));
+		free(thread.return_value);
+		si_sleep(2000);
+
+		thread.arg = &(bool){true};
+		si_thread_start(&thread);
+		si_thread_join(&thread); /* Now we have to wait... */
+
+		printf("That loop NOW returned a '%i'.\n", *((i16*)thread.return_value));
+		free(thread.return_value);
+		si_sleep(2000);
+
+		si_thread_start(&thread);
+		si_sleep(2500);
+		si_thread_cancel(&thread);
+		printf("Decided to kill it 2.5 seconds later.\n");
 	#endif
 
     return 0;

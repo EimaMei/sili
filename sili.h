@@ -169,13 +169,13 @@ extern "C" {
 	#include <stddef.h>
 	#include <errno.h>
 	#include <unistd.h>
+	#include <pthread.h>
 
 	#include <sys/stat.h>
 	#include <sys/sendfile.h>
 	#include <sys/fcntl.h>
 
 	#include <stdio.h>
-
 #endif
 #if defined(SI_SYSTEM_WINDOWS)
 	#if !defined(SI_NO_WINDOWS_H)
@@ -240,10 +240,23 @@ typedef i8 siByte;
 #define SI_UINT32_MIN 0x00000000
 #define SI_INT32_MAX  0x7FFFFFFF
 #define SI_INT32_MIN  (-SI_INT32_MAX - 1)
+
 #define SI_UINT64_MAX 0xFFFFFFFFFFFFFFFF
 #define SI_UINT64_MIN 0x0000000000000000
 #define SI_INT64_MAX  0x7FFFFFFFFFFFFFFF
 #define SI_INT64_MIN  (-SI_INT64_MAX - 1)
+
+#if defined(SI_ARCH_64_BIT)
+	#define SI_USIZE_MAX SI_UINT64_MAX
+	#define SI_USIZE_MIN SI_UINT64_MIN
+	#define SI_ISIZE_MAX SI_INT64_MAX
+	#define SI_ISIZE_MIN SI_INT64_MIN
+#else
+	#define SI_USIZE_MAX SI_UINT32_MAX
+	#define SI_USIZE_MIN SI_UINT32_MIN
+	#define SI_ISIZE_MAX SI_INT32_MAX
+	#define SI_ISIZE_MIN SI_INT32_MIN
+#endif
 
 
 SI_STATIC_ASSERT(sizeof(u8) == sizeof(i8));
@@ -323,7 +336,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 usize si_impl_assert_msg(bool condition, const char* condition_str, const char* message, const char* file, i32 line);
 #define SI_ASSERT_MSG(condition, message) si_impl_assert_msg(condition, #condition, message, __FILE__, __LINE__)
 #define SI_ASSERT(condition) SI_ASSERT_MSG(condition, nil)
-#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != NULL, #ptr " must not be NULL")
+#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL")
 
 typedef struct siAny {
 	usize type_width;
@@ -331,7 +344,15 @@ typedef struct siAny {
 } siAny;
 
 #define si_any_make(value) (siAny){sizeof(typeof(value)), &(typeof(value)){value} }
-#define si_any_get(any, type) ((any.ptr != NULL) ? *((type*)any.ptr) : (type)SI_ASSERT_NOT_NULL(any.ptr))
+#define si_any_get(any, type) ((any.ptr != nil) ? *((type*)any.ptr) : (type)SI_ASSERT_NOT_NULL(any.ptr))
+
+typedef struct siFunction {
+   rawptr (*ptr)(rawptr);
+} siFunction;
+
+#define siFunc(func) (siFunction){func}
+
+void si_sleep(usize miliseconds);
 
 
 #ifdef SI_IMPLEMENTATION
@@ -342,6 +363,7 @@ typedef struct siAny {
 	#define SI_STRING_IMPLEMENTATION
 	#define SI_CHAR_IMPLEMENTATION
 	#define SI_FILE_IMPLEMENTATION
+	#define SI_THREAD_IMPLEMENTATION
 #endif
 
 #if !defined(SI_PAIR_UNDEFINE)
@@ -686,6 +708,55 @@ isize si_file_close(siFile file);
 
 #endif
 
+#if !defined(SI_THREAD_UNDEFINE)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siThread             |
+	========================
+*/
+
+
+typedef struct siThread {
+	#if defined(SI_SYSTEM_WINDOWS)
+		HANDLE id;
+	#else
+		usize id;
+	#endif
+	bool is_running;
+	rawptr return_value;
+
+	siFunction func;
+	rawptr arg;
+} siThread;
+
+
+siThread si_thread_create(siFunction function, rawptr arg);
+
+void si_thread_start(siThread* t);
+void si_thread_join(siThread* t);
+
+void si_thread_cancel(siThread* t);
+void si_thread_destroy(siThread* t);
+
+void si_thread_set_priority(siThread t, i32 priority);
+void si_thread_set_stack_size(siThread t, usize stack_size);
+
+#endif
+
 
 
 
@@ -719,6 +790,14 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 	free(ptr);
 
 	return new_ptr;
+}
+
+void si_sleep(usize miliseconds) {
+	#if defined(SI_SYSTEM_WINDOWS)
+	Sleep(miliseconds);
+	#else
+	usleep(miliseconds * 1000);
+	#endif
 }
 #endif
 
@@ -970,7 +1049,7 @@ siString si_string_make_fmt(char* str, ...) {
 	va_list va;
 	va_start(va, str);
 
-	isize size = vsnprintf(NULL, 0, str,  va);
+	isize size = vsnprintf(nil, 0, str,  va);
 	char buf[size + 1];
 	vsnprintf(buf, size + 1, str, va);
 
@@ -1522,8 +1601,8 @@ isize si_path_copy(const char* existing_path, const char* new_path) {
 
 	#else
 
-	int existing_fd = open(existing_path, O_RDONLY, 0);
-	int new_fd      = open(new_path, O_WRONLY | O_CREAT, 0666);
+	isize existing_fd = open(existing_path, O_RDONLY, 0);
+	isize new_fd      = open(new_path, O_WRONLY | O_CREAT, 0666);
 
 	struct stat stat_existing;
 	fstat(existing_fd, &stat_existing);
@@ -1587,7 +1666,7 @@ inline siString si_path_get_fullname(const char* path) {
 	#if defined(SI_SYSTEM_WINDOWS)
 
 	char buffer[MAX_PATH];
-	GetFullPathNameA(path, MAX_PATH, buffer, NULL);
+	GetFullPathNameA(path, MAX_PATH, buffer, nil);
 
 	return si_string_make(buffer);
 
@@ -1767,6 +1846,138 @@ isize si_file_close(siFile file) {
 	}
 
 	return SI_OKAY;
+}
+
+#endif
+
+#if defined(SI_THREAD_IMPLEMENTATION) && !defined(SI_THREAD_UNDEFINE)
+
+inline rawptr si_impl_thread_proc(rawptr arg) {
+	siThread* t = (siThread*)arg;
+	t->return_value = t->func.ptr(t->arg);
+	t->is_running = false;
+
+	return nil;
+}
+
+inline siThread si_thread_create(siFunction function, rawptr arg) {
+	siThread t;
+	t.is_running = false;
+	t.func = function;
+	t.arg = arg;
+
+	return t;
+}
+
+void si_thread_start(siThread* t) {
+	#if defined(SI_SYSTEM_WINDOWS)
+
+	t->id = CreateThread(nil, 0, (LPTHREAD_START_ROUTINE)si_impl_thread_proc, t, 0, nil);
+	t->is_running = true;
+	SI_ASSERT_MSG(t->id != nil, "Something went wrong with creating a new thread.");
+
+	#else
+
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	t->is_running = true;
+
+	usize error_code = pthread_create(&t->id, &attr, si_impl_thread_proc, t);
+
+	const char* error_msg = nil;
+	switch (error_code) {
+		case SI_OKAY: break;
+		case EAGAIN:  error_msg = "The system lacked the necessary resources to create another thread, or the system-imposed limit on the total number of threads in a process PTHREAD_THREADS_MAX would be exceeded."; break;
+		case EINVAL:  error_msg = "The value specified by attr is invalid at 'pthread_create'."; break;
+		case EPERM:   error_msg = "The caller does not have appropriate permission to set the required scheduling parameters or scheduling policy."; break;
+		default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+	}
+	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+	pthread_attr_destroy(&attr);
+	#endif
+}
+
+void si_thread_join(siThread* t) {
+	t->is_running = true;
+
+	#if defined(SI_SYSTEM_WINDOWS)
+	WaitForSingleObject(t->id, INFINITE);
+	CloseHandle(t->id);
+	t->id = INVALID_HANDLE_VALUE;
+	#else
+
+	usize error_code = pthread_join(t->id, nil);
+
+	const char* error_msg = nil;
+	switch (error_code) {
+		case SI_OKAY: break;
+		case EDEADLK: error_msg = "A deadlock was detected."; break;
+		default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+	}
+	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+	#endif
+
+	t->is_running = false;
+}
+void si_thread_cancel(siThread* t) {
+	#if defined(SI_SYSTEM_WINDOWS)
+	puts("si_thread_cancel: This feature on Windows is not supported as of now.");
+	SI_UNUSED(t);
+	#else
+
+	usize error_code = pthread_cancel(t->id);
+	t->is_running = false;
+
+	const char* error_msg = nil;
+	switch (error_code) {
+		case SI_OKAY:   break;
+		case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
+		default:        error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+	}
+	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+
+	#endif
+}
+inline void si_thread_destroy(siThread* t) {
+	si_thread_join(t);
+}
+
+void si_thread_set_priority(siThread t, i32 priority) {
+	#if defined(SI_SYSTEM_WINDOWS)
+	isize res = SetThreadPriority(t.id, priority);
+	SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
+	#else
+	usize error_code = pthread_setschedprio(t.id, priority);
+
+	const char* error_msg = nil;
+	switch (error_code) {
+		case SI_OKAY:  break;
+		case EINVAL:   error_msg = "The value of 'priority' is invalid for the scheduling policy of the specified thread."; break;
+		case ENOTSUP:  error_msg = "An attempt was made to set the priority to an unsupported value."; break;
+		case EPERM:    error_msg = "The caller does not have the appropriate permission to set the scheduling policy of the specified thread OR the implementation does not allow the application to modify the priority to the value specified."; break;
+		case ESRCH:    error_msg = "The value specified by thread does not refer to an existing thread."; break;
+		default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+	}
+	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+	#endif
+}
+
+void si_thread_set_stack_size(siThread t, usize stack_size) {
+	#if defined(SI_SYSTEM_WINDOWS)
+	usize res = (usize)CreateThread(nil, stack_size, (LPTHREAD_START_ROUTINE)si_thread_create, &t, STACK_SIZE_PARAM_IS_A_RESERVATION, nil);
+	SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread stack size.");
+	#else
+	usize error_code = pthread_attr_setstacksize(t.id, stack_size);
+
+	const char* error_msg = nil;
+	switch (error_code) {
+		case SI_OKAY:  break;
+		case EINVAL:   error_msg = "The value of stacksize is less than PTHREAD_STACK_MIN or exceeds a system-imposed limit."; break;
+		default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+	}
+	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+	#endif
 }
 
 #endif
