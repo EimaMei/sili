@@ -997,7 +997,7 @@ void si_sleep(usize miliseconds);
 
 void si_impl_performance_thread(u32* arg);
 
-#define si_performance_loop(times_to_loop, function)                                                                         \
+#define si_performance_run_per_loop(times_to_loop, function)                                                                 \
 	do {                                                                                                                     \
 		usize si_index;                                                                                                      \
 		clock_t si_time_since = clock();                                                                                     \
@@ -1011,7 +1011,7 @@ void si_impl_performance_thread(u32* arg);
 		SI_PERFORMANCE_PRINT_MEMORY(function);                                                                               \
 	} while(0)
 
-#define si_performance_exec_per_ms(ms, function)											            \
+#define si_performance_executes_per_ms(ms, function)											        \
 	do { 																					            \
 		u64 si_counter = 0; 																	        \
 		u32 si_miliseconds = (u32)ms;															        \

@@ -383,10 +383,10 @@ int main(void) {
 	#if EXAMPLE_SI_PERFORMANCE == 1
 
 	printf("Running 'performance_test()' 30000 times. Lets see how long it takes to execute that many times...\n");
-	si_performance_loop(30000, performance_test());
+	si_performance_run_per_loop(30000, performance_test());
 
-	printf("Now lets see how many times 'performance_test()' can be excuted in 5 seconds...\n");
-	si_performance_exec_per_ms(5000, performance_test());
+	printf("Now lets see how many times 'performance_test()' can be executed in 5 seconds...\n");
+	si_performance_executes_per_ms(5000, performance_test());
 
 	#endif
 
