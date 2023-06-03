@@ -2,14 +2,15 @@
 #include <sili.h>
 #include <stdio.h>
 
-#define EXAMPLE_SI_ENABLE_ALL 1
+#define EXAMPLE_SI_ENABLE_ALL    1
 
-#define EXAMPLE_SI_STRING     0
-#define EXAMPLE_SI_ARRAY      0
-#define EXAMPLE_SI_PAIR       0
-#define EXAMPLE_SI_FILE       0
-#define EXAMPLE_SI_OPTIONAL   0
-#define EXAMPLE_SI_THREAD     0
+#define EXAMPLE_SI_STRING        0
+#define EXAMPLE_SI_ARRAY         0
+#define EXAMPLE_SI_PAIR          0
+#define EXAMPLE_SI_FILE          0
+#define EXAMPLE_SI_OPTIONAL      0
+#define EXAMPLE_SI_THREAD        0
+#define EXAMPLE_SI_PERFORMANCE   0
 
 #if EXAMPLE_SI_ENABLE_ALL == 1
 	#undef EXAMPLE_SI_STRING
@@ -18,6 +19,7 @@
 	#undef EXAMPLE_SI_FILE
 	#undef EXAMPLE_SI_OPTIONAL
 	#undef EXAMPLE_SI_THREAD
+	#undef EXAMPLE_SI_PERFORMANCE
 
 	#define EXAMPLE_SI_STRING     1
 	#define EXAMPLE_SI_ARRAY      1
@@ -25,6 +27,7 @@
 	#define EXAMPLE_SI_FILE       1
 	#define EXAMPLE_SI_OPTIONAL   1
 	#define EXAMPLE_SI_THREAD     1
+	#define EXAMPLE_SI_PERFORMANCE 1
 #endif
 
 #if EXAMPLE_SI_OPTIONAL == 1
@@ -34,11 +37,11 @@
 #endif
 
 #if EXAMPLE_SI_THREAD == 1
-	rawptr thread_test(rawptr arg) {
-		bool* loop = (bool*)arg;
+	rawptr thread_test(bool* arg) {
+		bool loop = *arg;
 		i16 count = SI_INT16_MIN;
 
-		if (*loop) {
+		if (loop) {
 			printf("We'll increment 'count' from %d to %d:\n", SI_INT16_MIN, SI_INT16_MAX);
 			si_sleep(2000);
 			while (count < SI_INT16_MAX) {
@@ -57,6 +60,13 @@
 		*res = count;
 
 		return res;
+	}
+#endif
+
+#if EXAMPLE_SI_PERFORMANCE == 1
+	void performance_test(void) {
+		isize i;
+		for (i = 0; i < SI_UINT16_MAX; i++);	/* NOTE(EimaMei): Should strain the CPU a little. */
 	}
 #endif
 
@@ -125,10 +135,10 @@ int main(void) {
 		printf("==============\n\n==============\nExample 1.1:\n");
 
 		/* Int stuff: */
-		siString str = si_string_make_int(-342);
+		siString str = si_string_make(si_i64_to_cstr(-342));
 		printf("str: \"%s\"\n", str);
 
-		isize num = si_cstr_to_int("9300");
+		isize num = si_cstr_to_u64("9300");
 		printf("num: %zd\n\n", num);
 
 
@@ -153,22 +163,20 @@ int main(void) {
 
 		si_string_capitalize(&str);
 		printf("Capitalized str: \"%s\"\n", str);
-
-		si_string_free(str);
 	}
 
 	/* Example 1.2: Other. */
 	{
 		printf("==============\n\n==============\nExample 1.2:\n");
 
-		siString str = si_string_make("\t       trailing around gkjsljfdlkg        \r");
+		siString str = si_string_make("\t       dnuora gniliart        ");
 		printf("Before: '%s' (len: '%zd')\n", str, si_string_len(str));
 
 		si_string_strip(&str);
 		printf("After: '%s' (len: '%zd')\n", str, si_string_len(str));
 
 		si_string_reverse(&str);
-		printf("Str in reverse: %s\n", str);
+		printf("'str' in reverse: '%s'\n", str);
 
 		si_string_free(str);
 	}
@@ -224,7 +232,7 @@ int main(void) {
 		printf("Array in reverse order: ");
 
 		foreach (num, array) {
-			printf("%i,", *num);
+			printf("%i ", *num);
 		}
 		printf("\n");
 	}
@@ -364,10 +372,22 @@ int main(void) {
 		free(thread.return_value);
 		si_sleep(2000);
 
-		si_thread_start(&thread);
-		si_sleep(2500);
-		si_thread_cancel(&thread);
-		printf("Decided to kill it 2.5 seconds later.\n");
+		#if !defined(SI_SYSTEM_WINDOWS)
+			si_thread_start(&thread);
+			si_sleep(2500);
+			si_thread_cancel(&thread);
+			printf("Decided to kill it 2.5 seconds later.\n");
+		#endif
+	#endif
+
+	#if EXAMPLE_SI_PERFORMANCE == 1
+
+	printf("Running 'performance_test()' 30000 times. Lets see how long it takes to execute that many times...\n");
+	si_performance_loop(30000, performance_test());
+
+	printf("Now lets see how many times 'performance_test()' can be excuted in 5 seconds...\n");
+	si_performance_exec_per_ms(5000, performance_test());
+
 	#endif
 
     return 0;

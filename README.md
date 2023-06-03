@@ -1,5 +1,13 @@
-# sili.h STL
-A public domain STL alternative to C/C++ standard libraries, featuring many improvements and fixes for better development. Made specifically for C99 and up, but can also be used in C++.
+# Sili Toolchain
+Sili Toolchain is a cross-platform public domain software toolchain specialized for C development, featuring many features, improvements and fixes to the language. Made specifically for C99 and up, but can also be used in C++.
+
+# Main goals of Sili Toolchain
+## Modernize C
+Implement a proper STL for C that is much more feature-rich, safe, readable and just generally better, while also being an alternative to the C++ one.
+## Be fast & useful
+Keep a balance between having exceptional performance and giving more options to the end-user.
+## Be portable
+`sili.h` is a single-header library, meaning it can be drag 'n dropped to any project. Furthermore, Sili Toolchain is cross-platform, meaning it'll work on all major desktop OSses without issue.
 
 # Features
 - Standard types (`u8`, `i32`, `u64` etc).
@@ -9,29 +17,30 @@ A public domain STL alternative to C/C++ standard libraries, featuring many impr
 - Better arrays (`siArray(<type>)`, compatible with other C arrays`).
 - Pair support like `std::pair` (`siPair(<type1>, <type2>)`).
 - `char` specific functions (`si_char_to_lower`, `si_char_is_space`, `si_hex_digit_to_int` etc).
-- Path IO related functions (`si_path_exists`, `si_path_copy`, `si_path_get_fullname` etc).
-- A cross-platform file management functions (`si_file_open`, `si_file_read`, `si_file_write_line_at` etc).
-- `siOptional` type similar to `std::pair`.
+- Path related functions (`si_path_exists`, `si_path_copy`, `si_path_get_fullname` etc).
+- A cross-platform file IO functions (`si_file_open`, `si_file_read`, `si_file_write_line_at` etc).
+- `siOptional` type similar to `std::optional`.
 - Cross-platform multi-thread support (`si_thread_create`, `si_thread_start`, `si_thread_join`).
+- Easy to use benchmarking functions to check performance (`si_performance_loop`, `si_performance_exec_per_ms`), while logging how many allocations/frees were done when the `SI_MEMORY_LOGGING` macro is enabled.
 - ... and more to come!
 
 # Examples
-Go to [example.c](example.c) to see examples for almost every feature in the STL. You can also unexpand the brackets to hide the examples you're not interested in viewing with your IDE of choice.
+Go to [example.c](example.c) to see examples for almost every feature in the toolchain. You can also unexpand the brackets to hide the examples you're not interested in viewing with your IDE of choice.
 
 # License
-`sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded
+`sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded.
 
 # TODO
 ## Features
-- !! Documentation (ideally everything should be in the header).
+- !! Documentation (ideally documentation should be all in the header).
 - Directory IO.
-- `siTime` (a bunch of macros for convenience).
+- `siTime`.
 - `siVariant` from `std::variant`.
-- `siRandom`
-- `.sort()` for si_array
+- `siRandom`.
+- `sort()` for siArray.
+- `insert()`/`remove()` for siString/siArray.
 
 # Improvements
 - Improve si_array_make.
-- Improve `si_sleep` when `siTime` comes.
 - Possible better debugging improvements.
 - Make thread priority values cross-platform.

@@ -4,7 +4,7 @@ NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
 SRC = example.c
-FLAGS = -O2 -std=c99 -Wall -Wextra -Wpedantic
+FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
 LIBS =
 INCLUDE = -I"."
 
@@ -19,6 +19,9 @@ clean:
 
 $(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
+
+dump_asm:
+	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -S $(SRC) -o sili.S
 
 $(OUTPUT):
 	mkdir $(OUTPUT)

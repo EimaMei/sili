@@ -5,6 +5,7 @@ source/test
 games/
 res
 hpl-vscode/
+src/
 
 # Files 
 *.exe
@@ -14,3 +15,4 @@ hpl-vscode/
 *.7z
 *.zip
 *.hide
+*.S

@@ -17,9 +17,12 @@ sili.h - An alternative to the C/C++ standard library.
 		- #define SI_STRING_UNDEFINE
 		- #define SI_CHAR_UNDEFINE
 		- #define SI_FILE_UNDEFINE
+		- #define SI_THREAD_UNDEFINE
+		- #define SI_PERFORMANCE_UNDEFINE
 	before the SI_IMPLEMENTATION macro, as well as before any other include of `sili.h`.
+
 	- NOTE: Disabling certain features may or may not create 'undefined' compiler
-	errors at certain spots. Use it at your own risk
+	errors at certain spots. Use it at your own risk.
 
 ===========================================================================
 
@@ -32,8 +35,8 @@ WARNING
 	- This also means that many functions are not documented.
 
 CREDITS
-	- Ginger Bill's 'gb.h' for inspiring me to program the sili STL, as well as stuff taken from
-	library and implemented here.
+	- Ginger Bill's 'gb.h' for inspiring me to program the Sili Toolchain, as well as certain
+	features taken from the library and implemented here.
 */
 
 #ifndef SI_INCLUDE_SI_H
@@ -56,7 +59,7 @@ extern "C" {
 	#define SI_ARCH_32_BIT 1
 #endif
 
-#define SI_ENDIAN_BIG     (!*(siByte*)&(u16){1})
+#define SI_ENDIAN_BIG     (!*(u8*)&(u16){1})
 #define SI_ENDIAN_LITTLE  (!SI_IS_BIG_ENDIAN)
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -176,6 +179,7 @@ extern "C" {
 	#include <sys/fcntl.h>
 
 	#include <stdio.h>
+	#include <time.h>
 #endif
 #if defined(SI_SYSTEM_WINDOWS)
 	#if !defined(SI_NO_WINDOWS_H)
@@ -193,6 +197,7 @@ extern "C" {
 	#include <malloc.h>
 	#include <intrin.h>
 	#include <stdio.h>
+	#include <time.h>
 #else
 
 #endif
@@ -224,27 +229,27 @@ extern "C" {
 	typedef isize  intptr;
 #endif
 
-typedef i8 siByte;
+typedef u8 siByte;
 
-#define SI_UINT8_MAX 0xFF
-#define SI_UINT8_MIN 0x00
-#define SI_INT8_MAX  0x7F
-#define SI_INT8_MIN  (-SI_INT8_MAX - 1)
+static u8 SI_UINT8_MAX   =  0xFF;
+static u8 SI_UINT8_MIN   =  0x00;
+static i8 SI_INT8_MAX    =  0x7F;
+static i8 SI_INT8_MIN    = -0x80;
 
-#define SI_UINT16_MAX 0xFFFF
-#define SI_UINT16_MIN 0x0000
-#define SI_INT16_MAX  0x7FFF
-#define SI_INT16_MIN  (-SI_INT16_MAX - 1)
+static u16 SI_UINT16_MAX =  0xFFFF;
+static u16 SI_UINT16_MIN =  0x0000;
+static i16 SI_INT16_MAX  =  0x7FFF;
+static i16 SI_INT16_MIN  = -0x8000;
 
-#define SI_UINT32_MAX 0xFFFFFFFF
-#define SI_UINT32_MIN 0x00000000
-#define SI_INT32_MAX  0x7FFFFFFF
-#define SI_INT32_MIN  (-SI_INT32_MAX - 1)
+static u32 SI_UINT32_MAX =  0xFFFFFFFF;
+static u32 SI_UINT32_MIN =  0x00000000;
+static i32 SI_INT32_MAX  =  0x7FFFFFFF;
+static i32 SI_INT32_MIN  = -0x80000000;
 
-#define SI_UINT64_MAX 0xFFFFFFFFFFFFFFFF
-#define SI_UINT64_MIN 0x0000000000000000
-#define SI_INT64_MAX  0x7FFFFFFFFFFFFFFF
-#define SI_INT64_MIN  (-SI_INT64_MAX - 1)
+static u64 SI_UINT64_MAX =  0xFFFFFFFFFFFFFFFF;
+static u64 SI_UINT64_MIN =  0x0000000000000000;
+static i64 SI_INT64_MAX  =  0x7FFFFFFFFFFFFFFF;
+static i64 SI_INT64_MIN  = -0x8000000000000000;
 
 #if defined(SI_ARCH_64_BIT)
 	#define SI_USIZE_MAX SI_UINT64_MAX
@@ -315,6 +320,9 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 	typedef void* rawptr;
 #endif
 
+#if !defined(cstr)
+	typedef const char* cstring;
+#endif
 
 #define SI_BIT(x) (1 << (x))
 
@@ -323,20 +331,71 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 #define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
 #define SI_TERA(x) (SI_GIGA(x) * (usize)1024)
 
+#define SI_MULTILINE(...) __VA_ARGS__
+#define SI_STR_MULTILINE(...) #__VA_ARGS__
+
+#define SI_ENUM_DECLARE(type, name) type name; enum
+
 #define SI_OKAY  0
 #define SI_ERROR -1
 
 #define SI_UNUSED(x) (void)(x) /* NOTE(EimaMei) Should be used when you want to supress "parameter 'X' set but not used" errors. */
 
-#if defined(SI_STANDARD_ANSI) || defined(SI_COMPILER_MSVC) /* NOTE(EimaMei): Fuck Microsoft */
+#define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
+
+#if defined(SI_STANDARD_ANSI) || defined(SI_COMPILER_MSVC) /* NOTE(EimaMei): Fuck Microsoft. */
 	#define typeof(value) __typeof__(value)
 #endif
 
+#if defined(SI_MEMORY_LOGGING)
+	#define SI_MEMORY_LOGGING_IMPLEMENTATION
+#endif
 
-usize si_impl_assert_msg(bool condition, const char* condition_str, const char* message, const char* file, i32 line);
+
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| SI_ASSERT            |
+	========================
+*/
+
+usize si_impl_assert_msg(bool condition, cstring condition_str, cstring message, cstring file, i32 line);
 #define SI_ASSERT_MSG(condition, message) si_impl_assert_msg(condition, #condition, message, __FILE__, __LINE__)
 #define SI_ASSERT(condition) SI_ASSERT_MSG(condition, nil)
 #define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL")
+
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siAny & siFunction   |
+	========================
+*/
 
 typedef struct siAny {
 	usize type_width;
@@ -350,20 +409,76 @@ typedef struct siFunction {
    rawptr (*ptr)(rawptr);
 } siFunction;
 
-#define siFunc(func) (siFunction){func}
+#define siFunc(func) (siFunction){(rawptr (*)(rawptr))func}
 
-void si_sleep(usize miliseconds);
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| SI_DEFINE            |
+	========================
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*/
 
+#if defined(SI_MEMORY_LOGGING)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	=========================
+	| Memory Logging (Beta) |
+	=========================
+*/
 
-#ifdef SI_IMPLEMENTATION
-	#define SI_GENERAL_IMPLEMENTATION
-	#define SI_PAIR_IMPLEMENTATION
-	#define SI_OPTIONAL_IMPLEMENTATION
-	#define SI_ARRAY_IMPLEMENTATION
-	#define SI_STRING_IMPLEMENTATION
-	#define SI_CHAR_IMPLEMENTATION
-	#define SI_FILE_IMPLEMENTATION
-	#define SI_THREAD_IMPLEMENTATION
+typedef struct {
+	usize len;
+} siDebugHeader;
+#define SI_DEBUG_HEADER(s) ((siDebugHeader*)s - 1)
+
+rawptr si_debug_alloc(usize function_id, usize size, usize arg2, cstring file, i32 line, cstring function, cstring time, cstring date);
+void si_debug_free(rawptr ptr);
+
+#define malloc(size) si_debug_alloc(1, size, 0, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define calloc(num, size) si_debug_alloc(2, size, num, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define realloc(ptr, new_size) si_debug_alloc(3, new_size, (usize)(ptr), __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define free(ptr) si_debug_free(ptr)
+
 #endif
 
 #if !defined(SI_PAIR_UNDEFINE)
@@ -487,7 +602,7 @@ siAny si_array_back(siArray(void) array);
 
 #define si_array_replace(array, old_value, new_value) si_impl_array_replace(array, si_any_make(old_value), si_any_make(new_value))
 isize si_array_reverse(siArray(void) array);
-char* si_array_to_sistring(siArray(char*) array, const char* separator);
+char* si_array_to_sistring(siArray(char*) array, cstring separator);
 
 #define si_array_append(array, value) si_impl_array_append(array, si_any_make(value))
 #define si_array_push_back(array, value) si_array_append(array, value)
@@ -540,30 +655,29 @@ typedef char* siString;
 #define SI_STRING_HEADER(s) ((siStringHeader*)s - 1)
 
 
-siString si_string_make(char* str);
-siString si_string_make_fmt(char* str, ...);
-siString si_string_make_int(isize num);
-siString si_string_make_len(char* str, usize len);
+siString si_string_make(cstring str);
+siString si_string_make_fmt(cstring str, ...);
+siString si_string_make_len(cstring str, usize len);
 siString si_string_make_reserve(usize len);
 
 siString si_string_copy(siString from);
 
 usize si_string_len(siString str);
-usize si_cstr_len(const char* str);
+usize si_cstr_len(cstring str);
 
 char si_string_at(siString str, usize index);
 char si_string_front(siString str);
 char si_string_back(siString str);
 
-isize si_string_find(siString str, const char* cstr);
-isize si_string_find_ex(siString str, usize start, usize end, const char* cstr);
-isize si_string_rfind(siString str, const char* cstr);
-isize si_string_rfind_ex(siString str, usize start, usize end, const char* cstr);
+isize si_string_find(siString str, cstring cstr);
+isize si_string_find_ex(siString str, usize start, usize end, cstring cstr);
+isize si_string_rfind(siString str, cstring cstr);
+isize si_string_rfind_ex(siString str, usize start, usize end, cstring cstr);
 
-isize si_string_join(siString* str, const char* cstr, const char* separator);
-isize si_string_set(siString* str, const char* cstr);
-isize si_string_replace(siString* str, const char* old_str, const char* new_str);
-isize si_string_trim(siString* str, const char* cut_set);
+isize si_string_join(siString* str, cstring cstr, cstring separator);
+isize si_string_set(siString* str, cstring cstr);
+isize si_string_replace(siString* str, cstring old_str, cstring new_str);
+isize si_string_trim(siString* str, cstring cut_set);
 
 isize si_string_upper(siString* str);
 isize si_string_lower(siString* str);
@@ -571,17 +685,16 @@ isize si_string_title(siString* str);
 isize si_string_capitalize(siString* str);
 isize si_string_strip(siString* str); /* NOTE(EimaMei); This strips any leading or trailing spaces in the string. */
 isize si_string_reverse(siString* str);
+isize si_string_reverse_len(siString* str, usize len);
 
-isize si_string_append(siString* str, const char* other);
-isize si_string_append_len(siString* str, const char* other, usize other_len);
+isize si_string_append(siString* str, cstring other);
+isize si_string_append_len(siString* str, cstring other, usize other_len);
 isize si_string_push_back(siString* str, char other);
+siArray(siString) si_string_split(siString str, cstring separator);
 
 isize si_string_clear(siString* str);
 
-siArray(siString) si_string_split(siString str, const char* separator);
-isize si_cstr_to_int(const char* str);
-
-bool si_strings_are_equal(const char* lhs, const char* rhs);
+bool si_strings_are_equal(cstring lhs, cstring rhs);
 
 isize si_string_free(siString str);
 isize si_string_make_space_for(siString* str, usize add_len);
@@ -618,6 +731,11 @@ bool  si_char_is_alpha(char c);
 bool  si_char_is_alphanumeric(char c);
 i32   si_digit_to_int(char c);
 i32   si_hex_digit_to_int(char c);
+
+cstring si_u64_to_cstr(u64 num);
+u64 si_cstr_to_u64(cstring str);
+cstring si_i64_to_cstr(i64 num);
+i64 si_cstr_to_i64(cstring str);
 
 #endif
 
@@ -667,26 +785,26 @@ typedef struct siFile {
 	|  siPath              |
 	========================
 */
-bool si_path_exists(const char* path);
-isize si_path_copy(const char* existing_path, const char* new_path);
-isize si_path_move(const char* existing_path, const char* new_path);
-isize si_path_remove(const char* path);
+bool si_path_exists(cstring path);
+isize si_path_copy(cstring existing_path, cstring new_path);
+isize si_path_move(cstring existing_path, cstring new_path);
+isize si_path_remove(cstring path);
 
-const char* si_path_base_name(const char* path);
-const char* si_path_extension(const char* path);
-siString si_path_get_fullname(const char* path);
+cstring si_path_base_name(cstring path);
+cstring si_path_extension(cstring path);
+siString si_path_get_fullname(cstring path);
 
-bool si_path_is_absolute(const char* path);
-bool si_path_is_relative(const char* path);
+bool si_path_is_absolute(cstring path);
+bool si_path_is_relative(cstring path);
 
 /*
 	========================
 	|  siFile              |
 	========================
 */
-siFile si_file_create(const char* path);
-siFile si_file_open(const char* path);
-siFile si_file_open_mode(const char* path, siFileMode mode);
+siFile si_file_create(cstring path);
+siFile si_file_open(cstring path);
+siFile si_file_open_mode(cstring path, siFileMode mode);
 
 usize si_file_size(siFile file);
 void si_file_size_update(siFile* file);
@@ -695,11 +813,11 @@ siString si_file_read(siFile file);
 siString si_file_read_at(siFile file, usize offset);
 siArray(siString) si_file_readlines(siFile file);
 
-isize si_file_write(siFile* file, const char* content);
-isize si_file_write_len(siFile* file, const char* content, usize len);
-isize si_file_write_at(siFile* file, const char* content, usize offset);
-isize si_file_write_at_line(siFile* file, const char* content, usize index);
-isize si_file_write_at_len(siFile* file, const char* content, usize content_len, usize offset);
+isize si_file_write(siFile* file, cstring content);
+isize si_file_write_len(siFile* file, cstring content, usize len);
+isize si_file_write_at(siFile* file, cstring content, usize offset);
+isize si_file_write_at_line(siFile* file, cstring content, usize index);
+isize si_file_write_at_len(siFile* file, cstring content, usize content_len, usize offset);
 
 isize si_file_seek(siFile file, usize offset);
 isize si_file_seek_to_end(siFile file);
@@ -736,7 +854,7 @@ typedef struct siThread {
 	#else
 		usize id;
 	#endif
-	bool is_running;
+	volatile bool is_running;
 	rawptr return_value;
 
 	siFunction func;
@@ -747,22 +865,218 @@ typedef struct siThread {
 siThread si_thread_create(siFunction function, rawptr arg);
 
 void si_thread_start(siThread* t);
+void si_thread_start_stack(siThread* t, usize stack_size);
 void si_thread_join(siThread* t);
 
-void si_thread_cancel(siThread* t);
+void si_thread_cancel(siThread* t); /* NOTE(EimaMei): Only works on Unix. */
 void si_thread_destroy(siThread* t);
 
 void si_thread_set_priority(siThread t, i32 priority);
-void si_thread_set_stack_size(siThread t, usize stack_size);
 
 #endif
 
+#if !defined(SI_TIME_UNDEFINE)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siTime               |
+	========================
+*/
+
+#if !defined(SI_TIME_FIRST_WEEKDAY_MONDAY) && !defined(SI_TIME_FIRST_WEEKDAY_FRIDAY) && !defined(SI_TIME_FIRST_WEEKDAY_SATURDAY) && !defined(SI_TIME_FIRST_WEEKDAY_SUNDAY)
+	#define SI_TIME_FIRST_WEEKDAY_MONDAY
+#endif
+
+typedef SI_ENUM_DECLARE(usize, siMonth) {
+	siJanuary = 1,
+	siFebruary,
+	siMarch,
+	siApril,
+	siMay,
+	siJune,
+	siJuly,
+	siAugust,
+	siSeptember,
+	siOctober,
+	siNovember,
+	siDecember
+};
+
+/* NOTE(EimaMi): For whatever reason some places uses Sunday as the first weekday, while MOST of Europe views monday as the first weekday.
+				 So by default Monday will be set as the first weekday with the options to change it depending on your taste. */
+typedef SI_ENUM_DECLARE(usize, siWeek) {
+	#if defined(SI_TIME_FIRST_WEEKDAY_MONDAY)
+		Monday,
+		Tuesday,
+		Wednesday,
+		Thursday,
+		Friday,
+		Saturday,
+		Sunday
+	#elif defined(SI_TIME_FIRST_WEEKDAY_FRIDAY) /* NOTE(EimaMei): WTF MALDIVES???? */
+		Saturday,
+		Sunday,
+		Monday,
+		Tuesday,
+		Wednesday,
+		Thursday,
+		Friday
+	#elif defined(SI_TIME_FIRST_WEEKDAY_SATURDAY) /* NOTE(EimaMei): Shoutout to that one Arab using this library. */
+		Saturday,
+		Sunday,
+		Monday,
+		Tuesday,
+		Wednesday,
+		Thursday,
+		Friday
+	#elif defined(SI_TIME_FIRST_WEEKDAY_SUNDAY)
+		Sunday,
+		Monday,
+		Tuesday,
+		Wednesday,
+		Thursday,
+		Friday,
+		Saturday
+	#endif
+};
 
 
+/*f64 si_time_now(void);
+u64 si_time_utc_now(void);*/
+void si_sleep(usize miliseconds);
+
+#endif
+
+#if !defined(SI_PERFORMANCE_UNDEFINE)
+
+#if !defined(SI_MEMORY_LOGGING)
+	#define SI_PERFORMANCE_MSG SI_MULTILINE(        \
+		"====== BENCHMARK DATA ======\n"            \
+		"General:\n"                                \
+			"\tFunction - '%s'\n"                   \
+			"\tDuration - '%f' ms\n"                \
+			"\tExecution count - '%f' million\n"    \
+	)
+	#define SI_PERFORMANCE_PRINT_MEMORY(function) do {} while (0)
+#else
+	#define SI_PERFORMANCE_MSG SI_MULTILINE(                                            \
+		"====== BENCHMARK DATA ======\n"                                                \
+		"NOTE: General execution count might be slower due to the memory logging.\n"    \
+		"General:\n"                                                                    \
+			"\tFunction - '%s'\n"                                                       \
+			"\tDuration - '%f' ms\n"                                                    \
+			"\tExecution count - '%f' million\n"                                        \
+	)
+	#define SI_PERFORMANCE_MSG_DEBUG SI_MULTILINE(          \
+		"Memory (per execution):\n"                         \
+			"\tAllocation count - '%zd'\n"                  \
+			"\tFree count - '%zd'\n"                        \
+			"\tTotal RAM usage - '%zd' bytes\n"             \
+			"\tOverall allocated RAM left - '%zd' bytes\n"  \
+	)
+	#define SI_PERFORMANCE_PRINT_MEMORY(function) \
+		{                                                                                                                   \
+			si_debug_allocs = si_debug_frees = si_debug_memory_consumption = si_debug_overall = 0;                          \
+			function;                                                                                                       \
+		}                                                                                                                   \
+		printf(SI_PERFORMANCE_MSG_DEBUG, si_debug_allocs, si_debug_frees, si_debug_memory_consumption, si_debug_overall)
+#endif
+
+void si_impl_performance_thread(u32* arg);
+
+#define si_performance_loop(times_to_loop, function)                                                                         \
+	do {                                                                                                                     \
+		usize si_index;                                                                                                      \
+		clock_t si_time_since = clock();                                                                                     \
+		for (si_index = 0; si_index < (usize)times_to_loop; si_index++) {                                                    \
+			function;                                                                                                        \
+		}                                                                                                                    \
+                                                                                                                             \
+		si_time_since = clock() - si_time_since;                                                                             \
+		f64 si_time_taken = ((f64)si_time_since) / 1000; /* NOTE(EimaMei): This will take the time in ms, not seconds. */    \
+		printf(SI_PERFORMANCE_MSG, #function, si_time_taken, (f64)times_to_loop / 1000000.0f);                               \
+		SI_PERFORMANCE_PRINT_MEMORY(function);                                                                               \
+	} while(0)
+
+#define si_performance_exec_per_ms(ms, function)											            \
+	do { 																					            \
+		u64 si_counter = 0; 																	        \
+		u32 si_miliseconds = (u32)ms;															        \
+		siThread si_thread = si_thread_create(siFunc(si_impl_performance_thread), &si_miliseconds);     \
+		si_thread_start(&si_thread);																    \
+                                                                                                        \
+		while (si_thread.is_running) {                                                                  \
+			function;                                                                                   \
+			si_counter += 1;                                                                            \
+		}                                                                                               \
+                                                                                                        \
+		printf(SI_PERFORMANCE_MSG, #function, (f64)si_miliseconds, (f64)si_counter / 1000000.0f);       \
+		SI_PERFORMANCE_PRINT_MEMORY(function);                                                          \
+	} while(0)
+#endif
+
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| SI_IMPLEMENTATION    |
+	========================
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*/
+
+#ifdef SI_IMPLEMENTATION
+	#define SI_GENERAL_IMPLEMENTATION
+	#define SI_PAIR_IMPLEMENTATION
+	#define SI_OPTIONAL_IMPLEMENTATION
+	#define SI_ARRAY_IMPLEMENTATION
+	#define SI_STRING_IMPLEMENTATION
+	#define SI_CHAR_IMPLEMENTATION
+	#define SI_FILE_IMPLEMENTATION
+	#define SI_THREAD_IMPLEMENTATION
+	#define SI_PERFORMANCE_IMPLEMENTATION
+#endif
 
 #if defined(SI_GENERAL_IMPLEMENTATION)
 
-usize si_impl_assert_msg(bool condition, const char* condition_str, const char* message, const char* file, i32 line) {
+usize si_impl_assert_msg(bool condition, cstring condition_str, cstring message, cstring file, i32 line) {
 	if (!condition) {
 		fprintf(stderr, "Assertion \"%s\" at \"%s:%d\"%s %s\n", condition_str, file, line, (message != nil ? ":" : ""), (message != nil ? message : ""));
 		abort();
@@ -922,20 +1236,22 @@ isize si_array_reverse(siArray(void) array) {
 	usize type_width = si_array_type_width(array_pointer);
 	SI_ASSERT_MSG(len != 0, "Array is empty");
 
-	usize i, j;
-	rawptr tmp[1];
-	for (i = 0, j = len - 1; i < j; i++, j--) {
-		rawptr i_var = array_pointer + i * type_width;
-		rawptr j_var = array_pointer + j * type_width;
+	siByte* a = array_pointer;
+	siByte* b = array_pointer + (len - 1) * type_width;
+	static rawptr tmp[1];
+	len *= 0.5;
 
-		memcpy(tmp, i_var, type_width);
-		memcpy(i_var, j_var, type_width);
-		memcpy(j_var, tmp, type_width);
+	while (len--) {
+		memcpy(tmp, a, type_width);
+		memcpy(a, b, type_width);
+		memcpy(b, tmp, type_width);
+
+		a += type_width, b -= type_width;
 	}
 
 	return SI_OKAY;
 }
-siString si_array_to_sistring(siArray(char*) array, const char* separator) {
+siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	SI_ASSERT_NOT_NULL(array);
 
 	usize separator_len = si_cstr_len(separator);
@@ -1031,10 +1347,11 @@ isize si_array_free(siArray(void) array) {
 
 #if defined(SI_STRING_IMPLEMENTATION) && !defined(SI_STRING_UNDEFINE)
 
-inline siString si_string_make(char* str) {
+
+inline siString si_string_make(cstring str) {
     return si_string_make_len(str, str ? si_cstr_len(str) : 0);
 }
-siString si_string_make_len(char* str, usize len) {
+siString si_string_make_len(cstring str, usize len) {
 	siString res_str = si_string_make_reserve(len);
 	memcpy(res_str, str, len);
 	res_str[len] = '\0';
@@ -1045,7 +1362,7 @@ siString si_string_make_len(char* str, usize len) {
 	return res_str;
 }
 
-siString si_string_make_fmt(char* str, ...) {
+siString si_string_make_fmt(cstring str, ...) {
 	va_list va;
 	va_start(va, str);
 
@@ -1075,48 +1392,12 @@ siString si_string_make_reserve(usize len) {
 
 	return res_str;
 }
-siString si_string_make_int(isize num) {
-	usize count = 1;
-	isize og = num;
-	char buffer[32];
-
-	if (num < 0) {
-		count++;
-		num = -num;
-	}
-
-	while (true) {
-		isize number = num % 10;
-
-		if (number == 0 && count != 0) {
-			break;
-		}
-
-		buffer[count - 1] = '0' + number;
-		count++;
-		num *= 0.1f;
-	}
-
-	if (og < 0) {
-		buffer[count - 1] = '-';
-		count++;
-	}
-	buffer[count - 1] = '\0';
-
-	char shuffle[count];
-	usize i;
-	for (i = 0; i < count; i++) {
-		shuffle[i] = buffer[count - 2 - i];
-	}
-
-	return si_string_make(shuffle);
-}
 
 inline usize si_string_len(siString str) {
 	return SI_STRING_HEADER(str)->len;
 }
-inline usize si_cstr_len(const char* str) {
-	register const char* s;
+inline usize si_cstr_len(cstring str) {
+	cstring s;
 	for (s = str; *s; s++);
 
 	return (s - str);
@@ -1147,10 +1428,10 @@ inline char si_string_back(siString str) {
 	return str[si_string_len(str) - 1];
 }
 
-inline isize si_string_find(siString str, const char* cstr) {
+inline isize si_string_find(siString str, cstring cstr) {
 	return si_string_find_ex(str, 0, si_string_len(str), cstr);
 }
-isize si_string_find_ex(siString str, usize start, usize end, const char* cstr) {
+isize si_string_find_ex(siString str, usize start, usize end, cstring cstr) {
     SI_ASSERT_NOT_NULL(str);
 
 	usize cstr_len = si_cstr_len(cstr);
@@ -1174,10 +1455,10 @@ isize si_string_find_ex(siString str, usize start, usize end, const char* cstr) 
 
 	return (found ? (i - cstr_len + 1) : SI_ERROR);
 }
-inline isize si_string_rfind(siString str, const char* cstr) {
+inline isize si_string_rfind(siString str, cstring cstr) {
 	return si_string_rfind_ex(str, si_string_len(str) - 1, 0, cstr);
 }
-isize si_string_rfind_ex(siString str, usize start, usize end, const char* cstr) {
+isize si_string_rfind_ex(siString str, usize start, usize end, cstring cstr) {
     SI_ASSERT_NOT_NULL(str);
 
 	usize cstr_len = si_cstr_len(cstr);
@@ -1202,7 +1483,7 @@ isize si_string_rfind_ex(siString str, usize start, usize end, const char* cstr)
 	return (found ? i : SI_ERROR);
 }
 
-isize si_string_join(siString* str, const char* cstr, const char* separator) {
+isize si_string_join(siString* str, cstring cstr, cstring separator) {
 	usize cstr_len = si_cstr_len(cstr);
 	usize separator_len = si_cstr_len(separator);
 
@@ -1213,7 +1494,7 @@ isize si_string_join(siString* str, const char* cstr, const char* separator) {
 
 	return si_string_append_len(str, tmp, separator_len + cstr_len);
 }
-isize si_string_set(siString* str, const char* cstr) {
+isize si_string_set(siString* str, cstring cstr) {
 	usize cur_len = si_string_len(*str);
 	usize len = si_cstr_len(cstr);
 
@@ -1231,7 +1512,7 @@ isize si_string_set(siString* str, const char* cstr) {
 
 	return SI_OKAY;
 }
-isize si_string_replace(siString* str, const char* old_value, const char* new_value) {
+isize si_string_replace(siString* str, cstring old_value, cstring new_value) {
 	usize str_len = si_string_len(*str);
 	usize new_len = si_cstr_len(new_value);
 	usize old_len = si_cstr_len(old_value);
@@ -1279,7 +1560,7 @@ isize si_string_replace(siString* str, const char* old_value, const char* new_va
 
 	return pos;
 }
-isize si_string_trim(siString* str, const char* cut_set) {
+isize si_string_trim(siString* str, cstring cut_set) {
 	char* start = *str;
 	char* end  = *str + si_string_len(*str) - 1;
 	char* start_pos = start;
@@ -1369,24 +1650,28 @@ isize si_string_strip(siString* str) {
 
 	return si_string_set(str, stripped_str);
 }
-isize si_string_reverse(siString* str) {
-	SI_ASSERT_NOT_NULL(str);
-
+inline isize si_string_reverse(siString* str) {
 	usize len = si_string_len(*str);
 	SI_ASSERT_MSG(len != 0, "String is empty");
+	return si_string_reverse_len(str, len);
+}
+isize si_string_reverse_len(siString* str, usize len) {
+	siString actual_str = *str;
 
-	usize i, j;
-	char tmp;
-	for (i = 0, j = len - 1; i < j; i++, j--) {
-		tmp = (*str)[i];
-		(*str)[i] = (*str)[j];
-		(*str)[j] = tmp;
+	char* a = actual_str;
+	char* b = actual_str + len - 1;
+	len *= 0.5;
+
+	while (len--) {
+		si_swap(*a, *b);
+		a++, b--;
 	}
 
+	*str = actual_str;
 	return SI_OKAY;
 }
 
-siArray(siString) si_string_split(siString str, const char* separator) {
+siArray(siString) si_string_split(siString str, cstring separator) {
 	usize separator_len = si_cstr_len(separator);
 
 	usize count = 0;
@@ -1418,10 +1703,10 @@ siArray(siString) si_string_split(siString str, const char* separator) {
 	return res;
 }
 
-inline isize si_string_append(siString* str, const char* other) {
+inline isize si_string_append(siString* str, cstring other) {
 	return si_string_append_len(str, other, si_cstr_len(other));
 }
-isize si_string_append_len(siString* str, const char* other, usize other_len) {
+isize si_string_append_len(siString* str, cstring other, usize other_len) {
 	siStringHeader* header = SI_STRING_HEADER(*str);
 	usize previous_len = header->len;
 	header->len += other_len;
@@ -1445,35 +1730,6 @@ inline isize si_string_push_back(siString* str, char other) {
 inline siString si_string_copy(siString from) {
 	return si_string_make(from);
 }
-isize si_cstr_to_int(const char* str) {
-	SI_ASSERT_NOT_NULL(str);
-    isize result = 0;
-    usize i = 0;
-	bool is_negative = false;
-
-	if (str[0] == '-') {
-		i += 1;
-		is_negative = true;
-	}
-
-    for ( ; i < si_cstr_len(str); i++) {
-        if (str[i] >= '0' && str[i] <= '9') {
-            result *= 10;
-
-            if (str[i] != '0')
-                result += (isize)(str[i] - '0');
-        }
-		else {
-			SI_ASSERT_MSG(!(str[i] >= '0' && str[i] <= '9'), "Found a non-number");
-		}
-    }
-
-	if (is_negative) {
-		result = -result;
-	}
-
-    return result;
-}
 inline isize si_string_clear(siString* str) {
 	char null_terminator = '\0';
 	isize result = si_string_set(str, &null_terminator);
@@ -1481,7 +1737,7 @@ inline isize si_string_clear(siString* str) {
 	return result;
 }
 
-bool si_strings_are_equal(const char* lhs, const char* rhs) {
+bool si_strings_are_equal(cstring lhs, cstring rhs) {
 	if (lhs == rhs) {
 		return true;
 	}
@@ -1532,15 +1788,22 @@ isize si_string_make_space_for(siString* str, usize add_len) {
 
 #if defined(SI_CHAR_IMPLEMENTATION) && !defined(SI_STRING_UNDEFINE)
 
+static const char si_impl_num_to_char_table[] = /* NOTE(EimaMei): Required for converting nums to chars quickly. */
+	"0123456789"
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz"
+	"@$";
+
 inline char si_char_to_lower(char c) {
 	if (c >= 'A' && c <= 'Z') {
-		return 'a' + (c - 'A');
+		return c + 32; /* NOTE(EimaMei): 32 is just the math result of 'A' - 'a'. This performs much better, as the previous version required 2 math operations, while this - only one. */
 	}
 	return c;
 }
+
 inline char si_char_to_upper(char c) {
 	if (c >= 'a' && c <= 'z') {
-		return 'A' + (c - 'a');
+		return c - 32; /* NOTE(EimaMei): 32 is just the math result of 'A' - 'a'. This performs much better, as the previous version required 2 math operations, while this - only one. */
 	}
 	return c;
 }
@@ -1561,7 +1824,7 @@ inline bool si_char_is_alphanumeric(char c) {
 	return si_char_is_alpha(c) || si_char_is_digit(c);
 }
 inline i32 si_digit_to_int(char c) {
-	return (si_char_is_digit(c) ? c - '0' : c - 'W');
+	return (c - '0'); /* NOTE(EimaMei): If the user inputs a non-number character, then it's their problem (like read the damn function name ffs). */
 }
 i32 si_hex_digit_to_int(char c) {
 	if (si_char_is_digit(c)) {
@@ -1577,136 +1840,205 @@ i32 si_hex_digit_to_int(char c) {
 	return -1;
 }
 
+cstring si_u64_to_cstr(u64 num) {
+	static char buffer[20 + 1]; /* NOTE(EimaMei): 20 chars is the maximum of numbers we can have in an u64. */
+	char* cur_char = buffer;
+
+	do {
+		*cur_char++ = si_impl_num_to_char_table[num % 10];
+		num /= 10;
+	} while (num > 0);
+	*cur_char = '\0';
+
+	char* res = buffer;
+	si_string_reverse_len(&res, (u64)(cur_char - buffer));
+
+	return res;
+}
+u64 si_cstr_to_u64(cstring str) {
+	SI_ASSERT_NOT_NULL(str);
+
+    u64 result = 0;
+	char cur;
+    while ((cur = *str++)) {
+        if (cur >= '0' && cur <= '9') {
+            result = (result * 10) + (cur - '0');
+        }
+		else {
+			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
+		}
+    }
+
+    return result;
+}
+cstring si_i64_to_cstr(i64 num) {
+	static char buffer[20 + 1]; /* NOTE(EimaMei): 19 chars is the maximum of numbers we can have in an i64. One more char for the possible minus symbol. */
+	char* cur_char = buffer;
+	bool negative = false;
+
+	u64 value;
+	if (num < 0) {
+		negative = true;
+		num = -num;
+	}
+	value = (u64)num;
+
+	do {
+		*cur_char++ = si_impl_num_to_char_table[value % 10];
+		value /= 10;
+	} while (value > 0);
+
+	if (negative) {
+		*cur_char++ = '-';
+	}
+
+	*cur_char = '\0';
+
+	char* res = buffer;
+	si_string_reverse_len(&res, (cur_char - buffer));
+
+	return res;
+}
+i64 si_cstr_to_i64(cstring str) {
+	SI_ASSERT_NOT_NULL(str);
+
+    i64 result = 0;
+	char cur;
+	bool negative = false;
+
+	if ((*str) == '-') {
+		negative = true;
+		str++;
+	}
+
+	while ((cur = *str++)) {
+        if (cur >= '0' && cur <= '9') {
+            result = (result * 10) + (cur - '0');
+        }
+		else {
+			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
+		}
+    }
+
+	if (negative) {
+		result = -result;
+	}
+
+    return result;
+}
+
 #endif
 
 #if defined(SI_FILE_IMPLEMENTATION) && !defined(SI_FILE_UNDEFINE)
 
-inline bool si_path_exists(const char* path) {
+inline bool si_path_exists(cstring path) {
 	#if defined(SI_SYSTEM_WINDOWS)
-
-	DWORD file_attrib = GetFileAttributes(path);
-	return file_attrib != INVALID_FILE_ATTRIBUTES;
-
+		DWORD file_attrib = GetFileAttributes(path);
+		return file_attrib != INVALID_FILE_ATTRIBUTES;
 	#else
 
-	struct stat tmp;
- 	return (stat(path, &tmp) == SI_OKAY);
+		struct stat tmp;
+		return (stat(path, &tmp) == SI_OKAY);
 
 	#endif
 }
-isize si_path_copy(const char* existing_path, const char* new_path) {
+isize si_path_copy(cstring existing_path, cstring new_path) {
 	#if defined(SI_SYSTEM_WINDOWS)
-
-	return (CopyFile(existing_path, new_path, true) != 0);
-
+		return (CopyFile(existing_path, new_path, true) != 0);
 	#else
+		isize existing_fd = open(existing_path, O_RDONLY, 0);
+		isize new_fd = open(new_path, O_WRONLY | O_CREAT, 0666);
 
-	isize existing_fd = open(existing_path, O_RDONLY, 0);
-	isize new_fd      = open(new_path, O_WRONLY | O_CREAT, 0666);
+		struct stat stat_existing;
+		fstat(existing_fd, &stat_existing);
 
-	struct stat stat_existing;
-	fstat(existing_fd, &stat_existing);
+		isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
 
-	isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
+		close(new_fd);
+		close(existing_fd);
 
-	close(new_fd);
-	close(existing_fd);
-
-	return size == stat_existing.st_size;
-
+		return size == stat_existing.st_size;
 	#endif
 }
-inline isize si_path_move(const char* existing_path, const char* new_path) {
+inline isize si_path_move(cstring existing_path, cstring new_path) {
 	#if defined(SI_SYSTEM_WINDOWS)
-
-	return (MoveFile(existing_path, new_path) != 0);
-
+		return (MoveFile(existing_path, new_path) != 0);
 	#else
-
-	if (link(existing_path, new_path) == 0) {
-		return unlink(existing_path);
-	}
-	return SI_ERROR;
-
+		if (link(existing_path, new_path) == 0) {
+			return unlink(existing_path);
+		}
+		return SI_ERROR;
 	#endif
 }
-inline isize si_path_remove(const char* path) {
+inline isize si_path_remove(cstring path) {
 	#if defined(SI_SYSTEM_WINDOWS)
-
-	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path), 0, ".");
-	if (pos != SI_ERROR) {
-		return (DeleteFileA(path) != 0);
-	}
-	else {
-		return (RemoveDirectoryA(path) != 0);
-	}
-
+		isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path), 0, ".");
+		if (pos != SI_ERROR) {
+			return (DeleteFileA(path) != 0);
+		}
+		else {
+			return (RemoveDirectoryA(path) != 0);
+		}
 	#elif defined(SI_SYSTEM_OSX)
-
-	return unlink(filename);
-
+		return unlink(filename);
 	#else
-
-	return remove(path);
-
+		return remove(path);
 	#endif
 }
 
-inline const char* si_path_base_name(const char* path) {
+inline cstring si_path_base_name(cstring path) {
 	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path) - 1, 0, &SI_PATH_SEPARATOR);
 
 	return (pos != SI_ERROR ? (path + pos + 1) : path);
 }
-inline const char* si_path_extension(const char* path) {
+inline cstring si_path_extension(cstring path) {
 	isize pos = si_string_rfind_ex((siString)path, si_cstr_len(path) - 1, 0, ".");
 
 	return (pos != SI_ERROR ? (path + pos + 1) : path);
 }
-inline siString si_path_get_fullname(const char* path) {
-	#if defined(SI_SYSTEM_WINDOWS)
-
-	char buffer[MAX_PATH];
-	GetFullPathNameA(path, MAX_PATH, buffer, nil);
-
-	return si_string_make(buffer);
-
-	#else
-
-	char actual_path[4096];
-	realpath(path, actual_path);
-
-	return si_string_make(actual_path);
-
-	#endif
-}
-
-inline bool si_path_is_absolute(const char* path) {
+inline siString si_path_get_fullname(cstring path) {
 	SI_ASSERT_NOT_NULL(path);
 
-	#if defined(SI_WINDOWS)
-	return (
-		si_cstr_len(path) > 2 &&
-		gb_char_is_alpha(path[0]) &&
-		(path[1] == ':' && path[2] == GB_PATH_SEPARATOR)
-	);
+	#if defined(SI_SYSTEM_WINDOWS)
+		char buffer[MAX_PATH];
+		GetFullPathNameA(path, MAX_PATH, buffer, nil);
+
+		return si_string_make(buffer);
 	#else
-	return (1 < si_cstr_len(path) && path[0] == SI_PATH_SEPARATOR);
+		char actual_path[4096];
+		realpath(path, actual_path);
+
+		return si_string_make(actual_path);
 	#endif
 }
-inline bool si_path_is_relative(const char* path) {
+
+inline bool si_path_is_absolute(cstring path) {
+	SI_ASSERT_NOT_NULL(path);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		return (
+			si_cstr_len(path) > 2 &&
+			si_char_is_alpha(path[0]) &&
+			(path[1] == ':' && path[2] == SI_PATH_SEPARATOR)
+		);
+	#else
+		return (1 < si_cstr_len(path) && path[0] == SI_PATH_SEPARATOR);
+	#endif
+}
+inline bool si_path_is_relative(cstring path) {
 	return !si_path_is_absolute(path);
 }
 
 
 
 
-inline siFile si_file_create(const char* path) {
+inline siFile si_file_create(cstring path) {
 	return si_file_open_mode(path, SI_FILE_MODE_CREATE);
 }
-inline siFile si_file_open(const char* path) {
+inline siFile si_file_open(cstring path) {
 	return si_file_open_mode(path, SI_FILE_MODE_READ);
 }
-siFile si_file_open_mode(const char* path, siFileMode mode) {
+siFile si_file_open_mode(cstring path, siFileMode mode) {
 	SI_ASSERT_NOT_NULL(path);
 
 	siString mode_str = nil;
@@ -1778,16 +2110,16 @@ siArray(siString) si_file_readlines(siFile file) {
 	return res;
 }
 
-inline isize si_file_write(siFile* file, const char* content) {
+inline isize si_file_write(siFile* file, cstring content) {
 	return si_file_write_at_len(file, content, si_cstr_len(content), 0);
 }
-inline isize si_file_write_len(siFile* file, const char* content, usize len) {
+inline isize si_file_write_len(siFile* file, cstring content, usize len) {
 	return si_file_write_at_len(file, content, len, 0);
 }
-inline isize si_file_write_at(siFile* file, const char* content, usize offset) {
+inline isize si_file_write_at(siFile* file, cstring content, usize offset) {
 	return si_file_write_at_len(file, content, si_cstr_len(content), offset);
 }
-isize si_file_write_at_len(siFile* file, const char* content, usize content_len, usize offset) {
+isize si_file_write_at_len(siFile* file, cstring content, usize content_len, usize offset) {
 	SI_ASSERT_NOT_NULL(file->ptr);
 	SI_ASSERT_NOT_NULL(content);
 
@@ -1798,7 +2130,7 @@ isize si_file_write_at_len(siFile* file, const char* content, usize content_len,
 	si_file_size_update(file);
 	return result;
 }
-isize si_file_write_at_line(siFile* file, const char* content, usize index) {
+isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 	SI_ASSERT_NOT_NULL(file->ptr);
 
 	#if defined(SI_ARRAY_UNDEFINE)
@@ -1869,32 +2201,39 @@ inline siThread si_thread_create(siFunction function, rawptr arg) {
 	return t;
 }
 
-void si_thread_start(siThread* t) {
+
+inline void si_thread_start(siThread* t) {
+	usize minimum = 0;
+	#if !defined(SI_SYSTEM_WINDOWS)
+		minimum = PTHREAD_STACK_MIN;
+	#endif
+	si_thread_start_stack(t, minimum);
+}
+
+void si_thread_start_stack(siThread* t, usize stack_size) {
 	#if defined(SI_SYSTEM_WINDOWS)
-
-	t->id = CreateThread(nil, 0, (LPTHREAD_START_ROUTINE)si_impl_thread_proc, t, 0, nil);
-	t->is_running = true;
-	SI_ASSERT_MSG(t->id != nil, "Something went wrong with creating a new thread.");
-
+		t->id = CreateThread(nil, stack_size, (LPTHREAD_START_ROUTINE)si_impl_thread_proc, t, 0, nil);
+		t->is_running = true;
+		SI_ASSERT_MSG(t->id != nil, "Something went wrong with creating a new thread.");
 	#else
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+		pthread_attr_setstacksize(&attr, stack_size);
+		t->is_running = true;
 
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-	t->is_running = true;
+		usize error_code = pthread_create(&t->id, &attr, si_impl_thread_proc, t);
 
-	usize error_code = pthread_create(&t->id, &attr, si_impl_thread_proc, t);
-
-	const char* error_msg = nil;
-	switch (error_code) {
-		case SI_OKAY: break;
-		case EAGAIN:  error_msg = "The system lacked the necessary resources to create another thread, or the system-imposed limit on the total number of threads in a process PTHREAD_THREADS_MAX would be exceeded."; break;
-		case EINVAL:  error_msg = "The value specified by attr is invalid at 'pthread_create'."; break;
-		case EPERM:   error_msg = "The caller does not have appropriate permission to set the required scheduling parameters or scheduling policy."; break;
-		default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
-	}
-	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
-	pthread_attr_destroy(&attr);
+		cstring error_msg = nil;
+		switch (error_code) {
+			case SI_OKAY: break;
+			case EAGAIN:  error_msg = "The system lacked the necessary resources to create another thread, or the system-imposed limit on the total number of threads in a process PTHREAD_THREADS_MAX would be exceeded."; break;
+			case EINVAL:  error_msg = "The value specified by attr is invalid at 'pthread_create'."; break;
+			case EPERM:   error_msg = "The caller does not have appropriate permission to set the required scheduling parameters or scheduling policy."; break;
+			default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+		}
+		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+		pthread_attr_destroy(&attr);
 	#endif
 }
 
@@ -1909,7 +2248,7 @@ void si_thread_join(siThread* t) {
 
 	usize error_code = pthread_join(t->id, nil);
 
-	const char* error_msg = nil;
+	cstring error_msg = nil;
 	switch (error_code) {
 		case SI_OKAY: break;
 		case EDEADLK: error_msg = "A deadlock was detected."; break;
@@ -1929,7 +2268,7 @@ void si_thread_cancel(siThread* t) {
 	usize error_code = pthread_cancel(t->id);
 	t->is_running = false;
 
-	const char* error_msg = nil;
+	cstring error_msg = nil;
 	switch (error_code) {
 		case SI_OKAY:   break;
 		case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
@@ -1950,7 +2289,7 @@ void si_thread_set_priority(siThread t, i32 priority) {
 	#else
 	usize error_code = pthread_setschedprio(t.id, priority);
 
-	const char* error_msg = nil;
+	cstring error_msg = nil;
 	switch (error_code) {
 		case SI_OKAY:  break;
 		case EINVAL:   error_msg = "The value of 'priority' is invalid for the scheduling policy of the specified thread."; break;
@@ -1963,23 +2302,85 @@ void si_thread_set_priority(siThread t, i32 priority) {
 	#endif
 }
 
-void si_thread_set_stack_size(siThread t, usize stack_size) {
-	#if defined(SI_SYSTEM_WINDOWS)
-	usize res = (usize)CreateThread(nil, stack_size, (LPTHREAD_START_ROUTINE)si_thread_create, &t, STACK_SIZE_PARAM_IS_A_RESERVATION, nil);
-	SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread stack size.");
-	#else
-	usize error_code = pthread_attr_setstacksize(t.id, stack_size);
+#endif
 
-	const char* error_msg = nil;
-	switch (error_code) {
-		case SI_OKAY:  break;
-		case EINVAL:   error_msg = "The value of stacksize is less than PTHREAD_STACK_MIN or exceeds a system-imposed limit."; break;
-		default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+#if defined(SI_MEMORY_LOGGING_IMPLEMENTATION) && !defined(SI_MEMORY_LOGGING_UNDEFINE)
+
+usize si_debug_allocs = 0, si_debug_frees = 0, si_debug_memory_consumption = 0, si_debug_overall = 0;
+
+#if defined(malloc) /* NOTE(EimaMei): We undef the sili defined macros so that we don't get an infinite loop, where 'malloc' (under the hood si_debug_alloc) calls 'malloc' (under the hood si_debug_alloc) and continue that for the rest of our lives. */
+	#undef malloc
+	#undef calloc
+	#undef realloc
+	#undef free
+#endif
+
+rawptr si_debug_alloc(usize function_id, usize size, usize arg2, cstring file, i32 line, cstring function, cstring time, cstring date) {
+	siByte* res = nil;
+
+	switch (function_id) {
+		case 1: { /* malloc*/
+			res = malloc(sizeof(siDebugHeader) + size);
+			break;
+		}
+		case 2: { /* calloc*/
+			res = calloc(arg2, sizeof(siDebugHeader) + size);
+			size *= arg2;
+			break;
+		}
+		case 3: { /* realloc */
+			siDebugHeader* header = SI_DEBUG_HEADER(arg2);
+			si_debug_overall -= header->len;
+
+			res = realloc(header, sizeof(siDebugHeader) + size);
+			break;
+		}
+		default: __builtin_unreachable();
 	}
-	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
-	#endif
+
+	if (res == nil) {
+		siString msg;
+		if (errno == ENOMEM) {
+			msg = si_string_make_fmt("%s %s at '%s:%i'[%s]: Failed to malloc because the system is out of memory (errno ENOMEM).", date, time, file, line, function);
+		}
+		else {
+			msg = si_string_make_fmt("%s %s at '%s:%i'[%s]: Failed to malloc because the system is out of memory (errno ENOMEM).", date, time, file, line, function);
+		}
+		SI_ASSERT_MSG(res != NULL, msg);
+	}
+
+	siDebugHeader* header = (siDebugHeader*)res;
+	header->len = size;
+
+	si_debug_allocs += 1;
+	si_debug_memory_consumption += size;
+	si_debug_overall += size;
+
+	return res + sizeof(usize);
+}
+void si_debug_free(rawptr ptr) {
+	SI_ASSERT_NOT_NULL(ptr);
+
+	siDebugHeader* header = SI_DEBUG_HEADER(ptr);
+
+	si_debug_frees += 1;
+	si_debug_overall -= header->len;
+
+	free(header);
 }
 
+#define malloc(size) si_debug_alloc(1, size, 0, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define calloc(num, size) si_debug_alloc(2, size, num, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define realloc(ptr, new_size) si_debug_alloc(3, new_size, (usize)(ptr), __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+#define free(ptr) si_debug_free(ptr)
+
+#endif
+
+#if defined(SI_PERFORMANCE_IMPLEMENTATION) && !defined(SI_PERFORMANCE_UNDEFINE)
+
+inline void si_impl_performance_thread(u32* arg) {
+	si_sleep(*arg);
+}
 #endif
 
 #if defined(__cplusplus)
