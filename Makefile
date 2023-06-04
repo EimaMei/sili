@@ -4,7 +4,7 @@ NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
 SRC = main.c
-FLAGS = -O0 -g -std=c99 -Wall -Wextra -Wpedantic -DSI_MEMORY_LOGGING
+FLAGS = -O0 -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS =
 INCLUDE = -I"."
 
