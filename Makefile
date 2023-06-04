@@ -3,8 +3,8 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = example.c
-FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
+SRC = main.c
+FLAGS = -O0 -g -std=c99 -Wall -Wextra -Wpedantic -DSI_MEMORY_LOGGING
 LIBS =
 INCLUDE = -I"."
 

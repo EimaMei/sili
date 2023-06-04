@@ -1,8 +1,8 @@
 /*
 sili.h - An alternative to the C/C++ standard library.
 ===========================================================================
-	- YOU MUST DEFINE 'SI_IMPLEMENTATION' in EXACTLY _one_ C file that includes this header, BEFORE the
-	include like this:
+	- YOU MUST DEFINE 'SI_IMPLEMENTATION' in EXACTLY _one_ C file that includes
+	this header, BEFORE the include like this:
 
 		#define SI_IMPLEMENTATION
 		#include "sili.h"
@@ -19,24 +19,26 @@ sili.h - An alternative to the C/C++ standard library.
 		- #define SI_FILE_UNDEFINE
 		- #define SI_THREAD_UNDEFINE
 		- #define SI_PERFORMANCE_UNDEFINE
-	before the SI_IMPLEMENTATION macro, as well as before any other include of `sili.h`.
+	before the SI_IMPLEMENTATION macro, as well as before any other include of
+	`sili.h`.
 
-	- NOTE: Disabling certain features may or may not create 'undefined' compiler
-	errors at certain spots. Use it at your own risk.
+	- NOTE: Disabling certain features may or may not create 'undefined'
+	compiler errors at certain spots. Use it at your own risk.
 
 ===========================================================================
 
 LICENSE
-	- This software is dual-licensed to the public domain and under the MIT license
-	(see the LICENSEs in the bottom of the file).
+	- This software is dual-licensed to the public domain and under the MIT
+	license (see the LICENSEs in the bottom of the file).
 
 WARNING
-	- This library is _slightly_ experimental and features may not work as expected.
+	- This library is _slightly_ experimental and features may not work as
+	expected.
 	- This also means that many functions are not documented.
 
 CREDITS
-	- Ginger Bill's 'gb.h' for inspiring me to program the Sili Toolchain, as well as certain
-	features taken from the library and implemented here.
+	- Ginger Bill's 'gb.h' for inspiring me to program the Sili Toolchain, as
+	well as certain features taken from the library and implemented here.
 */
 
 #ifndef SI_INCLUDE_SI_H
@@ -86,6 +88,18 @@ extern "C" {
 	#error Unknown compiler
 #endif
 
+
+#if defined(__CPLUS__)
+	#define SI_LANGUAGE_CPLUS 1
+#elif defined(__cplusplus)
+	#define SI_LANGUAGE_CPP 1
+#elif defined(__OBJC__)
+	#define SI_LANGUAGE_OBJC 1
+#else
+	#define SI_LANGUAGE_C 1
+#endif
+
+
 #if defined(__STDC__)
 	#if defined(__STDC_VERSION__)
 		#define SI_STANDARD_VERSION __STDC_VERSION__
@@ -116,6 +130,8 @@ extern "C" {
 				#define SI_STANDARD_CPP17 1
 			#elif (SI_STANDARD_VERSION == 202002L)
 				#define SI_STANDARD_CPP20 1
+			#elif (SI_STANDARD_VERSION > 202002L)
+				#define SI_STANDARD_CPP23 1
 			#endif
 		#endif
 	#endif
@@ -145,8 +161,7 @@ extern "C" {
 	#error Unknown CPU Type
 #endif
 
-#define SI_STATIC_ASSERT3(cond, msg) typedef char static_assertion_##msg[(!!(cond)) * 2 - 1] /* Note(EimaMei): This is absolutely stupid but somehow it works so who cares, really? */
-#define SI_STATIC_ASSERT2(cond, line) SI_STATIC_ASSERT3(cond, static_assertion_at_line_##line)
+#define SI_STATIC_ASSERT2(cond, msg)  typedef char static_assertion_##msg[(!!(cond)) * 2 - 1] /* Note(EimaMei): This is absolutely stupid but somehow it works so who cares, really? */
 #define SI_STATIC_ASSERT1(cond, line) SI_STATIC_ASSERT2(cond, line)
 
 #define SI_STATIC_ASSERT(cond)        SI_STATIC_ASSERT1(cond, __LINE__)
@@ -342,6 +357,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 #define SI_UNUSED(x) (void)(x) /* NOTE(EimaMei) Should be used when you want to supress "parameter 'X' set but not used" errors. */
 
 #define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
+#define si_between(x, lower, upper) (((lower) <= (x)) && ((x) <= (upper)))
 
 #if defined(SI_STANDARD_ANSI) || defined(SI_COMPILER_MSVC) /* NOTE(EimaMei): Fuck Microsoft. */
 	#define typeof(value) __typeof__(value)
@@ -444,42 +460,6 @@ typedef struct siFunction {
 *
 *
 */
-
-#if defined(SI_MEMORY_LOGGING)
-/*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-	=========================
-	| Memory Logging (Beta) |
-	=========================
-*/
-
-typedef struct {
-	usize len;
-} siDebugHeader;
-#define SI_DEBUG_HEADER(s) ((siDebugHeader*)s - 1)
-
-rawptr si_debug_alloc(usize function_id, usize size, usize arg2, cstring file, i32 line, cstring function, cstring time, cstring date);
-void si_debug_free(rawptr ptr);
-
-#define malloc(size) si_debug_alloc(1, size, 0, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
-#define calloc(num, size) si_debug_alloc(2, size, num, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
-#define realloc(ptr, new_size) si_debug_alloc(3, new_size, (usize)(ptr), __FILE__, __LINE__, __func__, __TIME__, __DATE__)
-#define free(ptr) si_debug_free(ptr)
-
-#endif
 
 #if !defined(SI_PAIR_UNDEFINE)
 /*
@@ -600,23 +580,23 @@ siAny si_array_back(siArray(void) array);
 #define si_array_rfind(array, value) si_impl_array_rfind_ex(array, si_array_len(array) - 1, 0, si_any_make(value))
 #define si_array_rfind_ex(array, start, end, value) si_impl_array_rfind_ex(array, start, end, si_any_make(value))
 
-#define si_array_replace(array, old_value, new_value) si_impl_array_replace(array, si_any_make(old_value), si_any_make(new_value))
+#define si_array_replace(array_address, old_value, new_value) si_impl_array_replace(array_address, si_any_make(old_value), si_any_make(new_value))
 isize si_array_reverse(siArray(void) array);
 char* si_array_to_sistring(siArray(char*) array, cstring separator);
 
-#define si_array_append(array, value) si_impl_array_append(array, si_any_make(value))
-#define si_array_push_back(array, value) si_array_append(array, value)
+#define si_array_append(array_address, value) si_impl_array_append(array_address, si_any_make(value))
+#define si_array_push_back(array_address, value) si_array_append(array_address, value)
 
-isize si_array_clear(rawptr array);
+isize si_array_clear(rawptr array_address);
 bool si_arrays_are_equal(siArray(void) lha, siArray(void) rha);
 
 isize si_array_free(siArray(void) array);
 
 /* NOTE(EimaMei): The actual implementations. Shouldn't be used in practice, really. */
-isize si_impl_array_append(rawptr array, siAny value);
 isize si_impl_array_find_ex(rawptr array, usize start, usize end, siAny value);
-isize si_impl_array_rfind_ex(rawptr str, usize start, usize end, siAny value);
-isize si_impl_array_replace(rawptr array, siAny old_value, siAny new_value);
+isize si_impl_array_rfind_ex(rawptr array, usize start, usize end, siAny value);
+isize si_impl_array_append(rawptr array_address, siAny value);
+isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_value);
 
 #endif
 
@@ -954,8 +934,13 @@ typedef SI_ENUM_DECLARE(usize, siWeek) {
 };
 
 
-/*f64 si_time_now(void);
-u64 si_time_utc_now(void);*/
+f64 si_time_now(void);
+u64 si_time_utc_now(void) {
+	time_t rawtime;
+	time(&rawtime);
+
+	return rawtime;
+}
 void si_sleep(usize miliseconds);
 
 #endif
@@ -963,69 +948,123 @@ void si_sleep(usize miliseconds);
 #if !defined(SI_PERFORMANCE_UNDEFINE)
 
 #if !defined(SI_MEMORY_LOGGING)
-	#define SI_PERFORMANCE_MSG SI_MULTILINE(        \
-		"====== BENCHMARK DATA ======\n"            \
-		"General:\n"                                \
-			"\tFunction - '%s'\n"                   \
-			"\tDuration - '%f' ms\n"                \
-			"\tExecution count - '%f' million\n"    \
+	#define SI_PERFORMANCE_MSG SI_MULTILINE(\
+		"====== BENCHMARK DATA ======\n"\
+		"General:\n"\
+			"\tFunction - '%s'\n"\
+			"\tDuration - '%f' ms\n"\
+			"\tExecution count - '%f' million\n"\
 	)
 	#define SI_PERFORMANCE_PRINT_MEMORY(function) do {} while (0)
 #else
-	#define SI_PERFORMANCE_MSG SI_MULTILINE(                                            \
-		"====== BENCHMARK DATA ======\n"                                                \
-		"NOTE: General execution count might be slower due to the memory logging.\n"    \
-		"General:\n"                                                                    \
-			"\tFunction - '%s'\n"                                                       \
-			"\tDuration - '%f' ms\n"                                                    \
-			"\tExecution count - '%f' million\n"                                        \
+	#define SI_PERFORMANCE_MSG SI_MULTILINE(\
+		"====== BENCHMARK DATA ======\n"\
+		"NOTE: General execution count might be slower due to the memory logging.\n"\
+		"General:\n"\
+			"\tFunction - '%s'\n"\
+			"\tDuration - '%f' ms\n"\
+			"\tExecution count - '%f' million\n"\
 	)
-	#define SI_PERFORMANCE_MSG_DEBUG SI_MULTILINE(          \
-		"Memory (per execution):\n"                         \
-			"\tAllocation count - '%zd'\n"                  \
-			"\tFree count - '%zd'\n"                        \
-			"\tTotal RAM usage - '%zd' bytes\n"             \
-			"\tOverall allocated RAM left - '%zd' bytes\n"  \
+	#define SI_PERFORMANCE_MSG_DEBUG SI_MULTILINE(\
+		"Memory:\n"\
+			"\tAllocation count - '%zd'\n"\
+			"\tFree count - '%zd'\n"\
+			"\tTotal RAM usage - '%zd' bytes\n"\
+			"\tOverall allocated RAM left - '%zd' bytes\n"\
 	)
-	#define SI_PERFORMANCE_PRINT_MEMORY(function) \
-		{                                                                                                                   \
-			si_debug_allocs = si_debug_frees = si_debug_memory_consumption = si_debug_overall = 0;                          \
-			function;                                                                                                       \
-		}                                                                                                                   \
-		printf(SI_PERFORMANCE_MSG_DEBUG, si_debug_allocs, si_debug_frees, si_debug_memory_consumption, si_debug_overall)
+	#define SI_PERFORMANCE_PRINT_MEMORY(function)\
+		do {\
+			siDebugGlobalVars si_debug_old = si_debug;\
+			si_debug = (siDebugGlobalVars){0, 0, 0, 0, nil};\
+			function;\
+			si_debug_print_all();\
+			si_debug_print_allocations();\
+			si_debug_cleanup();\
+			si_debug = si_debug_old;\
+		} while(0)
 #endif
 
 void si_impl_performance_thread(u32* arg);
 
-#define si_performance_run_per_loop(times_to_loop, function)                                                                 \
-	do {                                                                                                                     \
-		usize si_index;                                                                                                      \
-		clock_t si_time_since = clock();                                                                                     \
-		for (si_index = 0; si_index < (usize)times_to_loop; si_index++) {                                                    \
-			function;                                                                                                        \
-		}                                                                                                                    \
-                                                                                                                             \
-		si_time_since = clock() - si_time_since;                                                                             \
-		f64 si_time_taken = ((f64)si_time_since) / 1000; /* NOTE(EimaMei): This will take the time in ms, not seconds. */    \
-		printf(SI_PERFORMANCE_MSG, #function, si_time_taken, (f64)times_to_loop / 1000000.0f);                               \
-		SI_PERFORMANCE_PRINT_MEMORY(function);                                                                               \
+#define si_performance_run_per_loop(times_to_loop, function)\
+	do {\
+		usize si_index;\
+		clock_t si_time_since = clock();\
+		for (si_index = 0; si_index < (usize)times_to_loop; si_index++) {\
+			function;\
+		}\
+		si_time_since = clock() - si_time_since;\
+		f64 si_time_taken = ((f64)si_time_since) / 1000; /* NOTE(EimaMei): This will take the time in ms, not seconds. */\
+		printf(SI_PERFORMANCE_MSG, #function, si_time_taken, (f64)times_to_loop / 1000000.0f);\
+		SI_PERFORMANCE_PRINT_MEMORY(function);\
 	} while(0)
 
-#define si_performance_executes_per_ms(ms, function)											        \
-	do { 																					            \
-		u64 si_counter = 0; 																	        \
-		u32 si_miliseconds = (u32)ms;															        \
-		siThread si_thread = si_thread_create(siFunc(si_impl_performance_thread), &si_miliseconds);     \
-		si_thread_start(&si_thread);																    \
-                                                                                                        \
-		while (si_thread.is_running) {                                                                  \
-			function;                                                                                   \
-			si_counter += 1;                                                                            \
-		}                                                                                               \
-                                                                                                        \
-		printf(SI_PERFORMANCE_MSG, #function, (f64)si_miliseconds, (f64)si_counter / 1000000.0f);       \
-		SI_PERFORMANCE_PRINT_MEMORY(function);                                                          \
+#define si_performance_executes_per_ms(ms, function)\
+	do {\
+		u64 si_counter = 0;\
+		u32 si_miliseconds = (u32)ms;\
+		siThread si_thread = si_thread_create(siFunc(si_impl_performance_thread), &si_miliseconds);\
+		si_thread_start(&si_thread);\
+		while (si_thread.is_running) {\
+			function;\
+			si_counter += 1;\
+		}\
+		printf(SI_PERFORMANCE_MSG, #function, (f64)si_miliseconds, (f64)si_counter / 1000000.0f);\
+		SI_PERFORMANCE_PRINT_MEMORY(function);\
 	} while(0)
+#endif
+
+#if defined(SI_MEMORY_LOGGING)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	=========================
+	| Memory Logging (Beta) |
+	=========================
+*/
+
+typedef struct {
+	cstring type;
+	usize len;
+	u8 state; /* 0 - NOT FREED, 1 - FREED, 2 - REALLOCED */
+
+	cstring date, time, file;
+	i32 line;
+	cstring function;
+
+	u32 index;
+} siDebugHeader;
+#define SI_DEBUG_HEADER(s) ((siDebugHeader*)s - 1)
+
+typedef siPair(usize, usize) siDebugArgs;
+
+rawptr si_debug_alloc(usize function_id, rawptr ptr, siDebugArgs args, cstring file, i32 line, cstring function, cstring time, cstring date);
+void si_debug_free(rawptr ptr);
+
+#define malloc(size) si_debug_alloc(1, nil, (siDebugArgs){size, 0}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define calloc(num, size) si_debug_alloc(2, nil, (siDebugArgs){size, num}, num, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define realloc(ptr, new_size) si_debug_alloc(3, ptr, (siDebugArgs){0, new_size}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define si_realloc(ptr, old_size, new_size) si_debug_alloc(4, ptr, (siDebugArgs){old_size, new_size}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define free(ptr) si_debug_free(ptr)
+
+void si_debug_print_all(void);
+void si_debug_print_allocations(void);
+void si_debug_cleanup(void);
+
+#define SI_QUICK_LOG() si_debug_print_all(); si_debug_print_allocations();
+
 #endif
 
 /*
@@ -1085,6 +1124,12 @@ usize si_impl_assert_msg(bool condition, cstring condition_str, cstring message,
 	return 0;
 }
 
+#if defined(SI_MEMORY_LOGGING)
+	#undef malloc
+	#undef si_realloc
+	#undef free
+#endif
+
 rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 	if (ptr == nil) {
 		return malloc(new_size);
@@ -1105,6 +1150,12 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 
 	return new_ptr;
 }
+
+#if defined(SI_MEMORY_LOGGING)
+	#define malloc(size) si_debug_alloc(1, nil, (siDebugArgs){size, 0}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+	#define si_realloc(ptr, old_size, new_size) si_debug_alloc(4, ptr, (siDebugArgs){old_size, new_size}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+	#define free(ptr) si_debug_free(ptr)
+#endif
 
 void si_sleep(usize miliseconds) {
 	#if defined(SI_SYSTEM_WINDOWS)
@@ -1132,6 +1183,9 @@ inline siArray(void) si_array_make_list(rawptr list, usize sizeof_element, usize
 	rawptr array = si_array_make_reserve(sizeof_element, count);
 	memcpy(array, list, sizeof_element * count);
 
+	siArrayHeader* header = SI_ARRAY_HEADER(array);
+	header->len = count;
+
 	return array;
 }
 inline siArray(void) si_array_copy(siArray(void) array) {
@@ -1143,7 +1197,7 @@ siArray(void) si_array_make_reserve(usize sizeof_element, usize count) {
 	siArray(void) array = ptr + sizeof(siArrayHeader);
 
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
-	header->len = count;
+	header->len = 0; /* TODO(EimaMei): FIX THIS!!!!!!!!!!!!!!!!!!!!! */
 	header->capacity = count;
 	header->type_width = sizeof_element;
 
@@ -1160,26 +1214,25 @@ inline usize si_array_type_width(siArray(void) array) {
 	return SI_ARRAY_HEADER(array)->type_width;
 }
 inline usize si_array_size_in_bytes(siArray(void) array) {
-	return si_array_len(array) * si_array_type_width(array);
+	return si_array_capacity(array) * si_array_type_width(array);
 }
 
 inline siAny si_array_at(siArray(void) array, usize index) {
-	SI_ASSERT_MSG(index < si_array_len(array) || si_array_len(array) != 0, "Array is empty OR the provided index is too high.");
+	SI_ASSERT_MSG(si_between(index, 0, si_array_len(array)), "Array is empty OR the provided index is too high.");
 
 	rawptr p = (siByte*)array + index * si_array_type_width(array);
-	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
+	return (siAny){si_array_type_width(array), p};
 }
 inline siAny si_array_front(siArray(void) array) {
 	SI_ASSERT_MSG(si_array_len(array) != 0, "Array is empty.");
 
-	rawptr p = (siByte*)array + 0 * si_array_type_width(array);
-	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
+	return (siAny){si_array_type_width(array), array};
 }
 inline siAny si_array_back(siArray(void) array) {
 	SI_ASSERT_MSG(si_array_len(array) != 0, "Array is empty.");
 
 	rawptr p = (siByte*)array + (si_array_len(array) - 1) * si_array_type_width(array);
-	return (siAny){.type_width = si_array_type_width(array), .ptr = p};
+	return (siAny){si_array_type_width(array), p};
 }
 
 isize si_impl_array_find_ex(rawptr array, usize start, usize end, siAny value) {
@@ -1215,16 +1268,17 @@ isize si_impl_array_rfind_ex(rawptr array, usize start, usize end, siAny value) 
 	return (found ? i : SI_ERROR);
 }
 
-isize si_impl_array_replace(rawptr array, siAny old_value, siAny new_value) {
-	rawptr* array_pointer = (rawptr*)array;
-	SI_ASSERT_MSG(old_value.type_width <= si_array_type_width(*array_pointer) && new_value.type_width <= old_value.type_width, "The given value's sizeof is too large compared to the elements' in the array.");
+isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_value) {
+	siByte* array = *((siByte**)array_address);
+	usize type_width = si_array_type_width(array);
+	SI_ASSERT_MSG(si_between(new_value.type_width, old_value.type_width, type_width), "The given value's sizeof is too large compared to the elements' in the array.");
 
-	isize pos = si_impl_array_find_ex(*array_pointer, 0, si_array_len(*array_pointer), old_value);
+	isize pos = si_impl_array_find_ex(array, 0, si_array_len(array), old_value);
 	if (pos == SI_ERROR) {
 		return SI_ERROR;
 	}
 
-	memcpy((siByte*)(*array_pointer) + pos * si_array_type_width(*array_pointer), new_value.ptr, new_value.type_width);
+	memcpy(array + pos * type_width, new_value.ptr, new_value.type_width);
 
 	return pos;
 }
@@ -1275,42 +1329,35 @@ siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	return result;
 }
 
-isize si_impl_array_append(rawptr array, siAny value) {
-	rawptr* array_pointer = (rawptr*)array;
-	siArrayHeader* header = SI_ARRAY_HEADER(*array_pointer);
-	SI_ASSERT_MSG((value.type_width <= header->type_width), "The given value's sizeof is too large compared to the elements' in the arra");
+isize si_impl_array_append(rawptr array_address, siAny value) {
+	siByte** array = ((siByte**)array_address);
+	siArrayHeader* header = SI_ARRAY_HEADER(*array);
+	SI_ASSERT_MSG(value.type_width <= header->type_width, "The given value's sizeof is too large compared to the elements' in the arra");
 
 	if (header->len == header->capacity) {
 		siByte* result = si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_width, sizeof(siArrayHeader) + 2 * header->capacity * header->type_width);
-		if (result == nil) {
-			return SI_ERROR;
-		}
-		*array_pointer = (siByte*)result + sizeof(siArrayHeader);
+		SI_ASSERT_NOT_NULL(result);
+
+		*array = result + sizeof(siArrayHeader);
 		header = (siArrayHeader*)result;
 
 		header->capacity *= 2;
 	}
 
-	rawptr res = memcpy((siByte*)(*array_pointer) + header->len * header->type_width, value.ptr, header->type_width);
-	if (res == nil) {
-		return SI_ERROR;
-	}
+	rawptr res = memcpy(*array + header->len * header->type_width, value.ptr, header->type_width);
+	SI_ASSERT_NOT_NULL(res);
 	header->len += 1;
 
 	return SI_OKAY;
 }
 
-isize si_array_clear(siArray(void) array) {
-	if (array == nil) {
-		return SI_ERROR;
-	}
+isize si_array_clear(rawptr array_address) {
+	SI_ASSERT_NOT_NULL(array_address);
 
-	rawptr* array_pointer = (rawptr*)array;
+	rawptr array = *((rawptr*)array_address);
 
-	rawptr result = memset(*array_pointer, 0, si_array_size_in_bytes(*array_pointer));
-	if (result == nil) {
-		return SI_ERROR;
-	}
+	rawptr result = memset(array, 0, si_array_size_in_bytes(array));
+	SI_ASSERT_NOT_NULL(result);
 
 	return SI_OKAY;
 }
@@ -1323,9 +1370,10 @@ bool si_arrays_are_equal(siArray(void) lha, siArray(void) rha) {
 		return false;
 	}
 
+	usize width = lha_header->type_width;
 	usize i;
 	for (i = 0; i < lha_header->len; i++) {
-		if (memcmp((siByte*)lha + i * lha_header->type_width, (siByte*)rha + i * lha_header->type_width, lha_header->type_width) != SI_OKAY) {
+		if (memcmp((siByte*)lha + i * width, (siByte*)rha + i * width, width) != SI_OKAY) {
 			return false;
 		}
 	}
@@ -1692,13 +1740,17 @@ siArray(siString) si_string_split(siString str, cstring separator) {
 
 		begin_pos = pos + separator_len;
 	}
-	siArray(siString) res = si_array_make_reserve(sizeof(*res), count);
+	siArray(siString) res = si_array_make_list(&(rawptr){nil}, sizeof(*res), count);
 
 	usize i;
 	for (i = 0; i < count; i++) {
+		printf("%zd\n", i);
 		res[i] = si_string_make_len(original, pos_buffer[i]);
+		printf("123\n");
 		original += pos_buffer[i] + separator_len;
+		printf("123\n");
 	}
+
 
 	return res;
 }
@@ -1728,7 +1780,7 @@ inline isize si_string_push_back(siString* str, char other) {
 }
 
 inline siString si_string_copy(siString from) {
-	return si_string_make(from);
+	return si_string_make_len(from, si_string_len(from));
 }
 inline isize si_string_clear(siString* str) {
 	char null_terminator = '\0';
@@ -2102,9 +2154,23 @@ siString si_file_read_at(siFile file, usize offset) {
 
 	return si_string_make_len(tmp, read_len);
 }
+/*
+	NOTE/TODO(EimaMei): This has a huge performance hit if the file is, lets say, 400 lines in length. That's over 400
+	allocations, and even more if the file is larger! An obvious way to imrpove the performance is to allocate one huge
+	memory block and then just copy over the lines with the headers. Problem is, this means the individual strings cannot
+	be freed by any means, resulting in crashes. A more optional way is to just output an array of cstrings, but then
+	we lose the benefits of siString. Maybe by creating siStaticArray (and by extension siStaticString), this will only
+	then require one allocation.
+
+	This also makes me realize that the old traditional heap allocating system is really, really flawed in performance,
+	compared to just allocating one HUUUGE memory block (a few MBs minimum) and just writing everything there. I'll think
+	about it for sure.
+*/
 siArray(siString) si_file_readlines(siFile file) {
 	siString buffer = si_file_read(file);
+	printf("finish\n");
 	siArray(siString) res = si_string_split(buffer, "\n");
+	printf("finish2\n");
 	si_string_free(buffer);
 
 	return res;
@@ -2133,18 +2199,10 @@ isize si_file_write_at_len(siFile* file, cstring content, usize content_len, usi
 isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 	SI_ASSERT_NOT_NULL(file->ptr);
 
-	#if defined(SI_ARRAY_UNDEFINE)
-	SI_ASSERT_MSG(SI_ARRAY_UNDEFINE != 1, "siArray is undefined, cannot use this function.");
-
-	SI_UNUSED(file);
-	SI_UNUSED(content);
-	SI_UNUSED(index);
-
-	return SI_ERROR;
-	#else
-
 	siArray(siString) buffer = si_file_readlines(*file);
+	siString previous_line = buffer[index];
 	SI_ASSERT_MSG(0 <= index && index <= si_array_len(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
+
 
 	buffer[index] = (siString)content;
 	siString new_file_content = si_array_to_sistring(buffer, "\n");
@@ -2152,11 +2210,21 @@ isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 	siFile new_file = si_file_open_mode(file->path, SI_FILE_MODE_CREATE);
 	si_file_write_len(&new_file, new_file_content, si_string_len(new_file_content));
 
+	usize i;
+	for (i = 0; i < si_array_len(buffer); i++) {
+		if (i == index) {
+			continue;
+		}
+		si_string_free(buffer[i]);
+	}
+	si_string_free(previous_line);
+	si_array_free(buffer);
+
+	si_string_free(new_file_content);
 	si_file_close(*file);
 	*file = new_file;
 
 	return SI_OKAY;
-	#endif
 }
 
 inline isize si_file_seek(siFile file, usize offset) {
@@ -2261,20 +2329,20 @@ void si_thread_join(siThread* t) {
 }
 void si_thread_cancel(siThread* t) {
 	#if defined(SI_SYSTEM_WINDOWS)
-	puts("si_thread_cancel: This feature on Windows is not supported as of now.");
-	SI_UNUSED(t);
+		puts("si_thread_cancel: This feature on Windows is not supported as of now.");
+		SI_UNUSED(t);
 	#else
 
-	usize error_code = pthread_cancel(t->id);
-	t->is_running = false;
+		usize error_code = pthread_cancel(t->id);
+		t->is_running = false;
 
-	cstring error_msg = nil;
-	switch (error_code) {
-		case SI_OKAY:   break;
-		case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
-		default:        error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
-	}
-	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+		cstring error_msg = nil;
+		switch (error_code) {
+			case SI_OKAY:   break;
+			case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
+			default:        error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+		}
+		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
 
 	#endif
 }
@@ -2284,21 +2352,21 @@ inline void si_thread_destroy(siThread* t) {
 
 void si_thread_set_priority(siThread t, i32 priority) {
 	#if defined(SI_SYSTEM_WINDOWS)
-	isize res = SetThreadPriority(t.id, priority);
-	SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
+		isize res = SetThreadPriority(t.id, priority);
+		SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
 	#else
-	usize error_code = pthread_setschedprio(t.id, priority);
+		usize error_code = pthread_setschedprio(t.id, priority);
 
-	cstring error_msg = nil;
-	switch (error_code) {
-		case SI_OKAY:  break;
-		case EINVAL:   error_msg = "The value of 'priority' is invalid for the scheduling policy of the specified thread."; break;
-		case ENOTSUP:  error_msg = "An attempt was made to set the priority to an unsupported value."; break;
-		case EPERM:    error_msg = "The caller does not have the appropriate permission to set the scheduling policy of the specified thread OR the implementation does not allow the application to modify the priority to the value specified."; break;
-		case ESRCH:    error_msg = "The value specified by thread does not refer to an existing thread."; break;
-		default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
-	}
-	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+		cstring error_msg = nil;
+		switch (error_code) {
+			case SI_OKAY:  break;
+			case EINVAL:   error_msg = "The value of 'priority' is invalid for the scheduling policy of the specified thread."; break;
+			case ENOTSUP:  error_msg = "An attempt was made to set the priority to an unsupported value."; break;
+			case EPERM:    error_msg = "The caller does not have the appropriate permission to set the scheduling policy of the specified thread OR the implementation does not allow the application to modify the priority to the value specified."; break;
+			case ESRCH:    error_msg = "The value specified by thread does not refer to an existing thread."; break;
+			default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+		}
+		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
 	#endif
 }
 
@@ -2306,34 +2374,94 @@ void si_thread_set_priority(siThread t, i32 priority) {
 
 #if defined(SI_MEMORY_LOGGING_IMPLEMENTATION) && !defined(SI_MEMORY_LOGGING_UNDEFINE)
 
-usize si_debug_allocs = 0, si_debug_frees = 0, si_debug_memory_consumption = 0, si_debug_overall = 0;
+typedef struct siDebugGlobalVars {
+	usize allocs;
+	usize frees;
+	usize total;
+	usize overall;
+	siArray(siDebugHeader*) list;
+} siDebugGlobalVars;
+siDebugGlobalVars si_debug = {0, 0, 0, 0, nil};
 
 #if defined(malloc) /* NOTE(EimaMei): We undef the sili defined macros so that we don't get an infinite loop, where 'malloc' (under the hood si_debug_alloc) calls 'malloc' (under the hood si_debug_alloc) and continue that for the rest of our lives. */
 	#undef malloc
 	#undef calloc
 	#undef realloc
+	#undef si_realloc
 	#undef free
 #endif
 
-rawptr si_debug_alloc(usize function_id, usize size, usize arg2, cstring file, i32 line, cstring function, cstring time, cstring date) {
+rawptr si_debug_alloc(usize function_id, rawptr ptr, siDebugArgs args, cstring file, i32 line, cstring function, cstring time, cstring date) {
 	siByte* res = nil;
+	/*NOTE(EimaMei): args.first - old size ; args.second - new size */
 
+	if (si_debug.list == nil) {
+		siByte* ptr = malloc(sizeof(siArrayHeader) + (sizeof(siDebugHeader*) * 100));
+		si_debug.list = (rawptr)(ptr + sizeof(siArrayHeader));
+
+		siArrayHeader* header = (siArrayHeader*)ptr;
+		header->len = 0;
+		header->capacity = 100;
+		header->type_width = sizeof(siDebugHeader*);
+	}
+
+	usize size = 0;
+	cstring type = nil;
 	switch (function_id) {
 		case 1: { /* malloc*/
-			res = malloc(sizeof(siDebugHeader) + size);
+			printf("hi\n");
+			res = malloc(sizeof(siDebugHeader) + args.first);
+			printf("hi\n");
+			size = args.first;
+			type = "malloc";
 			break;
 		}
 		case 2: { /* calloc*/
-			res = calloc(arg2, sizeof(siDebugHeader) + size);
-			size *= arg2;
+			res = calloc(args.second, sizeof(siDebugHeader) + args.first);
+			size = args.first * args.second;
+			type = "calloc";
 			break;
 		}
 		case 3: { /* realloc */
-			siDebugHeader* header = SI_DEBUG_HEADER(arg2);
-			si_debug_overall -= header->len;
+			siDebugHeader* header = SI_DEBUG_HEADER(ptr);
+			si_debug.allocs += 1;
+			si_debug.frees += 1;
 
 			res = realloc(header, sizeof(siDebugHeader) + size);
-			break;
+
+			header->type = "si_realloc";
+			header->len = args.second;
+			header->state = 2;
+			header->date = date;
+			header->time = time;
+			header->file = file;
+			header->line = line;
+			header->function = function;
+
+			return res + sizeof(siDebugHeader);
+		}
+		case 4: { /* si_realloc */
+			if (ptr == SI_ARRAY_HEADER(si_debug.list)) {
+				res = si_realloc(ptr, args.first, args.second);
+				return res;
+			}
+
+			siDebugHeader* header = SI_DEBUG_HEADER(ptr);
+			si_debug.allocs += 1;
+			si_debug.frees += 1;
+
+			res = si_realloc(header, sizeof(siDebugHeader) + args.first, sizeof(siDebugHeader) + args.second);
+
+			header->type = "si_realloc";
+			header->len = args.second;
+			header->state = 2;
+			header->date = date;
+			header->time = time;
+			header->file = file;
+			header->line = line;
+			header->function = function;
+
+			return res + sizeof(siDebugHeader);
 		}
 		default: __builtin_unreachable();
 	}
@@ -2344,34 +2472,103 @@ rawptr si_debug_alloc(usize function_id, usize size, usize arg2, cstring file, i
 			msg = si_string_make_fmt("%s %s at '%s:%i'[%s]: Failed to malloc because the system is out of memory (errno ENOMEM).", date, time, file, line, function);
 		}
 		else {
-			msg = si_string_make_fmt("%s %s at '%s:%i'[%s]: Failed to malloc because the system is out of memory (errno ENOMEM).", date, time, file, line, function);
+			msg = si_string_make_fmt("%s %s at '%s:%i'[%s]: Failed to malloc because of an unknown reason (errno '%zd').", date, time, file, line, function, errno);
 		}
 		SI_ASSERT_MSG(res != NULL, msg);
 	}
 
 	siDebugHeader* header = (siDebugHeader*)res;
+	header->type = type;
 	header->len = size;
+	header->state = 0;
+	header->date = date;
+	header->time = time;
+	header->file = file;
+	header->line = line;
+	header->function = function;
+	header->index = si_array_len(si_debug.list);
 
-	si_debug_allocs += 1;
-	si_debug_memory_consumption += size;
-	si_debug_overall += size;
+	si_debug.allocs += 1;
+	si_debug.total += size;
+	si_debug.overall += size;
 
-	return res + sizeof(usize);
+	si_array_append(&si_debug.list, header);
+
+	return res + sizeof(siDebugHeader);
 }
 void si_debug_free(rawptr ptr) {
 	SI_ASSERT_NOT_NULL(ptr);
 
 	siDebugHeader* header = SI_DEBUG_HEADER(ptr);
+	siDebugHeader copy = *header;
 
-	si_debug_frees += 1;
-	si_debug_overall -= header->len;
+	si_debug.frees += 1;
+	si_debug.overall -= header->len;
 
 	free(header);
+
+	siDebugHeader* new_header = malloc(sizeof(siDebugHeader));
+	*new_header = copy;
+	new_header->state = 1;
+
+	si_debug.list[new_header->index] = new_header;
 }
 
-#define malloc(size) si_debug_alloc(1, size, 0, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
-#define calloc(num, size) si_debug_alloc(2, size, num, __FILE__, __LINE__, __func__, __TIME__, __DATE__)
-#define realloc(ptr, new_size) si_debug_alloc(3, new_size, (usize)(ptr), __FILE__, __LINE__, __func__, __TIME__, __DATE__)
+void si_debug_print_all(void) {
+	if (si_debug.list == nil) {
+		return ;
+	}
+
+	foreach (x, si_debug.list) {
+		siDebugHeader* header = *x;
+
+		if (header == nil) {
+			continue;
+		}
+		cstring msg = nil;
+		switch (header->state) {
+			case 0: msg = "NOT FREED"; break;
+			case 1: msg = "FREED"; break;
+			case 2: msg = "REALLOCED"; break;
+			default: __builtin_unreachable();
+		}
+
+		printf(
+			"%d: [%p]: %s %s at '%s:%i'[%s]: %s: %s ('%zd' bytes).\n",
+			header->index,
+			(rawptr)((siByte*)header + sizeof(siDebugHeader)),
+			header->date, header->time,
+			header->file, header->line,
+			header->function,
+			header->type,
+			msg,
+			header->len
+		);
+	}
+}
+
+void si_debug_print_allocations(void) {
+	printf(SI_PERFORMANCE_MSG_DEBUG, si_debug.allocs, si_debug.frees, si_debug.total, si_debug.overall);
+}
+
+void si_debug_cleanup(void) {
+	if (si_debug.list == nil) {
+		return ;
+	}
+
+	foreach (x, si_debug.list) {
+		free(*x);
+	}
+
+	free(SI_ARRAY_HEADER(si_debug.list));
+
+	si_debug = (siDebugGlobalVars){0, 0, 0, 0, nil};
+}
+
+#define malloc(size) si_debug_alloc(1, nil, (siDebugArgs){size, 0}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define calloc(num, size) si_debug_alloc(2, nil, (siDebugArgs){size, num}, num, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define realloc(ptr, new_size) si_debug_alloc(3, ptr, (siDebugArgs){0, new_size}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
+#define si_realloc(ptr, old_size, new_size) si_debug_alloc(4, ptr, (siDebugArgs){old_size, new_size}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
 #define free(ptr) si_debug_free(ptr)
 
 #endif
