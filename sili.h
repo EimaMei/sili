@@ -759,14 +759,6 @@ cstring si_i64_to_cstr(i64 num);
 	|  siFile & siPath     |
 	========================
 */
-typedef enum siFileMode {
-	SI_FILE_MODE_READ = SI_BIT(0),
-	SI_FILE_MODE_WRITE = SI_BIT(1),
-	SI_FILE_MODE_READ_WRITE = SI_BIT(2),
-	SI_FILE_MODE_APPEND = SI_BIT(3),
-	SI_FILE_MODE_APPEND_READ = SI_BIT(4),
-	SI_FILE_MODE_CREATE = SI_BIT(5)
-} siFileMode;
 
 typedef struct siFile {
 	siString path;
@@ -804,7 +796,7 @@ bool si_path_is_relative(cstring path);
 */
 siFile si_file_create(cstring path);
 siFile si_file_open(cstring path);
-siFile si_file_open_mode(cstring path, siFileMode mode);
+siFile si_file_open_mode(cstring path, const char* mode);
 
 usize si_file_size(siFile file);
 void si_file_size_update(siFile* file);
@@ -1189,7 +1181,7 @@ void si_sleep(usize miliseconds) {
 #if defined(SI_PAIR_IMPLEMENTATION) && !defined(SI_PAIR_UNDEFINE)
 
 rawptr si_impl_pair_make(siAny first, siAny second) {
-	siByte* res = malloc(first.type_width + second.type_width);
+	siByte* res = (siByte*)malloc(first.type_width + second.type_width);
 	memcpy(res, first.ptr, first.type_width);
 	memcpy(res + first.type_width, second.ptr, second.type_width);
 
@@ -1213,7 +1205,7 @@ inline siArray(void) si_array_copy(siArray(void) array) {
 	return si_array_make_list(array, header->type_width, header->len);
 }
 siArray(void) si_array_make_reserve(usize sizeof_element, usize count) {
-	siByte* ptr = malloc(sizeof(siArrayHeader) + (sizeof_element * count));
+	siByte* ptr = (siByte*)malloc(sizeof(siArrayHeader) + (sizeof_element * count));
 	siArray(void) array = ptr + sizeof(siArrayHeader);
 
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
@@ -1355,7 +1347,7 @@ isize si_impl_array_append(rawptr array_address, siAny value) {
 	SI_ASSERT_MSG(value.type_width <= header->type_width, "The given value's sizeof is too large compared to the elements' in the arra");
 
 	if (header->len == header->capacity) {
-		siByte* result = si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_width, sizeof(siArrayHeader) + 2 * header->capacity * header->type_width);
+		siByte* result = (siByte*)si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_width, sizeof(siArrayHeader) + 2 * header->capacity * header->type_width);
 		SI_ASSERT_NOT_NULL(result);
 
 		*array = result + sizeof(siArrayHeader);
@@ -1706,7 +1698,7 @@ void si_string_insert(siString* str, cstring cstr, usize index) {
 	}
 	siString cur_str = *str;
 
-	char* ptr = memcpy(cur_str + header->len - before_index_len, cur_str + index, before_index_len);
+	char* ptr = (char*)memcpy(cur_str + header->len - before_index_len, cur_str + index, before_index_len);
 	memcpy(cur_str + index + 1, cstr, cstr_len);
 	SI_ASSERT_NOT_NULL(ptr);
 	ptr[header->len] = '\0';
@@ -1715,7 +1707,7 @@ void si_string_erase(siString* str, usize begin, usize end) {
 	usize after_index_len = begin + end;
 	siString cur_str = *str;
 
-	char* ptr = memcpy(cur_str + begin, cur_str + after_index_len, si_string_len(cur_str) - after_index_len);
+	char* ptr = (char*)memcpy(cur_str + begin, cur_str + after_index_len, si_string_len(cur_str) - after_index_len);
 	SI_ASSERT_NOT_NULL(ptr);
 	ptr[si_string_len(cur_str) - after_index_len] = '\0';
 
@@ -1738,7 +1730,7 @@ void si_string_remove_cstr(siString* str, cstring cstr) {
 
 		usize after_index_len = index + cstr_len;
 
-		char* ptr = memcpy(cur_str + index, cur_str + after_index_len, cur_len - after_index_len);
+		char* ptr = (char*)memcpy(cur_str + index, cur_str + after_index_len, cur_len - after_index_len);
 		SI_ASSERT_NOT_NULL(ptr);
 		ptr[cur_len - after_index_len] = '\0';
 
@@ -1855,7 +1847,8 @@ siArray(siString) si_string_split(siString str, cstring separator) {
 
 		begin_pos = pos + separator_len;
 	}
-	siArray(siString) res = si_array_make_list(&(rawptr){nil}, sizeof(*res), count);
+	siArray(siString) res = (siArray(siString))si_array_make_reserve(sizeof(*res), count); /* NOTE(EimaMei): Fuck C++. Seriously, what the fuck? WHY DO WE HAVE TO THIS??? */
+	SI_ARRAY_HEADER(res)->len = count;
 
 	usize i;
 	for (i = 0; i < count; i++) {
@@ -2169,24 +2162,13 @@ inline bool si_path_is_relative(cstring path) {
 
 
 inline siFile si_file_create(cstring path) {
-	return si_file_open_mode(path, SI_FILE_MODE_CREATE);
+	return si_file_open_mode(path, "w");
 }
 inline siFile si_file_open(cstring path) {
-	return si_file_open_mode(path, SI_FILE_MODE_READ);
+	return si_file_open_mode(path, "r");
 }
 siFile si_file_open_mode(cstring path, siFileMode mode) {
 	SI_ASSERT_NOT_NULL(path);
-
-	siString mode_str = nil;
-	switch (mode) {
-		case SI_FILE_MODE_READ: mode_str = "r"; break;
-		case SI_FILE_MODE_WRITE: mode_str = "w"; break;
-		case SI_FILE_MODE_READ_WRITE: mode_str = "r+"; break;
-		case SI_FILE_MODE_APPEND: mode_str = "a"; break;
-		case SI_FILE_MODE_APPEND_READ: mode_str = "a+"; break;
-		case SI_FILE_MODE_CREATE: mode_str = "w+"; break;
-		default: SI_ASSERT_MSG(mode_str != nil, "Provided mode doesn't exist"); break;
-	}
 
 	FILE* f = fopen(path, mode_str);
 

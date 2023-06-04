@@ -3,8 +3,8 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = main.c
-FLAGS = -O0 -g -std=c99 -Wall -Wextra -Wpedantic
+SRC = src/main.c
+FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
 LIBS =
 INCLUDE = -I"."
 
