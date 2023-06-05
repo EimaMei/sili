@@ -449,7 +449,7 @@ typedef SI_ENUM(usize, siDirection) {
 	SI_DIRECTION_RIGHT
 };
 
-void si_ptr_move_by(rawptr ptr, usize sizeof_ptr, usize move_by, siDirection direction);
+void si_ptr_move_by(rawptr src, usize src_len, usize move_by, siDirection direction);
 
 /*
 *
@@ -610,7 +610,6 @@ isize si_array_reverse(siArray(void) array);
 char* si_array_to_sistring(siArray(char*) array, cstring separator);
 
 #define si_array_append(array_address, value) si_impl_array_append(array_address, si_any_make(value))
-#define si_array_push_back(array_address, value) si_array_append(array_address, value)
 
 isize si_array_clear(rawptr array_address);
 bool si_arrays_are_equal(siArray(void) lha, siArray(void) rha);
@@ -648,7 +647,7 @@ isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_val
 #if !defined(SI_ARRAY_UNDEFINE)
 	typedef siArrayHeader siStringHeader;
 #else
-	typedef struct { u32 len; u32 capacity; u32 type_width; } siStringHeader;
+	typedef struct { u32 len; u32 capacity; u16 type_width; u16 grow; } siStringHeader;
 	#if defined(SI_STANDARD_C89)
 		#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
 	#else
@@ -657,8 +656,8 @@ isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_val
 #endif
 
 typedef siArray(char) siString;
-typedef siArray(i32) siRunes;
 #define SI_STRING_HEADER(s) ((siStringHeader*)s - 1)
+#define SI_STRING_DEFAULT_GROW 128
 
 
 siString si_string_make(cstring str);
@@ -691,11 +690,12 @@ void si_string_stringify(siString* str);
 
 isize si_string_append(siString* str, cstring other);
 isize si_string_append_len(siString* str, cstring other, usize other_len);
-isize si_string_push_back(siString* str, char other);
+isize si_string_push(siString* str, char other);
+void si_string_pop(siString* str);
 
 void si_string_insert(siString* str, cstring cstr, usize index);
 void si_string_insert_ex(siString* str, cstring cstr, usize cstr_len, usize index, bool erase_index);
-void si_string_erase(siString* str, usize index, usize len);
+void si_string_erase(siString* str, usize index, usize erase_len);
 void si_string_remove_cstr(siString* str, cstring cstr);
 void si_string_swap(siString* str, cstring cstr1, cstring cstr2);
 
@@ -1203,10 +1203,10 @@ void si_sleep(usize miliseconds) {
 	#endif
 }
 
-void si_ptr_move_by(rawptr ptr, usize sizeof_ptr, usize move_by, siDirection direction) {
+void si_ptr_move_by(rawptr src, usize src_len, usize move_by, siDirection direction) {
 	switch (direction) { /* NOTE(EimaMei): Did you really think I was gonna use 'memmove'? That's much slower! */
-		case SI_DIRECTION_RIGHT: memcpy((siByte*)ptr + move_by,  ptr, sizeof_ptr); break;
-		case SI_DIRECTION_LEFT:  memcpy((siByte*)ptr - move_by,  ptr, sizeof_ptr); break;
+		case SI_DIRECTION_RIGHT: memcpy((siByte*)src + move_by, src, src_len); break;
+		case SI_DIRECTION_LEFT:  memcpy((siByte*)src - move_by, src, src_len); break;
 		default: SI_BUILTIN_UNREACHABLE();
 	}
 }
@@ -1702,8 +1702,12 @@ isize si_string_append_len(siString* str, cstring other, usize other_len) {
 
 	return SI_OKAY;
 }
-inline isize si_string_push_back(siString* str, char other) {
+inline isize si_string_push(siString* str, char other) {
 	return si_string_append_len(str, &other, 1);
+}
+inline void si_string_pop(siString* str) {
+	siString cur_str = *str;
+	cur_str[SI_ARRAY_HEADER(cur_str)->len - 1] = '\0';
 }
 
 inline void si_string_insert(siString* str, cstring cstr, usize index) {
@@ -1727,8 +1731,8 @@ void si_string_insert_ex(siString* str, cstring cstr, usize cstr_len, usize inde
 	SI_ASSERT_NOT_NULL(ptr);
 	ptr[before_index_len] = '\0';
 }
-void si_string_erase(siString* str, usize index, usize len) {
-	usize after_index_len = index + len;
+void si_string_erase(siString* str, usize index, usize erase_len) {
+	usize after_index_len = index + erase_len;
 	siString cur_str = *str;
 	usize str_len = si_string_len(cur_str);
 
@@ -1736,7 +1740,7 @@ void si_string_erase(siString* str, usize index, usize len) {
 	SI_ASSERT_NOT_NULL(ptr);
 	ptr[str_len - after_index_len] = '\0';
 
-	SI_STRING_HEADER(cur_str)->len -= len;
+	SI_STRING_HEADER(cur_str)->len -= erase_len;
 }
 void si_string_remove_cstr(siString* str, cstring cstr) {
 	siStringHeader* header = SI_STRING_HEADER(*str);
