@@ -1,13 +1,13 @@
 # Sili Toolchain
-Sili Toolchain is a cross-platform public domain software toolchain specialized for C development, featuring many features, improvements and fixes to the language. Made specifically for C99 and up, but can also be used in C++.
+Sili Toolchain - a cross-platform software toolchain for modern C programming, featuring many new features, improvements and fixes to the language's barebones STL. Made specifically for C99 and up, but can also be used in C++.
 
-# Main goals of Sili Toolchain
+# Main goals
 ## Modernize C
-Implement a proper STL for C that is much more feature-rich, safe, readable and just generally better, while also being an alternative to the C++ one.
+Implement a proper STL for C that is much more feature-rich, safe, readable and just generally better, while also being an alternative to the (bloated) C++ one.
 ## Be fast & useful
-Keep a balance between having exceptional performance and giving more options to the end-user.
+Keep a balance between having exceptional performance and giving more options to the end-developer.
 ## Be portable
-`sili.h` is a single-header library, meaning it can be drag 'n dropped to any project. Furthermore, Sili Toolchain is cross-platform, meaning it'll work on all major desktop OSses without issue.
+`sili.h` is a single-header library, meaning it can be drag 'n dropped to any project. Not only that but Sili Toolchain is designed to be cross-platform between all the dekstop OSses!
 
 # Features
 - Standard types (`u8`, `i32`, `u64` etc).

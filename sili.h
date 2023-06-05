@@ -1,5 +1,5 @@
 /*
-sili.h - An alternative to the C/C++ standard library.
+sili.h - a cross-platform software toolchain for modern C programming
 ===========================================================================
 	- YOU MUST DEFINE 'SI_IMPLEMENTATION' in EXACTLY _one_ C file that includes
 	this header, BEFORE the include like this:
@@ -339,6 +339,9 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 	typedef const char* cstring;
 #endif
 
+#define SI_OKAY  0
+#define SI_ERROR -1
+
 #define SI_BIT(x) (1 << (x))
 
 #define SI_KILO(x) (       (x) * (usize)1024)
@@ -346,22 +349,21 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 #define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
 #define SI_TERA(x) (SI_GIGA(x) * (usize)1024)
 
+#define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
+
+#define SI_ENUM(type, name) type name; enum
+
 #define SI_MULTILINE(...) __VA_ARGS__
 #define SI_STR_MULTILINE(...) #__VA_ARGS__
 
-#define SI_ENUM_DECLARE(type, name) type name; enum
-
-#define SI_OKAY  0
-#define SI_ERROR -1
-
 #define SI_UNUSED(x) (void)(x) /* NOTE(EimaMei) Should be used when you want to supress "parameter 'X' set but not used" errors. */
-
-#define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
-#define si_between(x, lower, upper) (((lower) <= (x)) && ((x) <= (upper)))
 
 #if defined(SI_STANDARD_ANSI) || defined(SI_COMPILER_MSVC) /* NOTE(EimaMei): Fuck Microsoft. */
 	#define typeof(value) __typeof__(value)
 #endif
+
+#define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
+#define si_between(x, lower, upper) (((lower) <= (x)) && ((x) <= (upper)))
 
 #if defined(SI_MEMORY_LOGGING)
 	#define SI_MEMORY_LOGGING_IMPLEMENTATION
@@ -409,10 +411,15 @@ usize si_impl_assert_msg(bool condition, cstring condition_str, cstring message,
 *
 *
 	========================
-	| siAny & siFunction   |
+	| Mics/General         |
 	========================
 */
 
+/*
+	========================
+	| siAny                |
+	========================
+*/
 typedef struct siAny {
 	usize type_width;
 	rawptr ptr;
@@ -421,11 +428,28 @@ typedef struct siAny {
 #define si_any_make(value) (siAny){sizeof(typeof(value)), &(typeof(value)){value} }
 #define si_any_get(any, type) ((any.ptr != nil) ? *((type*)any.ptr) : (type)SI_ASSERT_NOT_NULL(any.ptr))
 
+/*
+	========================
+	| siFunction           |
+	========================
+*/
 typedef struct siFunction {
    rawptr (*ptr)(rawptr);
 } siFunction;
 
 #define siFunc(func) (siFunction){(rawptr (*)(rawptr))func}
+
+/*
+	========================
+	| Other                |
+	========================
+*/
+typedef SI_ENUM(usize, siDirection) {
+	SI_DIRECTION_LEFT,
+	SI_DIRECTION_RIGHT
+};
+
+void si_ptr_move_by(rawptr ptr, usize sizeof_ptr, usize move_by, siDirection direction);
 
 /*
 *
@@ -548,7 +572,8 @@ const siOptionalStruct SI_OPTIONAL_NULL = {{0, nil}, false};
 typedef struct siArrayHeader {
 	u32 len;
 	u32 capacity;
-	u32 type_width;
+	u16 type_width;
+	u16 grow;
 } siArrayHeader;
 
 #define siArray(type) type*
@@ -662,6 +687,7 @@ isize si_string_join(siString* str, cstring cstr, cstring separator);
 isize si_string_set(siString* str, cstring cstr);
 void si_string_replace(siString* str, cstring old_str, cstring new_str);
 isize si_string_trim(siString* str, cstring cut_set);
+void si_string_stringify(siString* str);
 
 isize si_string_append(siString* str, cstring other);
 isize si_string_append_len(siString* str, cstring other, usize other_len);
@@ -892,7 +918,7 @@ void si_thread_set_priority(siThread t, i32 priority);
 	#define SI_TIME_FIRST_WEEKDAY_MONDAY
 #endif
 
-typedef SI_ENUM_DECLARE(usize, siMonth) {
+typedef SI_ENUM(usize, siMonth) {
 	siJanuary = 1,
 	siFebruary,
 	siMarch,
@@ -909,7 +935,7 @@ typedef SI_ENUM_DECLARE(usize, siMonth) {
 
 /* NOTE(EimaMi): For whatever reason some places uses Sunday as the first weekday, while MOST of Europe views monday as the first weekday.
 				 So by default Monday will be set as the first weekday with the options to change it depending on your taste. */
-typedef SI_ENUM_DECLARE(usize, siWeek) {
+typedef SI_ENUM(usize, siWeek) {
 	#if defined(SI_TIME_FIRST_WEEKDAY_MONDAY)
 		Monday,
 		Tuesday,
@@ -1171,11 +1197,20 @@ rawptr si_realloc(rawptr ptr, usize old_size, usize new_size) {
 
 void si_sleep(usize miliseconds) {
 	#if defined(SI_SYSTEM_WINDOWS)
-	Sleep(miliseconds);
+		Sleep(miliseconds);
 	#else
-	usleep(miliseconds * 1000);
+		usleep(miliseconds * 1000);
 	#endif
 }
+
+void si_ptr_move_by(rawptr ptr, usize sizeof_ptr, usize move_by, siDirection direction) {
+	switch (direction) { /* NOTE(EimaMei): Did you really think I was gonna use 'memmove'? That's much slower! */
+		case SI_DIRECTION_RIGHT: memcpy((siByte*)ptr + move_by,  ptr, sizeof_ptr); break;
+		case SI_DIRECTION_LEFT:  memcpy((siByte*)ptr - move_by,  ptr, sizeof_ptr); break;
+		default: SI_BUILTIN_UNREACHABLE();
+	}
+}
+
 #endif
 
 #if defined(SI_PAIR_IMPLEMENTATION) && !defined(SI_PAIR_UNDEFINE)
@@ -1630,6 +1665,21 @@ isize si_string_trim(siString* str, cstring cut_set) {
 	(*str)[len] = '\0';
 
 	return SI_OKAY;
+}
+void si_string_stringify(siString* str) {
+	siStringHeader* header = SI_STRING_HEADER(*str);
+	header->len += 2;
+
+	if (header->capacity < header->len) {
+		isize res = si_string_make_space_for(str, 2);
+		SI_ASSERT_MSG(res == SI_OKAY, "Failed to allocate space to str");
+		header = SI_STRING_HEADER(*str);
+	}
+	siString cur_str = *str;
+
+	si_ptr_move_by(cur_str, header->len, 1, SI_DIRECTION_RIGHT);
+	cur_str[0] = '\"';
+	cur_str[header->len - 1] = '\"';
 }
 
 inline isize si_string_append(siString* str, cstring other) {
