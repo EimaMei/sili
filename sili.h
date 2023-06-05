@@ -1531,7 +1531,7 @@ inline char si_string_front(siString str) {
 inline char si_string_back(siString str) {
 	SI_ASSERT_NOT_NULL(str);
 	if (si_string_len(str) == 0) {
-		return SI_OKAY;
+		return '\0';
 	}
 
 	return str[si_string_len(str) - 1];
@@ -1708,6 +1708,7 @@ inline isize si_string_push(siString* str, char other) {
 inline void si_string_pop(siString* str) {
 	siString cur_str = *str;
 	cur_str[SI_ARRAY_HEADER(cur_str)->len - 1] = '\0';
+	SI_ARRAY_HEADER(cur_str)->len -= 1;
 }
 
 inline void si_string_insert(siString* str, cstring cstr, usize index) {
