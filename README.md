@@ -1,17 +1,16 @@
 # Sili Toolchain
-Sili Toolchain - a cross-platform software toolchain for modern C programming, featuring many new features, improvements and fixes to the language's barebones STL. Made specifically for C99 and up, but can also be used in C++.
+Sili Toolchain is a cross-platform software toolchain for modern C programming, providing many new features, improvements and fixes to the language's barebones STL. It is specifically designed for C99 and above but can also be used in C++ codebases.
 
 # Main goals
 ## Modernize C
-Implement a proper STL for C that is much more feature-rich, safe, readable and just generally better, while also being an alternative to the (bloated) C++ one.
-## Be fast & useful
-Keep a balance between having exceptional performance and giving more options to the end-developer.
-## Be portable
-`sili.h` is a single-header library, meaning it can be drag 'n dropped to any project. Not only that but Sili Toolchain is designed to be cross-platform between all the dekstop OSses!
+The toolchain aims to modernize C by implementing a proper STL that is more feature-rich, fast, safe and understandable. It serves as an alternative to the bloated C++ STL.
+## Performance & Utility
+Sili Toolchain strives to strike a balance between having exceptional performance and while providing more options to end-developers.
+## Portability
+`sili.h`  is a single-header library, allowing for easy integration into any project. Furthermore, Sili Toolchain is designed to be cross-platform, supporting all major desktop operating systems.
 
 # Features
-- Standard types (`u8`, `i32`, `u64` etc).
-- Macros that define what architecture/OS/compiler/standard you are on (`SI_CPU_X86`, `SI_SYSTEM_WINDOWS`, `SI_COMPILER_CLANG`, `SI_STANDARD_C99`, `SI_STANDARD_ANSI` etc).
+- Architecture/OS/Compiler/Standard indentification macros (`SI_CPU_X86`, `SI_SYSTEM_WINDOWS`, `SI_COMPILER_CLANG`, `SI_STANDARD_C99`, `SI_STANDARD_ANSI` etc).
 - Useful macros (`typeof()`, `SI_ASSERT`/`SI_STATIC_ASSERT`, `SI_BIT`, `foreach` etc).
 - Robust string implementation (`siString`, fully compatible with `char*`).
 - Better arrays (`siArray(<type>)`, compatible with other C arrays`).
@@ -25,7 +24,7 @@ Keep a balance between having exceptional performance and giving more options to
 - ... and more to come!
 
 # Examples
-Go to [example.c](example.c) to see examples for almost every feature in the toolchain. You can also unexpand the brackets to hide the examples you're not interested in viewing with your IDE of choice.
+[needs a rework later]
 
 # License
 `sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded.
@@ -41,6 +40,4 @@ Go to [example.c](example.c) to see examples for almost every feature in the too
 - `insert()`/`remove()` for siString/siArray.
 
 # Improvements
-- Improve si_array_make.
-- Possible better debugging improvements.
 - Make thread priority values cross-platform.
