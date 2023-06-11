@@ -19,11 +19,11 @@ void example_1_0(void) {
 	si_string_set(&str, "Different sentence");
 	printf("str: %s\n", str);
 
-	si_string_push_back(&str, '.');
+	si_string_push(&str, '.');
 	printf("str: %s\n", str);
 
 	siString str2 = si_string_copy(str);
-	bool result = si_strings_are_equal(str, str2);
+	bool result = si_cstr_equal(str, str2);
 	printf("(\"%s\" == \"%s\") returns a '%s' boolean\n", str, str2, (result ? "true" : "false"));
 
 	isize pos = si_string_find(str, "sentence");
@@ -77,19 +77,19 @@ void example_1_1(void) {
 	si_string_join(&str, "random.txt", "/");
 	printf("Joined str: \"%s\"\n", str);
 
-	si_string_upper(&str);
+	si_cstr_upper(str);
 	printf("Upper str: \"%s\"\n", str);
 
 	si_string_set(&str, "I'VE COME TO MAKE AN ANNOUNCEMENT");
 	printf("Original str: \"%s\"\n", str);
 
-	si_string_lower(&str);
+	si_cstr_lower(str);
 	printf("Lower str: \"%s\"\n", str);
 
-	si_string_title(&str);
+	si_cstr_title(str);
 	printf("Titled str: \"%s\"\n", str);
 
-	si_string_capitalize(&str);
+	si_cstr_capitalize(str);
 	printf("Capitalized str: \"%s\"\n", str);
 
 	si_string_free(str);

@@ -16,3 +16,4 @@ src/
 *.zip
 *.hide
 *.S
+*.json

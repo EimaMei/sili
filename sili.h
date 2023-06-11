@@ -45,6 +45,8 @@ CREDITS
 #ifndef SI_INCLUDE_SI_H
 #define SI_INCLUDE_SI_H
 
+#define SI_IMPLEMENTATION 1
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -247,36 +249,36 @@ extern "C" {
 
 typedef u8 siByte;
 
-static u8 SI_UINT8_MAX   =  0xFF;
-static u8 SI_UINT8_MIN   =  0x00;
-static i8 SI_INT8_MAX    =  0x7F;
-static i8 SI_INT8_MIN    = -0x80;
+#define SI_UINT8_MAX    0xFF;
+#define SI_UINT8_MIN    0x00;
+#define SI_INT8_MAX     0x7F;
+#define SI_INT8_MIN    -0x80;
 
-static u16 SI_UINT16_MAX =  0xFFFF;
-static u16 SI_UINT16_MIN =  0x0000;
-static i16 SI_INT16_MAX  =  0x7FFF;
-static i16 SI_INT16_MIN  = -0x8000;
+#define  SI_UINT16_MAX  0xFFFF;
+#define  SI_UINT16_MIN  0x0000;
+#define  SI_INT16_MAX   0x7FFF;
+#define  SI_INT16_MIN  -0x8000;
 
-static u32 SI_UINT32_MAX =  0xFFFFFFFF;
-static u32 SI_UINT32_MIN =  0x00000000;
-static i32 SI_INT32_MAX  =  0x7FFFFFFF;
-static i32 SI_INT32_MIN  = -0x80000000;
+#define  SI_UINT32_MAX  0xFFFFFFFF;
+#define  SI_UINT32_MIN  0x00000000;
+#define  SI_INT32_MAX   0x7FFFFFFF;
+#define  SI_INT32_MIN  -0x80000000;
 
-static u64 SI_UINT64_MAX =  0xFFFFFFFFFFFFFFFF;
-static u64 SI_UINT64_MIN =  0x0000000000000000;
-static i64 SI_INT64_MAX  =  0x7FFFFFFFFFFFFFFF;
-static i64 SI_INT64_MIN  = -0x8000000000000000;
+#define  SI_UINT64_MAX  0xFFFFFFFFFFFFFFFF;
+#define  SI_UINT64_MIN  0x0000000000000000;
+#define  SI_INT64_MAX   0x7FFFFFFFFFFFFFFF;
+#define  SI_INT64_MIN  -0x8000000000000000;
 
 #if defined(SI_ARCH_64_BIT)
-	#define SI_USIZE_MAX SI_UINT64_MAX
-	#define SI_USIZE_MIN SI_UINT64_MIN
-	#define SI_ISIZE_MAX SI_INT64_MAX
-	#define SI_ISIZE_MIN SI_INT64_MIN
+	#define SI_USIZE_MAX  0xFFFFFFFFFFFFFFFF;
+	#define SI_USIZE_MIN  0x0000000000000000;
+	#define SI_ISIZE_MAX  0x7FFFFFFFFFFFFFFF;
+	#define SI_ISIZE_MIN -0x8000000000000000;
 #else
-	#define SI_USIZE_MAX SI_UINT32_MAX
-	#define SI_USIZE_MIN SI_UINT32_MIN
-	#define SI_ISIZE_MAX SI_INT32_MAX
-	#define SI_ISIZE_MIN SI_INT32_MIN
+	#define SI_USIZE_MAX   0xFFFFFFFF;
+	#define SI_USIZE_MIN   0x00000000;
+	#define SI_ISIZE_MAX   0x7FFFFFFF;
+	#define SI_ISIZE_MIN  -0x80000000;
 #endif
 
 
@@ -326,11 +328,19 @@ SI_STATIC_ASSERT(sizeof(usize) == sizeof(isize));
 
 SI_STATIC_ASSERT(sizeof(uintptr) == sizeof(intptr));
 
+
 typedef float  f32;
 typedef double f64;
 
 SI_STATIC_ASSERT(sizeof(f32) == 4);
 SI_STATIC_ASSERT(sizeof(f64) == 8);
+
+#define SI_F32_MIN 1.17549435e-38f
+#define SI_F32_MAX 3.40282347e+38f
+
+#define SI_F64_MIN 2.2250738585072014e-308
+#define SI_F64_MAX 1.7976931348623157e+308
+
 
 #if !defined(rawptr)
 	typedef void* rawptr;
@@ -346,9 +356,9 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 	========================
 */
 #define SI_OKAY  0
-#define SI_ERROR -1
+#define SI_ERROR (isize)-1
 
-#define SI_BIT(x) (1 << (x))
+#define SI_BIT(x)  (1 << (x))
 
 #define SI_KILO(x) (       (x) * (usize)1024)
 #define SI_MEGA(x) (SI_KILO(x) * (usize)1024)
@@ -408,7 +418,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 */
 #define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
 #define si_between(x, lower, upper) (((lower) <= (x)) && ((x) <= (upper)))
-#define si_pause() do { printf("Press any key to continue...\n"); getchar() }; while(0)
+#define si_pause() do { printf("Press any key to continue...\n"); getchar(); } while(0)
 
 #define for_range_2(count_var, struct_name, ...) \
 	siVector2D struct_name = __VA_ARGS__; \
@@ -636,14 +646,14 @@ typedef struct siArrayHeader {
 #if defined(SI_STANDARD_C89)
 	#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
 #else
-	#define foreach(variable_name, array) for (typeof(array) variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+	#define foreach(variable_name, array) for (typeof(*(array)) variable_name = *(array); (typeof(array)){&variable_name} != array + si_array_len(array); (typeof(array)){&variable_name} += 1)
 #endif
 
 #define si_array_get_ptr(array, index) \
 	(si_cast(siByte*, array) + si_array_type_size(array) * (index))
 
 /* rawptr si_array_make(rawptr array); */
-#define si_array_make(...) si_array_make_list(__VA_ARGS__, sizeof(*(__VA_ARGS__)), count(__VA_ARGS__))
+#define si_array_make(...) si_array_make_list(__VA_ARGS__, sizeof(*(__VA_ARGS__)), sizeof(__VA_ARGS__) / sizeof(*(__VA_ARGS__)))
 rawptr si_array_make_list(rawptr list, usize sizeof_element, usize count);
 rawptr si_array_copy(rawptr array);
 rawptr si_array_make_reserve(usize sizeof_element, usize count);
@@ -657,18 +667,18 @@ siAny si_array_at(rawptr array, usize index);
 siAny si_array_front(rawptr array);
 siAny si_array_back(rawptr array);
 
-#define si_array_append(array_address, value) si_impl_array_append(array_address, si_any_make(value))
+#define si_array_append(array_ptr, value) si_impl_array_append(array_ptr, si_any_make(value))
 
 #define si_array_find(array, value) si_impl_array_find(array, 0, si_array_len(array), si_any_make(value))
 #define si_array_find_ex(array, start, end, value) si_impl_array_find(array, start, end, si_any_make(value))
 #define si_array_rfind(array, value) si_impl_array_rfind(array, si_array_len(array) - 1, 0, si_any_make(value))
 #define si_array_rfind_ex(array, start, end, value) si_impl_array_rfind(array, start, end, si_any_make(value))
 
-#define si_array_replace(array_address, old_value, new_value) si_impl_array_replace(array_address, si_any_make(old_value), si_any_make(new_value))
-isize si_array_reverse(rawptr array);
+#define si_array_replace(array_ptr, old_value, new_value) si_impl_array_replace(array, si_any_make(old_value), si_any_make(new_value))
+void si_array_reverse(rawptr array_ptr);
 char* si_array_to_sistring(siArray(char*) array, cstring separator);
 
-isize si_array_clear(rawptr array_address);
+void si_array_clear(rawptr array_ptr);
 bool si_arrays_are_equal(rawptr lha, rawptr rha);
 
 isize si_array_free(rawptr array);
@@ -676,8 +686,8 @@ isize si_array_free(rawptr array);
 /* NOTE(EimaMei): The actual implementations. Shouldn't be used in practice, really. */
 isize si_impl_array_find(rawptr array, usize start, usize end, siAny value);
 isize si_impl_array_rfind(rawptr array, usize start, usize end, siAny value);
-isize si_impl_array_append(rawptr array_address, siAny value);
-isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_value);
+void si_impl_array_append(rawptr array_ptr, siAny value);
+void si_impl_array_replace(rawptr array_ptr, siAny old_value, siAny new_value);
 
 #endif
 
@@ -785,10 +795,10 @@ typedef siArray(char) siString;
  * @brief siStringHeader is the header structure for siString.
  */
 typedef struct siStringHeader {
-	usize len;
-	usize capacity;
-	u16 type_size;
-	u16 grow;
+	u32 len;
+	u32 capacity;
+	u8 type_size;
+	u8 grow;
 } siStringHeader;
 
 /**
@@ -799,10 +809,12 @@ typedef struct siStringHeader {
  * @param variable_name The name of the iterator variable.
  * @param array The siString to iterate over.
  */
-#if defined(SI_STANDARD_C89)
-#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
-#else
-#define foreach(variable_name, array) for (typeof(array) variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+#if !defined(foreach)
+	#if defined(SI_STANDARD_C89)
+		#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+	#else
+		#define foreach(variable_name, array) for (typeof(*(array)) variable_name = *(array); &variable_name != ((array) + si_array_len(array)); (&variable_name) += 1)
+	#endif
 #endif
 
 /**
@@ -1030,16 +1042,11 @@ void si_string_erase(siString* str, usize index, usize erase_len);
 void si_string_remove_cstr(siString* str, cstring cstr);
 void si_string_swap(siString* str, cstring cstr1, cstring cstr2);
 
-void si_string_upper(siString* str);
-void si_string_lower(siString* str);
-void si_string_title(siString* str);
-void si_string_capitalize(siString* str);
 void si_string_strip(siString* str); /* NOTE(EimaMei); This strips any leading or trailing spaces in the string. */
 void si_string_reverse(siString* str);
 void si_string_reverse_len(siString* str, usize len);
 
 siArray(siString) si_string_split(siString str, cstring separator);
-bool si_strings_are_equal(cstring lhs, cstring rhs);
 void si_string_clear(siString* str);
 
 void si_string_free(siString str);
@@ -1087,12 +1094,21 @@ i32   si_hex_digit_to_int(char c);
 */
 usize si_cstr_len(cstring str);
 
+void si_cstr_upper(char* str);
+void si_cstr_lower(char* str);
+void si_cstr_title(char* str);
+void si_cstr_capitalize(char* str);
+
+bool si_cstr_equal(cstring str1, cstring str2);
+bool si_cstr_equal_len(cstring str1, usize str1_len, cstring str2, usize str2_len);
+
 u64 si_cstr_to_u64(cstring str);
 i64 si_cstr_to_i64(cstring str);
-/* TODO(EimaMei): si_cstr_to_f64 */
+f64 si_cstr_to_f64(cstring str);
 
 cstring si_u64_to_cstr(u64 num);
 cstring si_i64_to_cstr(i64 num);
+/* TODO(EimaMei): si_f64_to_cstr */
 
 #endif
 
@@ -1630,7 +1646,7 @@ isize si_impl_array_find(rawptr array, usize start, usize end, siAny value) {
 		}
 	}
 
-	return (found ? i : SI_ERROR);
+	return (found ? (isize)i : SI_ERROR);
 }
 isize si_impl_array_rfind(rawptr array, usize start, usize end, siAny value) {
 	SI_ASSERT_NOT_NULL(array);
@@ -1646,33 +1662,38 @@ isize si_impl_array_rfind(rawptr array, usize start, usize end, siAny value) {
 		}
 	}
 
-	return (found ? i : SI_ERROR);
+	return (found ? (isize)i : SI_ERROR);
 }
 
-isize si_impl_array_replace(rawptr array_address, siAny old_value, siAny new_value) {
-	siByte* array = *((siByte**)array_address);
-	usize type_size = si_array_type_size(array);
-	SI_ASSERT_MSG(si_between(new_value.type_size, old_value.type_size, type_size), "The given value's sizeof is too large compared to the elements' in the array.");
-
-	isize pos = si_impl_array_find(array, 0, si_array_len(array), old_value);
-	if (pos == SI_ERROR) {
-		return SI_ERROR;
-	}
-
-	memcpy(array + pos * type_size, new_value.ptr, new_value.type_size);
-
-	return pos;
-}
-isize si_array_reverse(rawptr array) {
+void si_impl_array_replace(rawptr array, siAny old_value, siAny new_value) {
 	SI_ASSERT_NOT_NULL(array);
-	siByte* array_pointer = *((siByte**)array);
+	siArrayHeader* header = SI_ARRAY_HEADER(array);
 
-	usize len = si_array_len(array_pointer);
-	usize type_size = si_array_type_size(array_pointer);
+	SI_ASSERT_MSG(
+		si_between(new_value.type_size, old_value.type_size, header->type_size),
+		"The given value's sizeof is too large compared to the elements' in the array."
+	);
+
+	isize index = 0;
+	while (true) {
+		index = si_impl_array_find(array, index, header->len, old_value);
+		if (index == SI_ERROR) {
+			return ;
+		}
+
+		memcpy(si_array_get_ptr(array, index), new_value.ptr, new_value.type_size);
+	}
+}
+void si_array_reverse(rawptr array_ptr) {
+	SI_ASSERT_NOT_NULL(array_ptr);
+	siByte* array = *si_cast(siByte**, array_ptr);
+
+	usize len = si_array_len(array);
+	usize type_size = si_array_type_size(array);
 	SI_ASSERT_MSG(len != 0, "Array is empty");
 
-	siByte* a = array_pointer;
-	siByte* b = array_pointer + (len - 1) * type_size;
+	siByte* a = array;
+	siByte* b = array + (len - 1) * type_size;
 	static rawptr tmp[1];
 	len *= 0.5;
 
@@ -1683,8 +1704,6 @@ isize si_array_reverse(rawptr array) {
 
 		a += type_size, b -= type_size;
 	}
-
-	return SI_OKAY;
 }
 siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	SI_ASSERT_NOT_NULL(array);
@@ -1693,53 +1712,49 @@ siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	usize total_size = 0;
 
 	foreach (str, array) {
-		total_size += si_cstr_len(*str) + separator_len;
+		total_size += si_cstr_len(str) + separator_len;
 	}
 
 	siString result = si_string_make_reserve(total_size);
 	foreach (str, array) {
-		if (separator != nil && str != si_array_back(array).ptr) {
-			si_string_join(&result, separator, *str);
+		if (separator != nil && &str != si_array_back(array).ptr) {
+			si_string_join(&result, separator, str);
 		}
 		else {
-			si_string_append(&result, *str);
+			si_string_append(&result, str);
 		}
 	}
 
 	return result;
 }
 
-isize si_impl_array_append(rawptr array_address, siAny value) {
-	siByte** array = ((siByte**)array_address);
-	siArrayHeader* header = SI_ARRAY_HEADER(*array);
+void si_impl_array_append(rawptr array_ptr, siAny value) {
+	SI_ASSERT_NOT_NULL(array_ptr);
+	siByte* array = *si_cast(siByte**, array_ptr);
+
+	siArrayHeader* header = SI_ARRAY_HEADER(array);
 	SI_ASSERT_MSG(value.type_size <= header->type_size, "The given value's sizeof is too large compared to the elements' in the arra");
 
 	if (header->len == header->capacity) {
 		siByte* result = (siByte*)si_realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_size, sizeof(siArrayHeader) + 2 * header->capacity * header->type_size);
 		SI_ASSERT_NOT_NULL(result);
 
-		*array = result + sizeof(siArrayHeader);
-		header = (siArrayHeader*)result;
+		array = result + sizeof(siArrayHeader);
+		*si_cast(siByte**, array_ptr) = array; 
 
+		header = (siArrayHeader*)result;
 		header->capacity *= 2;
 	}
 
-	rawptr res = memcpy(*array + header->len * header->type_size, value.ptr, header->type_size);
-	SI_ASSERT_NOT_NULL(res);
+	memcpy(si_array_get_ptr(array, header->len), value.ptr, header->type_size);
 	header->len += 1;
-
-	return SI_OKAY;
 }
 
-isize si_array_clear(rawptr array_address) {
-	SI_ASSERT_NOT_NULL(array_address);
+void si_array_clear(rawptr array_ptr) {
+	SI_ASSERT_NOT_NULL(array_ptr);
+	rawptr array = *si_cast(siByte**, array_ptr);
 
-	rawptr array = *((rawptr*)array_address);
-
-	rawptr result = memset(array, 0, si_array_total_size(array));
-	SI_ASSERT_NOT_NULL(result);
-
-	return SI_OKAY;
+	memset(array, 0, si_array_total_size(array));
 }
 
 bool si_arrays_are_equal(rawptr lha, rawptr rha) {
@@ -1795,7 +1810,7 @@ isize si_impl_buffer_find(rawptr buffer, siBufferHeader* header, usize start, us
 		}
 	}
 
-	return (found ? i : SI_ERROR);
+	return (found ? (isize)i : SI_ERROR);
 }
 isize si_impl_buffer_rfind(rawptr buffer, siBufferHeader* header, usize start, usize end, siAny value) {
 	SI_ASSERT_MSG(value.type_size <= header->type_size, "The given value's sizeof is too large compared to the elements' in the buffer.");
@@ -1810,7 +1825,7 @@ isize si_impl_buffer_rfind(rawptr buffer, siBufferHeader* header, usize start, u
 		}
 	}
 
-	return (found ? i : SI_ERROR);
+	return (found ? (isize)i : SI_ERROR);
 }
 
 isize si_impl_buffer_replace(rawptr buffer, siBufferHeader* header, siAny old_value, siAny new_value) {
@@ -1858,12 +1873,12 @@ siString si_impl_buffer_to_sistring(rawptr buffer, siBufferHeader* header, cstri
 	}
 
 	siString result = si_string_make_reserve(total_size);
-	cstring back = si_optional_get(cstring, si_impl_buffer_at(buffer, header, header->len - 1));
 
+	isize back_index = header->len - 1;
 	for_range (i, {0, header->len}) {
 		cstring cstr = *si_cast(char**, si_buffer_get_ptr(buffer, header->type_size, i));
 
-		if (separator != nil && !si_strings_are_equal(cstr, back)) {
+		if (separator != nil && i != back_index) {
 			si_string_join(&result, separator, cstr);
 		}
 		else {
@@ -1900,7 +1915,7 @@ bool si_impl_buffer_compare(rawptr buffer_left, siBufferHeader* header_left, raw
 
 
 inline siString si_string_make(cstring str) {
-    return si_string_make_len(str, str ? si_cstr_len(str) : 0);
+	return si_string_make_len(str, str ? si_cstr_len(str) : 0);
 }
 siString si_string_make_len(cstring str, usize len) {
 	siString res_str = si_string_make_reserve(len);
@@ -1968,9 +1983,29 @@ inline usize si_cstr_len(cstring str) {
 	return (s - str);
 }
 
+inline bool si_cstr_equal(cstring str1, cstring str2) {
+	return si_cstr_equal_len(str1, si_cstr_len(str1), str2, si_cstr_len(str2));
+}
+bool si_cstr_equal_len(cstring str1, usize str1_len, cstring str2, usize str2_len) {
+	if (str1 == str2) {
+		return true;
+	}
+	if (str1_len != str2_len) {
+		return false;
+	}
+
+	usize i;
+	for (i = 0; i < str1_len; i++) {
+		if (str1[i] != str2[i])
+			return false;
+	}
+
+	return true;
+}
+
 inline char si_string_at(siString str, usize index) {
 	SI_ASSERT_NOT_NULL(str);
-	if (index > si_string_len(str) || index < 0 || si_string_len(str) == 0) {
+	if (index > si_string_len(str) || si_string_len(str) == 0) {
 		return SI_ERROR;
 	}
 
@@ -2001,7 +2036,7 @@ inline isize si_string_find(siString str, cstring cstr) {
 	return si_string_find_ex(str, 0, si_string_len(str), cstr, si_cstr_len(cstr));
 }
 isize si_string_find_ex(siString str, usize start, usize end, cstring cstr, usize cstr_len) {
-    SI_ASSERT_NOT_NULL(str);
+	SI_ASSERT_NOT_NULL(str);
 
 	bool found = false;
 
@@ -2021,13 +2056,13 @@ isize si_string_find_ex(siString str, usize start, usize end, cstring cstr, usiz
 		}
 	}
 
-	return (found ? (i - cstr_len + 1) : SI_ERROR);
+	return (found ? si_cast(isize, i - cstr_len + 1) : SI_ERROR);
 }
 inline isize si_string_rfind(siString str, cstring cstr) {
 	return si_string_rfind_ex(str, si_string_len(str) - 1, 0, cstr);
 }
 isize si_string_rfind_ex(siString str, usize start, usize end, cstring cstr) {
-    SI_ASSERT_NOT_NULL(str);
+	SI_ASSERT_NOT_NULL(str);
 
 	usize cstr_len = si_cstr_len(cstr);
 	bool found = false;
@@ -2045,7 +2080,7 @@ isize si_string_rfind_ex(siString str, usize start, usize end, cstring cstr) {
 		}
 	}
 
-	return (found ? i : SI_ERROR);
+	return (found ? (isize)i : SI_ERROR);
 }
 
 void si_string_join(siString* str, cstring cstr, cstring separator) {
@@ -2157,8 +2192,8 @@ inline void si_string_push(siString* str, char other) {
 }
 inline void si_string_pop(siString* str) {
 	siString cur_str = *str;
-	cur_str[SI_ARRAY_HEADER(cur_str)->len - 1] = '\0';
-	SI_ARRAY_HEADER(cur_str)->len -= 1;
+	*(cur_str + SI_STRING_HEADER(cur_str)->len - 1) = '\0';
+	SI_STRING_HEADER(cur_str)->len -= 1;
 }
 
 inline void si_string_insert(siString* str, cstring cstr, usize index) {
@@ -2183,84 +2218,90 @@ void si_string_insert_ex(siString* str, cstring cstr, usize cstr_len, usize inde
 	ptr[before_index_len] = '\0';
 }
 void si_string_erase(siString* str, usize index, usize erase_len) {
-	usize after_index_len = index + erase_len;
 	siString cur_str = *str;
+	SI_ASSERT_NOT_NULL(cur_str);
+
 	usize str_len = si_string_len(cur_str);
+	SI_ASSERT_MSG(index < str_len, "Index is higher than the length of the string.");
+
+	usize after_index_len = index + erase_len;
 
 	char* ptr = (char*)memcpy(cur_str + index, cur_str + after_index_len, str_len - after_index_len);
-	SI_ASSERT_NOT_NULL(ptr);
 	ptr[str_len - after_index_len] = '\0';
 
 	SI_STRING_HEADER(cur_str)->len -= erase_len;
 }
 void si_string_remove_cstr(siString* str, cstring cstr) {
-	siStringHeader* header = SI_STRING_HEADER(*str);
-	usize cstr_len = si_cstr_len(cstr);
+	siString cur_str = *str;
+	SI_ASSERT_NOT_NULL(cur_str);
 
-	usize cur_len;
-	siString cur_str;
+	siStringHeader* header = SI_STRING_HEADER(cur_str);
+	usize cstr_len = si_cstr_len(cstr);
 	while (true) {
 		cur_str = *str;
-		cur_len = si_string_len(cur_str);
 
-		isize index = si_string_rfind_ex(cur_str, cur_len - 1, 0, cstr);
+		isize index = si_string_rfind_ex(cur_str, header->len - 1, 0, cstr);
 		if (index == -1) {
 			break;
 		}
 
 		usize after_index_len = index + cstr_len;
 
-		char* ptr = (char*)memcpy(cur_str + index, cur_str + after_index_len, cur_len - after_index_len);
-		SI_ASSERT_NOT_NULL(ptr);
-		ptr[cur_len - after_index_len] = '\0';
+		char* ptr = (char*)memcpy(cur_str + index, cur_str + after_index_len, header->len - after_index_len);
+		ptr[header->len - after_index_len] = '\0';
 
 		header->len -= cstr_len;
 	}
 }
 void si_string_swap(siString* str, cstring cstr1, cstring cstr2);
 
-inline void si_string_upper(siString* str) {
+inline void si_cstr_upper(char* str) {
 	SI_ASSERT_NOT_NULL(str);
 
-	foreach (x, *str) {
-		*x = si_char_to_upper(*x);
+	char x = '\0';
+	while ((x = *str)) {
+		*str = si_char_to_upper(x);
+		str++;
 	}
 }
-inline void si_string_lower(siString* str) {
+inline void si_cstr_lower(char* str) {
 	SI_ASSERT_NOT_NULL(str);
 
-	foreach (x, *str) {
-		*x = si_char_to_lower(*x);
+	char x = '\0';
+	while ((x = *str)) {
+		*str = si_char_to_lower(x);
+		str += 1;
 	}
 }
-void si_string_title(siString* str) {
-	si_string_capitalize(str);
+void si_cstr_title(char* str) {
+	SI_ASSERT_NOT_NULL(str);
 
 	bool change = false;
-	foreach (x, *str) {
-		if (si_char_is_space(*x)) {
+	char x = '\0';
+	while ((x = *str)) {
+		if (si_char_is_space(x)) {
 			change = true;
 		}
 		else if (change) {
-			*x = si_char_to_upper(*x);
+			*str = si_char_to_upper(x);
 			change = false;
 		}
+		str += 1;
 	}
 }
-inline void si_string_capitalize(siString* str) {
+inline void si_cstr_capitalize(char* str) {
 	SI_ASSERT_NOT_NULL(str);
 
-	if (si_string_len(*str) <= 0) {
-		return ;
-	}
-	si_string_lower(str);
-	**str = si_char_to_upper(**str);
+	si_cstr_lower(str);
+	*str = si_char_to_upper(*str);
 }
 void si_string_strip(siString* str) {
 	SI_ASSERT_NOT_NULL(str);
 
 	usize start = 0, end = 0;
-	foreach (x, *str) {
+	siString cur_str = *str;
+	siString x = nil;
+	for (x = cur_str; x != cur_str + si_string_len(cur_str); x += 1) {
 		if (!si_char_is_space(*x)) {
 			break;
 		}
@@ -2268,24 +2309,19 @@ void si_string_strip(siString* str) {
 	}
 
 	usize i;
-	for (i = si_string_len(*str) - 1; i < (usize)(-1); i--) {
-		if (!si_char_is_space((*str)[i])) {
+	for (i = si_string_len(cur_str) - 1; i < (usize)(-1); i--) {
+		if (!si_char_is_space(cur_str[i])) {
 			break;
 		}
 		end += 1;
 	}
-	char* stripped_str = *str + start * SI_STRING_HEADER(*str)->type_size;
-	stripped_str[si_string_len(*str) - start - end] = '\0';
+	char* stripped_str = cur_str + start * SI_STRING_HEADER(cur_str)->type_size;
+	stripped_str[si_string_len(cur_str) - start - end] = '\0';
 
 	si_string_set(str, stripped_str);
 }
 inline void si_string_reverse(siString* str) {
-	usize len = si_string_len(*str);
-	if (len == 0) {
-		return ;
-	}
-
-	si_string_reverse_len(str, len);
+	si_string_reverse_len(str, si_string_len(*str));
 }
 void si_string_reverse_len(siString* str, usize len) {
 	siString actual_str = *str;
@@ -2335,26 +2371,6 @@ siArray(siString) si_string_split(siString str, cstring separator) {
 
 	return res;
 }
-bool si_strings_are_equal(cstring lhs, cstring rhs) {
-	if (lhs == rhs) {
-		return true;
-	}
-
-	usize lhs_len = si_cstr_len(lhs);
-	usize rhs_len = si_cstr_len(rhs);
-
-	if (lhs_len != rhs_len) {
-		return false;
-	}
-
-	usize i;
-	for (i = 0; i < lhs_len; i++) {
-		if (lhs[i] != rhs[i])
-			return false;
-	}
-
-	return true;
-}
 inline void si_string_clear(siString* str) {
 	**str = '\0';
 }
@@ -2395,12 +2411,6 @@ void si_string_shrink_to_fit(siString* str) {
 #endif
 
 #if defined(SI_CHAR_IMPLEMENTATION) && !defined(SI_STRING_UNDEFINE)
-
-static const char si_impl_num_to_char_table[] = /* NOTE(EimaMei): Required for converting nums to chars quickly. */
-	"0123456789"
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"abcdefghijklmnopqrstuvwxyz"
-	"@$";
 
 inline char si_char_to_lower(char c) {
 	if (c >= 'A' && c <= 'Z') {
@@ -2453,7 +2463,7 @@ cstring si_u64_to_cstr(u64 num) {
 	char* cur_char = buffer;
 
 	do {
-		*cur_char++ = si_impl_num_to_char_table[num % 10];
+		*cur_char++ = (num % 10) +'0';
 		num /= 10;
 	} while (num > 0);
 	*cur_char = '\0';
@@ -2466,18 +2476,18 @@ cstring si_u64_to_cstr(u64 num) {
 u64 si_cstr_to_u64(cstring str) {
 	SI_ASSERT_NOT_NULL(str);
 
-    u64 result = 0;
+	u64 result = 0;
 	char cur;
-    while ((cur = *str++)) {
-        if (cur >= '0' && cur <= '9') {
-            result = (result * 10) + (cur - '0');
-        }
+	while ((cur = *str++)) {
+		if (cur >= '0' && cur <= '9') {
+			result = (result * 10) + (cur - '0');
+		}
 		else {
 			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
 		}
-    }
+	}
 
-    return result;
+	return result;
 }
 cstring si_i64_to_cstr(i64 num) {
 	static char buffer[20 + 1]; /* NOTE(EimaMei): 19 chars is the maximum of numbers we can have in an i64. One more char for the possible minus symbol. */
@@ -2492,7 +2502,7 @@ cstring si_i64_to_cstr(i64 num) {
 	value = (u64)num;
 
 	do {
-		*cur_char++ = si_impl_num_to_char_table[value % 10];
+		*cur_char++ = (num % 10) +'0';
 		value /= 10;
 	} while (value > 0);
 
@@ -2510,7 +2520,7 @@ cstring si_i64_to_cstr(i64 num) {
 i64 si_cstr_to_i64(cstring str) {
 	SI_ASSERT_NOT_NULL(str);
 
-    i64 result = 0;
+	i64 result = 0;
 	char cur;
 	bool negative = false;
 
@@ -2520,19 +2530,19 @@ i64 si_cstr_to_i64(cstring str) {
 	}
 
 	while ((cur = *str++)) {
-        if (cur >= '0' && cur <= '9') {
-            result = (result * 10) + (cur - '0');
-        }
+		if (cur >= '0' && cur <= '9') {
+			result = (result * 10) + (cur - '0');
+		}
 		else {
 			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
 		}
-    }
+	}
 
 	if (negative) {
 		result = -result;
 	}
 
-    return result;
+	return result;
 }
 
 #endif
@@ -2747,7 +2757,7 @@ isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 
 	siArray(siString) buffer = si_file_readlines(*file);
 	siString previous_line = buffer[index];
-	SI_ASSERT_MSG(0 <= index && index <= si_array_len(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
+	SI_ASSERT_MSG(index < si_array_len(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
 
 
 	buffer[index] = (siString)content;
