@@ -49,15 +49,10 @@ void example_1_0(void) {
 	printf("Current str2: %s\n", str2);
 
 	siArray(siString) list = si_string_split(str2, ".");
-	usize i;
-	for (i = 0; i < si_array_len(list); i++) {
-		printf("\tElement %zd: '%s'\n", i, list[i]);
-		si_string_free(list[i]);
-	}
 
-	si_string_free(str);
-	si_string_free(str2);
-	si_array_free(list);
+	for_range (i, {0, si_array_len(list)}) {
+		printf("\tElement %zd: '%s'\n", i, list[i]);
+	}
 }
 
 void example_1_1(void) {
@@ -108,9 +103,12 @@ void example_1_2(void) {
 
 
 int main(void) {
+	si_init(SI_KILO(1));
+
     example_1_0();
     example_1_1();
     example_1_2();
 
+	si_terminate();
     return 0;
 }
