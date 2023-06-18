@@ -218,6 +218,7 @@ extern "C" {
 #endif
 
 #if defined(SI_SYSTEM_OSX)
+#include <sys/socket.h>
 #endif
 
 #if defined(SI_SYSTEM_UNIX)
@@ -1361,7 +1362,7 @@ typedef struct siThread {
 	#if defined(SI_SYSTEM_WINDOWS)
 		HANDLE id;
 	#else
-		usize id;
+		pthread_t id;
 	#endif
 	volatile bool is_running;
 	rawptr return_value;
@@ -2885,8 +2886,12 @@ isize si_path_copy(cstring existing_path, cstring new_path) {
 
 		struct stat stat_existing;
 		fstat(existing_fd, &stat_existing);
-
-		isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
+		
+		#if defined(SI_SYSTEM_UNIX)
+			isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
+		#else
+			isize size = sendfile(new_fd, existing_fd, 0, &stat_existing.st_size, NULL, 0);
+		#endif
 
 		close(new_fd);
 		close(existing_fd);
@@ -2913,8 +2918,6 @@ inline isize si_path_remove(cstring path) {
 		else {
 			return (RemoveDirectoryA(path) != 0);
 		}
-	#elif defined(SI_SYSTEM_OSX)
-		return unlink(filename);
 	#else
 		return remove(path);
 	#endif
@@ -3143,11 +3146,7 @@ inline siThread si_thread_create(siFunction function, rawptr arg) {
 
 
 inline void si_thread_start(siThread* t) {
-	usize minimum = 0;
-	#if !defined(SI_SYSTEM_WINDOWS)
-		minimum = PTHREAD_STACK_MIN;
-	#endif
-	si_thread_start_stack(t, minimum);
+	si_thread_start_stack(t, 0);
 }
 
 void si_thread_start_stack(siThread* t, usize stack_size) {
@@ -3181,20 +3180,19 @@ void si_thread_join(siThread* t) {
 	t->is_running = true;
 
 	#if defined(SI_SYSTEM_WINDOWS)
-	WaitForSingleObject(t->id, INFINITE);
-	CloseHandle(t->id);
-	t->id = INVALID_HANDLE_VALUE;
+		WaitForSingleObject(t->id, INFINITE);
+		CloseHandle(t->id);
+		t->id = INVALID_HANDLE_VALUE;
 	#else
+		usize error_code = pthread_join(t->id, nil);
 
-	usize error_code = pthread_join(t->id, nil);
-
-	cstring error_msg = nil;
-	switch (error_code) {
-		case SI_OKAY: break;
-		case EDEADLK: error_msg = "A deadlock was detected."; break;
-		default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
-	}
-	SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+		cstring error_msg = nil;
+		switch (error_code) {
+			case SI_OKAY: break;
+			case EDEADLK: error_msg = "A deadlock was detected."; break;
+			default:      error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
+		}
+		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
 	#endif
 
 	t->is_running = false;
@@ -3226,7 +3224,7 @@ void si_thread_set_priority(siThread t, i32 priority) {
 	#if defined(SI_SYSTEM_WINDOWS)
 		isize res = SetThreadPriority(t.id, priority);
 		SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
-	#else
+	#elif defined(SI_SYSTEM_UNIX)
 		usize error_code = pthread_setschedprio(t.id, priority);
 
 		cstring error_msg = nil;
@@ -3239,6 +3237,10 @@ void si_thread_set_priority(siThread t, i32 priority) {
 			default:       error_msg = si_string_make_fmt("Unknown error code (%li).", error_code);
 		}
 		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
+	#else
+		SI_PANIC_MSG("si_thread_set_priority: Not supported on MacOS.");	
+		SI_UNUSED(t);
+		SI_UNUSED(priority);
 	#endif
 }
 
