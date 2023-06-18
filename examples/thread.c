@@ -29,6 +29,8 @@ rawptr thread_test(bool* arg) {
 
 
 int main(void) {
+	si_init(SI_KILO(1));
+
 	siThread thread = si_thread_create(siFunc(thread_test), &(bool){false});
 	si_thread_start(&thread);
 
@@ -36,8 +38,8 @@ int main(void) {
 		printf("Even though 'thread' is currently sleeping, it's still running this exact second!\n");
 		si_sleep(1000);
 	}
+
 	printf("That loop returned a '%i'. Now we'll re-run the loop with the argument being 'true' instead.\n", *((i16*)thread.return_value));
-	free(thread.return_value);
 	si_sleep(2000);
 
 	thread.arg = &(bool){true};
@@ -45,19 +47,16 @@ int main(void) {
 	si_thread_join(&thread); /* Now we have to wait... */
 
 	printf("That loop NOW returned a '%i'.\n", *((i16*)thread.return_value));
-	free(thread.return_value);
 	si_sleep(2000);
 
 	#if !defined(SI_SYSTEM_WINDOWS)
 		si_thread_start(&thread);
 		si_sleep(2500);
 		si_thread_cancel(&thread);
-		printf("Decided to kill it 2.5 seconds later.\n");
 
-		if (thread.return_value != nil) {
-			free(thread.return_value);
-		}
+		printf("Decided to kill it 2.5 seconds later.\n");
 	#endif
 
-    return 0;
+	si_terminate();
+	return 0;
 }

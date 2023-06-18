@@ -8,13 +8,13 @@ siOptional(char*) create(bool value) {
 
 
 int main(void) {
-    /* Example 5.0: siOptional (based on https://en.cppreference.com/w/cpp/utility/optional). */
+	/* Example 5.0: siOptional (based on https://en.cppreference.com/w/cpp/utility/optional). */
 	printf("==============\n\n==============\nExample 5.0:\n");
 
-	printf("create(false) returned '%s'\n", si_optional_if_no_value(create(false), (char*)"empty"));
+	printf("create(false) returned '%s'\n", si_optional_get_or_default(char*, create(false), "empty"));
 
 	siOptional(char*) str = create(true);
 	printf("create2(true) returned '%s'\n", si_any_get(str.value, char*));
 
-    return 0;
+	return 0;
 }

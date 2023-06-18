@@ -706,9 +706,9 @@ typedef struct siArrayHeader {
  */
 #if !defined(foreach)
 	#if !defined(SI_STANDARD_C89)
-		#define foreach(variable_name, array) for (typeof(*(array)) variable_name = *(array); &variable_name != ((array) + si_array_len(array)); (typeof(array)){&variable_name} += 1)
+		#define foreach(variable_name, array) for (typeof(array) variable_name = array; variable_name != (typeof(array))si_array_get_ptr(array, si_array_len(array)); variable_name += 1)
 	#else
-		#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = (array); variable_name != (array) + si_array_len((array)); variable_name += 1)
+		#define foreach(variable_name, array) typeof(array) variable_name; for (variable_name = array; variable_name != (typeof(array))si_array_get_ptr(array, si_array_len(array)); variable_name += 1)
 	#endif
 #endif
 
@@ -1802,50 +1802,39 @@ inline rawptr si_calloc(siAllocator* alloc, usize num, usize bytes) {
 }
 
 inline void si_free(siAllocator* alloc, rawptr ptr) {
-    SI_ASSERT_NOT_NULL(alloc);
-    SI_ASSERT_NOT_NULL(ptr);
-    SI_ASSERT(si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->max_size));
+	SI_ASSERT_NOT_NULL(alloc);
+	SI_ASSERT_NOT_NULL(ptr);
+	SI_ASSERT(si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->max_size));
 
-    alloc->index = (siByte*)ptr - alloc->ptr;
+	alloc->index = (siByte*)ptr - alloc->ptr;
 }
 inline rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize new_size, usize old_size) {
-    if (alloc == NULL) {
-        return NULL;
-    }
+	SI_ASSERT_NOT_NULL(alloc);
 
-    if (ptr == NULL) {
+    if (ptr == nil) {
         return si_malloc(alloc, new_size);
     }
+	SI_ASSERT(si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->max_size));
 
-    siByte* base_ptr = alloc->ptr;
-    siByte* byte_ptr = (siByte*)ptr;
-
-    if (byte_ptr < base_ptr || byte_ptr >= base_ptr + alloc->max_size) {
-        // Error: ptr is not within the allocator's memory range
-        // Handle the error accordingly
-        return NULL;
-    }
-
-    usize old_index = byte_ptr - base_ptr;
+    isize copy_size = (new_size < old_size) ? new_size : old_size;
 
     if (new_size == 0) {
         si_free(alloc, ptr);
-        return NULL;
+        return nil;
     }
 
     isize size_diff = new_size - old_size;
 
     if (size_diff > 0) {
         rawptr new_ptr = si_malloc(alloc, new_size);
-        if (new_ptr == NULL) {
-            return NULL;
-        }
-        memcpy(new_ptr, ptr, old_size);
+        memcpy(new_ptr, ptr, copy_size);
         si_free(alloc, ptr);
+
         return new_ptr;
     }
 
-    alloc->index = old_index + new_size;
+    usize old_index = (siByte*)ptr - alloc->ptr + copy_size;
+    alloc->index = old_index + copy_size;
     return ptr;
 }
 
@@ -2009,17 +1998,17 @@ siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	usize total_size = 0;
 
 	foreach (str, array) {
-		total_size += si_cstr_len(str) + separator_len;
+		total_size += si_cstr_len(*str) + separator_len;
 	}
 
 	siString result = si_string_make_reserve(total_size);
 	rawptr back_ptr = si_array_back(array).ptr;
 	foreach (str, array) {
 		if (separator != nil && (&str) != back_ptr) {
-			si_string_join(&result, separator, str);
+			si_string_join(&result, separator, *str);
 		}
 		else {
-			si_string_append(&result, str);
+			si_string_append(&result, *str);
 		}
 	}
 
@@ -2237,7 +2226,7 @@ bool si_impl_buffer_cmp(rawptr buffer_left, siBufferHeader* header_left, rawptr 
 
 
 inline siString si_string_make(cstring str) {
-    return si_string_make_len(str, str ? si_cstr_len(str) : 0);
+	return si_string_make_len(str, str ? si_cstr_len(str) : 0);
 }
 siString si_string_make_len(cstring str, usize len) {
 	siString res_str = si_string_make_reserve(len);
@@ -2358,7 +2347,7 @@ inline isize si_string_find(siString str, cstring cstr) {
 	return si_string_find_ex(str, 0, si_string_len(str), cstr, si_cstr_len(cstr));
 }
 isize si_string_find_ex(siString str, usize start, usize end, cstring cstr, usize cstr_len) {
-    SI_ASSERT_NOT_NULL(str);
+	SI_ASSERT_NOT_NULL(str);
 
 	bool found = false;
 
@@ -2384,7 +2373,7 @@ inline isize si_string_rfind(siString str, cstring cstr) {
 	return si_string_rfind_ex(str, si_string_len(str) - 1, 0, cstr);
 }
 isize si_string_rfind_ex(siString str, usize start, usize end, cstring cstr) {
-    SI_ASSERT_NOT_NULL(str);
+	SI_ASSERT_NOT_NULL(str);
 
 	usize cstr_len = si_cstr_len(cstr);
 	bool found = false;
@@ -2677,14 +2666,10 @@ siArray(siString) si_string_split(siString str, cstring separator) {
 
 		begin_pos = pos + separator_len;
 	}
-	printf("%s\n", str);
 	siArray(siString) res = si_array_make_reserve(sizeof(*res), count);
-	printf("%s\n", str);
-
 	SI_ARRAY_HEADER(res)->len = count;
 
 	for_range (i, {0, count}) {
-		printf("%s\n", str);
 		res[i] = si_string_make_len(str, pos_buffer[i]);
 		str += pos_buffer[i] + separator_len;
 	}
@@ -2793,18 +2778,18 @@ cstring si_u64_to_cstr(u64 num) {
 u64 si_cstr_to_u64(cstring str) {
 	SI_ASSERT_NOT_NULL(str);
 
-    u64 result = 0;
+	u64 result = 0;
 	char cur;
-    while ((cur = *str++)) {
-        if (cur >= '0' && cur <= '9') {
-            result = (result * 10) + (cur - '0');
-        }
+	while ((cur = *str++)) {
+		if (cur >= '0' && cur <= '9') {
+			result = (result * 10) + (cur - '0');
+		}
 		else {
 			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
 		}
-    }
+	}
 
-    return result;
+	return result;
 }
 cstring si_i64_to_cstr(i64 num) {
 	static char buffer[20 + 1]; /* NOTE(EimaMei): 19 chars is the maximum of numbers we can have in an i64. One more char for the possible minus symbol. */
@@ -2837,7 +2822,7 @@ cstring si_i64_to_cstr(i64 num) {
 i64 si_cstr_to_i64(cstring str) {
 	SI_ASSERT_NOT_NULL(str);
 
-    i64 result = 0;
+	i64 result = 0;
 	char cur;
 	bool negative = false;
 
@@ -2847,19 +2832,19 @@ i64 si_cstr_to_i64(cstring str) {
 	}
 
 	while ((cur = *str++)) {
-        if (cur >= '0' && cur <= '9') {
-            result = (result * 10) + (cur - '0');
-        }
+		if (cur >= '0' && cur <= '9') {
+			result = (result * 10) + (cur - '0');
+		}
 		else {
 			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstr_to_u64` with a string that contains non numbers.");
 		}
-    }
+	}
 
 	if (negative) {
 		result = -result;
 	}
 
-    return result;
+	return result;
 }
 
 #endif
@@ -2886,7 +2871,7 @@ isize si_path_copy(cstring existing_path, cstring new_path) {
 
 		struct stat stat_existing;
 		fstat(existing_fd, &stat_existing);
-		
+
 		#if defined(SI_SYSTEM_UNIX)
 			isize size = sendfile(new_fd, existing_fd, 0, stat_existing.st_size);
 		#else
@@ -2970,10 +2955,10 @@ inline bool si_path_is_relative(cstring path) {
 
 
 inline siFile si_file_create(cstring path) {
-	return si_file_open_mode(path, "w");
+	return si_file_open_mode(path, "w+");
 }
 inline siFile si_file_open(cstring path) {
-	return si_file_open_mode(path, "r");
+	return si_file_open_mode(path, "r+");
 }
 siFile si_file_open_mode(cstring path, cstring mode) {
 	SI_ASSERT_NOT_NULL(path);
@@ -3020,7 +3005,9 @@ inline siString si_file_read(siFile file) {
 	char tmp[file.size];
 	fread(tmp, file.size, 1, file.ptr);
 
-	return si_string_make_len(tmp, file.size);
+	siString txt = si_string_make_len(tmp, file.size);
+
+	return txt;
 }
 inline siString si_file_read_at(siFile file, usize offset) {
 	si_file_seek(file, offset);
@@ -3044,9 +3031,9 @@ inline siString si_file_read_at(siFile file, usize offset) {
 	about it for sure.
 */
 siArray(siString) si_file_readlines(siFile file) {
-	siString buffer = si_file_read(file);
+	siString buffer = si_file_read_at(file, 0);
 	siArray(siString) res = si_string_split(buffer, "\n");
-	si_string_free(buffer);
+	//si_string_free(buffer);
 
 	return res;
 }
@@ -3075,17 +3062,17 @@ isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 	SI_ASSERT_NOT_NULL(file->ptr);
 
 	siArray(siString) buffer = si_file_readlines(*file);
-	siString previous_line = buffer[index];
+	//siString previous_line = buffer[index];
 	SI_ASSERT_MSG(index < si_array_len(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
 
 
 	buffer[index] = (siString)content;
 	siString new_file_content = si_array_to_sistring(buffer, "\n");
 
-	siFile new_file = si_file_open_mode(file->path, "w");
+	siFile new_file = si_file_create(file->path);
 	si_file_write_len(&new_file, new_file_content, si_string_len(new_file_content));
 
-	usize i;
+	/*usize i;
 	for (i = 0; i < si_array_len(buffer); i++) {
 		if (i == index) {
 			continue;
@@ -3096,7 +3083,7 @@ isize si_file_write_at_line(siFile* file, cstring content, usize index) {
 	si_array_free(buffer);
 
 	si_string_free(new_file_content);
-	si_file_close(*file);
+	si_file_close(*file);*/
 	*file = new_file;
 
 	return SI_OKAY;
@@ -3113,7 +3100,7 @@ inline isize si_file_seek_to_end(siFile file) {
 
 isize si_file_close(siFile file) {
 	if (file.path != nil) {
-		si_string_free(file.path);
+		// si_string_free(file.path);
 	}
 
 	if (file.ptr != nil) {
@@ -3238,7 +3225,7 @@ void si_thread_set_priority(siThread t, i32 priority) {
 		}
 		SI_ASSERT_MSG(error_code == SI_OKAY, error_msg);
 	#else
-		SI_PANIC_MSG("si_thread_set_priority: Not supported on MacOS.");	
+		SI_PANIC_MSG("si_thread_set_priority: Not supported on MacOS.");
 		SI_UNUSED(t);
 		SI_UNUSED(priority);
 	#endif

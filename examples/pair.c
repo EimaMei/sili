@@ -3,7 +3,9 @@
 
 
 int main(void) {
-    /* Example 3.0: siPair (based on https://cplusplus.com/reference/utility/pair/pair/) */
+	si_init(SI_KILO(1));
+
+	/* Example 3.0: siPair (based on https://cplusplus.com/reference/utility/pair/pair/) */
 	printf("==============\n\n==============\nExample 3.0:\n");
 
 	siPair(siString, f64) product1;
@@ -19,9 +21,6 @@ int main(void) {
 	printf("The price of %s is $%f\n", product3.first, product3.second);
 	printf("The price of %s is $%f\n", product4.first, product4.second);
 
-	si_string_free(product1.first);
-	si_string_free(product2.first);
-	si_string_free(product4.first);
-
-    return 0;
+	si_terminate();
+	return 0;
 }

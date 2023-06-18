@@ -5,12 +5,12 @@
 void example_4_0(void) {
 	printf("==============\n\n==============\nExample 4.0:\n");
 
-	siFile file = si_file_open("example.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
-	printf("About 'example.c':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", file.path, file.size);
+	siFile file = si_file_open("examples/array.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
+	printf("About 'examples/array.c':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", file.path, file.size);
 
 	siFile new_file = si_file_create("random.txt");
 	si_file_write(&new_file, "A silly file\nwith a sili newline.");
-	printf("About 'random.txt':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", file.path, file.size);
+	printf("About 'random.txt':\n\tFull path - '%s'\n\tSize - '%zu' bytes\n", new_file.path, new_file.size);
 
 	siString content = si_file_read(new_file);
 	printf("\tContent - '%s' (len: '%zd')\n", content, si_string_len(content));
@@ -18,27 +18,19 @@ void example_4_0(void) {
 	siArray(siString) file_lines = si_file_readlines(file);
 	printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(file.path), si_array_len(file_lines));
 
-	usize i;
-	for (i = 0; i < si_array_len(file_lines); i++) {
+	for_range (i, {0, si_array_len(file_lines)}) {
 		si_string_strip(&file_lines[i]);
 		printf("\tLine %zd: '%s'\n", i, file_lines[i]);
-		si_string_free(file_lines[i]);
 	}
 
-	si_file_write_at_line(&new_file, "but now we have a changed line\n", 1);
+	si_file_write_at_line(&new_file, "but now we have a changed line", 1);
 	siArray(siString) new_file_lines = si_file_readlines(new_file);
 	printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(new_file.path), si_array_len(new_file_lines));
 
-	for (i = 0; i < si_array_len(new_file_lines); i++) {
+	for_range (i, {0, si_array_len(new_file_lines)}) {
 		si_string_strip(&new_file_lines[i]);
 		printf("\tLine %zd: '%s'\n", i, new_file_lines[i]);
-		si_string_free(new_file_lines[i]);
 	}
-
-	//si_string_free(content);
-
-	si_array_free(file_lines);
-	si_array_free(new_file_lines);
 
 	si_file_close(file);
 	si_file_close(new_file);
@@ -54,7 +46,7 @@ void example_4_1(void)	{
 	if (!exist) {
 		printf("Since 'random.txt' doesn't exist, we'll just create one\n");
 
-		siFile file = si_file_open_mode("random.txt", SI_FILE_MODE_CREATE);
+		siFile file = si_file_create("random.txt");
 		si_file_write(&file, "Creating files is too easy tbh.");
 		si_file_close(file);
 	}
@@ -74,14 +66,15 @@ void example_4_1(void)	{
 
 	res = si_path_remove("renamed.txt");
 	printf("Does 'renamed.txt' exist: '%zd' (res: '%zd')\n", si_path_exists("renamed.txt"), res);
-
-	si_string_free(full_path);
 }
 
 
 int main(void) {
-    example_4_0();
-    example_4_1();
+	si_init(SI_KILO(6));
 
-    return 0;
+	example_4_0();
+	example_4_1();
+
+	si_terminate();
+	return 0;
 }

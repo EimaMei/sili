@@ -3,7 +3,7 @@
 
 
 void example_1_0(void) {
-    printf("==============\nExample 1.0:\n");
+	printf("==============\nExample 1.0:\n");
 
 	siString str = si_string_make("Labas, Pasauli!");
 	printf("str: %s\n", str);
@@ -56,7 +56,7 @@ void example_1_0(void) {
 }
 
 void example_1_1(void) {
-    printf("==============\n\n==============\nExample 1.1:\n");
+	printf("==============\n\n==============\nExample 1.1:\n");
 	/* Int stuff: */
 	siString str = si_string_make(si_i64_to_cstr(-342));
 	printf("str: \"%s\"\n", str);
@@ -86,29 +86,29 @@ void example_1_1(void) {
 
 	si_cstr_capitalize(str);
 	printf("Capitalized str: \"%s\"\n", str);
-
-	si_string_free(str);
 }
 
 void example_1_2(void) {
 	printf("==============\n\n==============\nExample 1.2:\n");
+
 	siString str = si_string_make("\t       dnuora gniliart        ");
 	printf("Before: '%s' (len: '%zd')\n", str, si_string_len(str));
+
 	si_string_strip(&str);
 	printf("After: '%s' (len: '%zd')\n", str, si_string_len(str));
+
 	si_string_reverse(&str);
 	printf("'str' in reverse: '%s'\n", str);
-	si_string_free(str);
 }
 
 
 int main(void) {
 	si_init(SI_KILO(1));
 
-    example_1_0();
-    example_1_1();
-    example_1_2();
+	example_1_0();
+	example_1_1();
+	example_1_2();
 
 	si_terminate();
-    return 0;
+	return 0;
 }
