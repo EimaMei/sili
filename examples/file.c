@@ -18,7 +18,7 @@ void example_4_0(void) {
 	siArray(siString) file_lines = si_file_readlines(file);
 	printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(file.path), si_array_len(file_lines));
 
-	for_range (i, {0, si_array_len(file_lines)}) {
+	for_range (i, 0, si_array_len(file_lines)) {
 		si_string_strip(&file_lines[i]);
 		printf("\tLine %zd: '%s'\n", i, file_lines[i]);
 	}
@@ -27,7 +27,7 @@ void example_4_0(void) {
 	siArray(siString) new_file_lines = si_file_readlines(new_file);
 	printf("Contents of '%s' ('%zd' lines in total):\n", si_path_base_name(new_file.path), si_array_len(new_file_lines));
 
-	for_range (i, {0, si_array_len(new_file_lines)}) {
+	for_range (i, 0, si_array_len(new_file_lines)) {
 		si_string_strip(&new_file_lines[i]);
 		printf("\tLine %zd: '%s'\n", i, new_file_lines[i]);
 	}

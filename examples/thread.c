@@ -4,12 +4,12 @@
 
 rawptr thread_test(bool* arg) {
 	bool loop = *arg;
-	i16 count = SI_INT16_MIN;
+	i16 count = INT16_MIN;
 
 	if (loop) {
-		printf("We'll increment 'count' from %d to %d:\n", SI_INT16_MIN, SI_INT16_MAX);
+		printf("We'll increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
 		si_sleep(2000);
-		while (count < SI_INT16_MAX) {
+		while (count < INT16_MAX) {
 			count += 1;
 			printf("%i\n", count);
 		}
@@ -46,15 +46,15 @@ int main(void) {
 	si_thread_start(&thread);
 	si_thread_join(&thread); /* Now we have to wait... */
 
-	printf("That loop NOW returned a '%i'.\n", *((i16*)thread.return_value));
+	printf("That loop NOW returned a '%i'.\n", *si_cast(i16*, thread.return_value));
 	si_sleep(2000);
 
-	#if !defined(SI_SYSTEM_WINDOWS)
+	#if !defined(SI_SYSTEM_WINDOWS) /* si_thread_cancel is not supported on windows. */
 		si_thread_start(&thread);
 		si_sleep(2500);
 		si_thread_cancel(&thread);
 
-		printf("Decided to kill it 2.5 seconds later.\n");
+		puts("Decided to kill it 2.5 seconds later.");
 	#endif
 
 	si_terminate();

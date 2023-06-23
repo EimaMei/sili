@@ -6,10 +6,10 @@ void example_1_0(void) {
 	printf("==============\nExample 1.0:\n");
 
 	siString str = si_string_make("Labas, Pasauli!");
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	si_string_append(&str, " Lithuanian, more like Russian amirite.");
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	char front = si_string_front(str);
 	char back = si_string_back(str);
@@ -17,10 +17,10 @@ void example_1_0(void) {
 	printf("front: '%c', back: '%c', len: '%zd'\n", front, back, length);
 
 	si_string_set(&str, "Different sentence");
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	si_string_push(&str, '.');
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	siString str2 = si_string_copy(str);
 	bool result = si_cstr_equal(str, str2);
@@ -33,25 +33,25 @@ void example_1_0(void) {
 	printf("However, the word 'random' was not found, thus 'pos' equals to %zd\n", pos);
 
 	si_string_replace(&str, "Different", "Completely new");
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	si_string_replace(&str2, "Different", "The same");
-	printf("str2: %s\n", str2);
+	printf("str2: \"%s\"\n", str2);
 
 	si_string_trim(&str, "sentence.");
-	printf("str: %s\n", str);
+	printf("str: \"%s\"\n", str);
 
 	si_string_clear(&str);
-	printf("Length of str: %zd\n", si_string_len(str));
+	printf("Length of str: '%zd'\n", si_string_len(str));
 
 
 	si_string_set(&str2, "one.two.three.four.five");
-	printf("Current str2: %s\n", str2);
+	printf("Current str2:\" %s\"\n", str2);
 
 	siArray(siString) list = si_string_split(str2, ".");
 
-	for_range (i, {0, si_array_len(list)}) {
-		printf("\tElement %zd: '%s'\n", i, list[i]);
+	for_range (i, 0, si_array_len(list)) {
+		printf("\tElement %zd: \"%s\"\n", i, list[i]);
 	}
 }
 
