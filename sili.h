@@ -62,8 +62,10 @@ extern "C" {
 	#define SI_ARCH_32_BIT 1
 #endif
 
-#define SI_ENDIAN_BIG     (!*(u8*)&(u16){1})
-#define SI_ENDIAN_LITTLE  (!SI_IS_BIG_ENDIAN)
+#define SI_LITTLE_ENDIAN   0
+#define SI_BIG_ENDIAN      1
+
+#define SI_TARGET_ENDIAN  (!*(u8*)&(u16){1})
 
 #if defined(_WIN32) || defined(_WIN64)
 	#define SI_SYSTEM_WINDOWS 1
@@ -368,14 +370,13 @@ SI_STATIC_ASSERT(false == 0);
 #define SI_OKAY  0
 #define SI_ERROR -1
 
-#define SI_BIT(x) (1 << (x))
+#define SI_BIT(x) (1ULL << (x))
+#define SI_NUM_GET_BIT(num, x) ((num & SI_BIT(x)) != 0)
 
 #define SI_KILO(x) (       (x) * (usize)1024)
 #define SI_MEGA(x) (SI_KILO(x) * (usize)1024)
 #define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
 #define SI_TERA(x) (SI_GIGA(x) * (usize)1024)
-
-#define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
 
 #if !defined(nil)
 	#define nil NULL
@@ -383,6 +384,38 @@ SI_STATIC_ASSERT(false == 0);
 
 SI_STATIC_ASSERT(sizeof(nil) == sizeof(NULL));
 
+/*
+	========================
+	| Builtin functions    |
+	========================
+*/
+#if !defined(__has_builtin)
+    #define __has_builtin(x) 0
+#endif
+
+#if __has_builtin(__builtin_unreachable)
+    #define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
+#else
+    #define SI_BUILTSI_BUILTIN_UNREACHABLE() 0
+#endif
+
+#if __has_builtin(__builtin_types_compatible_p)
+    #define SI_BUILTIN_TYPES_CMP(type1, type2) __builtin_types_compatible_p(type1, type2)
+#else
+    #define SI_BUILTIN_TYPES_CMP(type1, type2) 0
+#endif
+
+#if __has_builtin(__builtin_expect)
+    #define SI_BUILTIN_EXPECT(exp, c) __builtin_expect(exp, c)
+#else
+    #define SI_BUILTINT_EXPECT(exp, c) (exp)
+#endif
+
+#if __has_builtin(__builtin_constant_p)
+    #define SI_BUILTIN_CONSTANT(exp) __builtin_constant_p(exp)
+#else
+    #define SI_BUILTIN_CONSTANT(exp) 0
+#endif
 /*
 	========================
 	| Declaration macros   |
@@ -418,7 +451,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(NULL));
 	#define typeof(value) __typeof__(value)
 #endif
 #if !defined(countof)
-	#define countof(value) ((f64)sizeof(value) / sizeof(*(value)))
+	#define countof(value) si_cast(usize, (f64)sizeof(value) / sizeof(*(value)))
 #endif
 #if !defined(offsetof)
 	#define offsetof(type, element) ((isize)&(((type*)nil)->element))
@@ -433,8 +466,8 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(NULL));
 	========================
 */
 
-#define likely(x)       __builtin_expect(!!(x), true)
-#define unlikely(x)     __builtin_expect(!!(x), false)
+#define likely(x)     SI_BUILTIN_EXPECT(!!(x), true)
+#define unlikely(x)   SI_BUILTIN_EXPECT(!!(x), false)
 
 #define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
 #define si_abs(x) ((x) < 0 ? -(x) : (x))
@@ -506,7 +539,7 @@ typedef struct siAny {
 
 #define si_any_make(...) \
     (siAny){ \
-        __builtin_types_compatible_p(typeof(__VA_ARGS__), char[]) == true ? \
+        SI_BUILTIN_TYPES_CMP(typeof(__VA_ARGS__), char[]) == true ? \
         (rawptr)&((struct { char* in; }){(char*)__VA_ARGS__}.in) : \
         (rawptr)&((struct { typeof(__VA_ARGS__) in; }){__VA_ARGS__}.in), \
         sizeof(typeof(__VA_ARGS__)) \
@@ -530,8 +563,8 @@ typedef struct siFunction {
 	| Other                |
 	========================
 */
-typedef struct { isize x, y; } siIVector2D;
-typedef struct { usize x, y; } siUVector2D;
+typedef struct { i32 x, y; } siIVector2D;
+typedef struct { u32 x, y; } siUVector2D;
 typedef siIVector2D siVector2D;
 
 typedef struct { u8 r, g, b, a; } siColor;
@@ -1271,6 +1304,11 @@ i32   si_hex_digit_to_int(char c);
 	|  cstring             |
 	========================
 */
+char* si_cstr_make(cstring cstr);
+char* si_cstr_make_len(cstring cstr, usize len);
+char* si_cstr_make_static(cstring cstr);
+char* si_cstr_make_static_len(cstring cstr, usize len);
+
 usize si_cstr_len(cstring str);
 
 void si_cstr_upper(char* str);
@@ -1508,6 +1546,147 @@ inline u64 si_time_utc_now(void) {
 	return rawtime;
 }
 void si_sleep(usize miliseconds);
+
+#endif
+
+#if !defined(SI_USIZE_BIT_UNDEFINE)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| usize/bit functions  |
+	========================
+*/
+
+typedef SI_ENUM(usize, siBitType) {
+    SI_BIT_ZERO,
+    SI_BIT_ONE
+};
+
+#define si_num_count_bit(num, bit_type) si_num_count_bit_ex(num, sizeof(typeof(num)), bit_type)
+#define si_num_leading_bit(num, bit_type) si_num_leading_bit_ex(num, sizeof(typeof(num)), bit_type)
+#define si_num_trailing_bit(num, bit_type) si_num_trailing_bit_ex(num, sizeof(typeof(num)), bit_type)
+
+#define si_num_rotate_left(num, bits) si_num_rotate_left_ex(num, sizeof(typeof(num)), bits)
+#define si_num_rotate_right(num, bits) si_num_rotate_right_ex(num, sizeof(typeof(num)), bits)
+#define si_num_reverse_bits(num) si_num_reverse_bits_ex(num, sizeof(typeof(num)))
+
+#define si_num_change_endian(num) si_num_change_endian_ex(num, sizeof(typeof(num)))
+
+usize si_num_leading_bit_ex(usize num, usize sizeof_num, siBitType bit);
+usize si_num_count_bit_ex(usize num, usize sizeof_num, siBitType bit);
+usize si_num_trailing_bit_ex(usize num, usize number_sizeof, siBitType bit);
+
+usize si_num_rotate_left_ex(usize num, usize num_sizeof, usize bits);
+usize si_num_rotate_right_ex(usize num, usize num_sizeof, usize n);
+usize si_num_reverse_bits_ex(usize num, usize num_sizeof);
+
+usize si_num_change_endian_ex(usize num, usize num_sizeof);
+
+usize si_num_pow(isize base, isize exp);
+usize si_num_pow2(isize base);
+
+
+inline usize si_num_count_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    for_range (i, 0, sizeof_num * 8) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_leading_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    usize i;
+    for (i = sizeof_num * 8 - 1; i < USIZE_MAX; i -= 1) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+        else {
+            return count;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_trailing_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    for_range (i, 0, sizeof_num * 8) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+        else {
+            return count;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_rotate_left_ex(usize num, usize num_sizeof, usize bits) {
+    return (num << bits) | (num >> (num_sizeof * 8 - bits));
+}
+inline usize si_num_rotate_right_ex(usize num, usize num_sizeof, usize bits) {
+    return (num >> bits) | (num << (num_sizeof * 8 - bits));
+}
+
+inline usize si_num_reverse_bits_ex(usize num, usize num_sizeof) {
+    usize res = 0LL;
+
+    for_range(i, 0, num_sizeof * 8) {
+        res <<= 1;
+        res |= (num & 1);
+        num >>= 1;
+    }
+
+    return res;
+}
+
+inline usize si_num_change_endian_ex(usize num, usize num_sizeof) {
+    usize result = 0;
+
+    for_range (i, 0, num_sizeof) {
+        result |= ((num >> (i * 8)) & 0xFF) << ((num_sizeof - 1 - i) * 8);
+    }
+
+    return result;
+}
+
+usize si_num_pow(isize base, isize exp) {
+    SI_ASSERT_MSG(exp > 0, "Currently not possible to do base powered by negative exp.");
+
+    usize result = 1;
+    while (exp > 0) {
+        if (exp & 1) {
+            result *= base;
+        }
+        base *= base;
+        exp >>= 1;
+    }
+
+    return result;
+}
+
+inline usize si_num_pow2(isize base) {
+    return 1 << base;
+}
+
 
 #endif
 
@@ -1749,27 +1928,6 @@ usize si_impl_assert_msg(bool condition, cstring condition_str, cstring file, i3
 	#undef si_realloc
 	#undef free
 #endif
-
-rawptr si_realloc_cpy(rawptr ptr, usize old_size, usize new_size) {
-	if (ptr == nil) {
-		return malloc(new_size);
-	}
-
-	if (old_size == new_size) {
-		return ptr;
-	}
-	else if (new_size < old_size) {
-		new_size = old_size;
-	}
-
-	rawptr new_ptr = malloc(new_size);
-	SI_ASSERT_NOT_NULL(new_ptr);
-
-	memcpy(new_ptr, ptr, old_size);
-	free(ptr);
-
-	return new_ptr;
-}
 
 #if defined(SI_MEMORY_LOGGING)
 	#define malloc(size) si_debug_alloc(1, nil, (siDebugArgs){size, 0}, __FILE__, __LINE__, __func__, si_u64_to_cstr(si_time_utc_now()), __DATE__)
@@ -2351,6 +2509,24 @@ inline bool si_string_empty(siString str) {
 	return (str == nil || SI_STRING_HEADER(str)->len == 0);
 }
 
+inline char* si_cstr_make(cstring cstr) {
+	return si_cstr_make_len(cstr, si_cstr_len(cstr));
+}
+inline char* si_cstr_make_len(cstring cstr, usize len) {
+	char* str = malloc(len + 1);
+	memcpy(str, cstr, len + 1);
+
+	return str;
+}
+inline char* si_cstr_make_static(cstring cstr) {
+	return si_cstr_make_static_len(cstr, si_cstr_len(cstr));
+}
+inline char* si_cstr_make_static_len(cstring cstr, usize len) {
+	char* str = alloca(len + 1);
+	memcpy(str, cstr, len + 1);
+
+	return str;
+}
 
 inline usize si_cstr_len(cstring str) {
 	cstring s;
@@ -3385,7 +3561,7 @@ rawptr si_debug_alloc(usize function_id, rawptr ptr, siDebugArgs args, cstring f
 
 			return res + sizeof(siDebugHeader);
 		}
-		default: __builtin_unreachable();
+		default: SI_BUILTIN_UNREACHABLE();
 	}
 
 	if (res == nil) {
@@ -3452,7 +3628,7 @@ void si_debug_print_all(void) {
 			case 0: msg = "NOT FREED"; break;
 			case 1: msg = "FREED"; break;
 			case 2: msg = "REALLOCED"; break;
-			default: __builtin_unreachable();
+			default: SI_BUILTIN_UNREACHABLE();
 		}
 
 		printf(
