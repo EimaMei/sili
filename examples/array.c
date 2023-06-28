@@ -1,3 +1,4 @@
+#define SI_ALLOCATOR_UNDEFINE 1
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
@@ -7,7 +8,7 @@ void example_2_0(void) {
 
 	siArray(i32) array = si_array_make((i32[]){3, 234, 2, 4, 294, 234, 23});
 
-    puts("All of the elements in 'array':");
+    print("All of the elements in 'array':");
 	for_range (i, 0, si_array_len(array)) {
 		printf("\tElement %zd: %i\n", i, array[i]);
 	}
@@ -87,10 +88,14 @@ void example_2_2(void) {
     printf("array_empty: '%zd', capacity: '%zd'\n", si_array_empty(array), si_array_capacity(array));
 
     si_array_fill(&array, 0, si_array_capacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+
     printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
     for_range (i, 0, si_array_len(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
+
+    si_array_remove_item(&array, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
 }
 
 

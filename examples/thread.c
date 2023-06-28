@@ -54,7 +54,7 @@ int main(void) {
 		si_sleep(2500);
 		si_thread_cancel(&thread);
 
-		puts("Decided to kill it 2.5 seconds later.");
+		print("Decided to kill it 2.5 seconds later.");
 	#endif
 
 	si_terminate();
