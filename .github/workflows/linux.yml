@@ -1,0 +1,19 @@
+name: linux
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: apt
+      run: sudo apt-get install libxcursor-dev
+    - name: make
+      run: make
