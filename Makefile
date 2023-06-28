@@ -3,7 +3,7 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = example.c
+SRC = examples/array.c
 FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
 LIBS =
 INCLUDE = -I"."
