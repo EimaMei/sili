@@ -1,4 +1,8 @@
 # Sili Toolchain
+![vm workflow linux](https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml/badge.svg)
+![vm workflow windows](https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml/badge.svg)
+![vm workflow macos](https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg)
+
 Sili Toolchain is a cross-platform software toolchain for modern C programming, providing many new features, improvements and fixes to the language's barebones STL. It is specifically designed for C99 and above but can also be used in C++ codebases.
 
 # Main goals
@@ -24,7 +28,7 @@ Sili Toolchain strives to strike a balance between having exceptional performanc
 - ... and more to come!
 
 # Examples
-[needs a rework later]
+Examples of most sili's features are utilized in the `examples` folder.
 
 # License
 `sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded.
