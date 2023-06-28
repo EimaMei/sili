@@ -19,6 +19,7 @@ sili.h - a cross-platform software toolchain for modern C programming
 		- #define SI_CHAR_UNDEFINE
 		- #define SI_FILE_UNDEFINE
 		- #define SI_THREAD_UNDEFINE
+        - #define SI_BIT_UNDEFINE
 		- #define SI_PERFORMANCE_UNDEFINE
 	before the SI_IMPLEMENTATION macro, as well as before any other include of
 	`sili.h`.
@@ -216,7 +217,7 @@ extern "C" {
 #endif
 
 #if defined(SI_SYSTEM_UNIX)
-#include <sys/sendfile.h>
+    #include <sys/sendfile.h>
 #endif
 
 #if !defined(u8)
@@ -370,9 +371,6 @@ SI_STATIC_ASSERT(false == 0);
 #define SI_OKAY  0
 #define SI_ERROR -1
 
-#define SI_BIT(x) (1ULL << (x))
-#define SI_NUM_GET_BIT(num, x) ((num & SI_BIT(x)) != 0)
-
 #define SI_KILO(x) (       (x) * (usize)1024)
 #define SI_MEGA(x) (SI_KILO(x) * (usize)1024)
 #define SI_GIGA(x) (SI_MEGA(x) * (usize)1024)
@@ -448,7 +446,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(NULL));
 	========================
 */
 #if !defined(typeof) && SI_STANDARD_VERSION <= SI_STANDARD_C17
-	#define typeof(value) __typeof__(value)
+	#define typeof(...)  __typeof__((__VA_ARGS__))
 #endif
 #if !defined(countof)
 	#define countof(value) si_cast(usize, (f64)sizeof(value) / sizeof(*(value)))
@@ -539,8 +537,7 @@ typedef struct siAny {
 
 #define si_any_make(...) \
     (siAny){ \
-        SI_BUILTIN_TYPES_CMP(typeof(__VA_ARGS__), char[]) == true ? \
-        (rawptr)&((struct { char* in; }){(char*)__VA_ARGS__}.in) : \
+		/* NOTE(EimaMei): check strings for this  later. */
         (rawptr)&((struct { typeof(__VA_ARGS__) in; }){__VA_ARGS__}.in), \
         sizeof(typeof(__VA_ARGS__)) \
     }
@@ -568,8 +565,8 @@ typedef struct { u32 x, y; } siUVector2D;
 typedef siIVector2D siVector2D;
 
 typedef struct { u8 r, g, b, a; } siColor;
-#define SI_RGBA(r, g, b, a) (siColor){r, g, b, a}
-#define SI_RGB(r, g, b) (siColor){r, g, b, 255}
+#define SI_RGBA(r, g, b, a) ((siColor){r, g, b, a})
+#define SI_RGB(r, g, b) ((siColor){r, g, b, 255})
 
 
 typedef SI_ENUM(usize, siDirection) {
@@ -792,12 +789,20 @@ usize si_array_len(rawptr array);
 usize si_array_capacity(rawptr array);
 usize si_array_type_size(rawptr array);
 usize si_array_total_size(rawptr array);
+usize si_array_empty(rawptr array);
 
 siAny si_array_at(rawptr array, usize index);
 siAny si_array_front(rawptr array);
 siAny si_array_back(rawptr array);
 
-#define si_array_append(array_ptr, value) si_impl_array_append(array_ptr, si_any_make(value))
+#define si_array_append(array_ptr, ...) si_impl_array_append(array_ptr, si_any_make(__VA_ARGS__))
+#define si_array_push(array_ptr, ...) si_array_append(array_ptr, __VA_ARGS__)
+void si_array_pop(rawptr array_ptr);
+#define si_array_insert(array_ptr, new_item, index) si_impl_array_insert(array_ptr, si_any_make(new_item), index)
+void si_array_erase(rawptr array_ptr, usize index);
+void si_array_erase_count(rawptr array_ptr, usize index, usize count);
+#define si_array_remove_item(array_ptr, ...) si_impl_array_remove_item(array_ptr, si_any_make(__VA_ARGS__))
+#define si_array_fill(array_ptr, index, count, ...) si_impl_array_fill(array_ptr, index, count, si_any_make(__VA_ARGS__))
 
 #define si_array_find(array, ...) si_impl_array_find(array, 0, si_array_len(array), si_any_make(__VA_ARGS__))
 #define si_array_find_ex(array, start, end, ...) si_impl_array_find(array, start, end, si_any_make(__VA_ARGS__))
@@ -811,13 +816,17 @@ char* si_array_to_sistring(siArray(char*) array, cstring separator);
 void si_array_clear(rawptr array_ptr);
 bool si_array_equal(rawptr lha, rawptr rha);
 
-isize si_array_free(rawptr array);
+void si_array_free(rawptr array);
+/* NOTE(EimaMei): TODO void si_array_shrink_to_fit(rawptr array_ptr); */
 
 /* NOTE(EimaMei): The actual implementations. Shouldn't be used in practice, really. */
 isize si_impl_array_find(rawptr array, usize start, usize end, siAny value);
 isize si_impl_array_rfind(rawptr array, usize start, usize end, siAny value);
 void si_impl_array_append(rawptr array_ptr, siAny value);
+void si_impl_array_insert(rawptr array_ptr, siAny value, usize index);
 void si_impl_array_replace(rawptr array_ptr, siAny old_value, siAny new_value);
+void si_impl_array_remove_item(rawptr array_ptr, siAny item);
+void si_impl_array_fill(rawptr array_ptr, usize index, usize count, siAny item);
 
 #endif
 
@@ -1203,7 +1212,7 @@ void si_string_append(siString* str, cstring other);
 void si_string_append_len(siString* str, cstring other, usize other_len);
 
 /**
- * @brief Pushes [appends] the character into the siString.
+ * @brief Pushes (appends) the character into the siString.
  *
  * @param str The siString to push to.
  * @param other The character to push.
@@ -1252,7 +1261,7 @@ void si_string_insert_ex(siString* str, cstring cstr, usize cstr_len, usize inde
 void si_string_erase(siString* str, usize index, usize erase_len);
 
 void si_string_remove_cstr(siString* str, cstring cstr);
-void si_string_swap(siString* str, cstring cstr1, cstring cstr2);
+/* TODO(EimaMei): void si_string_swap(siString* str, cstring cstr1, cstring cstr2); */
 
 void si_string_strip(siString* str); /* NOTE(EimaMei); This strips any leading or trailing spaces in the string. */
 void si_string_reverse(siString* str);
@@ -1549,7 +1558,7 @@ void si_sleep(usize miliseconds);
 
 #endif
 
-#if !defined(SI_USIZE_BIT_UNDEFINE)
+#if !defined(SI_BIT_UNDEFINE)
 /*
 *
 *
@@ -1566,7 +1575,7 @@ void si_sleep(usize miliseconds);
 *
 *
 	========================
-	| usize/bit functions  |
+	| Bit functions        |
 	========================
 */
 
@@ -1574,6 +1583,21 @@ typedef SI_ENUM(usize, siBitType) {
     SI_BIT_ZERO,
     SI_BIT_ONE
 };
+
+
+#define SI_BIT(x) ((usize)1 << (x))
+#define SI_HIGH_BIT(value) ((value & ((typeof(value))0xFF << SI_BYTE_TO_BIT(sizeof(typeof(value)) - 1))) >> SI_BYTE_TO_BIT(sizeof(typeof(value)) - 1))
+#define SI_LOW_BIT(value) (value & ((typeof(value))0xFF))
+
+#define SI_NUM_GET_BIT(num, x) ((num & SI_BIT(x)) != 0)
+#define SI_BYTE_TO_BIT(bits) ((bits) * (usize)8)
+
+
+#define BIT_00000000 0
+#define BIT_00000001 1
+#define BIT_10000000 128
+#define BIT_11111111 255
+
 
 #define si_num_count_bit(num, bit_type) si_num_count_bit_ex(num, sizeof(typeof(num)), bit_type)
 #define si_num_leading_bit(num, bit_type) si_num_leading_bit_ex(num, sizeof(typeof(num)), bit_type)
@@ -1583,8 +1607,17 @@ typedef SI_ENUM(usize, siBitType) {
 #define si_num_rotate_right(num, bits) si_num_rotate_right_ex(num, sizeof(typeof(num)), bits)
 #define si_num_reverse_bits(num) si_num_reverse_bits_ex(num, sizeof(typeof(num)))
 
+#define si_num_to_bytes(num) si_num_to_bytes_ex(num, sizeof(typeof(num)))
+usize si_bytes_to_num(siArray(u8));
+
 #define si_num_change_endian(num) si_num_change_endian_ex(num, sizeof(typeof(num)))
 
+usize si_num_pow(isize base, usize exp);
+usize si_num_pow2(isize base, usize exp);
+
+
+
+#if 1 /* NOTE(EimaMei): The actual header definition for the macros. No reason to use these in practice. */
 usize si_num_leading_bit_ex(usize num, usize sizeof_num, siBitType bit);
 usize si_num_count_bit_ex(usize num, usize sizeof_num, siBitType bit);
 usize si_num_trailing_bit_ex(usize num, usize number_sizeof, siBitType bit);
@@ -1593,99 +1626,10 @@ usize si_num_rotate_left_ex(usize num, usize num_sizeof, usize bits);
 usize si_num_rotate_right_ex(usize num, usize num_sizeof, usize n);
 usize si_num_reverse_bits_ex(usize num, usize num_sizeof);
 
+siArray(u8) si_num_to_bytes_ex(usize num, usize num_sizeof);
+
 usize si_num_change_endian_ex(usize num, usize num_sizeof);
-
-usize si_num_pow(isize base, isize exp);
-usize si_num_pow2(isize base);
-
-
-inline usize si_num_count_bit_ex(usize num, usize sizeof_num, siBitType bit) {
-    usize count = 0;
-
-    for_range (i, 0, sizeof_num * 8) {
-        if (SI_NUM_GET_BIT(num, i) == bit) {
-            count += 1;
-        }
-    }
-
-    return count;
-}
-inline usize si_num_leading_bit_ex(usize num, usize sizeof_num, siBitType bit) {
-    usize count = 0;
-
-    usize i;
-    for (i = sizeof_num * 8 - 1; i < USIZE_MAX; i -= 1) {
-        if (SI_NUM_GET_BIT(num, i) == bit) {
-            count += 1;
-        }
-        else {
-            return count;
-        }
-    }
-
-    return count;
-}
-inline usize si_num_trailing_bit_ex(usize num, usize sizeof_num, siBitType bit) {
-    usize count = 0;
-
-    for_range (i, 0, sizeof_num * 8) {
-        if (SI_NUM_GET_BIT(num, i) == bit) {
-            count += 1;
-        }
-        else {
-            return count;
-        }
-    }
-
-    return count;
-}
-inline usize si_num_rotate_left_ex(usize num, usize num_sizeof, usize bits) {
-    return (num << bits) | (num >> (num_sizeof * 8 - bits));
-}
-inline usize si_num_rotate_right_ex(usize num, usize num_sizeof, usize bits) {
-    return (num >> bits) | (num << (num_sizeof * 8 - bits));
-}
-
-inline usize si_num_reverse_bits_ex(usize num, usize num_sizeof) {
-    usize res = 0LL;
-
-    for_range(i, 0, num_sizeof * 8) {
-        res <<= 1;
-        res |= (num & 1);
-        num >>= 1;
-    }
-
-    return res;
-}
-
-inline usize si_num_change_endian_ex(usize num, usize num_sizeof) {
-    usize result = 0;
-
-    for_range (i, 0, num_sizeof) {
-        result |= ((num >> (i * 8)) & 0xFF) << ((num_sizeof - 1 - i) * 8);
-    }
-
-    return result;
-}
-
-usize si_num_pow(isize base, isize exp) {
-    SI_ASSERT_MSG(exp > 0, "Currently not possible to do base powered by negative exp.");
-
-    usize result = 1;
-    while (exp > 0) {
-        if (exp & 1) {
-            result *= base;
-        }
-        base *= base;
-        exp >>= 1;
-    }
-
-    return result;
-}
-
-inline usize si_num_pow2(isize base) {
-    return 1 << base;
-}
+#endif
 
 
 #endif
@@ -1896,6 +1840,7 @@ void si_debug_cleanup(void);
 	#define SI_CHAR_IMPLEMENTATION
 	#define SI_FILE_IMPLEMENTATION
 	#define SI_THREAD_IMPLEMENTATION
+	#define SI_BIT_IMPLEMENTATION
 	#define SI_PERFORMANCE_IMPLEMENTATION
 #endif
 
@@ -2112,6 +2057,9 @@ inline usize si_array_type_size(rawptr array) {
 inline usize si_array_total_size(rawptr array) {
 	return si_array_capacity(array) * si_array_type_size(array);
 }
+inline usize si_array_empty(rawptr array) {
+    return (si_array_len(array) == 0 || array == nil);
+}
 
 inline siAny si_array_at(rawptr array, usize index) {
 	if (index >= si_array_len(array)) {
@@ -2241,14 +2189,110 @@ siString si_array_to_sistring(siArray(char*) array, cstring separator) {
 	return result;
 }
 
+inline void si_array_pop(rawptr array_ptr) {
+    siByte* array = *si_cast(siByte**, array_ptr);
+    SI_ARRAY_HEADER(array)->len -= 1;
+}
+
+void si_impl_array_insert(rawptr array_ptr, siAny new_item, usize index) {
+    SI_ASSERT_NOT_NULL(array_ptr);
+
+	siByte* array = *si_cast(siByte**, array_ptr);
+    siArrayHeader* header = SI_ARRAY_HEADER(array);
+
+	usize previous_len = header->len;
+	usize before_index_len = previous_len - index;
+
+	SI_ASSERT_FMT(index < previous_len, "Index is higher than the length of the array (array - '%zd', index - '%zd')", previous_len, index);
+	header->len += 1;
+
+	if (header->capacity < header->len) {
+		rawptr result = realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_size, sizeof(siArrayHeader) + 2 * header->capacity * header->type_size);
+
+		array = (siByte*)result + sizeof(siArrayHeader);
+		*si_cast(siByte**, array_ptr) = array;
+
+		header = (siArrayHeader*)result;
+		header->capacity *= 2;
+	}
+
+	memcpy(
+            array + (header->len - before_index_len) * header->type_size,
+            array + index * header->type_size,
+            before_index_len * header->type_size
+    );
+	memcpy(array + index * header->type_size, new_item.ptr, new_item.type_size);
+}
+inline void si_array_erase(rawptr array_ptr, usize index) {
+    si_array_erase_count(array_ptr, index, 1);
+}
+void si_array_erase_count(rawptr array_ptr, usize index, usize count) {
+    SI_ASSERT_NOT_NULL(array_ptr);
+	siByte* array = *si_cast(siByte**, array_ptr);
+
+	usize len = si_array_len(array);
+	SI_ASSERT_MSG(index < len, "Index is higher than the length of the string.");
+    SI_ASSERT_FMT(index + count <= len, "Index + count is higher than the length of the array (%zd > %zd).", index + count, len);
+
+	memcpy(array + index * si_array_type_size(array), array + (index + count) * si_array_type_size(array), (len - index - count) * si_array_type_size(array));
+
+	SI_ARRAY_HEADER(array)->len -= count;
+}
+void si_impl_array_remove_item(rawptr array_ptr, siAny item) {
+    SI_ASSERT_NOT_NULL(array_ptr);
+	siByte* array = *si_cast(siByte**, array_ptr);
+
+	siArrayHeader* header = SI_ARRAY_HEADER(array);
+	usize len = header->len;
+	while (true) {
+		isize index = si_impl_array_rfind(array, header->len - 1, 0, item);
+		if (index == -1) {
+			break;
+		}
+
+		usize after_index_len = index + len;
+
+		memcpy(array + index, array + arawptrfter_index_len, header->len - after_index_len);
+		header->len -= 1;
+	}
+}
+void si_impl_array_fill(rawptr array_ptr, usize index, usize count, siAny value) {
+	SI_ASSERT_NOT_NULL(array_ptr);
+	siByte* array = *si_cast(siByte**, array_ptr);
+
+	siArrayHeader* header = SI_ARRAY_HEADER(array);
+	SI_ASSERT_MSG(value.type_size <= header->type_size, "The given value's sizeof is too large compared to the elements' in the array.");
+    SI_ASSERT_MSG(index < header->capacity, "Index is higher than the array's length.");
+
+    usize previous_len = header->len;
+    isize size_dif = si_abs((isize)index - (isize)count);
+    header->len += size_dif;
+
+	if (header->capacity < header->len) {
+		rawptr result = realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_size, sizeof(siArrayHeader) + size_dif +  2 * header->capacity * header->type_size);
+		SI_ASSERT_NOT_NULL(result);
+
+		array = (siByte*)result + sizeof(siArrayHeader);
+		*si_cast(siByte**, array_ptr) = array;
+
+		header = (siArrayHeader*)result;
+		header->capacity = header->capacity * 2 + size_dif;
+	}
+
+    for_range(i, index, count) {
+        memcpy(si_array_get_ptr(array, previous_len + i), value.ptr, header->type_size);
+    }
+}
+
 void si_impl_array_append(rawptr array_ptr, siAny value) {
 	SI_ASSERT_NOT_NULL(array_ptr);
 	siByte* array = *si_cast(siByte**, array_ptr);
 
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
 	SI_ASSERT_MSG(value.type_size <= header->type_size, "The given value's sizeof is too large compared to the elements' in the arra");
+    header->len += 1;
 
-	if (header->len == header->capacity) {
+	if (header->capacity < header->len) {
 		rawptr result = realloc(header, sizeof(siArrayHeader) + header->capacity * header->type_size, sizeof(siArrayHeader) + 2 * header->capacity * header->type_size);
 		SI_ASSERT_NOT_NULL(result);
 
@@ -2260,7 +2304,6 @@ void si_impl_array_append(rawptr array_ptr, siAny value) {
 	}
 
 	memcpy(si_array_get_ptr(array, header->len), value.ptr, header->type_size);
-	header->len += 1;
 }
 
 void si_array_clear(rawptr array_ptr) {
@@ -2289,14 +2332,9 @@ bool si_array_equal(rawptr lha, rawptr rha) {
 	return true;
 }
 
-isize si_array_free(rawptr array) {
-	if (array == nil) {
-		return SI_ERROR;
-	}
-
+inline void si_array_free(rawptr array) {
+    SI_ASSERT_NOT_NULL(array);
 	free(SI_ARRAY_HEADER(array));
-
-	return SI_OKAY;
 }
 
 #endif
@@ -3469,6 +3507,121 @@ void si_thread_set_priority(siThread t, i32 priority) {
 		SI_UNUSED(priority);
 	#endif
 }
+
+#if defined(SI_BIT_IMPLEMENTATION) && !defined(SI_BIT_UNDEFINE)
+
+inline usize si_num_count_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    for_range (i, 0, SI_BYTE_TO_BIT(sizeof_num)) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_leading_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    usize i;
+    for (i = sizeof_num * 8 - 1; i < USIZE_MAX; i -= 1) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+        else {
+            return count;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_trailing_bit_ex(usize num, usize sizeof_num, siBitType bit) {
+    usize count = 0;
+
+    for_range (i, 0, sizeof_num * 8) {
+        if (SI_NUM_GET_BIT(num, i) == bit) {
+            count += 1;
+        }
+        else {
+            return count;
+        }
+    }
+
+    return count;
+}
+inline usize si_num_rotate_left_ex(usize num, usize num_sizeof, usize bits) {
+    return (num << bits) | (num >> (num_sizeof * 8 - bits));
+}
+inline usize si_num_rotate_right_ex(usize num, usize num_sizeof, usize bits) {
+    return (num >> bits) | (num << (num_sizeof * 8 - bits));
+}
+
+inline usize si_num_reverse_bits_ex(usize num, usize num_sizeof) {
+    usize res = 0LL;
+
+    for_range(i, 0, num_sizeof * 8) {
+        res <<= 1;
+        res |= (num & BIT_00000001);
+        num >>= 1;
+    }
+
+    return res;
+}
+
+siArray(u8) si_num_to_bytes_ex(usize num, usize num_sizeof) {
+    siArray(u8) res = si_array_make_reserve(sizeof(*res), num_sizeof);
+    SI_ARRAY_HEADER(res)->len = num_sizeof;
+
+    for_range (i, 0, num_sizeof) {
+        res[i] = (num >> ((num_sizeof - 1 - i) * 8)) & BIT_11111111;
+    }
+
+    return res;
+}
+inline usize si_bytes_to_num(siArray(u8) bytes) {
+    SI_ASSERT_NOT_NULL(bytes);
+    usize res = 0;
+    usize shift = (si_array_len(bytes) - 1) * 8;
+
+    foreach (byte, bytes) {
+        res |= si_cast(usize, *byte) << shift;
+        shift -= 8;
+    }
+
+    return res;
+}
+
+inline usize si_num_change_endian_ex(usize num, usize num_sizeof) {
+    usize result = 0;
+
+    for_range (i, 0, num_sizeof) {
+        result |= ((num >> SI_BYTE_TO_BIT(i))  & BIT_11111111) << SI_BYTE_TO_BIT(num_sizeof - 1 - i);
+    }
+
+    return result;
+}
+
+usize si_num_pow(isize base, usize exp) {
+    usize result = 1;
+
+    while (exp > 0) {
+        if (exp & BIT_00000001) {
+            result *= base;
+        }
+        base *= base;
+        exp >>= 1;
+    }
+
+    return result;
+}
+
+inline usize si_num_pow2(isize base, usize exp) {
+    return exp << base;
+}
+
+
+#endif
 
 #endif
 

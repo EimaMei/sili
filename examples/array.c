@@ -55,11 +55,51 @@ void example_2_1(void) {
 }
 
 
+void example_2_2(void) {
+    siArray(siColor) array = si_array_make((siColor[]){SI_RGB(255, 0, 0), SI_RGBA(0, 255, 0, 127), SI_RGB(0, 0, 255)});
+
+    si_array_append(&array, (siColor){255, 255, 255, 255});
+
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
+    for_range (i, 0, si_array_len(array)) {
+		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	}
+
+    si_array_pop(&array);
+    printf("Current length now - '%zd'\n", si_array_len(array));
+
+
+    si_array_insert(&array, SI_RGB(127, 127, 127), 2);
+
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
+    for_range (i, 0, si_array_len(array)) {
+		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	}
+
+    si_array_erase(&array, 2);
+
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
+    for_range (i, 0, si_array_len(array)) {
+		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	}
+
+    si_array_erase_count(&array, 0, 3);
+    printf("array_empty: '%zd', capacity: '%zd'\n", si_array_empty(array), si_array_capacity(array));
+
+    si_array_fill(&array, 0, si_array_capacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
+    for_range (i, 0, si_array_len(array)) {
+		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	}
+}
+
+
 int main(void) {
 	si_init(SI_KILO(1));
 
 	example_2_0();
 	example_2_1();
+    example_2_2();
 
 	si_terminate();
 	return 0;
