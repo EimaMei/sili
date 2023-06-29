@@ -16,4 +16,4 @@ jobs:
     - name: apt
       run: sudo apt-get install libxcursor-dev
     - name: make
-      run: make
+      run: make run_examples
