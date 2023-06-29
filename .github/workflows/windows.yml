@@ -1,17 +1,17 @@
 name: windows
 
 on:
-  push:
-    branches: [ "main", "dev" ]
-  pull_request:
-    branches: [ "main", "dev" ]
+	push:
+		branches: [ "main", "dev" ]
+	pull_request:
+		branches: [ "main", "dev" ]
 
 jobs:
-  build:
+	build:
 
-    runs-on: windows-latest
+	runs-on: windows-latest
 
-    steps:
-    - uses: actions/checkout@v3
-    - name: make
-      run: make
+	steps:
+		- uses: actions/checkout@v3
+		- name: make
+			run: make run_examples
