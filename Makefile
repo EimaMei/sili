@@ -3,10 +3,10 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = examples/array.c
-FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
-LIBS =
-INCLUDE = -I"."
+SRC = src/main.c
+FLAGS = -Og -std=c99 -Wall -Wextra -Wpedantic
+LIBS = -L"lib"
+INCLUDE = -I"." -I"include"
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
