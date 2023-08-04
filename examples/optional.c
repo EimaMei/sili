@@ -1,4 +1,3 @@
-#define SI_ALLOCATOR_UNDEFINE
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
@@ -36,17 +35,36 @@ typedef struct u128_struct {
     u64 high, low;
 } u128_struct;
 
-siOptionalType create_anything(siType type) {
+
+
+siOptionalType create_anything(siAllocator* alloc, siType type) {
+    siOptionalType res;
+
     switch (type) {
-        case SI_TYPE_NULL: return SI_OPTIONAL_NULL;
-        case SI_TYPE_I32: return si_optional_make((i32)INT32_MIN);
-        case SI_TYPE_STRING: return si_optional_make(si_string_make("Ayn Rand"));
-        case SI_TYPE_ARRAY: return si_optional_make(si_array_make((i32[]){1, 2, 3}));
-        case SI_TYPE_STRUCT: return si_optional_make((u128_struct){0xFF, UINT64_MAX});
-        case SI_TYPE_ENUM: return si_optional_make(siFebruary);
-        case SI_TYPE_FUNC_PTR: return si_optional_make(&create_anything);
+        case SI_TYPE_NULL:
+            res = SI_OPTIONAL_NULL;
+            break;
+        case SI_TYPE_I32:
+            res = si_optional_make(alloc, INT32_MIN);
+            break;
+        case SI_TYPE_STRING:
+            res = si_optional_make(alloc, si_string_make(alloc, "Ayn Rand"));
+            break;
+        case SI_TYPE_ARRAY:
+            res = si_optional_make(alloc, si_array_make(alloc, (i32[]){1, 2, 3}));
+            break;
+        case SI_TYPE_STRUCT:
+            res = si_optional_make(alloc, (u128_struct){0xFF, UINT64_MAX});
+            break;
+        case SI_TYPE_ENUM:
+            res = si_optional_make(alloc, siFebruary);
+            break;
+        case SI_TYPE_FUNC_PTR:
+            res = si_optional_make(alloc, &create_anything);
+            break;
     }
-    SI_BUILTIN_UNREACHABLE(); /* NOTE(EimaMei): If possible, lets the compiler know that this part of the code won't be reached. */
+
+    return res;
 }
 
 void example_5_0(void) {
@@ -63,14 +81,14 @@ void example_5_0(void) {
 }
 
 
-void example_5_1(void) {
+void example_5_1(siAllocator* alloc) {
     /* Example 5.0: siOptional with other types. */
     printf("==============\n\n==============\nExample 5.1:\n");
 
     siOptionalType results[7]; /* 7 because that's how many types we have in the enum.*/
 
     for_range (i, 0, countof(results)) {
-        results[i] = create_anything(i);
+        results[i] = create_anything(alloc, i);
     }
 
     printf("Element 0: '%s'\n", si_optional_get_or_default(cstring, results[0], "Couldn't get the value, the optional variable is null."));
@@ -79,7 +97,7 @@ void example_5_1(void) {
 
     siArray(i32) arr = si_optional_get(typeof(arr), results[3]);
     printf("Element 3: '{");
-        foreach(num, arr) {
+        for_each (num, arr) {
             printf("%i", *num);
 
             if (*num != (i32)SI_ARRAY_HEADER(arr)->len) {
@@ -89,7 +107,7 @@ void example_5_1(void) {
     printf("}' (len: '%zd')\n", si_array_len(arr));
 
     u128_struct num = si_optional_get(u128_struct, results[4]);
-    printf("Element 4: '0x%zX%zX' (type_size: '%zd')\n", num.high, num.low, si_optional_type_size(results[4]));
+    printf("Element 4: '0x%016zX|%016zX' (type_size: '%zd')\n", num.high, num.low, si_optional_type_size(results[4]));
 
     printf("Element 5: '%zd'\n", si_optional_get(siMonth, results[5]));
     printf("Element 6: '%p'\n", si_optional_get(rawptr, results[6]));
@@ -97,11 +115,10 @@ void example_5_1(void) {
 
 
 int main(void) {
-    si_init(SI_KILO(1));
+    siAllocator * stack = si_allocator_make_stack(0xFF);
 
     example_5_0();
-    example_5_1();
+    example_5_1(stack);
 
-    si_terminate();
     return 0;
 }

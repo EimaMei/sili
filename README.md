@@ -25,7 +25,7 @@ Sili Toolchain strives to strike a balance between having exceptional performanc
 - `siOptional` type similar to `std::optional`.
 - Cross-platform multi-thread support (`si_thread_create`, `si_thread_start`, `si_thread_join`).
 - Easy to use benchmarking functions to check performance (`si_performance_loop`, `si_performance_exec_per_ms`), while logging how many allocations/frees were done when the `SI_MEMORY_LOGGING` macro is enabled.
-- An allocator system in place, removing the need to do `free(<ptr>)` every few so lines. Not only that, but it's 3x times faster than the traditional separate mallocing/freeing system.
+- An allocator system in place, removing the need to do `free(<ptr>)` every so lines. Not only that, but it's 3x times faster than the traditional separate mallocing/freeing system.
 - Bit manipulation funcionts (`si_num_count_bit`, `si_num_rotate_left`, `si_bytes_to_num`, `si_num_change_endian` etc).
 - ... and more to come!
 
@@ -34,16 +34,3 @@ Examples of most sili's features are utilized in the `examples` folder.
 
 # License
 `sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded.
-
-# TODO
-## Features
-- !! Documentation (ideally documentation should be all in the header).
-- Directory IO.
-- `siTime`.
-- `siVariant` from `std::variant`.
-- `siRandom`.
-- `sort()` for siArray.
-- `insert()`/`remove()` for siString/siArray.
-
-# Improvements
-- Make thread priority values cross-platform.

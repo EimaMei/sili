@@ -15,9 +15,9 @@ rawptr thread_test(bool* arg) {
 		}
 	}
 	else {
-		printf("'arg' equals to 'false', so I'll just do nothing and wait for like 3 seconds.\n");
+		print("'arg' equals to 'false', so I'll just do nothing and wait for like 3 seconds.");
 		si_sleep(3000);
-		printf("...and we're done! Exiting the thread now.\n");
+		print("...and we're done! Exiting the thread now.");
 	}
 
 	typeof(count)* res = malloc(sizeof(count));
@@ -29,13 +29,11 @@ rawptr thread_test(bool* arg) {
 
 
 int main(void) {
-	si_init(SI_KILO(1));
-
-	siThread thread = si_thread_create(siFunc(thread_test), &(bool){false});
+	siThread thread = si_thread_create(thread_test, &(bool){false});
 	si_thread_start(&thread);
 
 	while (thread.is_running) {
-		printf("Even though 'thread' is currently sleeping, it's still running this exact second!\n");
+		print("Even though 'thread' is currently sleeping, it's still running this exact second!");
 		si_sleep(1000);
 	}
 
@@ -47,9 +45,10 @@ int main(void) {
 	si_thread_join(&thread); /* Now we have to wait... */
 
 	printf("That loop NOW returned a '%i'.\n", *si_cast(i16*, thread.return_value));
+    free(thread.return_value);
 	si_sleep(2000);
 
-	#if !defined(SI_SYSTEM_WINDOWS) /* si_thread_cancel is not supported on windows. */
+	#if !defined(SI_SYSTEM_WINDOWS) /* si_thread_cancel is not supported on windows. Technically not good practice, not recommended. */
 		si_thread_start(&thread);
 		si_sleep(2500);
 		si_thread_cancel(&thread);
@@ -57,6 +56,5 @@ int main(void) {
 		print("Decided to kill it 2.5 seconds later.");
 	#endif
 
-	si_terminate();
 	return 0;
 }

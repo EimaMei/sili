@@ -4,7 +4,7 @@
 
 void performance_test(void) {
 	isize i;
-	for (i = 0; i < UINT16_MAX; i++);	/* NOTE(EimaMei): Should strain the CPU just a little. */
+	for (i = 0; i < UINT16_MAX; i++);
 }
 
 

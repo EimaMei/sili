@@ -2,10 +2,10 @@
 #include <sili.h>
 
 
-void example_1_0(void) {
+void example_1_0(siAllocator* heap) {
 	printf("==============\nExample 1.0:\n");
 
-	siString str = si_string_make("Labas, Pasauli!");
+	siString str = si_string_make(heap, "Labas, Pasauli!");
 	printf("str: \"%s\"\n", str);
 
 	si_string_append(&str, " Lithuanian, more like Russian amirite.");
@@ -22,7 +22,7 @@ void example_1_0(void) {
 	si_string_push(&str, '.');
 	printf("str: \"%s\"\n", str);
 
-	siString str2 = si_string_copy(str);
+	siString str2 = si_string_copy(heap, str);
 	bool result = si_cstr_equal(str, str2);
 	printf("(\"%s\" == \"%s\") returns a '%s' boolean\n", str, str2, (result ? "true" : "false"));
 
@@ -38,7 +38,7 @@ void example_1_0(void) {
 	si_string_replace(&str2, "Different", "The same");
 	printf("str2: \"%s\"\n", str2);
 
-	si_string_trim(&str, "sentence.");
+	si_string_trim(&str, " sentence.");
 	printf("str: \"%s\"\n", str);
 
 	si_string_clear(&str);
@@ -46,19 +46,19 @@ void example_1_0(void) {
 
 
 	si_string_set(&str2, "one.two.three.four.five");
-	printf("Current str2:\" %s\"\n", str2);
+	printf("Current str2: \"%s\"\n", str2);
 
-	siArray(siString) list = si_string_split(str2, ".");
+	siArray(siString) list = si_string_split(heap, str2, ".");
 
 	for_range (i, 0, si_array_len(list)) {
 		printf("\tElement %zd: \"%s\"\n", i, list[i]);
 	}
 }
 
-void example_1_1(void) {
+void example_1_1(siAllocator* heap) {
 	printf("==============\n\n==============\nExample 1.1:\n");
 	/* Int stuff: */
-	siString str = si_string_make(si_i64_to_cstr(-342));
+	siString str = si_string_make(heap, si_i64_to_cstr(-342));
 	printf("str: \"%s\"\n", str);
 
 	isize num = si_cstr_to_u64("9300");
@@ -88,10 +88,10 @@ void example_1_1(void) {
 	printf("Capitalized str: \"%s\"\n", str);
 }
 
-void example_1_2(void) {
+void example_1_2(siAllocator* heap) {
 	printf("==============\n\n==============\nExample 1.2:\n");
 
-	siString str = si_string_make("\t       dnuora gniliart        ");
+	siString str = si_string_make(heap, "\t       dnuora gniliart        ");
 	printf("Before: '%s' (len: '%zd')\n", str, si_string_len(str));
 
 	si_string_strip(&str);
@@ -103,12 +103,12 @@ void example_1_2(void) {
 
 
 int main(void) {
-	si_init(SI_KILO(1));
+    siAllocator* heap = si_allocator_make(255 * 2);
 
-	example_1_0();
-	example_1_1();
-	example_1_2();
+	example_1_0(heap);
+	example_1_1(heap);
+	example_1_2(heap);
 
-	si_terminate();
+	si_allocator_free(heap);
 	return 0;
 }
