@@ -207,7 +207,6 @@ extern "C" {
 
 
 #if !defined(SI_SYSTEM_WINDOWS)
-    #include <stdint.h>
     #include <time.h>
     #include <stdlib.h>
 	#include <memory.h>
@@ -221,6 +220,8 @@ extern "C" {
 	#include <sys/fcntl.h>
 
 	#include <stdio.h>
+    #include <stdint.h>
+    #include <inttypes.h>
 #endif
 #if defined(SI_SYSTEM_WINDOWS)
 	#if !defined(SI_NO_WINDOWS_H)
@@ -262,7 +263,7 @@ extern "C" {
 #define SI_LITTLE_ENDIAN   (!SI_BIG_ENDIAN)
 
 
-#if defined(GB_COMPILER_MSVC)
+#if defined(SI_COMPILER_MSVC)
 	#if _MSC_VER < 1300
         typedef unsigned char     u8;
         typedef   signed char     i8;
@@ -1943,7 +1944,7 @@ void si_performance_loops_average_print(siAllocator* alloc, cstring funcname,
 
         siPerformanceMSG* msg = si_performance_get_msg_vars(alloc, end, median_index);
         printf(
-            "\t%s%lu %s - %9.4f %s (%lu cycles)\n",
+            "\t%s%"PRIu64" %s - %9.4f %s (%"PRId64" cycles)\n",
             msg->space_pad, median_index, msg->runs_text,
             amount_time, element->second, amount_cycles
         );
@@ -2006,7 +2007,7 @@ void si_performance_loops_average_print_cmp(siAllocator* alloc, cstring funcname
 
         siPerformanceMSG* msg = si_performance_get_msg_vars(alloc, end, median_index);
         printf(
-            "\t%s%lu %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %lu vs %lu cycles)\n",
+            "\t%s%"PRId64" %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %"PRId64" vs %"PRId64" cycles)\n",
             msg->space_pad, median_index, msg->runs_text,
             clr_0, time_0, element_0->second, SI_END, clr_1, time_1, element_1->second, SI_END,
             ratio, cycles_0, cycles_1
@@ -2033,7 +2034,7 @@ void si_performance_loops_average_print_cmp(siAllocator* alloc, cstring funcname
     printf(
         "Final result:\n"
             "\tTime average   - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio)\n"
-            "\tCycles average - %zu cycles vs %zu cycles\n",
+            "\tCycles average - %"PRId64" cycles vs %"PRId64" cycles\n",
         clr_0, time_median_0, element_0->second, SI_END,
         clr_1, time_median_1, element_1->second, SI_END,
         ratio,
