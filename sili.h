@@ -1,5 +1,3 @@
-#define SI_IMPLEMENTATION
-
 /*
 sili.h - a cross-platform software toolchain for modern C programming
 ===========================================================================
@@ -264,20 +262,34 @@ extern "C" {
 #define SI_LITTLE_ENDIAN   (!SI_BIG_ENDIAN)
 
 
-#ifndef u8
-    typedef uint8_t     u8;
-	typedef int8_t      i8;
-	typedef uint16_t   u16;
-	typedef int16_t    i16;
-	typedef uint32_t   u32;
-	typedef int32_t    i32;
-	typedef uint64_t   u64;
-	typedef int64_t    i64;
+#if defined(GB_COMPILER_MSVC)
+	#if _MSC_VER < 1300
+        typedef unsigned char     u8;
+        typedef   signed char     i8;
+        typedef unsigned short   u16;
+        typedef   signed short   i16;
+        typedef unsigned int     u32;
+        typedef   signed int     i32;
+	#else
+        typedef unsigned __int8   u8;
+        typedef   signed __int8   i8;
+        typedef unsigned __int16 u16;
+        typedef   signed __int16 i16;
+        typedef unsigned __int32 u32;
+        typedef   signed __int32 i32;
+	#endif
 
-    typedef i8          s8;
-    typedef i16        s16;
-    typedef i32        s32;
-    typedef i64        s64;
+	typedef unsigned __int64 u64;
+	typedef   signed __int64 i64;
+#else
+	typedef uint8_t   u8;
+	typedef  int8_t   i8;
+	typedef uint16_t u16;
+	typedef  int16_t i16;
+	typedef uint32_t u32;
+	typedef  int32_t i32;
+	typedef uint64_t u64;
+	typedef  int64_t i64;
 #endif
 
 #if !defined(usize)
@@ -1747,13 +1759,13 @@ u64 si_bytes_to_num(siArray(u8));
 
 u64 si_num_pow(u64 base, usize exp);
 u64 si_num_pow2(u64 base, usize exp);
-u64 si_num_len(u64 num);
 u64 si_num_round_nearest_multiple(u64 num, usize multiple);
+usize si_num_len(u64 num);
 
 
 #if 1 /* NOTE(EimaMei): The actual header definition for the macros. No reason to use these in practice. */
-u64 si_num_leading_bit_ex(u64 num, usize sizeof_num, siBitType bit);
-u64 si_num_trailing_bit_ex(u64 num, usize number_sizeof, siBitType bit);
+usize si_num_leading_bit_ex(u64 num, usize sizeof_num, siBitType bit);
+usize si_num_trailing_bit_ex(u64 num, usize number_sizeof, siBitType bit);
 
 u64 si_num_rotate_left_ex(u64 num, usize num_sizeof, usize bits);
 u64 si_num_rotate_right_ex(u64 num, usize num_sizeof, usize n);
@@ -1931,7 +1943,7 @@ void si_performance_loops_average_print(siAllocator* alloc, cstring funcname,
 
         siPerformanceMSG* msg = si_performance_get_msg_vars(alloc, end, median_index);
         printf(
-            "\t%s%lu %s - %9.4f %s (%zu cycles)\n",
+            "\t%s%lu %s - %9.4f %s (%lu cycles)\n",
             msg->space_pad, median_index, msg->runs_text,
             amount_time, element->second, amount_cycles
         );
@@ -1947,7 +1959,7 @@ void si_performance_loops_average_print(siAllocator* alloc, cstring funcname,
     printf(
         "Final result:\n"
             "\tTime average   - %9.4f %s\n"
-            "\tCycles average - %zu cycles\n",
+            "\tCycles average - %lu cycles\n",
         time_median, element->second,
         (u64)cycles_median
     );
@@ -1994,7 +2006,7 @@ void si_performance_loops_average_print_cmp(siAllocator* alloc, cstring funcname
 
         siPerformanceMSG* msg = si_performance_get_msg_vars(alloc, end, median_index);
         printf(
-            "\t%s%lu %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %zu vs %zu cycles)\n",
+            "\t%s%lu %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %lu vs %lu cycles)\n",
             msg->space_pad, median_index, msg->runs_text,
             clr_0, time_0, element_0->second, SI_END, clr_1, time_1, element_1->second, SI_END,
             ratio, cycles_0, cycles_1
