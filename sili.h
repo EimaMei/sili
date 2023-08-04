@@ -282,6 +282,7 @@ extern "C" {
 
 	typedef unsigned __int64 u64;
 	typedef   signed __int64 i64;
+    #define PRIu64       "I64u"
 #else
 	typedef uint8_t   u8;
 	typedef  int8_t   i8;
