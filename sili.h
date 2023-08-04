@@ -284,13 +284,13 @@ extern "C" {
 	typedef   signed __int64 i64;
     #define PRIu64       "I64u"
 
-    #define INT8_MIN     ((int8_t)_I8_MIN)
+    #define INT8_MIN     ((i8)_I8_MIN)
     #define INT8_MAX     _I8_MAX
-    #define INT16_MIN    ((int16_t)_I16_MIN)
+    #define INT16_MIN    ((i16)_I16_MIN)
     #define INT16_MAX    _I16_MAX
-    #define INT32_MIN    ((int32_t)_I32_MIN)
+    #define INT32_MIN    ((i32)_I32_MIN)
     #define INT32_MAX    _I32_MAX
-    #define INT64_MIN    ((int64_t)_I64_MIN)
+    #define INT64_MIN    ((i64)_I64_MIN)
     #define INT64_MAX    _I64_MAX
     #define UINT8_MAX    _UI8_MAX
     #define UINT16_MAX   _UI16_MAX
@@ -2022,7 +2022,7 @@ void si_performance_loops_average_print_cmp(siAllocator* alloc, cstring funcname
 
         siPerformanceMSG* msg = si_performance_get_msg_vars(alloc, end, median_index);
         printf(
-            "\t%s%"PRIu64" %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %"PRIu64" vs %"PRIu64" cycles)\n",
+            "\t%s%zu %s - %s%9.4f %s%s vs %s%9.4f %s%s (%4.4f ratio, %"PRIu64" vs %"PRIu64" cycles)\n",
             msg->space_pad, median_index, msg->runs_text,
             clr_0, time_0, element_0->second, SI_END, clr_1, time_1, element_1->second, SI_END,
             ratio, cycles_0, cycles_1
