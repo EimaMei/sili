@@ -66,7 +66,7 @@ inline cstring compiler(void) {
             "GCC"
         #elif defined(SI_COMPILER_CLANG)
             "clang"
-        #elif defined(SI_MSVC)
+        #elif defined(SI_COMPILER_MSVC)
             "msvc"
         #else
             "N/A"

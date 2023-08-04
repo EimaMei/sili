@@ -15,8 +15,8 @@ int main(void) {
 	printf("Now lets see how many times 'performance_test()' can be executed in 5 seconds...\n");
 	si_performance_executes_per_ms(5000, performance_test());
 
-	printf("The median performance:\n");
-	si_performance_loop_median(10000, performance_test());
+	printf("The average performance:\n");
+	si_performance_loops_average(10000, performance_test());
 
 	return 0;
 }

@@ -2075,13 +2075,13 @@ void si_performance_loops_average_print_cmp(siAllocator* alloc, cstring funcname
     } while (0)
 
 #define si_performance_loops_average(increments_of_10, function) \
-    si_performance_loops_average(1, increments_of_10, function)
+    si_performance_loops_average_range(1, increments_of_10, function)
 
 #define si_performance_loops_average_range(start, end, function) \
 	do { \
         siAllocator* alloc = si_allocator_make_stack(4096); \
 		siArray(u64) cycles = si_array_make_reserve(alloc, sizeof(u64), 20); \
-        si_performance_loop(function, cycles, start, increments_of_10); \
+        si_performance_loop(function, cycles, start, end); \
         \
         si_performance_loops_average_print(alloc, #function, start, end, cycles, (f64)si_cpu_clock_speed() / 1000); \
 		SI_PERFORMANCE_PRINT_MEMORY(function); \
