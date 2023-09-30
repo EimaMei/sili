@@ -4,7 +4,7 @@ NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
 SRC = src/main.c
-FLAGS = -Og -std=c99 -Wall -Wextra -Wpedantic
+FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"
 
