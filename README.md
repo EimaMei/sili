@@ -1,17 +1,17 @@
-# Sili Toolchain
+# Sili
 ![vm workflow linux](https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml/badge.svg)
 ![vm workflow windows](https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml/badge.svg)
 ![vm workflow macos](https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg)
 
-Sili Toolchain is a cross-platform software toolchain for modern C programming, providing many new features, improvements and fixes to the language's barebones STL. It is specifically designed for C99 and above but can also be used in C++ codebases.
+Sili is a cross-platform STL for modern C programming, providing many new features, improvements and fixes to the language's barebones STL.
 
 # Main goals
 ## Modernize C
-The toolchain aims to modernize C by implementing a proper STL that is more feature-rich, fast, safe and understandable. It serves as an alternative to the bloated C++ STL.
-## Performance & Utility
-Sili Toolchain strives to strike a balance between having exceptional performance and while providing more options to end-developers.
+The project aims to modernize C by implementing a proper STL that is more feature-rich, fast, safe and understandable. It also serves as an alternative to the bloated C++ STL.
+## Performance & Flexibility
+Sili strives to strike a balance between having exceptional performance and flexibility to provide more options to end-developers.
 ## Portability
-`sili.h`  is a single-header library, allowing for easy integration into any project. Furthermore, Sili Toolchain is designed to be cross-platform, supporting all major desktop operating systems.
+`sili.h`  is a single-header library, allowing for easy integration into any project. Furthermore, sili is designed to be cross-platform, supporting any OS that has a C99 compiler.
 
 # Features
 - Architecture/OS/Compiler/Standard indentification macros (`SI_CPU_X86`, `SI_SYSTEM_WINDOWS`, `SI_COMPILER_CLANG`, `SI_STANDARD_C99`, `SI_STANDARD_ANSI` etc).
@@ -31,6 +31,3 @@ Sili Toolchain strives to strike a balance between having exceptional performanc
 
 # Examples
 Examples of most sili's features are utilized in the `examples` folder.
-
-# License
-`sili.h` is dual-licensed to the public domain and under the MIT license, meaning it can be used in any want you'd like to. Credit is appreciated but unneeded.
