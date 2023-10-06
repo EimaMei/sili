@@ -3,7 +3,7 @@
 
 
 int main(void) {
-    siAllocator* stack = si_allocator_make_stack(0xFF); /* Functions that'll allocate to this allocator will only do it in the stack, not the heap! */
+	siAllocator* stack = si_allocator_make_stack(0xFF); /* Functions that'll allocate to this allocator will only do it in the stack, not the heap! */
 
 	/* Example 3.0: siPair (based on https://cplusplus.com/reference/utility/pair/pair/) */
 	printf("==============\n\n==============\nExample 3.0:\n");

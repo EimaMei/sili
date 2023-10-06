@@ -3,8 +3,8 @@
 
 
 void example1(siAllocator* heap) {
-    si_allocatorReset(heap);
-    printf("==============\nExample 1:\n");
+	si_allocatorReset(heap);
+	printf("==============\nExample 1:\n");
 
 	siString str = si_stringMake(heap, "Labas, Pasauli!");
 	printf("str: \"%s\"\n", str);
@@ -57,8 +57,8 @@ void example1(siAllocator* heap) {
 }
 
 void example2(siAllocator* heap) {
-    si_allocatorReset(heap);
-    printf("==============\n\n==============\nExample 2:\n");
+	si_allocatorReset(heap);
+	printf("==============\n\n==============\nExample 2:\n");
 	/* Int stuff: */
 	siString str = si_stringMake(heap, si_i64ToCstr(heap, -342));
 	printf("str: \"%s\"\n", str);
@@ -91,8 +91,8 @@ void example2(siAllocator* heap) {
 }
 
 void example3(siAllocator* heap) {
-    si_allocatorReset(heap);
-    printf("==============\n\n==============\nExample 3:\n");
+	si_allocatorReset(heap);
+	printf("==============\n\n==============\nExample 3:\n");
 
 	siString str = si_stringMake(heap, "\t       dnuora gniliart        ");
 	printf("Before: '%s' (len: '%zd')\n", str, si_stringLen(str));
@@ -106,7 +106,7 @@ void example3(siAllocator* heap) {
 
 
 int main(void) {
-    siAllocator* heap = si_allocatorMake(SI_KILO(1));
+	siAllocator* heap = si_allocatorMake(SI_KILO(1));
 
 	example1(heap);
 	example2(heap);

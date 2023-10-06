@@ -3,12 +3,12 @@
 
 
 void example1(siAllocator* heap) {
-    si_allocatorReset(heap);
+	si_allocatorReset(heap);
 	printf("==============\n\n==============\nExample 1:\n");
 
 	siArray(i32) array = si_arrayMake(heap, (i32[]){3, 234, 2, 4, 294, 234, 23});
 
-    print("All of the elements in 'array':");
+	print("All of the elements in 'array':");
 	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: %i\n", i, array[i]);
 	}
@@ -34,13 +34,13 @@ void example1(siAllocator* heap) {
 }
 
 void example2(siAllocator* heap) {
-    si_allocatorReset(heap);
+	si_allocatorReset(heap);
 	printf("==============\n\n==============\nExample 2:\n");
 
 	siArray(i32) array = si_arrayMake(
-        heap,
-        si_buf(i32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-    );
+		heap,
+		si_buf(i32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	);
 
 	printf("Array in regular order: ");
 	for_each (num, array) {
@@ -60,60 +60,60 @@ void example2(siAllocator* heap) {
 
 
 void example3(siAllocator* heap) {
-    si_allocatorReset(heap);
-    printf("==============\n\n==============\nExample 3:\n");
+	si_allocatorReset(heap);
+	printf("==============\n\n==============\nExample 3:\n");
 
-    siArray(siColor) array = si_arrayMake(
-        heap,
-        si_buf(siColor, SI_RGB(255, 0, 0), SI_RGBA(0, 255, 0, 127), SI_RGB(0, 0, 255))
-    );
+	siArray(siColor) array = si_arrayMake(
+		heap,
+		si_buf(siColor, SI_RGB(255, 0, 0), SI_RGBA(0, 255, 0, 127), SI_RGB(0, 0, 255))
+	);
 
-    si_arrayAppend(&array, (siColor){255, 255, 255, 255});
+	si_arrayAppend(&array, (siColor){255, 255, 255, 255});
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-    for_range (i, 0, si_arrayLen(array)) {
+	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_arrayPop(&array);
-    printf("Current length now - '%zd'\n", si_arrayLen(array));
+	si_arrayPop(&array);
+	printf("Current length now - '%zd'\n", si_arrayLen(array));
 
 
-    si_arrayInsert(&array, SI_RGB(127, 127, 127), 2);
+	si_arrayInsert(&array, SI_RGB(127, 127, 127), 2);
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-    for_range (i, 0, si_arrayLen(array)) {
+	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_arrayErase(&array, 2);
+	si_arrayErase(&array, 2);
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-    for_range (i, 0, si_arrayLen(array)) {
+	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_arrayEraseCount(&array, 0, 3);
-    printf("array_empty: '%u', capacity: '%zd'\n", si_arrayEmpty(array), si_arrayCapacity(array));
+	si_arrayEraseCount(&array, 0, 3);
+	printf("array_empty: '%u', capacity: '%zd'\n", si_arrayEmpty(array), si_arrayCapacity(array));
 
-    si_arrayFill(&array, 0, si_arrayCapacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+	si_arrayFill(&array, 0, si_arrayCapacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-    for_range (i, 0, si_arrayLen(array)) {
+	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_arrayRemoveItem(&array, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	si_arrayRemoveItem(&array, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
 }
 
 
 int main(void) {
-    siAllocator* heap = si_allocatorMake(0xFF);
+	siAllocator* heap = si_allocatorMake(0xFF);
 
-    example1(heap);
+	example1(heap);
 	example2(heap);
-    example3(heap);
+	example3(heap);
 
 	si_allocatorFree(heap);
 	return 0;

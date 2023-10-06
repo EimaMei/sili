@@ -39,7 +39,7 @@ int main(void) {
 	printf("That loop returned a '%i'. Now we'll re-run the loop with the argument being 'true' instead.\n", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
 
-    loopState = true;
+	loopState = true;
 	si_threadStart(&thread);
 	si_threadJoin(&thread); /* Now we have to wait... */
 
