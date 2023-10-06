@@ -3,7 +3,7 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = src/main.c
+SRC = examples/benchmarking.c
 FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"

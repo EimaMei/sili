@@ -2,41 +2,42 @@
 #include <sili.h>
 
 
-void example_2_0(siAllocator* heap) {
-	printf("==============\n\n==============\nExample 2.0:\n");
+void example1(siAllocator* heap) {
+    si_allocatorReset(heap);
+	printf("==============\n\n==============\nExample 1:\n");
 
-	siArray(i32) array = si_array_make(heap, (i32[]){3, 234, 2, 4, 294, 234, 23});
+	siArray(i32) array = si_arrayMake(heap, (i32[]){3, 234, 2, 4, 294, 234, 23});
 
     print("All of the elements in 'array':");
-	for_range (i, 0, si_array_len(array)) {
+	for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: %i\n", i, array[i]);
 	}
 
-	isize find_pos = si_array_find(array, 234);
-	isize rfind_pos = si_array_rfind(array, 234);
+	isize find_pos = si_arrayFind(array, 234);
+	isize rfind_pos = si_arrayRFind(array, 234);
 	printf("The 1st number '234' is at 'array[%zd]', while the 2nd one is at 'array[%zd]'\n", find_pos, rfind_pos);
 
-	usize previous_len = si_array_len(array);
-	si_array_append(&array, INT32_MAX); /* si_array_push does the same thing. */
+	usize previous_len = si_arrayLen(array);
+	si_arrayAppend(&array, INT32_MAX); /* si_array_push does the same thing. */
 
-	i32 front = si_any_get(i32, si_array_front(array));
-	i32 back = si_any_get(i32, si_array_back(array));
-	printf("We now have %zd elements instead of %zd. The front value is '%i', while the back value is '0x%X'\n", si_array_len(array), previous_len, front, back);
+	i32* front = si_arrayFront(array);
+	i32* back = si_arrayBack(array);
+	printf("We now have %zd elements instead of %zd. The front value is '%i', while the back value is '0x%X'\n", si_arrayLen(array), previous_len, *front, *back);
 
-	si_array_replace(&array, 4, INT32_MIN);
-	printf("The element at position '%d' was replaced with: -'-0x%X'\n", 3, array[3]);
+	si_arrayReplace(&array, 4, INT32_MIN);
+	printf("The element at position '%d' was replaced with: -'%i'\n", 3, array[3]);
 
-	siArray(i32) copy = si_array_copy(heap, array);
-	bool res = si_array_equal(array, copy);
+	siArray(i32) copy = si_arrayCopy(heap, array);
+	b32 res = si_arrayEqual(array, copy);
 
 	printf("Arrays 'array' and 'copy' are %s\n", (res ? "the same" : "NOT the same"));
 }
 
-void example_2_1(siAllocator* heap) {
-	printf("==============\n\n==============\nExample 2.1:\n");
+void example2(siAllocator* heap) {
+    si_allocatorReset(heap);
+	printf("==============\n\n==============\nExample 2:\n");
 
-
-	siArray(i32) array = si_array_make(
+	siArray(i32) array = si_arrayMake(
         heap,
         si_buf(i32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
     );
@@ -48,71 +49,72 @@ void example_2_1(siAllocator* heap) {
 	printf("\n");
 
 
-	si_array_reverse(&array);
+	si_arrayReverse(array);
 
 	printf("Array in reverse order: ");
-	for_range (num, 0, si_array_len(array)) {
+	for_range (num, 0, si_arrayLen(array)) {
 		printf("%i ", array[num]);
 	}
 	printf("\n");
 }
 
 
-void example_2_2(siAllocator* heap) {
-    siArray(siColor) array = si_array_make(
+void example3(siAllocator* heap) {
+    si_allocatorReset(heap);
+    printf("==============\n\n==============\nExample 3:\n");
+
+    siArray(siColor) array = si_arrayMake(
         heap,
         si_buf(siColor, SI_RGB(255, 0, 0), SI_RGBA(0, 255, 0, 127), SI_RGB(0, 0, 255))
     );
 
-    si_array_append(&array, (siColor){255, 255, 255, 255});
+    si_arrayAppend(&array, (siColor){255, 255, 255, 255});
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
-    for_range (i, 0, si_array_len(array)) {
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+    for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_array_pop(&array);
-    printf("Current length now - '%zd'\n", si_array_len(array));
+    si_arrayPop(&array);
+    printf("Current length now - '%zd'\n", si_arrayLen(array));
 
 
-    si_array_insert(&array, SI_RGB(127, 127, 127), 2);
+    si_arrayInsert(&array, SI_RGB(127, 127, 127), 2);
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
-    for_range (i, 0, si_array_len(array)) {
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+    for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_array_erase(&array, 2);
+    si_arrayErase(&array, 2);
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
-    for_range (i, 0, si_array_len(array)) {
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+    for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_array_erase_count(&array, 0, 3);
-    printf("array_empty: '%zd', capacity: '%zd'\n", si_array_empty(array), si_array_capacity(array));
+    si_arrayEraseCount(&array, 0, 3);
+    printf("array_empty: '%u', capacity: '%zd'\n", si_arrayEmpty(array), si_arrayCapacity(array));
 
-    si_array_fill(&array, 0, si_array_capacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+    si_arrayFill(&array, 0, si_arrayCapacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
 
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
-    for_range (i, 0, si_array_len(array)) {
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+    for_range (i, 0, si_arrayLen(array)) {
 		printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
 	}
 
-    si_array_remove_item(&array, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
+    si_arrayRemoveItem(&array, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+    printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
 }
 
 
 int main(void) {
-    siAllocator* heap = si_allocator_make(0xFF);
+    siAllocator* heap = si_allocatorMake(0xFF);
 
-    example_2_0(heap);
-	example_2_1(heap);
+    example1(heap);
+	example2(heap);
+    example3(heap);
 
-    si_allocator_refresh(heap); /* This does both `si_allocator_free` and then `si_allocator_make` to refresh its contents for next allocations. */
-    example_2_2(heap);
-
-	si_allocator_free(heap);
+	si_allocatorFree(heap);
 	return 0;
 }
