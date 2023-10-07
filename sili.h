@@ -5,8 +5,6 @@
  * - Redo siAny.
  * - Rework the beginning text for more info.
  * - Check if all features 100% work on _all_ platforms.
- * - + Add documentation on how functions/macros are documented.
- * - + Update the old examples.
  * - Add new examples.
  * - Rework 'siPair'.
  * - Rework 'siFile' to not use the standard C version for more low-level control.
@@ -517,7 +515,20 @@ SI_STATIC_ASSERT(false == 0);
 	typedef const char* cstring;
 #endif
 
-typedef isize siError;
+#if !defined(SI_NO_ERROR_STRUCT)
+	/* A struct denotating an error that happened during an operation. */
+	typedef struct {
+		/* Error code from the operation. */
+		i32 code;
+		/* The function where the error occurred. */
+		cstring function;
+		/* The time when the error happened (in UTC+0). */
+		u64 time;
+	} siErrorInfo;
+#else
+	/* An integer containing an error code from a failed operation. */
+	typedef i32 siErrorInfo;
+#endif
 
 /*
 	========================
@@ -1638,7 +1649,7 @@ void si_hashtableFree(siHashTable ht);
 *
 *
 	========================
-	|  siFile & siPath     |
+	|  Input and Output    |
 	========================
 */
 
@@ -1653,11 +1664,86 @@ typedef struct {
 	u64 lastWriteTime;
 } siFile;
 
+typedef SI_ENUM(u32, siFilePermissions) {
+	SI_FS_PERM_NONE = 0, /* No permission bits are set. */
+
+	SI_FS_PERM_OWNER_READ = 0400, /* File owner has read permission. */
+	SI_FS_PERM_OWNER_WRITE = 0200, /* File owner has write permission. */
+	SI_FS_PERM_OWNER_EXEC = 0100, /* File owner has execute/search permission. */
+	SI_FS_PERM_OWNER_ALL = 0700, /* File owner has read, write, and execute/search permissions, equivalent to
+									 'SI_FS_PERM_OWNER_READ | SI_FS_PERM_OWNER_WRITE | SI_FS_PERM_OWNER_EXEC'. */
+	SI_FS_PERM_GROUP_READ = 040, /* The file's user group has read permission. */
+	SI_FS_PERM_GROUP_WRITE = 020, /* The file's user group has write permission. */
+	SI_FS_PERM_GROUP_EXEC = 010, /* The file's user group has execute/search permission. */
+	SI_FS_PERM_GROUP_ALL = 070, /* The file's user group has read, write, and execute/search permissions, equivalent to
+									 'SI_FS_PERM_GROUP_READ | SI_FS_PERM_GROUP_WRITE | SI_FS_PERM_GROUP_EXEC'. */
+	SI_FS_PERM_OTHERS_READ = 04, /* Other users have read permission. */
+	SI_FS_PERM_OTHERS_WRITE = 02, /* Other users have write permission. */
+	SI_FS_PERM_OTHERS_EXEC = 01, /* Other users have execute/search  permission. */
+	SI_FS_PERM_OTHERS_ALL = 07, /* Other users have read, write, and execute/search permissions, equivalent to
+									 'SI_FS_PERM_OTHERS_READ | SI_FS_PERM_OTHERS_WRITE | SI_FS_PERM_OTHERS_EXEC'. */
+	SI_FS_PERM_ALL = 0777, /* All users have read, write, and execute/search permissions. Equivalent to
+								'SI_FS_PERM_OWNER_ALL | SI_FS_PERM_GROUP_ALL | SI_FS_PERM_OTHERS_ALL'. */
+
+	SI_FS_PERM_SET_UID = 04000, /* Set user ID to file owner user ID on execution. */
+	SI_FS_PERM_SET_GID = 02000, /* Set group ID to file's user group ID on execution. */
+	SI_FS_PERM_STICKY_BIT = 01000, /* Implementation-defined meaning, but POSIX XSI specifies that when set on a directory,
+								   only file owners may delete files even if the directory is writeable to others (used with /tmp). */
+
+	SI_FS_PERM_MASK = 07777 /* 	All valid permission bits, equivalent to 'SI_FS_PERM_ALL | SI_FS_PERM_SET_UID |
+									SI_FS_PERM_SET_GID | SI_FS_PERM_STICKY_BIT'. */
+};
+
+typedef SI_ENUM(i32, siFileSystemError) {
+	SI_FS_ERROR_PERMS = EACCES, /* Access is denied due to file permissions. */
+	SI_FS_ERROR_EXISTS = EEXIST, /* File system object already exists. */
+	SI_FS_ERROR_LINK_LOOP = ELOOP, /* Too many levels of symbolic links. */
+	SI_FS_ERROR_LINK_MANY = EMLINK, /* Too many links. */
+	SI_FS_ERROR_NAME_TOO_LONG = ENAMETOOLONG, /* UNIX: File name surpasses 'PATH_MAX' or a path name component is
+												 longer than 'NAME_MAX'. */
+	SI_FS_ERROR_DOESNT_EXIST = ENOENT, /* No such file or directory. */
+	SI_FS_ERROR_NO_SPACE = ENOSPC, /* No space is left on the device. */
+	SI_FS_ERROR_NOT_DIR = ENOTDIR, /* File system object is not a directory. */
+	SI_FS_ERROR_DENIED = EPERM, /* Operation is not permitted possibly due to not having appropriate calling privileges
+								   or the implementation prohibits using the operation on certain file system objects. */
+	SI_FS_ERROR_READ_ONLY_FS = EROFS, /* Tried using a write operation on a read-only filesystem. */
+	SI_FS_ERROR_INVALID_CROSS_LINK = EXDEV, /* One of the specified links is on a different file system and the implementation
+											   doesn't support links between file systems. */
+	SI_FS_ERROR_BAD_DESCRIPTOR = EBADF, /* Bad file descriptor. */
+	SI_FS_ERROR_RESOURCE_UNAVAILABLE = EAGAIN, /* Resource temporarily unavailable. */
+	SI_FS_ERROR_BAD_ADDRESS = EFAULT, /* Bad address. */
+	SI_FS_ERROR_INVALID_VALUE = EINVAL, /* Invalid provided argument. */
+	SI_FS_ERROR_IO = EIO, /* IO error. */
+	SI_FS_ERROR_NO_MEMORY = ENOMEM, /* Not enough space/cannot allocate memory. */
+	SI_FS_ERROR_OVERFLOW = EOVERFLOW, /* Value too large to be stored in data type. */
+	SI_FS_ERROR_INVALID_SEEK = ESPIPE, /* Invalid seek. */
+	SI_FS_ERROR_BUSY = EBUSY, /* Device or resource is busy. */
+	SI_FS_ERROR_DISK_QUOTA_EXCEEDED = EDQUOT, /* Disk quota has been exceeded. */
+	SI_FS_ERROR_FILE_TOO_LARGE = EFBIG, /* File is too large. */
+	SI_FS_ERROR_INTERRUPT = EINTR, /* Interrupted function call. */
+	SI_FS_ERROR_IS_DIR = EISDIR, /* Specified arguemnt is a directory. */
+	SI_FS_ERROR_FILE_LIMIT = EMFILE, /* There are too many opened files. UNIX: Commonly caused by exceeding the 'RLIMIT_NOFILE'
+										resource limit described in getrlimit(2). Can also be caused by exceeding the limit
+										specified in /proc/sys/fs/nr_open. */
+	SI_FS_ERROR_NO_DEVICE = ENODEV, /* No such device exists. */
+	SI_FS_ERROR_NO_DEVICE_OR_ADR = ENXIO, /* No such device or address exists. */
+	SI_FS_ERROR_NOT_SUPPORTED = EOPNOTSUPP, /* Operation not supported on socket. */
+	SI_FS_ERROR_TEXT_FILE_BUSY = ETXTBSY, /* Text file is too busy. */
+};
+
 #if defined(SI_SYSTEM_WINDOWS)
-	const char SI_PATH_SEPARATOR = '\\';
+	static const char SI_PATH_SEPARATOR = '\\';
 #else
-	const char SI_PATH_SEPARATOR = '/';
+	static const char SI_PATH_SEPARATOR = '/';
 #endif
+
+/* Last file system error. On non-release mode, the user gets notified when an
+ * error happens. */
+extern siErrorInfo SI_FS_ERROR;
+/* Returns the string representation of the error code. */
+cstring si_pathFsErrorName(siFileSystemError err);
+/* Returns the description of the error. */
+cstring si_pathFsErrorStr(siFileSystemError err);
 
 /*
 	========================
@@ -1665,17 +1751,31 @@ typedef struct {
 	========================
 */
 
-/* Returns a boolean indicating if the NULL-terminated C-string path exists. */
+/* Returns a boolean indicating if the given NULL-terminated C-string path exists. */
 b32 si_pathExists(cstring path);
-/* Copies the File System object from 'existingPath' to 'newPath'. Returns the size
+/* Copies the file system object from 'existingPath' to 'newPath'. Returns the size
  * of the copied file. */
 isize si_pathCopy(cstring existingPath, cstring newPath);
-/* Moves the File System object from 'existingPath' to 'newPath'. Returns true
+/* Moves the file system object from 'existingPath' to 'newPath'. Returns true
  * if the path was moved successfully. */
 b32 si_pathMove(cstring existingPath, cstring newPath);
-/* Removes the File System object specified at 'path'. Returns true if the removal
+/* Renames 'oldName' path to 'newName. Equivalent to si_pathMove. */
+b32 si_pathRename(cstring oldName, cstring newName);
+/* Creates a new folder based on the specified path, with the permission being
+ * set to SI_FS_PERM_ALL. Returns true if the folder was created. */
+b32 si_pathCreateFolder(cstring path);
+/* Creates a new folder based on the specified path and permissions. Returns true
+ * if the folder was created. */
+b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms);
+/* Removes the file system object specified at 'path'. Returns true if the removal
  * was successful. */
 b32 si_pathRemove(cstring path);
+/* Creates a hard link of the specified file. */
+b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath);
+/* Creates a soft link of the specified file. */
+b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath);
+/* Modifies the permissions of the given path. Returns true if the edit succeeded. */
+b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms);
 
 /* Returns a pointer that points to the start of the base name. */
 cstring si_pathBaseName(cstring path);
@@ -1685,14 +1785,17 @@ cstring si_pathExtension(cstring path);
 /* Returnss a siString of the full filename of the given path and and writes it
  * into the allocator. */
 siString si_pathGetFullName(siAllocator* alloc, cstring path);
+/* Returns the last time the path was edited. */
+u64 si_pathLastWriteTime(cstring path);
+/* Returns the system's temporary path. */
+cstring si_pathGetTmp(void);
+/* Returns the permissions of the given path. */
+siFilePermissions si_pathPermissions(cstring path);
 
 /* Returns true if the path is absolute. */
 b32 si_pathIsAbsolute(cstring path);
 /* Returns true if the path is relative. */
 b32 si_pathIsRelative(cstring path);
-
-/* Returns the last time the path was edited. */
-u64 si_pathLastWriteTime(cstring filename);
 
 /*
 	========================
@@ -1762,7 +1865,7 @@ void si_fileClose(siFile file);
 
 /*
 	========================
-	|  siDirectory & siIO  |
+	|  siDirectory         |
 	========================
 */
 typedef SI_ENUM(i32, siIOType) {
@@ -1794,7 +1897,7 @@ typedef struct {
  * with 'basePath', just their filenames. */
 siDirectory si_dirOpen(char* path) {
 #if defined(SI_SYSTEM_WINDOWS)
-
+	SI_PANIC();
 #else
 	DIR* handle = opendir(path);
 	siDirectory dir;
@@ -1804,13 +1907,13 @@ siDirectory si_dirOpen(char* path) {
 	if (handle == nil) {
 		cstring message;
 		switch (errno) {
-			case EACCES:  message = "Failed to execute 'si_dirOpen': Permission denied (EACCES).";
-			case EBADF:   message = "Failed to execute 'si_dirOpen': fd is not a valid file descriptor opened for reading (EBADF).";
-			case EMFILE:  message = "Failed to execute 'si_dirOpen': The per-process limit on the number of open file descriptors has been reached. (EMFILE).";
-			case ENFILE:  message = "Failed to execute 'si_dirOpen': The system-wide limit on the total number of open files has been reached (ENFILE).";
-			case ENOENT:  message = "Failed to execute 'si_dirOpen': Directory does not exist, or path is an empty string (ENOENT).";
-			case ENOMEM:  message = "Failed to execute 'si_dirOpen': Insufficient memory to complete the operation (ENOMEM).";
-			case ENOTDIR: message = "Failed to execute 'si_dirOpen': path is not a directory (ENOTDIR).";
+			case EACCES:  message = "Failed to execute 'si_dirOpen': Permission denied (EACCES)."; break;
+			case EBADF:   message = "Failed to execute 'si_dirOpen': fd is not a valid file descriptor opened for reading (EBADF)."; break;
+			case EMFILE:  message = "Failed to execute 'si_dirOpen': The per-process limit on the number of open file descriptors has been reached. (EMFILE)."; break;
+			case ENFILE:  message = "Failed to execute 'si_dirOpen': The system-wide limit on the total number of open files has been reached (ENFILE)."; break;
+			case ENOENT:  message = "Failed to execute 'si_dirOpen': Directory does not exist, or path is an empty string (ENOENT)."; break;
+			case ENOMEM:  message = "Failed to execute 'si_dirOpen': Insufficient memory to complete the operation (ENOMEM)."; break;
+			case ENOTDIR: message = "Failed to execute 'si_dirOpen': path is not a directory (ENOTDIR)."; break;
 		}
 		SI_PANIC_MSG(message);
 		return dir;
@@ -2544,7 +2647,7 @@ void si_allocatorReset(siAllocator* alloc) {
 F_TRAITS(inline)
 void si_allocatorResetFrom(siAllocator* alloc, usize offset) {
 	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_MSG(si_between(offset, 0, alloc->maxLen), "Provided offset is too large.");
+	SI_ASSERT_MSG(offset < alloc->maxLen, "Provided offset is too large.");
 	alloc->offset = offset;
 }
 F_TRAITS(inline)
@@ -2554,7 +2657,7 @@ usize si_allocatorAvailable(siAllocator* alloc) {
 F_TRAITS(inline)
 void si_allocatorPush(siAllocator* alloc, siByte byte) {
 	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_FMT(si_between(alloc->offset + 1, 0, alloc->maxLen),
+	SI_ASSERT_FMT(alloc->offset + 1 < alloc->maxLen,
 		"Exceeded the available memory for an allocation",
 		" (Tried writing '%zd' bytes into an already filled allocator with '%zd' bytes. Current index: '%zd').\n",
 		alloc->maxLen, alloc->offset);
@@ -4035,32 +4138,156 @@ void si_hashtableFree(siHashTable ht)  {
 
 #if defined(SI_IMPLEMENTATION_FILE) && !defined(SI_NO_FILE)
 
+siErrorInfo SI_FS_ERROR = {0};
+
+F_TRAITS(inline)
+cstring si_pathFsErrorName(siFileSystemError err) {
+	switch (err) {
+		case SI_FS_ERROR_PERMS: return "SI_FS_ERROR_PERMS";
+		case SI_FS_ERROR_EXISTS: return "SI_FS_ERROR_EXISTS";
+		case SI_FS_ERROR_LINK_LOOP: return "SI_FS_ERROR_LINK_LOOP";
+		case SI_FS_ERROR_LINK_MANY: return "SI_FS_ERROR_LINK_MANY";
+		case SI_FS_ERROR_NAME_TOO_LONG: return "SI_FS_ERROR_NAME_TOO_LONG";
+		case SI_FS_ERROR_DOESNT_EXIST: return "SI_FS_ERROR_DOESNT_EXIST";
+		case SI_FS_ERROR_NO_SPACE: return "SI_FS_ERROR_NO_SPACE";
+		case SI_FS_ERROR_NOT_DIR: return "SI_FS_ERROR_NOT_DIR";
+		case SI_FS_ERROR_DENIED: return "SI_FS_ERROR_DENIED";
+		case SI_FS_ERROR_READ_ONLY_FS: return "SI_FS_ERROR_READ_ONLY_FS";
+		case SI_FS_ERROR_INVALID_CROSS_LINK: return "SI_FS_ERROR_INVALID_CROSS_LINK";
+		case SI_FS_ERROR_BAD_DESCRIPTOR: return "SI_FS_ERROR_BAD_DESCRIPTOR";
+		case SI_FS_ERROR_RESOURCE_UNAVAILABLE: return "SI_FS_ERROR_RESOURCE_UNAVAILABLE";
+		case SI_FS_ERROR_BAD_ADDRESS: return "SI_FS_ERROR_BAD_ADDRESS";
+		case SI_FS_ERROR_INVALID_VALUE: return "SI_FS_ERROR_INVALID_VALUE";
+		case SI_FS_ERROR_IO: return "SI_FS_ERROR_IO";
+		case SI_FS_ERROR_NO_MEMORY: return "SI_FS_ERROR_NO_MEMORY";
+		case SI_FS_ERROR_OVERFLOW: return "SI_FS_ERROR_OVERFLOW";
+		case SI_FS_ERROR_INVALID_SEEK: return "SI_FS_ERROR_INVALID_SEEK";
+		case SI_FS_ERROR_BUSY: return "SI_FS_ERROR_BUSY";
+		case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "SI_FS_ERROR_DISK_QUOTA_EXCEEDED/";
+		case SI_FS_ERROR_FILE_TOO_LARGE: return "SI_FS_ERROR_FILE_TOO_LARGE";
+		case SI_FS_ERROR_INTERRUPT: return "SI_FS_ERROR_INTERRUPT";
+		case SI_FS_ERROR_IS_DIR: return "SI_FS_ERROR_IS_DIR";
+		case SI_FS_ERROR_FILE_LIMIT: return "SI_FS_ERROR_FILE_LIMIT";
+		case SI_FS_ERROR_NO_DEVICE: return "SI_FS_ERROR_NO_DEVICE";
+		case SI_FS_ERROR_NO_DEVICE_OR_ADR: return "SI_FS_ERROR_NO_DEVICE_OR_ADR";
+		case SI_FS_ERROR_NOT_SUPPORTED: return "SI_FS_ERROR_NOT_SUPPORTED";
+		case SI_FS_ERROR_TEXT_FILE_BUSY: return "SI_FS_ERROR_TEXT_FILE_BUSY";
+	}
+	return nil;
+}
+F_TRAITS(inline)
+cstring si_pathFsErrorStr(siFileSystemError err) {
+	switch (err) {
+		case SI_FS_ERROR_PERMS: return "Access is denied due to file permissions.";
+		case SI_FS_ERROR_EXISTS: return "File system object already exists.";
+		case SI_FS_ERROR_LINK_LOOP: return "Too many levels of symbolic links.";
+		case SI_FS_ERROR_LINK_MANY: return "Too many links.";
+		case SI_FS_ERROR_NAME_TOO_LONG: return "File name surpasses 'PATH_MAX' or a path name component is longer than 'NAME_MAX'.";
+		case SI_FS_ERROR_DOESNT_EXIST: return "No such file or directory.";
+		case SI_FS_ERROR_NO_SPACE: return "No space is left on the device.";
+		case SI_FS_ERROR_NOT_DIR: return "File system object is not a directory.";
+		case SI_FS_ERROR_DENIED: return "Operation is not permitted possibly due to not having appropriate calling privileges or the implementation prohibits using the operation on certain file system objects.";
+		case SI_FS_ERROR_READ_ONLY_FS: return "Tried using a write operation on a read-only filesystem.";
+		case SI_FS_ERROR_INVALID_CROSS_LINK: return "One of the specified links is on a different file system and the implementation doesn't support links between file systems.";
+		case SI_FS_ERROR_BAD_DESCRIPTOR: return "Bad file descriptor.";
+		case SI_FS_ERROR_RESOURCE_UNAVAILABLE: return "Resource temporarily unavailable.";
+		case SI_FS_ERROR_BAD_ADDRESS: return "Bad address.";
+		case SI_FS_ERROR_INVALID_VALUE: return "Invalid provided argument.";
+		case SI_FS_ERROR_IO: return "IO error.";
+		case SI_FS_ERROR_NO_MEMORY: return "Not enough space/cannot allocate memory.";
+		case SI_FS_ERROR_OVERFLOW: return "Value too large to be stored in data type.";
+		case SI_FS_ERROR_INVALID_SEEK: return "Invalid seek.";
+		case SI_FS_ERROR_BUSY: return "Device or resource is busy.";
+		case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "Disk quota has been exceeded.";
+		case SI_FS_ERROR_FILE_TOO_LARGE: return "File is too large.";
+		case SI_FS_ERROR_INTERRUPT: return "Interrupted function call.";
+		case SI_FS_ERROR_IS_DIR: return "Specified argument is a directory.";
+		case SI_FS_ERROR_FILE_LIMIT: return "There are too many opened files.";
+		case SI_FS_ERROR_NO_DEVICE: return "No such device exists.";
+		case SI_FS_ERROR_NO_DEVICE_OR_ADR: return "No such device or address exists.";
+		case SI_FS_ERROR_NOT_SUPPORTED: return "Operation not supported on socket.";
+		case SI_FS_ERROR_TEXT_FILE_BUSY: return "Text file is too busy.";
+	}
+	return nil;
+}
+// TODO(EimaMei): Add error support for windows and update the functions with windows error support.
+#if !defined(SI_NO_ERROR_STRUCT)
+	#define SI_FS_ERROR_DECLARE() \
+		{ \
+			SI_FS_ERROR.code = errno; \
+			SI_FS_ERROR.function = __func__; \
+			SI_FS_ERROR.time = si_timeNowUTC(); \
+			SI_FS_ERROR_LOG(); \
+		}
+	#if !defined(SI_RELEASE_MODE)
+		#define SI_FS_ERROR_LOG() \
+			fprintf( \
+				stderr, \
+				"File system error at \"%s\": %s: %s (errno '%i')\n", \
+				SI_FS_ERROR.function, si_pathFsErrorName(SI_FS_ERROR.code), \
+				si_pathFsErrorStr(SI_FS_ERROR.code), SI_FS_ERROR.code \
+			)
+	#else
+		#define SI_FS_ERROR_LOG() do {} while (0)
+	#endif
+#else
+	#define SI_FS_ERROR_DECLARE() \
+		{ \
+			siErrorInfo* info; \
+			*SI_FS_ERROR = errno; \
+			SI_FS_ERROR_LOG(); \
+		}
+	#if !defined(SI_RELEASE_MODE)
+		#define SI_FS_ERROR_LOG() \
+			fprintf( \
+				stderr, \
+				"File system error: %s: %s (errno '%i')\n", \
+				si_pathFsErrorName(SI_FS_ERROR.code), si_pathFsErrorStr(SI_FS_ERROR.code), \
+				SI_FS_ERROR.code \
+			)
+	#else
+		#define SI_FS_ERROR_LOG() do {} while (0)
+	#endif
+#endif
+
 F_TRAITS(inline)
 b32 si_pathExists(cstring path) {
 	SI_ASSERT_NOT_NULL(path);
+
 	#if defined(SI_SYSTEM_WINDOWS)
 		DWORD file_attrib = GetFileAttributes(path);
 		return file_attrib != INVALID_FILE_ATTRIBUTES;
 	#else
 		struct stat tmp;
-		return (stat(path, &tmp) == SI_OKAY);
+		i32 result = stat(path, &tmp);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+
+		return true;
 	#endif
 }
 isize si_pathCopy(cstring existingPath, cstring newPath) {
+	SI_ASSERT_NOT_NULL(existingPath);
+	SI_ASSERT_NOT_NULL(newPath);
+
 	#if defined(SI_SYSTEM_WINDOWS)
 		return (CopyFile(existingPath, newPath, true) != 0);
 	#else
 		i32 existingFile = open(existingPath, O_RDONLY, 0);
-		i32 newFile = open(newPath, O_WRONLY | O_CREAT, 0666);
+		SI_STOPIF(existingFile != 0, { SI_FS_ERROR_DECLARE(); return false; });
 
-		struct stat stat_existing;
-		fstat(existingFile, &stat_existing);
+		i32 newFile = open(newPath, O_WRONLY | O_CREAT, 0666);
+		SI_STOPIF(newFile != 0, { SI_FS_ERROR_DECLARE(); return false; });
+
+		struct stat statExisting;
+		i32 result = fstat(existingFile, &statExisting);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
 
 		#if defined(SI_SYSTEM_UNIX)
-			isize size = sendfile(newFile, existingFile, 0, stat_existing.st_size);
+			isize size = sendfile(newFile, existingFile, 0, statExisting.st_size);
 		#else
-			isize size = sendfile(newFile, existingFile, 0, &stat_existing.st_size, NULL, 0);
+			isize size = sendfile(newFile, existingFile, 0, &statExisting.st_size, NULL, 0);
 		#endif
+		SI_STOPIF(size != 0, { SI_FS_ERROR_DECLARE(); return false; });
 
 		close(newFile);
 		close(existingFile);
@@ -4070,17 +4297,52 @@ isize si_pathCopy(cstring existingPath, cstring newPath) {
 }
 F_TRAITS(inline)
 b32 si_pathMove(cstring existingPath, cstring newPath) {
+	SI_ASSERT_NOT_NULL(existingPath);
+	SI_ASSERT_NOT_NULL(newPath);
+
 	#if defined(SI_SYSTEM_WINDOWS)
 		return (MoveFile(existingPath, newPath) != 0);
 	#else
-		if (link(existingPath, newPath) == 0) {
-			return (unlink(existingPath) == 0);
-		}
-		return false;
+		i32 result = link(existingPath, newPath);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		result = unlink(existingPath);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+
+		return true;
+	#endif
+}
+F_TRAITS(inline)
+b32 si_pathRename(cstring oldName, cstring newName) {
+	return si_pathMove(oldName, newName);
+}
+F_TRAITS(inline)
+b32 si_pathCreateFolder(cstring path) {
+	SI_ASSERT_NOT_NULL(path);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		SI_PANIC();
+	#else
+		i32 result = mkdir(path, SI_FS_PERM_ALL);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
+	#endif
+}
+F_TRAITS(inline)
+b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
+	SI_ASSERT_NOT_NULL(path);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		SI_PANIC();
+	#else
+		i32 result = mkdir(path, perms);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
 	#endif
 }
 F_TRAITS(inline)
 b32 si_pathRemove(cstring path) {
+	SI_ASSERT_NOT_NULL(path);
+
 	#if defined(SI_SYSTEM_WINDOWS)
 		isize pos = si_stringRFindEx((siString)path, si_cstrLen(path), 0, ".");
 		if (pos != SI_ERROR) {
@@ -4090,7 +4352,49 @@ b32 si_pathRemove(cstring path) {
 			return (RemoveDirectoryA(path) != 0);
 		}
 	#else
-		return remove(path) == 0;
+		i32 result = remove(path);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
+	#endif
+}
+F_TRAITS(inline)
+b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
+	SI_ASSERT_NOT_NULL(existingPath);
+	SI_ASSERT_NOT_NULL(linkPath);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		SI_PANIC();
+	#else
+		i32 result = link(existingPath, linkPath);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
+	#endif
+
+}
+F_TRAITS(inline)
+b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
+	SI_ASSERT_NOT_NULL(existingPath);
+	SI_ASSERT_NOT_NULL(linkPath);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		SI_PANIC();
+	#else
+		i32 result = symlink(existingPath, linkPath);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
+	#endif
+
+}
+F_TRAITS(inline)
+b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms) {
+	SI_ASSERT_NOT_NULL(path);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		SI_PANIC();
+	#else
+		i32 result = chmod(path, newPerms);
+		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		return true;
 	#endif
 }
 
@@ -4119,6 +4423,7 @@ siString si_pathGetFullName(siAllocator* alloc, cstring path) {
 	#else
 		char actualPath[4096];
 		realpath(path, actualPath);
+		SI_STOPIF(path == nil, { SI_FS_ERROR_DECLARE(); return nil; });
 
 		return si_stringMake(alloc, actualPath);
 	#endif
@@ -4143,13 +4448,15 @@ b32 si_pathIsRelative(cstring path) {
 	return !si_pathIsAbsolute(path);
 }
 
-
+F_TRAITS()
 u64 si_pathLastWriteTime(cstring filename) {
-#if defined(SI_PLATFORM_API_WIN32)
+	SI_ASSERT_NOT_NULL(filename);
+
+#if defined(SI_PLATFORM_WINDOWS)
 	FILETIME lastWriteTime = {0};
 	WIN32_FILE_ATTRIBUTE_DATA data = {0};
 
-#if 0 // TODO(EimaMei): create utf-8 to ucs2
+#if 1 // TODO(EimaMei): create utf-8 to ucs2
 	wchar_t *w_text = gb__alloc_utf8_to_ucs2(a, filepath, NULL);
 	if (w_text == NULL) {
 		return 0;
@@ -4165,17 +4472,40 @@ u64 si_pathLastWriteTime(cstring filename) {
 	res.HighPart = lastWriteTime.dwHighDateTime;
 	return (u64)res.QuadPart;
 #else
-	u64 result = 0;
-	struct stat fileStat;
+	struct stat fs;
+	u64 result = stat(filename, &fs);
+	SI_STOPIF(result != 0, { SI_FS_ERROR_LOG(); return false; });
 
-	if (stat(filename, &fileStat) == 0) {
-		result = fileStat.st_mtime;
-	}
-
-	return result;
+	return fs.st_mtime;
 #endif
 }
+F_TRAITS(inline)
+cstring si_pathGetTmp(void) {
+#if defined(SI_PLATFORM_WINDOWS)
+	SI_PANIC();
+#else
+	static cstring tmpDirsEnv[] = {"TMPDIR", "TMP", "TEMP", "TEMPDIR"};
+	for_range (i, 0, countof(tmpDirsEnv)) {
+		cstring dir = getenv(tmpDirsEnv[i]);
+		SI_STOPIF(dir != nil, return dir);
+	}
+	return "/tmp";
+#endif
+}
+F_TRAITS(inline)
+siFilePermissions si_pathPermissions(cstring path) {
+	SI_ASSERT_NOT_NULL(path);
 
+#if defined(SI_PLATFORM_WINDOWS)
+	SI_PANIC();
+#else
+	struct stat fs;
+	i32 result = stat(path, &fs);
+	SI_STOPIF(result != 0, { SI_FS_ERROR_LOG(); return false; });
+
+	return fs.st_mode;
+#endif
+}
 
 
 F_TRAITS(inline)
@@ -4199,24 +4529,25 @@ siFile si_fileOpenMode(cstring path, cstring mode) {
 	if (f == nil) {
 		cstring message;
 		switch (errno) {
-			case EACCES:       message = "Failed to execute 'si_fileOpenMode': Permission denied (EACCES).";
-			case EINTR:        message = "Failed to execute 'si_fileOpenMode': A signal was caught during fopen() (EINTR).";
-			case EISDIR:       message = "Failed to execute 'si_fileOpenMode': 'path' is a directory (EISDIR).";
-			case ELOOP:        message = "Failed to execute 'si_fileOpenMode': Too many symbolic links were encountered in resolving 'path' (ELOOP).";
-			case EMFILE:       message = "Failed to execute 'si_fileOpenMode': The per-process limit on the number of open file descriptors has been reached. (EMFILE).";
-			case ENAMETOOLONG: message = "Failed to execute 'si_fileOpenMode': The length of 'path' exceeds PATH_MAX or a pathname component is longer than NAME_MAX (ENAMETOOLONG).";
-			case ENFILE:       message = "Failed to execute 'si_fileOpenMode': The system-wide limit on the total number of open files has been reached (ENFILE).";
-			case ENOENT:       message = "Failed to execute 'si_fileOpenMode': File does not exist, or path is an empty string (ENOENT).";
-			case ENOSPC:       message = "Failed to execute 'si_fileOpenMode': Not enough space left in the directory to contain the new file (ENOSPC).";
-			case ENOMEM:       message = "Failed to execute 'si_fileOpenMode': Insufficient memory to complete the operation (ENOMEM).";
-			case ENOTDIR:      message = "Failed to execute 'si_fileOpenMode': A component of the path prefix is not a directory (ENOTDIR).";
-			case ENXIO:        message = "Failed to execute 'si_fileOpenMode': The named file is a character special or block special file, and the device associated with this file does not exist (ENXIO).";
-			case EOVERFLOW:    message = "Failed to execute 'si_fileOpenMode': The named file is a regular file and the size of the file cannot be represented correctly in an object of type off_t (EOVERFLOW).";
-			case EROFS:        message = "Failed to execute 'si_fileOpenMode': The named file resides on a read-only file system and mode requires write access (EROFS).";
-			case EINVAL:       message = "Failed to execute 'si_fileOpenMode': The value of 'mode ' is not valid (EINVAL).";
-			case ETXTBSY:      message = "Failed to execute 'si_fileOpenMode': The file is a pure procedure (shared text) file that is being executed and mode requires write access (ETXTBSY).";
+			case EACCES:       message = "Failed to execute 'si_fileOpenMode': Permission denied (EACCES)."; break;
+			case EINTR:        message = "Failed to execute 'si_fileOpenMode': A signal was caught during fopen() (EINTR)."; break;
+			case EISDIR:       message = "Failed to execute 'si_fileOpenMode': 'path' is a directory (EISDIR)."; break;
+			case ELOOP:        message = "Failed to execute 'si_fileOpenMode': Too many symbolic links were encountered in resolving 'path' (ELOOP)."; break;
+			case EMFILE:       message = "Failed to execute 'si_fileOpenMode': The per-process limit on the number of open file descriptors has been reached. (EMFILE)."; break;
+			case ENAMETOOLONG: message = "Failed to execute 'si_fileOpenMode': The length of 'path' exceeds PATH_MAX or a pathname component is longer than NAME_MAX (ENAMETOOLONG)."; break;
+			case ENFILE:       message = "Failed to execute 'si_fileOpenMode': The system-wide limit on the total number of open files has been reached (ENFILE)."; break;
+			case ENOENT:       message = "Failed to execute 'si_fileOpenMode': File does not exist, or path is an empty string (ENOENT)."; break;
+			case ENOSPC:       message = "Failed to execute 'si_fileOpenMode': Not enough space left in the directory to contain the new file (ENOSPC)."; break;
+			case ENOMEM:       message = "Failed to execute 'si_fileOpenMode': Insufficient memory to complete the operation (ENOMEM)."; break;
+			case ENOTDIR:      message = "Failed to execute 'si_fileOpenMode': A component of the path prefix is not a directory (ENOTDIR)."; break;
+			case ENXIO:        message = "Failed to execute 'si_fileOpenMode': The named file is a character special or block special file, and the device associated with this file does not exist (ENXIO)."; break;
+			case EOVERFLOW:    message = "Failed to execute 'si_fileOpenMode': The named file is a regular file and the size of the file cannot be represented correctly in an object of type off_t (EOVERFLOW)."; break;
+			case EROFS:        message = "Failed to execute 'si_fileOpenMode': The named file resides on a read-only file system and mode requires write access (EROFS)."; break;
+			case EINVAL:       message = "Failed to execute 'si_fileOpenMode': The value of 'mode ' is not valid (EINVAL)."; break;
+			case ETXTBSY:      message = "Failed to execute 'si_fileOpenMode': The file is a pure procedure (shared text) file that is being executed and mode requires write access (ETXTBSY)."; break;
 			default:           message = "Failed to execute 'si_fileOpenMode': Unknown reason.";
 		}
+
 		SI_PANIC_MSG(message);
 		return (siFile){0};
 	}
@@ -4278,6 +4609,7 @@ rawptr si_fileReadAtEx(siAllocator* alloc, siFile file, usize offset, usize len,
 	return buffer;
 }
 siArray(siString) si_fileReadlines(siAllocator* alloc, siFile file) {
+	SI_ASSERT_NOT_NULL(alloc);
 	siAllocator* tmp = si_allocatorMake(2 * file.size * (sizeof(siString) + sizeof(siStringHeader)));
 
 	siString buffer = (siString)si_fileRead(tmp, file);

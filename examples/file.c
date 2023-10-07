@@ -78,7 +78,7 @@ void example2(void)	{
 
 	res = si_pathMove("random.txt", "renamed.txt");
 	printf(
-		"Does 'random.txt' exist:'%u'\n'renamed.txt' outputs a '%u' (res: '%u')\n",
+		"Does 'random.txt' exist: '%u'\n'renamed.txt' outputs a '%u' (res: '%u')\n",
 		si_pathExists("random.txt"), si_pathExists("renamed.txt"), res
 	);
 
@@ -107,12 +107,51 @@ void example2(void)	{
 	);
 }
 
+void example3(void)	{
+	printf("==============\n\n==============\nExample 3:\n");
+	{
+		si_pathRemove("SI_FILE_THAT_DOESNT_EXIST");
+
+		si_pathCreateFolder("testFolder");
+		siFilePermissions perms = si_pathPermissions("testFolder");
+		printf("Permissions of 'testFolder' (in octal): %o\n", perms);
+
+		si_pathEditPermissions("testFolder", SI_FS_PERM_ALL);
+		perms = si_pathPermissions("testFolder");
+		printf("Permissions of 'testFolder' (in octal): %o\n", perms);
+
+		si_pathRemove("testFolder");
+	}
+
+	{
+		siFile file = si_fileCreate("randomSiFile.txt");
+
+		u64 lastWriteTime = file.lastWriteTime;
+		u64 curWriteTime = si_pathLastWriteTime(file.filename);
+
+		si_sleep(1000);
+		printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+
+		si_fileWrite(&file, "random garbage");
+		curWriteTime = si_pathLastWriteTime(file.filename);
+		printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+
+		si_pathCreateHardLink(file.filename, "hardLink");
+		si_pathCreateSoftLink(file.filename, "softLink");
+		si_fileClose(file);
+
+		si_pathRemove(file.filename);
+
+		printf("Temporary path of the system: %s\n", si_pathGetTmp());
+	}
+}
 
 int main(void) {
-	siAllocator* heap = si_allocatorMake(SI_KILO(8));
+	siAllocator* heap = si_allocatorMake(SI_KILO(16));
 
 	example1(heap);
 	example2();
+	example3();
 
 	si_allocatorFree(heap);
 	return 0;

@@ -1,9 +1,9 @@
-CC = clang
+CC = gcc
 OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = examples/benchmarking.c
+SRC = examples/file.c
 FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"
@@ -26,7 +26,7 @@ $(EXE): $(SRC) sili.h
 
 # Sometimes need to check the assembly output.
 dump_asm:
-	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -S $(SRC) -o sili.S
+	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -masm=intel -S $(SRC) -o sili.S
 
 
 # Runs and compiles every example.
