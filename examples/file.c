@@ -146,13 +146,38 @@ void example3(void)	{
 	}
 }
 
+void example4(siAllocator* alloc) {
+	si_allocatorReset(alloc);
+	printf("==============\n\n==============\nExample 4:\n");
+
+	#define ROOT_PATH "Česnakaujančio-убийца-世界"
+	si_pathCreateFolder(ROOT_PATH);
+
+	si_pathCreateFolder(ROOT_PATH "/other");
+	siFile file = si_fileCreate(ROOT_PATH "/secret.txt");
+	si_fileWrite(&file, ROOT_PATH);
+	si_fileClose(file);
+	si_pathCreateHardLink(ROOT_PATH "/secret.txt", ROOT_PATH "/hardLinkToSecret.link");
+
+	siDirectory dir = si_dirOpen(ROOT_PATH);
+	siDirectoryEntry entry;
+
+	usize count = 0;
+	while (si_dirPollEntry(dir, &entry)) {
+		printf("%i: %s - %i\n", count, entry.path, entry.type);
+		count += 1;
+	}
+	si_dirClose(dir);
+}
+
 int main(void) {
 	siAllocator* heap = si_allocatorMake(SI_KILO(16));
 
 	example1(heap);
 	example2();
 	example3();
-
+	example4(heap);
+	
 	si_allocatorFree(heap);
 	return 0;
 }

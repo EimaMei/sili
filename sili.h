@@ -2,13 +2,10 @@
 #define SI_IMPLEMENTATION 1
 /*
  * MAJOR TODOS(EimaMei):
- * - Redo siAny.
  * - Rework the beginning text for more info.
  * - Check if all features 100% work on _all_ platforms.
  * - Add new examples.
  * - Rework 'siPair'.
- * - Rework 'siFile' to not use the standard C version for more low-level control.
- * - Add macros to disable other features like align_ceil.
  * - Rename // commments to C89 style.
  * - Check all of the -len functions to see if they actually require strlen.
  * - Complete the other TODOs in this file plus others.
@@ -283,7 +280,7 @@ extern "C" {
 		#define WIN32_LEAN_AND_MEAN 1
 		#define WIN32_MEAN_AND_LEAN 1
 		#define VC_EXTRALEAN        1
-		#include <windows.h>
+        #include <windows.h>
 		#undef NOMINMAX
 		#undef WIN32_LEAN_AND_MEAN
 		#undef WIN32_MEAN_AND_LEAN
@@ -317,7 +314,7 @@ extern "C" {
 #define SI_HOST_IS_LITTLE_ENDIAN   (!SI_HOST_IS_BIG_ENDIAN)
 
 
-#if defined(SI_COMPILER_MSVC)
+#if defined(SI_SYSTEM_WINDOWS)
 	#if _MSC_VER < 1300
 		typedef unsigned char     u8;
 		typedef   signed char     i8;
@@ -336,7 +333,7 @@ extern "C" {
 
 	typedef unsigned __int64 u64;
 	typedef   signed __int64 i64;
-	#define PRIu64       "I64u"
+	#define PRIu64       "llu"
 
 	#define INT8_MIN     ((i8)_I8_MIN)
 	#define INT8_MAX     _I8_MAX
@@ -360,6 +357,7 @@ extern "C" {
 	typedef  int32_t i32;
 	typedef uint64_t u64;
 	typedef  int64_t i64;
+	#define PRIu64       "I64u"
 #endif
 
 #if !defined(usize)
@@ -451,7 +449,7 @@ SI_STATIC_ASSERT(false == 0);
 #ifdef intern
 	#undef intern
 #endif
-#define intern static // TODO(EimaMei): Check the validity of this.
+#define intern static
 
 #if defined(SI_COMPILER_MSVC)
 	/* asm - ASSEMBLY
@@ -796,7 +794,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	| SI_ASSERT            |
 	========================
 */
-usize si_intern_assert(b32 condition, cstring conditionStr, cstring file, i32 line,
+usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 		cstring func, cstring message, ...);
 
 /* condition - EXPRESSION
@@ -804,10 +802,10 @@ usize si_intern_assert(b32 condition, cstring conditionStr, cstring file, i32 li
 #define SI_ASSERT(condition) SI_ASSERT_MSG(condition, nil)
 /* condition - EXPRESSION | message - cstring
  * Crashes the app with a message if the condition is not met. */
-#define SI_ASSERT_MSG(condition, message) si_intern_assert(condition, #condition, __FILE__, __LINE__, __func__, message, "")
+#define SI_ASSERT_MSG(condition, message) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, "")
 /* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC ARGUMENTS
  * Crashes the app with a formatted message if the condition is not met. */
-#define SI_ASSERT_FMT(condition, message, ...) si_intern_assert(condition, #condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__)
+#define SI_ASSERT_FMT(condition, message, ...) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__)
 /* ptr - rawptr
  * Crashes the app if a pointer is NULL. */
 #define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
@@ -815,10 +813,10 @@ usize si_intern_assert(b32 condition, cstring conditionStr, cstring file, i32 li
  * Crashes the app if the provided path doesn't exist. */
 #define SI_ASSERT_PATH_EXISTS(path) SI_ASSERT_FMT(si_pathExists(path), "Path '%s' doesn't exist.", path)
 /* Crashes the app immediately. */
-#define SI_PANIC() si_intern_assert(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil)
+#define SI_PANIC() si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil)
 /* message - cstring
  * Crashes the app immediately with a message. */
-#define SI_PANIC_MSG(message) si_intern_assert(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, "")
+#define SI_PANIC_MSG(message) si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, "")
 /* condition - EXPRESSION | action - ANYTHING
  * Checks if the condition is true. If it is, execute 'action'. */
 #define SI_STOPIF(condition, action) if (condition) { action; } do {} while(0)
@@ -830,26 +828,6 @@ usize si_intern_assert(b32 condition, cstring conditionStr, cstring file, i32 li
 	========================
 */
 
-/*
- * IMPORTANT NOTE(EimaMei):
- * 'si_anyMake' and 'si_anyMakeStatic' should be used in different cases.
- *
- * 'si_anyMake' _COPIES_ the data into the allocator, while 'si_anyMakeStatic'
- * only stores the pointer of the given value.
- *
- * If you're planning to return a 'siAny' and the value is from the stack, the usage
- * of 'si_anyMake' is mandatory as a pointer to that data outside of the stack
- * will just be invalid data.
- *
- * 'si_anyMakeStatic' can be used and is preferred to be used when the pointer
- * to the data ISN'T invalid. An example would be using 'si_anyMakeStatic' to pass
- * in a temporary 'siAny' to a function.
- *
- * When you can, use 'si_anyMakeStatic' when possible, as it only needs a pointer
- * to the data, while 'si_anyMake' has to save the data in an allocator.
-*/
-
-// Contains the pointer to the data and the size of it.
 typedef struct {
 	// Pointer to the data.
 	rawptr ptr;
@@ -857,32 +835,13 @@ typedef struct {
 	usize typeSize;
 } siAny;
 
-/* allocator - siAllocator* | ...VALUE - EXPRESSION
- * Creates a 'siAny' object. Said object's pointer points to the copied value
- * in the allocator. */
-#define si_anyMake(allocator, .../*VALUE */) \
-	(siAny){ \
-		si_mallocCopy( \
-			allocator, \
-			(rawptr)&((struct { typeof(__VA_ARGS__) in; }){__VA_ARGS__}.in) \
-		), \
-		sizeof(typeof(__VA_ARGS__)) \
-	}
 /* ...VALUE - EXPRESSION
  * Creates a 'siAny' object. Said object's pointer is just "&(<VALUE>)". */
-#define si_anyMakeStatic(.../* VALUE */) \
+#define si_anyMake(.../* VALUE */) \
 	(siAny){ \
 		(rawptr)&((struct { typeof(__VA_ARGS__) in; }){__VA_ARGS__}.in), \
 		sizeof(typeof(__VA_ARGS__)) \
 	}
-/* type - TYPE | any - siAny
- * Gets the value of the provided 'siAny' object. Crashes the app if the pointer
- * is NULL. */
-#define si_anyGet(type, any) \
-	((any.ptr != nil) ? \
-	 *si_cast(type*, si_cast(siByte (*)[any.typeSize], any.ptr)) :  \
-	 *(type*)SI_ASSERT_NOT_NULL(any.ptr))
-
 
 /*
 	========================
@@ -998,7 +957,7 @@ void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, siDirection direction)
 *
 */
 
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 /*
 *
 *
@@ -1032,8 +991,8 @@ siAllocator* si_allocatorMake(usize bytes);
 /* bytes - usize
  * Creates an allocator from the stack with N amounts of bytes. */
 #define si_allocatorMakeStack(bytes) \
-	si_intern_allocatorMakeStack(bytes, si_salloc(bytes + sizeof(siAllocator)))
-//siAllocator* si_intern_allocatorMakeStack(usize bytes, rawptr res);
+	si_allocatorMakeStackEx(bytes, si_salloc(bytes + sizeof(siAllocator)))
+siAllocator* si_allocatorMakeStackEx(usize bytes, rawptr res);
 
 /* Resizes the amount of available bytes in the allocator. */
 void si_allocatorResize(siAllocator* alloc, usize newSize);
@@ -1049,30 +1008,39 @@ void si_allocatorPush(siAllocator* alloc, siByte byte);
  * invalidated with this. */
 void si_allocatorFree(siAllocator* alloc);
 
-/* alloc - siAllocator* | bytes - usize
- * Allocates 'bytes' amount of memory from the allocator.
- * NOTE: Similar to C's malloc, 'bytes' may increase internally in the function
- * to be aligned to 16 bytes. */
-#define si_malloc(alloc, bytes) si_mallocEx(alloc, bytes, __FILE__, __LINE__)
-rawptr si_mallocEx(siAllocator* alloc, usize bytes, cstring filename, i32 line);
-/* alloc - siAllocator* | num - usize | bytes - usize
- * Allocates 'bytes' multipled by 'num' amount of memory from the allocator.
- * NOTE: Similar to C's malloc, 'bytes' may increase internally in the function
- * to be aligned to 16 bytes. */
-#define si_calloc(alloc, num, bytes) si_callocEx(alloc, bytes, __FILE__, __LINE__)
-rawptr si_callocEx(siAllocator* alloc, usize num, usize bytes, cstring filename, i32 line);
-/* alloc - siAllocator* | ptr - rawptr | oldSize - usize | newSize - usize
- * Equivalent to doing 'si_malloc' and then 'memcpy'.
- * NOTE: Similar to C's malloc, 'bytes' may increase internally in the function
- * to be aligned to 16 bytes. */
-#define si_realloc(alloc, ptr, oldSize, newSize) si_reallocEx(alloc, ptr, oldSize, newSize, __FILE__, __LINE__)
-rawptr si_reallocEx(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize,
-		cstring filename, i32 line);
+#if defined(SI_RELEASE_MODE)
 
-/* alloc - siAllocator* | ptr - rawptr
- * Syntactic sugar, but also to keep compatibility with non-allocator mode. */
-#define si_free(alloc, ptr) si_freeEx(alloc, ptr, __FILE__, __LINE__)
-void si_freeEx(siAllocator* alloc, rawptr ptr, cstring filename, i32 line);
+/* Allocates 'bytes' amount of memory from the allocator. */
+rawptr si_malloc(siAllocator* alloc, usize bytes);
+/* Allocates 'bytes' multipled by 'num' amount of memory from the allocator. */
+rawptr si_calloc(siAllocator* alloc, usize num, usize bytes);
+/* Equivalent to doing 'si_malloc' and then 'memcpy'. */
+rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
+/* Syntactic sugar, but also to keep compatibility with non-allocator mode. */
+void si_free(siAllocator* alloc, rawptr ptr);
+
+#else
+
+/* alloc - siAllocator* | bytes - usize
+ * Allocates 'bytes' amount of memory from the allocator. */
+#define si_malloc(alloc, bytes) si_mallocEx(alloc, bytes, __FILE__, __LINE__)
+/* alloc - siAllocator* | num - usize | bytes - usize
+ * Allocates 'bytes' multipled by 'num' amount of memory from the allocator. */
+#define si_calloc(alloc, num, bytes) si_callocEx(alloc, bytes, __FILE__, __LINE__)
+/* alloc - siAllocator* | ptr - rawptr | oldSize - usize | newSize - usize
+ * Equivalent to doing 'si_malloc' and then 'memcpy'. */
+#define si_realloc(alloc, ptr, oldSize, newSize) si_reallocEx(alloc, ptr, oldSize, newSize, __FILE__, __LINE__)
+/* Syntactic sugar, but also to keep compatibility with non-allocator mode. */
+void si_free(siAllocator* alloc, rawptr ptr);
+
+#if 1
+    rawptr si_mallocEx(siAllocator* alloc, usize bytes, cstring filename, i32 line);
+    rawptr si_callocEx(siAllocator* alloc, usize num, usize bytes, cstring filename, i32 line);
+    rawptr si_reallocEx(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize,
+            cstring filename, i32 line);
+#endif
+#endif /* SI_RELEASE_MODE */
+
 
 #endif
 
@@ -1142,9 +1110,9 @@ void si_freeEx(siAllocator* alloc, rawptr ptr, cstring filename, i32 line);
 /* ...VALUE - EXPRESSION
  * Creates a 'siOptional' from the given value. */
 #define si_optionalMake(.../* VALUE */) \
-	si_intern_optionalMake( \
+	si_optionalMakeEx( \
 		si_sallocItem(struct { typeof(__VA_ARGS__) one; b32 two; }), \
-		si_anyMakeStatic(__VA_ARGS__), \
+		si_anyMake(__VA_ARGS__), \
 		offsetof(struct { typeof(__VA_ARGS__) one; b32 two; }, two) \
 	)
 /* optionalVar -  siOptional(TYPE) | defaultValue - EXPRESSION
@@ -1266,7 +1234,7 @@ rawptr si_arrayBack(rawptr array);
 /* arrayPtr - siArray(TYPE)* | ...VALUE - EXPRESSION
  * Appends the given value to the array. If the array's capacity is reached, the
  * array is reallocated by (currentCapacity * 2). */
-#define si_arrayAppend(arrayPtr, .../* VALUE */) si_intern_arrayAppend(arrayPtr, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayAppend(arrayPtr, .../* VALUE */) si_intern_arrayAppend(arrayPtr, si_anyMake(__VA_ARGS__))
 /* arrayPtr - siArray(TYPE)* | ...VALUE - EXPRESSION
  * Wrapper macro for si_arrayAppend. */
 #define si_arrayPush(arrayPtr, .../* VALUE */) si_arrayAppend(arrayPtr, __VA_ARGS__)
@@ -1274,38 +1242,38 @@ rawptr si_arrayBack(rawptr array);
 void si_arrayPop(rawptr arrayPtr);
 /* arrayPtr - siArray(TYPE)* | newItem - EXPRESSION | index - usize
  * Inserts 'newItem' at the provided index. */
-#define si_arrayInsert(arrayPtr, newItem, index) si_intern_arrayInsert(arrayPtr, si_anyMakeStatic(newItem), index)
+#define si_arrayInsert(arrayPtr, newItem, index) si_intern_arrayInsert(arrayPtr, si_anyMake(newItem), index)
 /* Erases a certain index. */
 void si_arrayErase(rawptr arrayPtr, usize index);
 /* Erases a certain index PLUS the amount specified afterwards get erased too. */
 void si_arrayEraseCount(rawptr arrayPtr, usize index, usize count);
 /* arrayPtr - siArray(TYPE)* | ...VALUE - EXPRESSION
  * Removes every item in the array that equals to the value. */
-#define si_arrayRemoveItem(arrayPtr, .../* VALUE */) si_impl_arrayRemoveItem(arrayPtr, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayRemoveItem(arrayPtr, .../* VALUE */) si_impl_arrayRemoveItem(arrayPtr, si_anyMake(__VA_ARGS__))
 /* arrayPtr - siArray(TYPE)* | index - usize | count - usize | ...VALUE - EXPRESSION
  * 'array[index]...array[index + count]' get filled with 'VALUE'. */
-#define si_arrayFill(arrayPtr, index, count, .../* VALUE */ ) si_impl_array_fill(arrayPtr, index, count, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayFill(arrayPtr, index, count, .../* VALUE */ ) si_impl_array_fill(arrayPtr, index, count, si_anyMake(__VA_ARGS__))
 
 /* array - siArray(TYPE) | ...VALUE - EXPRESSION
  * Attempts to find the first mention of 'VALUE', starting from index 0. Returns
  * -1 if nothing was found. */
-#define si_arrayFind(array, ...) si_impl_array_find(array, 0, si_arrayLen(array), si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayFind(array, ...) si_impl_array_find(array, 0, si_arrayLen(array), si_anyMake(__VA_ARGS__))
 /* array - siArray(TYPE) | start - usize | end - usize | ...VALUE - EXPRESSION
  * Attempts to find the first mention of 'VALUE', starting from 'start' to 'end'.
  * Returns -1 if nothing was found. */
-#define si_arrayFindEx(array, start, end, ...) si_impl_array_find(array, start, end, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayFindEx(array, start, end, ...) si_impl_array_find(array, start, end, si_anyMake(__VA_ARGS__))
 /* array - siArray(TYPE) | ...VALUE - EXPRESSION
  * Attempts to find the first mention of 'VALUE', starting from the last index.
  * Returns -1 if nothing was found. */
-#define si_arrayRFind(array, ...) si_impl_array_rfind(array, si_arrayLen(array) - 1, 0, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayRFind(array, ...) si_impl_array_rfind(array, si_arrayLen(array) - 1, 0, si_anyMake(__VA_ARGS__))
 /* array - siArray(TYPE) | start - usize | end - usize | ...VALUE - EXPRESSION
  * Attempts to find the last mention of 'VALUE', starting from 'start' to 'end'.
  * Returns -1 if nothing was found. */
-#define si_arrayRFindEx(array, start, end, ...) si_impl_array_rfind(array, start, end, si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayRFindEx(array, start, end, ...) si_impl_array_rfind(array, start, end, si_anyMake(__VA_ARGS__))
 /* array - siArray(TYPE) | oldValue - EXPRESSION | ...newValue - EXPRESSION
  * Attempts to find the first mention of 'VALUE', starting from the last index.
  * Returns -1 if nothing was found. */
-#define si_arrayReplace(arrayPtr, oldValue, .../* newValue */) si_impl_array_replace(array, si_anyMakeStatic(oldValue), si_anyMakeStatic(__VA_ARGS__))
+#define si_arrayReplace(arrayPtr, oldValue, .../* newValue */) si_impl_array_replace(array, si_anyMake(oldValue), si_anyMake(__VA_ARGS__))
 /* Reverses the contents of the array. */
 void si_arrayReverse(rawptr array);
 /* Creates a 'siString' from a 'siArray'. */
@@ -1624,7 +1592,7 @@ rawptr si_hashtableGet(siHashTable ht, cstring key);
 #define si_hashtableGetItem(ht, key, type) (*(type*)si_hashtableGet(ht, key))
 /* ht - siHashTable* | key - cstring | value - EXPRESSION
  * Adds a 'key' entry to the hash table. */
-#define si_hashtableSet(ht, key, value) si_hashtableSetEx(ht, key, si_anyMakeStatic(value))
+#define si_hashtableSet(ht, key, value) si_hashtableSetEx(ht, key, si_anyMake(value))
 /* Adds a 'key' entry to the hash table, with the value being siAny. */
 siHashEntry* si_hashtableSetEx(siHashTable* ht, cstring key, siAny value);
 
@@ -1718,7 +1686,6 @@ typedef SI_ENUM(i32, siFileSystemError) {
 	SI_FS_ERROR_OVERFLOW = EOVERFLOW, /* Value too large to be stored in data type. */
 	SI_FS_ERROR_INVALID_SEEK = ESPIPE, /* Invalid seek. */
 	SI_FS_ERROR_BUSY = EBUSY, /* Device or resource is busy. */
-	SI_FS_ERROR_DISK_QUOTA_EXCEEDED = EDQUOT, /* Disk quota has been exceeded. */
 	SI_FS_ERROR_FILE_TOO_LARGE = EFBIG, /* File is too large. */
 	SI_FS_ERROR_INTERRUPT = EINTR, /* Interrupted function call. */
 	SI_FS_ERROR_IS_DIR = EISDIR, /* Specified arguemnt is a directory. */
@@ -1870,9 +1837,9 @@ void si_fileClose(siFile file);
 */
 typedef SI_ENUM(i32, siIOType) {
 	SI_IO_TYPE_ANY = 1,
-	SI_IO_TYPE_FILE = DT_REG,
-	SI_IO_TYPE_DIR = DT_DIR,
-	SI_IO_TYPE_LINK = DT_LNK,
+	SI_IO_TYPE_FILE,
+	SI_IO_TYPE_DIR,
+	SI_IO_TYPE_LINK,
 };
 
 /* TODO(EimaMei): Add windows support. */
@@ -1887,17 +1854,183 @@ typedef struct {
 
 typedef struct {
 	rawptr handle;
-	char* path;
+	cstring path;
 } siDirectory;
 
 // TODO(EimaMei): Put this in the IMPLEMENTATION section, obviously.
 
+#define SI_UTF8_ACCEPT 0
+
+typedef u16* siUtf16String;
+typedef u32 siCodepoint;
+
+u32 si_utf8Decode(siCodepoint* state, siCodepoint* codepoint, u8 byte);
+
+siUtf16String si_utf8ToUtf16(siAllocator* alloc, cstring str, usize* strLenOut);
+char* si_utf16ToUtf8(siAllocator* alloc, siUtf16String str, usize* strLenOut);
+
+F_TRAITS(inline)
+u32 si_utf8Decode(u32* state, siCodepoint* codepoint, u8 byte) {
+    // Copyright (c) 2008-2010 Bjoern Hoehrmann <bjoern@hoehrmann.de>
+    // See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
+
+    static const u8 utf8d[] = {
+        // The first part of the table maps bytes to character classes that
+        // to reduce the size of the transition table and create bitmasks.
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,  9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+        7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+        8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
+
+        // The second part is a transition table that maps a combination
+        // of a state of the automaton and a character class to a state.
+        0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,
+        12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,
+        12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,
+        12,12,12,12,12,12,12,36,12,36,12,12, 12,36,12,12,12,12,12,36,12,36,12,12,
+        12,36,12,12,12,12,12,12,12,12,12,12,
+     };
+
+    u32 type = utf8d[byte];
+
+    *codepoint = (*state != SI_UTF8_ACCEPT) ?
+        (byte & 0x3FU) | (*codepoint << 6) :
+        (0xFF >> type) & (byte);
+
+    *state = utf8d[256 + *state + type];
+    return *state;
+}
+// TODO(EimaMei): Improve si_free by freeing the last element.
+
+
+siUtf16String si_utf8ToUtf16(siAllocator* alloc, cstring str, usize* strLenOut) {
+    SI_ASSERT_NOT_NULL(alloc);
+    SI_ASSERT_NOT_NULL(str);
+
+    siCodepoint state = 0, codepoint;
+
+    siUtf16String res = si_cast(siUtf16String, alloc->ptr + alloc->offset);
+    usize len = 0;
+
+    while (true) {
+        u8 chr = *str;
+        str += 1;
+        SI_STOPIF(chr == '\0', break);
+
+        if (si_utf8Decode(&state, &codepoint, chr) != SI_UTF8_ACCEPT) {
+            continue;
+        }
+
+        if (codepoint > 0xFFFF) {
+            u32* curPos = si_mallocItem(alloc, u32);
+
+            u32 t = codepoint - 0x10000;
+            u32 high = (t << 10) + 0xD800;
+            u32 low = t + 0xDC00;
+
+            *curPos = (high << 16) | (low & 0x0000FFFF);
+            len += 4;
+        }
+        else {
+            u16* curPos = si_mallocItem(alloc, u16);
+            *curPos = codepoint;
+            len += 2;
+        }
+    }
+    u16* curPos = si_mallocItem(alloc, u16);
+    *curPos = '\0';
+    len += 2;
+
+    SI_STOPIF(strLenOut != nil, *strLenOut = len);
+
+    return res;
+}
+char* si_utf16ToUtf8(siAllocator* alloc, siUtf16String str, usize* strLenOut) {
+    SI_ASSERT_NOT_NULL(alloc);
+    SI_ASSERT_NOT_NULL(str);
+
+    char* string = si_cast(char*, alloc->ptr + alloc->offset);
+    usize len = 0;
+
+    while (true) {
+        u32 chr = *str;
+        str += 1;
+        SI_STOPIF(chr == '\0', break);
+
+        if (chr <= 0xFF) {
+            char* res = si_mallocArray(alloc, char, 1);
+            *res = chr;
+            len += 1;
+        }
+        else if (chr <= 0x7FF) {
+            char* res = si_mallocArray(alloc, char, 2);
+            res[0] = 0xC0 | (chr >> 6);            /* 110xxxxx */
+            res[1] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
+            len += 2;
+        }
+        else if (chr <= (0xD800 - 1)) {
+            char* res = si_mallocArray(alloc, char, 3);
+            res[0] = 0xE0 | (chr >> 12);           /* 1110xxxx */
+            res[1] = 0x80 | ((chr >> 6) & 0x3F);   /* 10xxxxxx */
+            res[2] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
+            len += 3;
+        }
+        else if (chr >= 0xD800) {
+            u16 high = chr;
+            u16 low = *str;
+            str += 1;
+
+            u32 tHigh = (high - 0xD800) << 10;
+            u32 tLow = (low - 0xDC00);
+            siCodepoint codepoint = (tHigh | tLow) + 0x10000;
+
+            char* res = si_mallocArray(alloc, char, 4);
+            res[0] = 0xF0 | (codepoint >> 18);           /* 11110xxx */
+            res[1] = 0x80 | ((codepoint >> 12) & 0x3F);  /* 10xxxxxx */
+            res[2] = 0x80 | ((codepoint >> 6) & 0x3F);   /* 10xxxxxx */
+            res[3] = 0x80 | (codepoint & 0x3F);          /* 10xxxxxx */
+
+            len += 4;
+        }
+    }
+    si_allocatorPush(alloc, '\0');
+    SI_STOPIF(strLenOut != nil, *strLenOut = len);
+
+    return string;
+}
+
 /* Reads every file, directory and link from a NULL-terminated string path and
  * creates an array containing the results. All 'siIOInfo' paths aren't prefixed
  * with 'basePath', just their filenames. */
-siDirectory si_dirOpen(char* path) {
+siDirectory si_dirOpen(cstring path) {
+    SI_ASSERT_NOT_NULL(path);
+
 #if defined(SI_SYSTEM_WINDOWS)
-	SI_PANIC();
+    siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+
+    usize len;
+    siUtf16String widePath = si_utf8ToUtf16(stack, path, &len);
+    SI_ASSERT_MSG(len + 4 <= MAX_PATH, "Path is larger than 260 bytes.");
+
+    u16* appendText = si_mallocArray(stack, u16, 2);
+    appendText[-1] = '\\';
+    appendText[0] = '*';
+    appendText[1] = '\0';
+
+    WIN32_FIND_DATAW tmp;
+    HANDLE handle = FindFirstFileW(widePath, &tmp);
+    SI_ASSERT(handle != INVALID_HANDLE_VALUE);
+    FindNextFileW(handle, &tmp);
+
+    siDirectory dir;
+    dir.handle = handle;
+    dir.path = path;
+
+    return dir;
 #else
 	DIR* handle = opendir(path);
 	siDirectory dir;
@@ -1917,17 +2050,39 @@ siDirectory si_dirOpen(char* path) {
 		}
 		SI_PANIC_MSG(message);
 		return dir;
-#endif
-	}
-	{ (void)readdir(handle); (void)readdir(handle); }
+    }
+    { (void)readdir(handle); (void)readdir(handle); }
 
-	return dir;
+    return dir;
+#endif
+
 #endif
 }
 
-siDirectoryEntry* si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry) {
-#if defined (SI_SYSTEM_WINDOWS)
+b32 si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry) {
+#if defined(SI_SYSTEM_WINDOWS)
+    siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+    WIN32_FIND_DATAW file;
+    if (FindNextFileW(dir.handle, &file) == 0) {
+        return false;
+    }
 
+    usize len;
+    char* utf8Text = si_utf16ToUtf8(stack, file.cFileName, &len);
+    memcpy(entry->path, utf8Text, len + 1);
+    entry->len = len;
+
+    if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        entry->type = SI_IO_TYPE_DIR;
+    }
+    else if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        entry->type = SI_IO_TYPE_LINK;
+    }
+    else {
+        entry->type = SI_IO_TYPE_FILE;
+    }
+
+    return true;
 #else
 	SI_ASSERT_NOT_NULL(entry);
 
@@ -1935,9 +2090,9 @@ siDirectoryEntry* si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry) {
 	struct dirent* direntEntry = readdir((DIR*)dir.handle);
 	SI_STOPIF(direntEntry == nil, return nil);
 
-	entry->len = strlen(direntEntry->d_name);
+	entry->len = strlen(direntEntry->d_name); // TODO(EimaMei): Improve this
 	memcpy(entry->path, direntEntry->d_name, entry->len + 1);
-	entry->type = direntEntry->d_type;
+	entry->type = direntEntry->d_type; // TODO(EimaMei): Fix this
 
 	return entry;
 #endif
@@ -1947,6 +2102,10 @@ siDirectoryEntry* si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry) {
 //siArray(siIOInfo) si_directoryReadEx(siAllocator* alloc, cstring basePath,
 //        usize basePathLen, b32 fullPath);
 
+
+void si_dirClose(siDirectory dir) {
+    CloseHandle(dir.handle);
+}
 
 #endif
 
@@ -2107,6 +2266,15 @@ u64 si_timeNowUTC(void);
 /* Gets the current time in the local time zone format.*/
 // TODO(EimaMei): u64 si_timeNowLocal(void);
 
+
+typedef struct {
+	u64 start, end;
+} siTime;
+// TODO(EimaMei): documentation
+siTime si_timestampStart(void);
+
+#define si_timePrintSince(time) si_timestampPrintSinceEx(time, __FILE__, __LINE__)
+void si_timestampPrintSinceEx(siTime* t, cstring filename, i32 line);
 /* Makes the CPU sleep for a certain amount of miliseconds. */
 void si_sleep(usize miliseconds);
 
@@ -2263,10 +2431,13 @@ siArray(u8) si_numToBytesEx(siAllocator* alloc, u64 num, usize num_sizeof);
 	| siCpu                |
 	========================
 */
+// TODO(EimaMei): Documentation
 typedef usize siMhz;
+// TODO(EimaMei): Documentation
+extern siMhz SI_CPU_FREQ_MHZ;
 
 /* Returns the CPU's clock speed in mHz.
- * NOTE: MAKE SURE TO CACHE AND STORE THIS, as it takes 100 ms to use this function. */
+ * NOTE: Run this once if SI_CPU_FREQ_MHZ is set to 0. The result then gets cached. */
 siMhz si_cpuClockSpeed(void);
 
 #endif
@@ -2318,7 +2489,8 @@ typedef struct {
 	char spacePad[SI_NUM_MAX_DIGITS];
 } siPerformanceMSG;
 
-intern siPerformanceMSG* si_benchmarkGetMsgVars(siAllocator* alloc,
+F_TRAITS(intern)
+siPerformanceMSG* si_benchmarkGetMsgVars(siAllocator* alloc,
 		usize multiplesOf10, usize medianIndex) {
 
 	char runsCstr[] = "runs";
@@ -2593,8 +2765,9 @@ void si_benchmarkLoopsAvgCmpPrint(siAllocator* alloc, cstring funcname[2],
 
 
 #if defined(SI_IMPLEMENTATION_ALLOCATOR)
-#define SI_DEFAULT_MEMORY_ALIGNMENT (sizeof(usize) * 2)
 
+#if 0
+#define SI_DEFAULT_MEMORY_ALIGNMENT (sizeof(usize) * 2)
 F_TRAITS(inline)
 usize si_alignCeil(usize n) {
 	SI_STOPIF(n % SI_DEFAULT_MEMORY_ALIGNMENT == 0, return n);
@@ -2602,10 +2775,11 @@ usize si_alignCeil(usize n) {
 	n += 1;
 	return n;
 }
+#endif
 
 F_TRAITS(inline)
 siAllocator* si_allocatorMake(usize bytes) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 	rawptr ptr = malloc(sizeof(siAllocator) + bytes);
 	SI_ASSERT_NOT_NULL(ptr);
 
@@ -2620,42 +2794,61 @@ siAllocator* si_allocatorMake(usize bytes) {
 	return nil;
 #endif
 }
-F_TRAITS(intern inline)
-siAllocator* si_intern_allocatorMakeStack(usize bytes, rawptr ptr) {
+F_TRAITS(inline)
+siAllocator* si_allocatorMakeStackEx(usize bytes, rawptr ptr) {
+#if !defined(SI_NO_ALLOCATOR)
 	siAllocator* res = (siAllocator*)ptr;
 	res->ptr = (siByte*)ptr + sizeof(siAllocator);
 	res->offset = 0;
 	res->maxLen = bytes;
 
 	return res;
+#else
+    SI_UNUSED(bytes); SI_UNUSED(ptr);
+    return nil;
+#endif
 }
 F_TRAITS(inline)
 void si_allocatorFree(siAllocator* alloc) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 	SI_ASSERT_NOT_NULL(alloc->ptr);
 	free(alloc->ptr - sizeof(siAllocator));
+#else
+    SI_UNUSED(alloc);
 #endif
-	SI_UNUSED(alloc);
 }
 
 F_TRAITS(inline)
 void si_allocatorReset(siAllocator* alloc) {
+#if !defined(SI_NO_ALLOCATOR)
 	SI_ASSERT_NOT_NULL(alloc);
 	alloc->offset = 0;
+#else
+    SI_UNUSED(alloc);
+#endif
 }
 
 F_TRAITS(inline)
 void si_allocatorResetFrom(siAllocator* alloc, usize offset) {
-	SI_ASSERT_NOT_NULL(alloc);
+#if !defined(SI_NO_ALLOCATOR)
+    SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_MSG(offset < alloc->maxLen, "Provided offset is too large.");
 	alloc->offset = offset;
+#else
+    SI_UNUSED(alloc); SI_UNUSED(offset);
+#endif
 }
 F_TRAITS(inline)
 usize si_allocatorAvailable(siAllocator* alloc) {
+#if !defined(SI_NO_ALLOCATOR)
 	return alloc->maxLen - alloc->offset;
+#else
+    return 0;
+#endif
 }
 F_TRAITS(inline)
 void si_allocatorPush(siAllocator* alloc, siByte byte) {
+#if !defined(SI_NO_ALLOCATOR)
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_FMT(alloc->offset + 1 < alloc->maxLen,
 		"Exceeded the available memory for an allocation",
@@ -2664,11 +2857,14 @@ void si_allocatorPush(siAllocator* alloc, siByte byte) {
 
 	alloc->ptr[alloc->offset] = byte;
 	alloc->offset += 1;
+#else
+    SI_UNUSED(alloc); SI_UNUSED(byte);
+#endif
 }
 #if !defined(SI_RELEASE_MODE)
 F_TRAITS(inline)
 rawptr si_mallocEx(siAllocator* alloc, usize bytes, cstring filename, i32 line) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 	SI_ASSERT_NOT_NULL(alloc);
 
 	siByte* res = alloc->ptr + alloc->offset;
@@ -2693,35 +2889,17 @@ rawptr si_mallocEx(siAllocator* alloc, usize bytes, cstring filename, i32 line) 
 F_TRAITS(inline)
 rawptr si_callocEx(siAllocator* alloc, usize num, usize bytes,
 		cstring filename, i32 line) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 	rawptr res = si_mallocEx(alloc, num * bytes, filename, line);
-	memset(res, 0, num * bytes);
-
-	return res;
+	return memset(res, 0, num * bytes);
 #else
 	return calloc(bytes, num);
 	SI_UNUSED(alloc); SI_UNUSED(num); SI_UNUSED(bytes) SI_UNUSED(filename); SI_UNUSED(line);
 #endif
 }
-// TODO(EimaMei): Improve 'si_free'
-F_TRAITS(inline)
-void si_freeEx(siAllocator* alloc, rawptr ptr, cstring filename, i32 line) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
-	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_NOT_NULL(ptr);
-	SI_ASSERT_FMT(
-		si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->maxLen),
-		"Provided pointer wasn't allocated through the provided allocator (ptr is '%p', which isn't between '%p' and '%p')",
-		ptr, alloc->ptr, alloc->ptr + alloc->maxLen
-	);
-#else
-	free(ptr);
-	SI_UNUSED(alloc); SI_UNUSED(ptr); SI_UNUSED(filename); SI_UNUSED(line);
-#endif
-}
 rawptr si_reallocEx(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize,
 		cstring filename, i32 line) {
-#if !defined(SI_ALLOCATOR_UNDEFINE)
+#if !defined(SI_NO_ALLOCATOR)
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_STOPIF(ptr == nil, return si_malloc(alloc, newSize));
 
@@ -2738,14 +2916,83 @@ rawptr si_reallocEx(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize
 	SI_UNUSED(alloc); SI_UNUSED(ptr); SI_UNUSED(oldSize); SI_UNUSED(newSize) SI_UNUSED(filename); SI_UNUSED(line);
 #endif
 }
-#endif
 
+#else
+F_TRAITS(inline)
+rawptr si_malloc(siAllocator* alloc, usize bytes) {
+#if !defined(SI_NO_ALLOCATOR)
+	SI_ASSERT_NOT_NULL(alloc);
+
+	siByte* res = alloc->ptr + alloc->offset;
+	alloc->offset += bytes;
+
+	SI_ASSERT_FMT(
+        alloc->offset < alloc->maxLen,
+        "Exceeded the available memory for an allocation ((Tried writing '%zd'"
+        "bytes into an already filled allocator with '%zd' bytes. Current index: '%zd').\n",
+		bytes, alloc->maxLen, alloc->offset
+	);
+
+	return res;
+#else
+	return malloc(bytes);
+	SI_UNUSED(alloc); SI_UNUSED(bytes); SI_UNUSED(filename); SI_UNUSED(line);
 #endif
+}
+
+F_TRAITS(inline)
+rawptr si_calloc(siAllocator* alloc, usize num, usize bytes) {
+#if !defined(SI_NO_ALLOCATOR)
+	rawptr res = si_malloc(alloc, num * bytes);
+	return memset(res, 0, num * bytes);
+#else
+	return calloc(bytes, num);
+	SI_UNUSED(alloc); SI_UNUSED(num); SI_UNUSED(bytes) SI_UNUSED(filename); SI_UNUSED(line);
+#endif
+}
+rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize) {
+#if !defined(SI_NO_ALLOCATOR)
+	SI_ASSERT_NOT_NULL(alloc);
+	SI_STOPIF(ptr == nil, return si_malloc(alloc, newSize));
+
+	SI_ASSERT_FMT(
+		si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->maxLen),
+		"Provided pointer wasn't allocated through the provided allocator (ptr is '%p', which isn't between '%p' and '%p')",
+		ptr, alloc->ptr, alloc->ptr + alloc->maxLen
+	);
+	rawptr out = si_malloc(alloc, newSize);
+	memcpy(out, ptr, oldSize);
+	return out;
+#else
+	return realloc(ptr, newSize);
+	SI_UNUSED(alloc); SI_UNUSED(ptr); SI_UNUSED(oldSize); SI_UNUSED(newSize) SI_UNUSED(filename); SI_UNUSED(line);
+#endif
+}
+#endif /* SI_RELEASE_MODE */
+
+F_TRAITS(inline)
+void si_free(siAllocator* alloc, rawptr ptr) {
+#if !defined(SI_NO_ALLOCATOR)
+	SI_ASSERT_NOT_NULL(alloc);
+	SI_ASSERT_NOT_NULL(ptr);
+	SI_ASSERT_FMT(
+		si_between((siByte*)ptr, alloc->ptr, alloc->ptr + alloc->maxLen),
+		"Provided pointer wasn't allocated through the provided allocator (ptr is '%p', which isn't between '%p' and '%p')",
+		ptr, alloc->ptr, alloc->ptr + alloc->maxLen
+	);
+#else
+	free(ptr);
+	SI_UNUSED(alloc); SI_UNUSED(ptr); SI_UNUSED(filename); SI_UNUSED(line);
+#endif
+}
+
+
+#endif /* SI_IMPLEMENTATION_ALLOCATOR */
 
 
 #if defined(SI_IMPLEMENTATION_GENERAL)
 
-usize si_intern_assert(b32 condition, cstring conditionStr, cstring file, i32 line, cstring func, cstring message, ...) {
+usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, cstring func, cstring message, ...) {
 	SI_STOPIF(condition, return 0);
 	fprintf(stderr, "Assertion \"%s\" at \"%s:%d\": %s%s", conditionStr, file, line, func, (message != nil ? ": " : ""));
 
@@ -2833,7 +3080,21 @@ u64 si_RDTSC(void) {
 	SI_PANIC_MSG("RDTSC is not supported on this platform.");
 #endif
 }
+F_TRAITS(inline)
+siTime si_timestampStart(void) {
+    return (siTime){si_RDTSC(), 0};
+}
+void si_timestampPrintSinceEx(siTime* t, cstring filename, i32 line) {
+	SI_ASSERT_NOT_NULL(t);
+    SI_STOPIF(SI_CPU_FREQ_MHZ == 0, SI_CPU_FREQ_MHZ = si_cpuClockSpeed());
 
+    u64 end = si_RDTSC();
+	u64 diff = (end - t->start) / (SI_CPU_FREQ_MHZ / 1000.0f);
+
+    const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
+    printf("si_timePrintSince: %s:%i: TIME: %d %s\n", filename, line, (u32)(diff / time->first), time->second);
+
+}
 
 F_TRAITS(inline)
 void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, siDirection direction) {
@@ -2846,7 +3107,7 @@ void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, siDirection direction)
 
 
 #if defined(SI_IMPLEMENTATION_PAIR) && !defined(SI_NO_PAIR)
-F_TRAITS(intern inline)
+F_TRAITS(inline)
 rawptr si_intern_pairMake(siAllocator* alloc, siAny first, siAny second) {
 	siByte* res = (siByte*)si_malloc(alloc, first.typeSize + second.typeSize);
 	memcpy(res, first.ptr, first.typeSize);
@@ -2857,8 +3118,8 @@ rawptr si_intern_pairMake(siAllocator* alloc, siAny first, siAny second) {
 #endif
 
 #if defined(SI_IMPLEMENTATION_OPTIONAL) && !defined(SI_NO_OPTIONAL)
-F_TRAITS(intern inline)
-rawptr si_intern_optionalMake(rawptr res, siAny any, usize offset) {
+F_TRAITS(inline)
+rawptr si_optionalMakeEx(rawptr res, siAny any, usize offset) {
 	siByte* ptr = (siByte*)res;
 	memcpy(ptr, any.ptr, any.typeSize);
 	*(b32*)(ptr + offset) = true;
@@ -4028,10 +4289,10 @@ i32 si_charHexDigitToInt(char c) {
 
 F_TRAITS(intern)
 u64 si_hashKey(cstring key) {
-	uint64_t hash = FNV_OFFSET;
+	u64 hash = FNV_OFFSET;
 	cstring p;
 	for (p = key; *p; p++) {
-		hash ^= (uint64_t)(*p);
+		hash ^= (u64)(*p);
 		hash *= FNV_PRIME;
 	}
 	return hash;
@@ -4163,7 +4424,7 @@ cstring si_pathFsErrorName(siFileSystemError err) {
 		case SI_FS_ERROR_OVERFLOW: return "SI_FS_ERROR_OVERFLOW";
 		case SI_FS_ERROR_INVALID_SEEK: return "SI_FS_ERROR_INVALID_SEEK";
 		case SI_FS_ERROR_BUSY: return "SI_FS_ERROR_BUSY";
-		case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "SI_FS_ERROR_DISK_QUOTA_EXCEEDED/";
+		//case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "SI_FS_ERROR_DISK_QUOTA_EXCEEDED/";
 		case SI_FS_ERROR_FILE_TOO_LARGE: return "SI_FS_ERROR_FILE_TOO_LARGE";
 		case SI_FS_ERROR_INTERRUPT: return "SI_FS_ERROR_INTERRUPT";
 		case SI_FS_ERROR_IS_DIR: return "SI_FS_ERROR_IS_DIR";
@@ -4198,7 +4459,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 		case SI_FS_ERROR_OVERFLOW: return "Value too large to be stored in data type.";
 		case SI_FS_ERROR_INVALID_SEEK: return "Invalid seek.";
 		case SI_FS_ERROR_BUSY: return "Device or resource is busy.";
-		case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "Disk quota has been exceeded.";
+		//case SI_FS_ERROR_DISK_QUOTA_EXCEEDED: return "Disk quota has been exceeded.";
 		case SI_FS_ERROR_FILE_TOO_LARGE: return "File is too large.";
 		case SI_FS_ERROR_INTERRUPT: return "Interrupted function call.";
 		case SI_FS_ERROR_IS_DIR: return "Specified argument is a directory.";
@@ -4320,7 +4581,11 @@ b32 si_pathCreateFolder(cstring path) {
 	SI_ASSERT_NOT_NULL(path);
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		SI_PANIC();
+        siAllocator* stack = si_allocatorMakeStack(MAX_PATH);
+        siUtf16String widePath = si_utf8ToUtf16(stack, path, nil);
+
+        b32 res = CreateDirectoryW(widePath, nil);
+        return res;
 	#else
 		i32 result = mkdir(path, SI_FS_PERM_ALL);
 		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
@@ -4363,7 +4628,11 @@ b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
 	SI_ASSERT_NOT_NULL(linkPath);
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		SI_PANIC();
+        siAllocator* stack = si_allocatorMake(SI_KILO(2));
+        siUtf16String wideExisting = si_utf8ToUtf16(stack, existingPath, nil);
+        siUtf16String wideLink = si_utf8ToUtf16(stack, linkPath, nil);
+
+        return CreateHardLinkW(wideLink, wideExisting, nil) != 0;
 	#else
 		i32 result = link(existingPath, linkPath);
 		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
@@ -4377,7 +4646,11 @@ b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
 	SI_ASSERT_NOT_NULL(linkPath);
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		SI_PANIC();
+        siAllocator* stack = si_allocatorMake(SI_KILO(2));
+        siUtf16String wideExisting = si_utf8ToUtf16(stack, existingPath, nil);
+        siUtf16String wideLink = si_utf8ToUtf16(stack, linkPath, nil);
+
+        return CreateSymbolicLinkW(wideLink, wideExisting, 0) != 0; // TODO(EimaMei): have a function figure it out.
 	#else
 		i32 result = symlink(existingPath, linkPath);
 		SI_STOPIF(result != 0, { SI_FS_ERROR_DECLARE(); return false; });
@@ -4452,18 +4725,13 @@ F_TRAITS()
 u64 si_pathLastWriteTime(cstring filename) {
 	SI_ASSERT_NOT_NULL(filename);
 
-#if defined(SI_PLATFORM_WINDOWS)
+#if defined(SI_SYSTEM_WINDOWS)
 	FILETIME lastWriteTime = {0};
 	WIN32_FILE_ATTRIBUTE_DATA data = {0};
 
-#if 1 // TODO(EimaMei): create utf-8 to ucs2
-	wchar_t *w_text = gb__alloc_utf8_to_ucs2(a, filepath, NULL);
-	if (w_text == NULL) {
-		return 0;
-	}
-#endif
-
-	if (GetFileAttributesExW(w_text, GetFileExInfoStandard, &data)) {
+	siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+	siUtf16String wideFilename = si_utf8ToUtf16(stack, filename);
+	if (GetFileAttributesExW(wideFilename, GetFileExInfoStandard, &data)) {
 		lastWriteTime = data.ftLastWriteTime;
 	}
 
@@ -4496,7 +4764,7 @@ F_TRAITS(inline)
 siFilePermissions si_pathPermissions(cstring path) {
 	SI_ASSERT_NOT_NULL(path);
 
-#if defined(SI_PLATFORM_WINDOWS)
+#if defined(SI_SYSTEM_WINDOWS)
 	SI_PANIC();
 #else
 	struct stat fs;
@@ -4524,7 +4792,17 @@ siFile si_fileOpenMode(cstring path, cstring mode) {
 	SI_ASSERT_NOT_NULL(path);
 	SI_ASSERT_NOT_NULL(mode);
 
+#if defined(SI_SYSTEM_WINDOWS)
+    FILE* f;
+    {
+        siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+        siUtf16String widePath = si_utf8ToUtf16(stack, path, nil);
+        siUtf16String wideMode = si_utf8ToUtf16(stack, mode, nil);
+        f = _wfopen(widePath, wideMode);
+    }
+#else
 	FILE* f = fopen(path, mode);
+#endif
 
 	if (f == nil) {
 		cstring message;
@@ -4543,7 +4821,7 @@ siFile si_fileOpenMode(cstring path, cstring mode) {
 			case ENXIO:        message = "Failed to execute 'si_fileOpenMode': The named file is a character special or block special file, and the device associated with this file does not exist (ENXIO)."; break;
 			case EOVERFLOW:    message = "Failed to execute 'si_fileOpenMode': The named file is a regular file and the size of the file cannot be represented correctly in an object of type off_t (EOVERFLOW)."; break;
 			case EROFS:        message = "Failed to execute 'si_fileOpenMode': The named file resides on a read-only file system and mode requires write access (EROFS)."; break;
-			case EINVAL:       message = "Failed to execute 'si_fileOpenMode': The value of 'mode ' is not valid (EINVAL)."; break;
+			case EINVAL:       message = "Failed to execute 'si_fileOpenMode': The value of 'mode' is not valid (EINVAL)."; break;
 			case ETXTBSY:      message = "Failed to execute 'si_fileOpenMode': The file is a pure procedure (shared text) file that is being executed and mode requires write access (ETXTBSY)."; break;
 			default:           message = "Failed to execute 'si_fileOpenMode': Unknown reason.";
 		}
@@ -4647,7 +4925,7 @@ usize si_fileWriteAtLine(siFile* file, cstring content, usize index) {
 
 	siAllocator* tmp = si_allocatorMake(2 * file->size * (sizeof(siStringHeader) + sizeof(siString)));
 	siArray(siString) buffer = si_fileReadlines(tmp, *file);
-#if defined(SI_ALLOCATOR_UNDEFINE)
+#if defined(SI_NO_ALLOCATOR)
 	siString previousLine = buffer[index];
 #endif
 	SI_ASSERT_MSG(index < si_arrayLen(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
@@ -4656,7 +4934,7 @@ usize si_fileWriteAtLine(siFile* file, cstring content, usize index) {
 	siString newFileContent = si_arrayToSistring(buffer, "\n");
 
 	usize len = si_fileWriteLen(file, newFileContent, si_stringLen(newFileContent));
-#if defined(SI_ALLOCATOR_UNDEFINE)
+#if defined(SI_NO_ALLOCATOR)
 	usize i;
 	for (i = 0; i < si_arrayLen(buffer); i++) {
 		if (i == index) {
@@ -4691,13 +4969,25 @@ void si_fileClose(siFile file) {
 
 #if defined(SI_THREAD_IMPLEMENTATION) && !defined(SI_NO_THREAD)
 
-inline static rawptr si_impl_thread_proc(rawptr arg) {
+#if defined(SI_SYSTEM_WINDOWS)
+F_TRAITS(inline intern)
+DWORD WINAPI si_impl_threadProc(LPVOID arg) {
+	siThread* t = (siThread*)arg;
+	t->returnValue = t->func.ptr(t->arg);
+	t->isRunning = false;
+
+	return 0;
+}
+#else
+F_TRAITS(inline intern)
+rawptr si_impl_threadProc(rawptr arg) {
 	siThread* t = (siThread*)arg;
 	t->returnValue = t->func.ptr(t->arg);
 	t->isRunning = false;
 
 	return nil;
 }
+#endif
 
 F_TRAITS(inline)
 siThread si_threadCreateEx(siFunction function, rawptr arg) {
@@ -4717,7 +5007,7 @@ void si_threadStart(siThread* t) {
 
 void si_threadStartStack(siThread* t, usize stackSize) {
 	#if defined(SI_SYSTEM_WINDOWS)
-		t->id = CreateThread(nil, stackSize, (LPTHREAD_START_ROUTINE)si_impl_thread_proc, t, 0, nil);
+		t->id = CreateThread(nil, stackSize, si_impl_threadProc, t, 0, nil);
 		t->isRunning = true;
 		SI_ASSERT_MSG(t->id != nil, "Something went wrong with creating a new thread.");
 	#else
@@ -4727,7 +5017,7 @@ void si_threadStartStack(siThread* t, usize stackSize) {
 		pthread_attr_setstacksize(&attr, stackSize);
 		t->isRunning = true;
 
-		usize error_code = pthread_create(&t->id, &attr, si_impl_thread_proc, t);
+		usize error_code = pthread_create(&t->id, &attr, si_impl_threadProc, t);
 
 		cstring error_msg = nil;
 		switch (error_code) {
@@ -4936,14 +5226,18 @@ u64 si_numRoundNearestMultiple(u64 num, usize multiple) {
 
 #if defined(SI_IMPLEMENTATION_CPU) && !defined(SI_NO_CPU)
 
+siMhz SI_CPU_FREQ_MHZ = 0;
+
 F_TRAITS(inline)
 siMhz si_cpuClockSpeed(void) {
+    SI_STOPIF(SI_CPU_FREQ_MHZ != 0, return SI_CPU_FREQ_MHZ);
 	/* TODO(EimaMei): Possibly add a better version for ARM processors. */
 	u64 begin = si_RDTSC();
 	si_sleep(100);
 	u64 end = si_RDTSC();
 
-	return si_numRoundNearestMultiple((end - begin) / 100000, 10);
+	SI_CPU_FREQ_MHZ = si_numRoundNearestMultiple((end - begin) / 100000, 10);
+    return SI_CPU_FREQ_MHZ;
 }
 
 #endif
