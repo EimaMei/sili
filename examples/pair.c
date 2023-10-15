@@ -9,9 +9,9 @@ int main(void) {
 	printf("==============\n\n==============\nExample 3.0:\n");
 
 	siPair(siString, f64) product1;
-  	siPair(siString, f64) product2 = si_pair_make(si_string_make(stack, "tomatoes"), 2.30);
-  	siPair(siString, f64) product3 = si_pair_copy(product2);
-  	siPair(siString, f64) product4 = {si_string_make(stack, "bread"), 599.99};
+	siPair(siString, f64) product2 = si_pair_make(si_string_make(stack, "tomatoes"), 2.30);
+	siPair(siString, f64) product3 = si_pair_copy(product2);
+	siPair(siString, f64) product4 = {si_string_make(stack, "bread"), 599.99};
 
 	product1.first = si_string_make(stack, "shoes");
 	product1.second = 39.90;

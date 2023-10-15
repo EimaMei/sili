@@ -1,4 +1,4 @@
-CC = x86_64-w64-mingw32-gcc
+CC = gcc
 OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
@@ -13,7 +13,7 @@ all: $(OUTPUT) $(EXE) run
 
 # Run the exe.
 run: $(EXE)
-	./$(EXE).exe
+	./$(EXE)
 
 # Clean the 'build' folder.
 clean:
@@ -24,7 +24,7 @@ clean:
 $(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
 
-# Sometimes need to check the assembly output.
+# Check the assembly output.
 dump_asm:
 	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -masm=intel -S $(SRC) -o sili.S
 

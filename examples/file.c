@@ -44,7 +44,7 @@ void example1(siAllocator* heap) {
 	siArray(siString) newFileLines = si_fileReadlines(heap, newFile);
 	printf(
 		"Contents of '%s' ('%zd' lines in total):\n",
-		si_pathBaseName("exmp/random.txt"), si_arrayLen(newFileLines)
+		si_pathBaseName("randomDir/random.txt"), si_arrayLen(newFileLines)
 	);
 
 	for_range (i, 0, si_arrayLen(newFileLines)) {
@@ -164,7 +164,7 @@ void example4(siAllocator* alloc) {
 
 	usize count = 0;
 	while (si_dirPollEntry(dir, &entry)) {
-		printf("%i: %s - %i\n", count, entry.path, entry.type);
+		printf("%zu: %s - %i\n", count, entry.path, entry.type);
 		count += 1;
 	}
 	si_dirClose(dir);
@@ -177,7 +177,7 @@ int main(void) {
 	example2();
 	example3();
 	example4(heap);
-	
+
 	si_allocatorFree(heap);
 	return 0;
 }

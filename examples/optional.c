@@ -3,7 +3,7 @@
 
 
 siOptionalRet(cstring) create(b32 value) {
-  return (value ? si_optionalMake(&"Godzilla") : SI_OPTIONAL_NULL(cstring));
+ 	return (value ? si_optionalMake(&"Godzilla") : SI_OPTIONAL_NULL(cstring));
 }
 
 typedef SI_ENUM(usize, siType) {

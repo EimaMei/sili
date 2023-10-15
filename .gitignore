@@ -18,3 +18,4 @@ lib/
 Dockerfile
 *.mp3
 *.png
+Makefile
