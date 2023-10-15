@@ -239,7 +239,7 @@ extern "C" {
 	#endif
 #endif
 
-#if defined(SI_SYSTEM_UNIX)
+#if defined(SI_SYSTEM_UNIX) || defined(SI_SYSTEM_APPLE)
 	#if !defined(_GNU_SOURCE)
 		#define _GNU_SOURCE
 	#endif
@@ -1938,7 +1938,7 @@ siDirectory si_dirOpen(cstring path);
 b32 si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry);
 /* Polls an entry (file, directory, link, etc) from the directory and edits the
  * contents of 'entry' with the new data. Setting 'fullPath' to true makes 'entry->path'
- * contain both the entry's filename AND the directory 'dir.path'. Returns 'true' 
+ * contain both the entry's filename AND the directory 'dir.path'. Returns 'true'
  * if a new entry was found, 'false' if there are no more entries in the directory. */
 b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath);
 /* Closes the directory context. */
@@ -2386,14 +2386,14 @@ void si_benchmarkLoopsAvgPrint(siAllocator* alloc, cstring funcname,
 	);
 }
 
-#if defined(SI_SYSTEM_UNIX)
-	#define SI_TGRN "\33[0;32m"
-	#define SI_TRED "\33[0;31m"
-	#define SI_TEND "\33[0m"
-#else
+#if defined(SI_SYSTEM_WINDOWS)
 	#define SI_TRED ""
 	#define SI_TGRN ""
 	#define SI_TEND ""
+#else
+    #define SI_TGRN "\33[0;32m"
+    #define SI_TRED "\33[0;31m"
+    #define SI_TEND "\33[0m"
 #endif
 
 void si_benchmarkLoopsAvgCmpPrint(siAllocator* alloc, cstring funcname[2],
@@ -4472,7 +4472,21 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 #endif
 F_TRAITS(inline intern)
 siFileSystemError si_intern_fileGetOSError(void) {
-#if defined(SI_SYSTEM_UNIX)
+#if defined(SI_SYSTEM_WINDOWS)
+    switch (GetLastError()) {
+        case ERROR_SUCCESS: return SI_FS_ERROR_NONE;
+        case ERROR_ALREADY_EXISTS:
+        case ERROR_FILE_EXISTS: return SI_FS_ERROR_EXISTS;
+        case ERROR_INVALID_NAME:
+        case ERROR_BAD_PATHNAME: return SI_FS_ERROR_INVALID_FILENAME;
+        case ERROR_DIRECTORY:
+        case ERROR_INVALID_ADDRESS: return SI_FS_ERROR_INVALID;
+        case ERROR_PATH_NOT_FOUND:
+        case ERROR_FILE_NOT_FOUND: return SI_FS_ERROR_DOESNT_EXIST;
+        case ERROR_ACCESS_DENIED: return SI_FS_ERROR_DOESNT_EXIST;
+    }
+    return SI_FS_ERROR_INVALID;
+#else
 	switch (errno) {
 		case EEXIST: return SI_FS_ERROR_EXISTS;
 		case EINVAL: return SI_FS_ERROR_INVALID;
@@ -4484,20 +4498,6 @@ siFileSystemError si_intern_fileGetOSError(void) {
 	}
 
 	return SI_FS_ERROR_NONE;
-#else
-	switch (GetLastError()) {
-		case ERROR_SUCCESS: return SI_FS_ERROR_NONE;
-		case ERROR_ALREADY_EXISTS:
-		case ERROR_FILE_EXISTS: return SI_FS_ERROR_EXISTS;
-		case ERROR_INVALID_NAME:
-		case ERROR_BAD_PATHNAME: return SI_FS_ERROR_INVALID_FILENAME;
-		case ERROR_DIRECTORY:
-		case ERROR_INVALID_ADDRESS: return SI_FS_ERROR_INVALID;
-		case ERROR_PATH_NOT_FOUND:
-		case ERROR_FILE_NOT_FOUND: return SI_FS_ERROR_DOESNT_EXIST;
-		case ERROR_ACCESS_DENIED: return SI_FS_ERROR_DOESNT_EXIST;
-	}
-	return SI_FS_ERROR_INVALID;
 #endif
 }
 
@@ -5078,7 +5078,7 @@ usize si_fileSeek(siFile file, usize offset, siFileMoveMethod method) {
 	return res;
 #else
 	#if defined(SI_SYSTEM_OSX)
-		size res = lseek(file.handle, offset, method);
+		isize res = lseek(file.handle, offset, method);
 	#else
 		isize res = lseek64(file.handle, offset, method);
 	#endif
