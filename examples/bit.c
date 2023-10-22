@@ -130,11 +130,12 @@ inline cstring standard(void) {
 }
 
 
+SI_STATIC_ASSERT(SI_BIT(8) == 256);
+
 int main(void) {
 	siAllocator* alloc = si_allocatorMakeStack(SI_KILO(1));
-	SI_STATIC_ASSERT(SI_BIT(8) == 256);
 
-	printf(
+	si_printf(
 		"Information about the system:\n\t"
 			"Operating System - '%s'\n\t"
 			"CPU Architecture - '%s' (%zd-bit)\n\t"
@@ -150,45 +151,51 @@ int main(void) {
 		compiler(), language(), standard()
 	);
 
-	u16 adr = 0xFFFE; /* The binary expression of 0xFFFE is '0b1111111111111110' */
-	printf("High bytes: '%2X', low bytes: '%2X'\n", SI_NUM_HIGH_BITS(adr), SI_NUM_LOW_BITS(adr));
-	printf("MSB: '%i', LSB: '%i'\n", SI_BIT_MSB(adr), SI_BIT_LSB(adr));
-
-	printf("Bit 0 of 0b10: '%i'\n", SI_NUM_BIT_GET(2, 0));
-	printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
-
-	usize num_bits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
-	printf(
-		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
-		num_bits, SI_BYTE_TO_BIT(sizeof(adr)) - num_bits
+	u16 adr = 0xFFFE;
+	si_printf(
+		"0xFFFE (%#b):\n\t"
+			"High bits: '%#b', low bits: '%#b'\n\t"
+			"MSB: '%#b', LSB: '%#b'\n",
+		adr,
+		SI_NUM_HIGH_BITS(adr), SI_NUM_LOW_BITS(adr),
+		SI_BIT_MSB(adr), SI_BIT_LSB(adr)
 	);
 
-	/* The binary expression of 248 is '0b11111000'. */
+	si_printf("Bit 0 of '%#b': '%i'\n", 2, SI_NUM_BIT_GET(2, 0));
+	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
+
+	usize numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
+	si_printf(
+		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
+		numBits, SI_BYTE_TO_BIT(sizeof(adr)) - numBits
+	);
+
 	u8 leadTrailNum = 248;
-	printf(
-		 "Leading 1s of '248': '%zd', trailing 0s: '%zd'\n",
+	si_printf(
+		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
+		 leadTrailNum,
 		 si_numLeadingBit(leadTrailNum, SI_BIT_ONE), si_numTrailingBit(leadTrailNum, SI_BIT_ZERO)
 	);
 
 	u32 rotateAdr = si_numRotateLeft((u32)0x00001234, 24);
-	printf("Rotating '0x00001234' left by 24 bits: '0x%08X'\n", rotateAdr);
+	si_printf("Rotating '0x00001234' left by 24 bits: '%#08X'\n", rotateAdr);
 
 	rotateAdr = si_numRotateRight(rotateAdr, 24);
-	printf("Rotating '0x34000012' right by 24 bits: '0x%08X'\n", rotateAdr);
+	si_printf("Rotating '0x34000012' right by 24 bits: '%#08X'\n", rotateAdr);
 
-	printf("Reversing the bits of '0x1234567890123456' gives us: '0x%lX'\n", si_numReverseBits(0x1234567890123456));
+	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(0x1234567890123456));
 
 	siArray(u8) array = si_numToBytes(alloc, (u32)0xFF00EEAA);
-	printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
 	for_range (i, 0, si_arrayLen(array)) {
-		printf("\tElement %zd: '0x%02X'\n", i, array[i]);
+		si_printf("\tElement %zd: '0x%02X'\n", i, array[i]);
 	}
 
 	u32 newNum = si_bytesToNumSiArr(array);
-	printf("Combining them all back, we get '0x%X'\n", newNum);
+	si_printf("Combining them all back, we get '%#X'\n", newNum);
 
 	adr = si_swap16(adr);
-	printf("Changing the endian of '0xFFFE' gives us '0x%X'\n", adr);
+	si_printf("Changing the endian of '0xFFFE' gives us '%#X'\n", adr);
 
 	return 0;
 }

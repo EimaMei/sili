@@ -10,17 +10,17 @@ i16 threadTest(b32* arg) {
 	i16 count = INT16_MIN;
 
 	if (loop) {
-		printf("We'll increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
+		si_printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
 		si_sleep(2000);
 		while (count < INT16_MAX) {
 			count += 1;
-			printf("%i\n", count);
+			si_printf("%i\n", count);
 		}
 	}
 	else {
-		print("'arg' equals to 'false', so I'll just do nothing and wait for like 3 seconds.");
+		si_print("'arg' equals to 'false', so the function will do nothing and sleep for 3 seconds.\n");
 		si_sleep(3000);
-		print("...and we're done! Exiting the thread now.");
+		si_print("Exiting the thread now.\n");
 	}
 
 	return count;
@@ -32,26 +32,26 @@ int main(void) {
 	si_threadStart(&thread);
 
 	while (thread.isRunning) {
-		print("Even though 'thread' is currently sleeping, it's still running this exact second!");
+		si_print("Even though 'thread' is sleeping, the main thread is running independent of it.\n");
 		si_sleep(1000);
 	}
 
-	printf("That loop returned a '%i'. Now we'll re-run the loop with the argument being 'true' instead.\n", si_threadGetReturn(thread, i16));
+	si_printf("threadTest(false) returned a '%i'\n", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
 
 	loopState = true;
 	si_threadStart(&thread);
-	si_threadJoin(&thread); /* Now we have to wait... */
+	si_threadJoin(&thread); /* Now we have to wait. */
 
-	printf("That loop NOW returned a '%i'.\n", si_threadGetReturn(thread, i16));
+	si_printf("threadTest(true) reurned a '%i'.\n", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
 
-	#if !defined(SI_SYSTEM_WINDOWS) /* si_threadCancel is not supported on windows. Technically not good practice, not recommended. */
+	#if !defined(SI_SYSTEM_WINDOWS) /* si_threadCancel is not supported on windows. Not good practice either way, so it's not recommended. */
 		si_threadStart(&thread);
 		si_sleep(2500);
 		si_threadCancel(&thread);
 
-		print("Decided to kill it 2.5 seconds later.");
+		si_print("Function got killed 2.5 seconds later.\n");
 	#endif
 
 	return 0;

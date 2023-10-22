@@ -1,9 +1,10 @@
 CC = gcc
+#x86_64-w64-mingw32-gcc
 OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = examples/file.c
+SRC = examples/array.c
 FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"
@@ -14,6 +15,7 @@ all: $(OUTPUT) $(EXE) run
 # Run the exe.
 run: $(EXE)
 	./$(EXE)
+#.exe
 
 # Clean the 'build' folder.
 clean:

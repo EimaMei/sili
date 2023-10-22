@@ -16,7 +16,7 @@ void example1(siAllocator* heap) {
 
 	siFile newFile = si_fileCreate("random.txt");
 	si_fileWrite(&newFile, "A silly file\nwith a sili newline.");
-	siString content = si_fileRead(heap, newFile);
+	siString content = si_fileReadContents(heap, newFile);
 
 	printf(
 		"About 'random.txt':\n\t"
@@ -170,6 +170,24 @@ void example4(siAllocator* alloc) {
 	si_dirClose(dir);
 }
 
+void example5(siAllocator* alloc) {
+	printf("==============\n\n==============\nExample 5:\n");
+
+	si_printf("Characters: %c %c\n", 'a', 65);
+	si_printf("Decimals: %d %d %lu\n", 1977, 65000L, UINT64_MAX);
+	si_printf("Preceding with blanks: %10d\n", 1977);
+	si_printf("Preceding with zeros: %010d \n", 1977);
+	si_printf("Some different radices: %d %x %o %#x %#o\n", 100, 100, 100, 100, 100);
+	si_printf("Floats: %4.2f %+.0e %E %g\n", 3.1416, 3333333333333.1416, 3.1416, 1234.062400);
+	si_printf("Width trick: %*d \n", 5, 10);
+	si_printf("%.5s\n", "A string");
+	si_printf("%B - %B (%#b, %#b)\n", true, false, true, false);
+	si_printf("Pointer to the heap: %p\n", alloc);
+	si_printf("This will print nothing: '%n', 100%%.\n", (signed int*)nil);
+	si_printf("%CRThis text will be displayed in red%C, while this: %CBblue%C!\n");
+	si_fprintf(SI_STDOUT, "Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%CY* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n");
+}
+
 int main(void) {
 	siAllocator* heap = si_allocatorMake(SI_KILO(16));
 
@@ -177,6 +195,7 @@ int main(void) {
 	example2();
 	example3();
 	example4(heap);
+	example5(heap);
 
 	si_allocatorFree(heap);
 	return 0;

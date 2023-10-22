@@ -18,16 +18,16 @@ void performanceTest2(void) {
 }
 
 int main(void) {
-	print("Running 'performanceTest()' 30000 times. Lets see how long it takes to execute that many times...");
+	si_print("Running 'performanceTest()' 30000 times. Lets see how long it takes to execute that many times...\n");
 	si_benchmarkRunsPerLoop(30000, performanceTest());
 
-	print("Now let's see how many times 'performanceTest()' can be executed in 5 seconds...");
+	si_print("Now let's see how many times 'performanceTest()' can be executed in 5 seconds...\n");
 	si_benchmarkExecutesPerMs(5000, performanceTest());
 
-	print("The average performance:");
+	si_print("The average performance:\n");
 	si_benchmarkLoopsAvg(10000, performanceTest());
 
-	print("Now we will compare the performance between 'performanceTest()' and 'performanceTest2()':");
+	si_print("Now we will compare the performance stats between 'performanceTest()' and 'performanceTest2()':\n");
 	si_benchmarkLoopsAvgCmp(10000, performanceTest(), performanceTest2());
 
 	return 0;
