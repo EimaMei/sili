@@ -1,93 +1,201 @@
 #define SI_IMPLEMENTATION
 #include <sili.h>
 
+inline cstring operatingSystem(void) {
+	static char res[] =
+		#if defined(SI_SYSTEM_WINDOWS)
+			"Windows"
+		#elif defined(SI_SYSTEM_OSX)
+			"MacOS"
+		#elif defined(SI_SYSTEM_LINUX)
+			"Linux"
+		#elif defined(SI_SYSTEM_ANDROID)
+			"Android"
+		#elif defined(SI_SYSTEM_IOS)
+			"iOS"
+		#elif defined(SI_SYSTEM_WASM)
+			"WebAssembly"
+		#endif
+	;
 
-cstring cpu_arch(void) {
-    static char res[] = (
-        #if defined(SI_CPU_X86)
-            "X86"
-        #elif defined(SI_CPU_PPC)
-            "PPC"
-        #elif defined(SI_CPU_ARM)
-            "ARM"
-        #elif defined(SI_CPU_MIPS)
-            "MIPS"
-        #else
-            "N/A"
-        #endif
-    );
-
-    return res;
-}
-
-usize cpu_type(void) {
-    #if defined(SI_ARCH_64_BIT)
-        return 64;
-    #elif
-        return 32;
-    #endif
-}
-
-cstring cpu_endian(void) {
-    return (SI_LITTLE_ENDIAN == true) ? "little-endian" : "big-endian";
+	return res;
 }
 
 
+inline cstring cpuArch(void) {
+	static char res[] =
+		#if defined(SI_CPU_X86)
+			"x86"
+		#elif defined(SI_CPU_PPC)
+			"PPC"
+		#elif defined(SI_CPU_ARM64)
+			"ARM64"
+		#elif defined(SI_CPU_ARM)
+			"ARM"
+		#elif defined(SI_CPU_MIPS)
+			"MIPS"
+		#elif defined (SI_CPU_SPARC)
+			"SPARC"
+		#elif defined(SI_CPU_RISC_V)
+			"RISC-V"
+		#elif defined(SI_CPU_ALPHA)
+			"Alpha"
+		#else
+			"N/A"
+		#endif
+	;
+
+	return res;
+}
+
+inline usize cpu_arch_bit(void) {
+	#if defined(SI_ARCH_64_BIT)
+		return 64;
+	#elif defined(SI_ARCH_32_BIT)
+		return 32;
+	#endif
+}
+
+inline cstring cpuEndian(void) {
+	return (SI_HOST_IS_LITTLE_ENDIAN == true) ? "little-endian" : "big-endian";
+}
+
+inline cstring compiler(void) {
+	static char res[] =
+		#if defined(SI_COMPILER_GCC)
+			"GCC"
+		#elif defined(SI_COMPILER_CLANG)
+			"clang"
+		#elif defined(SI_COMPILER_MSVC)
+			"msvc"
+		#else
+			"N/A"
+		#endif
+	;
+
+	return res;
+}
+
+inline cstring language(void) {
+	static char res[] =
+		#if defined(SI_LANGUAGE_C)
+			"C"
+		#elif defined(SI_LANGUAGE_CPP)
+			"C++"
+		#elif defined(SI_LANGUAGE_OBJ_CPP)
+			"Objective-C++"
+		#elif defined(SI_LANGUAGE_OBJ_C) /* NOTE(EimaMei): SI_LANGUAGE_OBJ_C is defined for both Objective-C and Objective-C++. */
+			"Objective-C"
+		#elif defined(SI_LANGUAGE_CPLUS)
+			"C-plus"
+		#endif
+	;
+	return res;
+}
+
+inline cstring standard(void) {
+	static char res[] =
+		#if !defined(SI_LANGUAGE_CPP)
+			#if SI_STANDARD_VERSION == SI_STANDARD_C89
+				"C89"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C94
+				"C94"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C99
+				"C99"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C11
+				"C11"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C17
+				"C17"
+			#elif SI_STANDARD_VERSION > SI_STANDARD_C17
+				"C2x"
+			#endif
+		#elif defined(SI_LANGUAGE_CPP)
+			#if SI_STANDARD_VERSION == SI_STANDARD_CPP98
+				"C++98"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP11
+				"C++11"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP14
+				"C++14"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP17
+				"C++17"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C20
+				"C++20"
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C23
+				"C++23"
+			#endif
+		#endif
+	;
+
+	return res;
+}
+
+
+SI_STATIC_ASSERT(SI_BIT(8) == 256);
 
 int main(void) {
-    si_init(SI_KILO(1));
+	siAllocator* alloc = si_allocatorMakeStack(SI_KILO(1));
 
-    SI_ASSERT(SI_BIT(8) == 256);
+	si_printf(
+		"Information about the system:\n\t"
+			"Operating System - '%s'\n\t"
+			"CPU Architecture - '%s' (%zd-bit)\n\t"
+			"Target endian - '%s'\n\t"
+			"CPU cache line size - '%i'\n"
+		"Compilation info:\n\t"
+			"Compiler - '%s'\n\t"
+			"Language - '%s' (%s)\n\n"
+		,
+		operatingSystem(),
+		cpuArch(), cpu_arch_bit(),
+		cpuEndian(), SI_CACHE_LINE_SIZE,
+		compiler(), language(), standard()
+	);
 
-    printf(
-        SI_MULTILINE(
-            "Information about the system:\n\t"
-                 "CPU Architecture - '%s' (%zd-bit)\n\t"
-                 "Target endian - '%s'\n\t"
-                 "CPU cache line size - '%i'\n\n"
-        ),
-        cpu_arch(), cpu_type(),
-        cpu_endian(),
-        SI_CACHE_LINE_SIZE
-    );
+	u16 adr = 0xFFFE;
+	si_printf(
+		"0xFFFE (%#b):\n\t"
+			"High bits: '%#b', low bits: '%#b'\n\t"
+			"MSB: '%#b', LSB: '%#b'\n",
+		adr,
+		SI_NUM_HIGH_BITS(adr), SI_NUM_LOW_BITS(adr),
+		SI_BIT_MSB(adr), SI_BIT_LSB(adr)
+	);
 
-    u16 adr = 0xFFFE; /* The binary expression of 0xFFFE is '0b1111111111111110' */
-    printf("High bit: '%2X', low bit: '%2X'\n", SI_HIGH_BIT(adr), SI_LOW_BIT(adr));
+	si_printf("Bit 0 of '%#b': '%i'\n", 2, SI_NUM_BIT_GET(2, 0));
+	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
 
-    printf("Bit 0: '%i'\n", SI_NUM_GET_BIT(BIT_00000001, 0));
-    printf("usize contains '%zd' bits  on this CPU architecture.", SI_BYTE_TO_BIT(sizeof(usize)));
+	usize numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
+	si_printf(
+		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
+		numBits, SI_BYTE_TO_BIT(sizeof(adr)) - numBits
+	);
 
-    printf(
-        "Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
-        si_num_count_bit(adr, SI_BIT_ONE), si_num_count_bit(adr, SI_BIT_ZERO)
-    );
+	u8 leadTrailNum = 248;
+	si_printf(
+		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
+		 leadTrailNum,
+		 si_numLeadingBit(leadTrailNum, SI_BIT_ONE), si_numTrailingBit(leadTrailNum, SI_BIT_ZERO)
+	);
 
-    /* The binary expression of 248 is '0b11111000'. */
-    printf(
-         "Leading 1s of '248': '%zd', trailing 0s: '%zd'\n",
-         si_num_leading_bit((u8)248, SI_BIT_ONE), si_num_trailing_bit((u8)240, SI_BIT_ZERO)
-    );
+	u32 rotateAdr = si_numRotateLeft((u32)0x00001234, 24);
+	si_printf("Rotating '0x00001234' left by 24 bits: '%#08X'\n", rotateAdr);
 
-    u32 rotate_adr = si_num_rotate_left((u32)0x00001234, 24);
-    printf("Rotating '0x00001234' left by 24 bits: '0x%08X'\n", rotate_adr);
+	rotateAdr = si_numRotateRight(rotateAdr, 24);
+	si_printf("Rotating '0x34000012' right by 24 bits: '%#08X'\n", rotateAdr);
 
-    rotate_adr = si_num_rotate_right(rotate_adr, 24);
-    printf("Rotating '0x34000012' right by 24 bits: '0x%08X'\n", rotate_adr);
+	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(0x1234567890123456));
 
-    printf("Reversing the bits of '0x1234567890123456' gives us: '0x%lX'\n", si_num_reverse_bits(0x1234567890123456));
-
-    siArray(u8) array = si_num_to_bytes((u32)0xFF00EEAA);
-    printf("All of the elements in 'array' (len - '%zd'):\n", si_array_len(array));
-    for_range (i, 0, si_array_len(array)) {
-		printf("\tElement %zd: '0x%02X'\n", i, array[i]);
+	siArray(u8) array = si_numToBytes(alloc, (u32)0xFF00EEAA);
+	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
+		si_printf("\tElement %zd: '0x%02X'\n", i, array[i]);
 	}
 
-    u32 new_num = si_bytes_to_num(array);
-    printf("Combining them all back, we get '0x%X'\n", new_num);
+	u32 newNum = si_bytesToNumSiArr(array);
+	si_printf("Combining them all back, we get '%#X'\n", newNum);
 
-    adr = si_num_change_endian(adr);
-    printf("Changing the endian of '0xFFFE' gives us '0x%X'\n", adr);
+	adr = si_swap16(adr);
+	si_printf("Changing the endian of '0xFFFE' gives us '%#X'\n", adr);
 
-    si_terminate();
-    return 0;
+	return 0;
 }

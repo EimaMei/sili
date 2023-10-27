@@ -1,12 +1,13 @@
-CC = clang
+CC = gcc
+#x86_64-w64-mingw32-gcc
 OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
 SRC = examples/array.c
-FLAGS = -O0 -std=c99 -Wall -Wextra -Wpedantic
-LIBS =
-INCLUDE = -I"."
+FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
+LIBS = -L"lib"
+INCLUDE = -I"." -I"include"
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -14,6 +15,7 @@ all: $(OUTPUT) $(EXE) run
 # Run the exe.
 run: $(EXE)
 	./$(EXE)
+#.exe
 
 # Clean the 'build' folder.
 clean:
@@ -24,9 +26,9 @@ clean:
 $(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
 
-# Sometimes need to check the assembly output.
+# Check the assembly output.
 dump_asm:
-	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -S $(SRC) -o sili.S
+	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -masm=intel -S $(SRC) -o sili.S
 
 
 # Runs and compiles every example.
