@@ -1,24 +1,5 @@
-// TODO(EimaMei): Don't forget to remove this.
-#define SI_IMPLEMENTATION 1
 /*
- * MAJOR TODOS(EimaMei):
- * - Rename // commments to C89 style.
- * - Check all of the -len functions to see if they actually require strlen.
- * - Add the undocumented macros here.
- * - Add SI_RELEASE_MODE proper
- */
-
-/* README TODOS(EimaMei):
- * - Rework the README.
- * - Add/remove some features from the list.
- * - Add some repos
- * - Complete the previous TODOs and improvements.
- * - Remove the TODO list.
- * - Lithuanian translation.
- */
-
-/*
-sili.h - a cross-platform STL for modern C programming
+sili.h - a cross-platform standard library for modern C99 programming
 ===========================================================================
 	- YOU MUST DEFINE 'SI_IMPLEMENTATION' in EXACTLY _one_ C file that includes
 	this header, BEFORE the include like this:
@@ -76,12 +57,38 @@ MACROS
 	the library. Example:
 	```c
 		#define SI_IMPLEMENTATION
-		#define SI_RELASE_MODE
+		#define SI_RELEASE_MODE
 		#include "sili.h"
 	```
+
+	- SI_NO_ASSERTIONS_IN_HEADER - SI_ASSERT() and its other variations do not
+	check for the assertion, essentially doing nothing, meaning any given expression
+	will evaluate to nothing and not crash the app. Slightly increases the performance
+	of the app, but should only be enabled for release builds, as any error in
+	the code will then not get caught and will most likely crash the app somewhere
+	else further down.
+
+	- SI_NO_ALLOC_DEBUG_INFO - by default si_malloc() and similar functions take
+	__FILE__ and __LINE__ arguments for debugging. For performance reasons, you
+	can disable this.
+
+	- SI_RELEASE_MODE - same as defining both SI_NO_ASSERTIONS_IN_HEADER and SI_NO_ALLOC_DEBUG_INFO.
+
+	- SI_NO_ERROR_STRUCT - by default siErrorInfo is a struct that contains an
+	i32 error code, time in UTC+0 and a cstring of the last function that edited
+	the structure. Defining this macro makes siErrorInfo only contain an error code.
+
+	- SI_NO_INLINE_ASM - disables any usage of inline ASM in sili.h (when possible).
+
+	- SI_ASM_USE_ATT_SYNTAX - makes 'si_asm' understand AT&T syntax, as by default
+	the Intel syntax is used.
+
+	- SI_NO_WINDOWS_H - disables the inclusion of windows.h inside sili.h. Might
+	cause 'undefined' compiler errors.
+
 ===========================================================================
 CREDITS
-	- Ginger Bill's 'gb.h' (https://github.com/gingerBill/gb) - inspired me to
+	- Ginger Bill's 'gb.h' (https://github.com//gingerBill/gb) - inspired me to
 	make the Sili Toolchain, as well as certain features were taken from the
 	library and implemented here.
 
@@ -313,6 +320,13 @@ extern "C" {
 #define SI_HOST_IS_BIG_ENDIAN      (!*(u8*)&(u16){1})
 #define SI_HOST_IS_LITTLE_ENDIAN   (!SI_HOST_IS_BIG_ENDIAN)
 
+#if defined(SI_RELEASE_MODE)
+	#undef SI_NO_ASSERTIONS_IN_HEADER
+	#under SI_NO_ALLOC_DEBUG_INFO
+
+	#define SI_NO_ASSERTIONS_IN_HEADER
+	#define SI_NO_ALLOC_DEBUG_INFO
+#endif
 
 #if defined(SI_SYSTEM_WINDOWS)
 	#if _MSC_VER < 1300
@@ -511,20 +525,18 @@ SI_STATIC_ASSERT(false == 0);
 	typedef const char* cstring;
 #endif
 
+	/* A struct containing information about an error that happened during an operation. */
+typedef struct {
+	/* Error code from the operation. */
+	i32 code;
+
 #if !defined(SI_NO_ERROR_STRUCT)
-	/* A struct denotating an error that happened during an operation. */
-	typedef struct {
-		/* Error code from the operation. */
-		i32 code;
-		/* The function where the error occurred. */
-		cstring function;
-		/* The time when the error happened (in UTC+0). */
-		u64 time;
-	} siErrorInfo;
-#else
-	/* An integer containing an error code from a failed operation. */
-	typedef i32 siErrorInfo;
+	/* The function where the error occurred. */
+	cstring function;
+	/* The time when the error happened (in UTC+0). */
+	i64 time;
 #endif
+} siErrorInfo;
 
 /*
 	========================
@@ -844,9 +856,9 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 */
 
 typedef struct {
-	// Pointer to the data.
+	/* Pointer to the data. */
 	rawptr ptr;
-	// Size of the data
+	/* Size of the data */
 	usize typeSize;
 } siAny;
 
@@ -900,7 +912,7 @@ typedef struct {
 	| siFunction           |
 	========================
 */
-// Contains a function pointer for siThread.
+/* Contains a function pointer for siThread. */
 typedef struct {
    rawptr SI_FUNC_PTR(ptr, (rawptr));
 } siFunction;
@@ -914,14 +926,14 @@ typedef struct {
 	| Other                |
 	========================
 */
-// An XY point structure. Both are 32-bit integers.
+/* An XY point structure. Both are 32-bit integers. */
 typedef struct { i32 x, y; } siPoint;
-// An XY point structure. Both are isize integers.
+/* An XY point structure. Both are isize integers. */
 typedef struct { isize x, y; } siPointS;
-// A struct denoting the version.
+/* A struct denoting the version. */
 typedef struct { i32 major, minor; } siVersion;
 
-// An RGBA structure.
+/* An RGBA structure. */
 typedef struct { u8 r, g, b, a; } siColor;
 /* r, g, b, a - u8
  * Macro to define an RGBA color. */
@@ -935,7 +947,7 @@ typedef SI_ENUM(u32, siDirection) {
 	SI_DIRECTION_RIGHT
 };
 
-// Moves memory by 'moveBy' amount of bytes depending on the direction.
+/* Moves memory by 'moveBy' amount of bytes depending on the direction. */
 void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, siDirection direction);
 
 /*
@@ -1626,7 +1638,7 @@ i64 si_cstrToI64(cstring str);
 /* Returns an signed 64-bit integer form of the C-string with specified length.
  * The string must be a number. */
 u64 si_cstrToI64Len(cstring str, usize len);
-// TODO(EimaMei): f64 si_cstr_to_f64(cstring str);
+/* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
 
 /* Creates a string from the given unsigned number. By default the function assumes
  * the number is base-10. */
@@ -2118,31 +2130,33 @@ typedef SI_ENUM(usize, siWeek) {
 	Sunday
 };
 
-typedef struct {
-	/* Start and end of the timestamp. */
-	u64 start, end;
-} siTimestamp;
+/* An unsigned 64-bit integer type, notifying that it's used for time stamps. */
+typedef u64 siTimeStamp;
+/* A signed 64-bit integer type, notifying that it's used for UTC-0 time. */
+typedef i64 siUtcTime;
+/* A signed 64-bit integer type, notifying that it's used for local time. */
+typedef i64 siLocalTime;
 
 /* Executes the 'RDTSC' asm instruction and returns the value in nano seconds.
  * NOTE: Only natively works for x86-64, i386, ARM64 and PPC CPUs. On other CPUs
  * the function relies on OS functions like 'gettimeofday'. */
-u64 si_RDTSC(void);
+siTimeStamp si_RDTSC(void);
 /* Returns the number of seconds since 1970-01-01 UTC */
-u64 si_timeNowUTC(void);
+siUtcTime si_timeNowUTC(void);
 /* Returns the number of seconds since 1970-01-01 local time.*/
-u64 si_timeNowLocal(void);
+siLocalTime si_timeNowLocal(void);
 
 /* Starts the timestamp. */
-siTimestamp si_timestampStart(void);
+siTimeStamp si_timeStampStart(void);
 /* Prints the time since the start. */
-#define si_timePrintSince(time) si_timestampPrintSinceEx(time, __FILE__, __LINE__)
+#define si_timePrintSince(time) si_timeStampPrintSinceEx(time, __FILE__, __LINE__)
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
 void si_sleep(usize miliseconds);
 
 
 #if 1
-void si_timestampPrintSinceEx(siTimestamp* t, cstring filename, i32 line);
+void si_timeStampPrintSinceEx(siTimeStamp t, cstring filename, i32 line);
 #endif
 
 #endif
@@ -2255,7 +2269,7 @@ usize si_numCountBitsU64(u64 num);
 /* Makes a number from the specified siArray(u8). */
 u64 si_bytesToNumSiArr(siArray(siByte) arr);
 /* Makes a number from a C-array. */
-u64 si_bytesToArr(siByte* array, usize len);
+u64 si_bytesToNumArr(siByte* array, usize len);
 
 /* Raises an unsigned base 10 by the power of the exponent, and returns the result
  * as a 64-bit unsigned int (meaning the exponent can only be from 0 to 19, otherwise
@@ -2442,7 +2456,7 @@ siPerformanceMSG* si_benchmarkGetMsgVars(siAllocator* alloc,
 	return msg;
 }
 
-typedef struct { u64 first; cstring second; } siBenchmarkLimit;
+typedef struct { siTimeStamp first; cstring second; } siBenchmarkLimit;
 
 intern const siBenchmarkLimit siBenchLimit[] = {
 	{(u64)0001, "ns"},
@@ -2455,7 +2469,7 @@ intern const siBenchmarkLimit siBenchLimit[] = {
 };
 
 F_TRAITS(intern)
-const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
+const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 	const siBenchmarkLimit* element = siBenchLimit;
 	const siBenchmarkLimit* end = siBenchLimit + countof(siBenchLimit);
 
@@ -2962,18 +2976,18 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, c
 }
 
 F_TRAITS(inline)
-u64 si_timeNowUTC(void) {
+siUtcTime si_timeNowUTC(void) {
 	time_t rawtime;
 	time(&rawtime);
 
 	return rawtime;
 }
-u64 si_timeNowLocal(void) {
+siLocalTime si_timeNowLocal(void) {
 #if defined(SI_SYSTEM_WINDOWS)
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft);
 
-	return (u64)ft.dwHighDateTime | ((u64)ft.dwLowDateTime << 32);
+	return (i64)ft.dwHighDateTime | ((i64)ft.dwLowDateTime << 32);
 #else
 	struct timeval tv;
 	i32 res = gettimeofday(&tv, nil);
@@ -2997,8 +3011,8 @@ void si_sleep(usize miliseconds) {
 }
 
 F_TRAITS(inline)
-u64 si_RDTSC(void) {
-	/* NOTE(EimaMei): Shoutout to gb.h for the i386 and PPC code! (Link: https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7)*/
+siTimeStamp si_RDTSC(void) {
+	/* NOTE(EimaMei): Shoutout to gb.h for the i386 and PPC code! (Link: https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
 #if !defined(SI_NO_INLINE_ASM)
 	#if defined(SI_COMPILER_MSVC)
 		return __rdtsc();
@@ -3053,14 +3067,12 @@ u64 si_RDTSC(void) {
 #endif /* SI_NO_INLINE_ASM */
 }
 F_TRAITS(inline)
-siTimestamp si_timestampStart(void) {
-	return (siTimestamp){si_RDTSC(), 0};
+siTimeStamp si_timeStampStart(void) {
+	return si_RDTSC();
 }
-void si_timestampPrintSinceEx(siTimestamp* t, cstring filename, i32 line) {
-	SI_ASSERT_NOT_NULL(t);
-
+void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 	u64 end = si_RDTSC();
-	u64 diff = (end - t->start) / (si_cpuClockSpeed() / 1000.0f);
+	u64 diff = (end - ts) / (si_cpuClockSpeed() / 1000.0f);
 
 	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
 	si_printf(
@@ -4141,7 +4153,7 @@ u64 si_cstrToU64(cstring str) {
 }
 u64 si_cstrToU64Len(cstring str, usize len) {
 	SI_ASSERT_NOT_NULL(str);
-//TODO(EimaMei): Update this to include other bases
+/*TODO(EimaMei): Update this to include other bases */
 	u64 res = 0;
 	while (len != 0) {
 		if (si_between(*str, '0', '9')) {
@@ -4196,7 +4208,7 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 	*endPtr = '\0';
 
 	f64 baseForm = num;
-	//* (-isNegative + 1.0);
+	/** (-isNegative + 1.0); */
 
 	u64 pow10Val = 1;
 	for_range(i, 0, afterPoint) {
@@ -4288,11 +4300,11 @@ siUtf32Char si_utf8Decode(const char string[4]) {
 	u8* ogPtr = (u8*)string;
 
 	do {
-		// Copyright (c) 2008-2010 Bjoern Hoehrmann <bjoern@hoehrmann.de>
-		// See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
+		/* Copyright (c) 2008-2010 Bjoern Hoehrmann <bjoern@hoehrmann.de> */
+		/* See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details. */
 		static const u8 utf8d[] = {
-			// The first part of the table maps bytes to character classes that
-			// to reduce the size of the transition table and create bitmasks.
+			/* The first part of the table maps bytes to character classes that */
+			/* to reduce the size of the transition table and create bitmasks. */
 			0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 			0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 			0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -4302,8 +4314,8 @@ siUtf32Char si_utf8Decode(const char string[4]) {
 			8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
 			10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
 
-			// The second part is a transition table that maps a combination
-			// of a state of the automaton and a character class to a state.
+			/* The second part is a transition table that maps a combination */
+			/* of a state of the automaton and a character class to a state. */
 			0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,
 			12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,
 			12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,
@@ -4645,7 +4657,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 #else
 	#define SI_FS_ERROR_DECLARE_EX(err) \
 		{ \
-			SI_FS_ERROR = err; \
+			SI_FS_ERROR.code = err; \
 			SI_FS_ERROR_LOG(); \
 		}
 	#define SI_FS_ERROR_DECLARE() \
@@ -4656,7 +4668,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 			si_fprintf( \
 				SI_STDERR, \
 				"%CRFile system error%C: %s: %s (errno '%i')\n", \
-				si_pathFsErrorName(SI_FS_ERROR), si_pathFsErrorStr(SI_FS_ERROR), \
+				si_pathFsErrorName(SI_FS_ERROR.code), si_pathFsErrorStr(SI_FS_ERROR.code), \
 				SI_FS_ERROR \
 			)
 	#else
@@ -4872,7 +4884,7 @@ b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms) {
 	SI_ASSERT_NOT_NULL(path);
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		// TODO(EimaMei): Fix this.
+		/* TODO(EimaMei): Fix this. */
 		SI_UNUSED(newPerms);
 		return true;
 	#else
@@ -5713,7 +5725,7 @@ u64 si_bytesToNumSiArr(siArray(u8) bytes) {
 	return res;
 }
 F_TRAITS(inline)
-u64 si_bytesToArr(siByte* array, usize len) {
+u64 si_bytesToNumArr(siByte* array, usize len) {
 	SI_ASSERT_NOT_NULL(array);
 	usize res = 0;
 	usize shift = (len - 1) * 8;
@@ -6210,7 +6222,7 @@ SI_GOTO_LABEL(GOTO_PRINT_SWITCH)
 						buffer[bufIndex] = '{';
 						bufIndex += 1;
 
-						// TODO(EimaMei): Add custom base support too.
+						/* TODO(EimaMei): Add custom base support too. */
 						union { i64 I64; u64 U64; siString STR; } itemValue;
 						memset(&itemValue, 0, sizeof(itemValue));
 
