@@ -29,6 +29,7 @@ Sili strives to strike a balance between having exceptional performance and flex
 - A general-use hash table.
 - Unicode functions (`si_utf8Decode`, `si_utf8ToUtf16String`, `si_utf16ToUtf8String`).
 - Bit manipulation funcionts (`si_numCountBitsU32`, `si_numRotateLeft`, `si_bytesToNumArr`, `SI_NUM_BIT_SET` etc).
+- DLL function loading (`si_dllLoad`, `si_dllProcAddress`).
 - Custom `printf` implementation, which introduces some new and C23-only specifiers and QoL improvements. 
 - ... and more to come!
 
