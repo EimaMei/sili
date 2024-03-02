@@ -3,11 +3,12 @@
 
 
 void example1(siAllocator* heap) {
-	siAllocator* stack = si_allocatorMakeStack(4096);
-	printf("==============\n\n==============\nExample 1:\n");
+	siAllocator* stack = si_allocatorMakeStack(SI_KILO(4));
+	
+	si_printf("==============\n\n==============\nExample 1:\n");
 
 	siFile file = si_fileOpen("examples/file.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
-	printf(
+	si_printf(
 		"About 'examples/file.c':\n\t"
 			"Full path - '%s'\n\t"
 			"Size - '%zu' bytes\n",
@@ -18,7 +19,7 @@ void example1(siAllocator* heap) {
 	si_fileWrite(&newFile, "A silly file\nwith a sili newline.");
 	siString content = si_fileReadContents(heap, newFile);
 
-	printf(
+	si_printf(
 		"About 'random.txt':\n\t"
 			"Full path - '%s'\n\t"
 			"Size - '%zu' bytes\n\t"
@@ -28,42 +29,42 @@ void example1(siAllocator* heap) {
 	);
 
 	siArray(siString) fileLine = si_fileReadlines(heap, file);
-	printf(
-		"Contents of '%s' ('%zd' lines in total):\n",
-		si_pathBaseName("file.c"), si_arrayLen(fileLine)
+	si_printf(
+		"QContents of '%s' ('%zd' lines in total):\n",
+		si_pathBaseName(file.filename), si_arrayLen(fileLine)
 	);
 
 	for_range (i, 0, si_arrayLen(fileLine)) {
 		si_stringStrip(fileLine[i]);
-		printf("\tLine %zd: '%s'\n", i, fileLine[i]);
+		si_printf("\tLine %zd: '%s'\n", i, fileLine[i]);
 	}
 	si_fileClose(file);
 	si_allocatorReset(heap);
 
 	si_fileWriteAtLine(&newFile, "but now we have a changed line", 1);
 	siArray(siString) newFileLines = si_fileReadlines(heap, newFile);
-	printf(
+	si_printf(
 		"Contents of '%s' ('%zd' lines in total):\n",
 		si_pathBaseName("randomDir/random.txt"), si_arrayLen(newFileLines)
 	);
 
 	for_range (i, 0, si_arrayLen(newFileLines)) {
 		si_stringStrip(newFileLines[i]);
-		printf("\tLine %zd: '%s'\n", i, newFileLines[i]);
+		si_printf("\tLine %zd: '%s'\n", i, newFileLines[i]);
 	}
 	si_fileClose(newFile);
 }
 
 void example2(void)	{
 	siAllocator* stack = si_allocatorMake(4096);
-	printf("==============\n\n==============\nExample 2:\n");
+	si_printf("==============\n\n==============\nExample 2:\n");
 
 	b32 exist = si_pathExists("example.c");
-	printf("File 'example.c' %s\n", (exist ? "DOES exist" : "DOESN'T exist"));
+	si_printf("File 'example.c' %s\n", (exist ? "DOES exist" : "DOESN'T exist"));
 
 	exist = si_pathExists("random.txt");
 	if (!exist) {
-		printf("Since 'random.txt' doesn't exist, we'll just create one\n");
+		si_printf("Since 'random.txt' doesn't exist, we'll just create one\n");
 
 		siFile file = si_fileCreate("random.txt");
 		si_fileWrite(&file, "KANT RUINED US ALL");
@@ -71,20 +72,20 @@ void example2(void)	{
 	}
 
 	b32 res = si_pathCopy("random.txt", "random-2.txt");
-	printf(
+	si_printf(
 		"Does 'random-2.txt' exist: '%u' (res: '%u')\n",
 		si_pathExists("random-2.txt"), res
 	);
 
 	res = si_pathMove("random.txt", "renamed.txt");
-	printf(
+	si_printf(
 		"Does 'random.txt' exist: '%u'\n'renamed.txt' outputs a '%u' (res: '%u')\n",
 		si_pathExists("random.txt"), si_pathExists("renamed.txt"), res
 	);
 
 	cstring path = "example.c";
 	siString fullPath = si_pathGetFullName(stack, path);
-	printf(
+	si_printf(
 		"Information about '%s':\n\t"
 			"Base name - '%s'\n\t"
 			"Extension - '%s'\n\t"
@@ -95,30 +96,30 @@ void example2(void)	{
 	);
 
 	res = si_pathRemove("random-2.txt");
-	printf(
+	si_printf(
 		"Does 'random-2.txt' exist: '%u' (res: '%u')\n",
 		si_pathExists("random-2.txt"), res
 	);
 
 	res = si_pathRemove("renamed.txt");
-	printf(
+	si_printf(
 		"Does 'renamed.txt' exist: '%u' (res: '%u')\n",
 		si_pathExists("renamed.txt"), res
 	);
 }
 
 void example3(void)	{
-	printf("==============\n\n==============\nExample 3:\n");
+	si_printf("==============\n\n==============\nExample 3:\n");
 	{
 		si_pathRemove("SI_FILE_THAT_DOESNT_EXIST");
 
 		si_pathCreateFolder("testFolder");
 		siFilePermissions perms = si_pathPermissions("testFolder");
-		printf("Permissions of 'testFolder' (in octal): %o\n", perms);
+		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
 
 		si_pathEditPermissions("testFolder", SI_FS_PERM_ALL);
 		perms = si_pathPermissions("testFolder");
-		printf("Permissions of 'testFolder' (in octal): %o\n", perms);
+		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
 
 		si_pathRemove("testFolder");
 	}
@@ -130,11 +131,11 @@ void example3(void)	{
 		u64 curWriteTime = si_pathLastWriteTime(file.filename);
 
 		si_sleep(1000);
-		printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+		si_printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
 
 		si_fileWrite(&file, "random garbage");
 		curWriteTime = si_pathLastWriteTime(file.filename);
-		printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+		si_printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
 
 		si_pathCreateHardLink(file.filename, "hardLink");
 		si_pathCreateSoftLink(file.filename, "softLink");
@@ -142,13 +143,13 @@ void example3(void)	{
 
 		si_pathRemove(file.filename);
 
-		printf("Temporary path of the system: %s\n", si_pathGetTmp());
+		si_printf("Temporary path of the system: %s\n", si_pathGetTmp());
 	}
 }
 
 void example4(siAllocator* alloc) {
 	si_allocatorReset(alloc);
-	printf("==============\n\n==============\nExample 4:\n");
+	si_printf("==============\n\n==============\nExample 4:\n");
 
 	#define ROOT_PATH "Česnakaujančio-убийца-世界"
 	si_pathCreateFolder(ROOT_PATH);
@@ -159,19 +160,19 @@ void example4(siAllocator* alloc) {
 	si_fileClose(file);
 	si_pathCreateHardLink(ROOT_PATH "/secret.txt", ROOT_PATH "/hardLinkToSecret.link");
 
-	siDirectory dir = si_dirOpen(ROOT_PATH);
+	siDirectory dir = si_dirOpen(alloc, ROOT_PATH);
 	siDirectoryEntry entry;
 
 	usize count = 0;
 	while (si_dirPollEntry(dir, &entry)) {
-		printf("%zu: %s - %i\n", count, entry.path, entry.type);
+		si_printf("%zu: %s - %i\n", count, entry.path, entry.type);
 		count += 1;
 	}
 	si_dirClose(dir);
 }
 
 void example5(siAllocator* alloc) {
-	printf("==============\n\n==============\nExample 5:\n");
+	si_printf("==============\n\n==============\nExample 5:\n");
 
 	si_printf("Characters: %c %c\n", 'a', 65);
 	si_printf("Decimals: %d %d %lu\n", 1977, 65000L, UINT64_MAX);
