@@ -48,7 +48,7 @@ void example1(siAllocator* heap) {
 	si_stringSet(&str2, "one.two.three.four.five");
 	si_printf("Current str2: \"%s\"\n", str2);
 
-	siArray(siString) list = si_stringSplit(heap, str2, ".");
+	siArray(siString) list = si_stringSplit(str2, heap, ".");
 
 	for_range (i, 0, si_arrayLen(list)) {
 		si_printf("\tElement %zd: \"%s\"\n", i, list[i]);

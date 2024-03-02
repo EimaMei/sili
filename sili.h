@@ -951,18 +951,16 @@ typedef struct {
 	========================
 */
 /* Contains a function pointer for siThread. */
-typedef struct {
-   rawptr SI_FUNC_PTR(ptr, (rawptr));
-} siFunction;
+typedef rawptr SI_FUNC_PTR(siFunction, (rawptr));
 
 /* func - NAME
  * A hasty macro solution for inputting a function into a thread. */
-#define siFunc(func) (siFunction){(rawptr (*)(rawptr))func}
+#define siFunc(func) SI_FUNC_PTR_CHANGE(func, siFunction)
 
 /* func1 - NAME | type - func2
  * Changes the type of the 1st specified function to second one's in an ISO C
  * portable fashion. */
-#define SI_FUNC_PTR_CHANGE(func1, func2) (((union { typeof(func1) a; typeof(func2) b;}){func1}).b)
+#define SI_FUNC_PTR_CHANGE(func1, func2) (((union { typeof(&func1) a; typeof(func2) b;}){func1}).b)
 
 /*
 	========================
@@ -1585,7 +1583,9 @@ void si_stringReverse(siString str);
 void si_stringReverseLen(siString str, usize len);
 
 /* Returns a siArray of substrings that were split based on the delimiter. */
-siArray(siString) si_stringSplit(siAllocator* alloc, siString str, cstring delimiter);
+siArray(siString) si_stringSplit(siString str, siAllocator* alloc, cstring delimiter);
+siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* alloc, 
+	cstring delimiter, usize delimiterLen);
 /* Clears the string by setting the first letter and length to 0. */
 void si_stringClear(siString str);
 
@@ -1739,6 +1739,12 @@ void si_cstrTitle(char* str);
 /* Uppercases the first NULL-terminated C-string's character, then the rest are lowercased. */
 void si_cstrCapitalize(char* str);
 
+/* str - cstring | alloc - siAllocator* | delimiter - cstring 
+ * Returns a siArray of substrings that were split based on the delimiter. */
+#define si_cstrSplit(str, alloc, delimiter) si_cstrSplitLen(str, si_cstrLen(str), alloc, delimiter, si_cstrLen(delimiter))
+/* str - cstring | strLen - usize | alloc - siAllocator* | delimiter - cstring | delimiterLen - usize */
+#define si_cstrSplitLen(str, strLen, alloc, delimiter, delimiterLen) si_stringSplitLen(str, strLen, alloc, delimiter, delimiterLen)
+
 /* Returns true if both NULL-terminated C-strings are equal in memory. */
 b32 si_cstrEqual(cstring str1, cstring str2);
 /* Returns true if both C-strings with specified lengths are equal in memory. */
@@ -1880,10 +1886,11 @@ typedef SI_ENUM(i32, siFileMode) {
 };
 
 typedef struct {
-	/* OS-specific handle of the file. */
 	#if defined(SI_SYSTEM_WINDOWS)
+		/* OS-specific handle of the file. */
 		rawptr handle;
 	#else
+		/* OS-specific handle of the file. */
 		i64 handle;
 	#endif
 	/* Size of the read file. */
@@ -4009,7 +4016,7 @@ void si_stringStrip(siString str) {
 		start += 1;
 	}
 
-	for (i = si_stringLen(str) - 1; i != -1; i--) {
+	for (i = si_stringLen(str) - 1; i != 0; i--) {
 		SI_STOPIF(!si_charIsSpace(str[i]), break);
 		end += 1;
 	}
@@ -4018,7 +4025,7 @@ void si_stringStrip(siString str) {
 	SI_STOPIF(newLen == si_stringLen(str), return);
 
 	memcpy(str, strippedStr, newLen);
-	strippedStr[newLen] = '\0';
+	str[newLen] = '\0';
 
 	SI_STRING_HEADER(strippedStr)->len = newLen;
 }
@@ -4040,18 +4047,21 @@ void si_stringReverseLen(siString str, usize len) {
 	}
 }
 
-siArray(siString) si_stringSplit(siAllocator* alloc, siString str, cstring delimiter) {
+F_TRAITS(inline)
+siArray(siString) si_stringSplit(siString str, siAllocator* alloc, cstring delimiter) {
+	return si_stringSplitLen(str, si_stringLen(str), alloc, delimiter, si_cstrLen(delimiter));
+}
+siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* alloc,
+	cstring delimiter, usize delimiterLen) {
 	SI_ASSERT_NOT_NULL(str);
-
-	usize strLen = si_stringLen(str);
-	usize separatorLen = si_cstrLen(delimiter);
 
 	usize count = 0;
 	usize beginPos = 0;
+	siArray(siString) res;
 	usize posBuffer[SI_KILO(1)];
 
 	while (true) {
-		isize pos = si_stringFindEx(str, beginPos, strLen, delimiter, separatorLen);
+		isize pos = si_stringFindEx(str, beginPos, strLen, delimiter, delimiterLen);
 		if (pos == SI_ERROR) {
 			posBuffer[count] = posBuffer[count - 1];
 			count++;
@@ -4060,14 +4070,14 @@ siArray(siString) si_stringSplit(siAllocator* alloc, siString str, cstring delim
 		posBuffer[count] = pos - beginPos;
 		count++;
 
-		beginPos = pos + separatorLen;
+		beginPos = pos + delimiterLen;
 	}
-	siArray(siString) res = (siString*)si_arrayMakeReserve(alloc, sizeof(*res), count);
+	res = (siString*)si_arrayMakeReserve(alloc, sizeof(*res), count);
 	SI_ARRAY_HEADER(res)->len = count;
 
 	for_range (i, 0, count) {
 		res[i] = si_stringMakeLen(alloc, str, posBuffer[i]);
-		str += posBuffer[i] + separatorLen;
+		str += posBuffer[i] + delimiterLen;
 	}
 
 	return res;
@@ -4279,7 +4289,7 @@ char* si_i64ToCstrEx(siAllocator* alloc, i64 num, i32 base, usize* outLen) {
 	char* endPtr = res + len;
 	*endPtr = '\0';
 
-	b32 isNegative = si_numIsNeg(num);
+	b64 isNegative = si_numIsNeg(num);
 	u64 unsignedNum = (num ^ -isNegative) + isNegative;
 
 	do {
@@ -5530,10 +5540,10 @@ rawptr si_fileReadContentsBufEx(siFile file, rawptr outBuffer, usize bufferLen) 
 }
 siArray(siString) si_fileReadlines(siAllocator* alloc, siFile file) {
 	SI_ASSERT_NOT_NULL(alloc);
-	siAllocator* tmp = si_allocatorMake(2 * file.size * (sizeof(siString) + sizeof(siStringHeader)));
+	siAllocator* tmp = si_allocatorMake(file.size + sizeof(siStringHeader));
 
-	siString buffer = (siString)si_fileReadContents(tmp, file);
-	siArray(siString) res = si_stringSplit(alloc, buffer, "\n");
+	siString buffer = si_fileReadContents(tmp, file);
+	siArray(siString) res = si_cstrSplitLen(buffer, file.size, alloc, "\n", 1);
 
 	si_allocatorFree(tmp);
 	return res;
@@ -5770,7 +5780,7 @@ void si_dirClose(siDirectory dir) {
 F_TRAITS(inline intern)
 DWORD WINAPI si_impl_threadProc(LPVOID arg) {
 	siThread* t = (siThread*)arg;
-	t->returnValue = t->func.ptr(t->arg);
+	t->returnValue = t->func(t->arg);
 	t->isRunning = false;
 
 	return 0;
@@ -5779,7 +5789,7 @@ DWORD WINAPI si_impl_threadProc(LPVOID arg) {
 F_TRAITS(inline intern)
 rawptr si_impl_threadProc(rawptr arg) {
 	siThread* t = (siThread*)arg;
-	t->returnValue = t->func.ptr(t->arg);
+	t->returnValue = t->func(t->arg);
 	t->isRunning = false;
 
 	return nil;
@@ -6036,7 +6046,7 @@ usize si_numLenI64(i64 num) {
 }
 F_TRAITS(inline)
 usize si_numLenI64Ex(i64 num, u32 base) {
-	b32 isNegative = si_numIsNeg(num);
+	b64 isNegative = si_numIsNeg(num);
 	u64 unsignedNum = (num ^ -isNegative) + isNegative;
 	return si_numLenEx(unsignedNum, base);
 }

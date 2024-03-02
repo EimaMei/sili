@@ -10,11 +10,10 @@ i16 threadTest(b32* arg) {
 	i16 count = INT16_MIN;
 
 	if (loop) {
-		si_printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
+		printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
 		si_sleep(2000);
 		while (count < INT16_MAX) {
 			count += 1;
-			si_printf("%i\n", count);
 		}
 	}
 	else {
@@ -43,7 +42,7 @@ int main(void) {
 	si_threadStart(&thread);
 	si_threadJoin(&thread); /* Now we have to wait. */
 
-	si_printf("threadTest(true) reurned a '%i'.\n", si_threadGetReturn(thread, i16));
+	si_printf("threadTest(true) returned a '%i'.\n", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
 
 	#if !defined(SI_SYSTEM_WINDOWS) /* si_threadCancel is not supported on windows. Not good practice either way, so it's not recommended. */
