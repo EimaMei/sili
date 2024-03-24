@@ -659,22 +659,22 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* type - TYPE | value - EXPRESSION
  * Bit cast converts the value with the same size types. */
 #define si_transmute(type, value) ((union { typeof(value) in; type out; }){value}.out)
-/* text - cstring
- * Converts a cstring into an u8. */
-#define SI_CSTR_U8(text)  (*si_cast(u8*, text))
-/* text - cstring
- * Converts a cstring into an u16. */
-#define SI_CSTR_U16(text) (*si_cast(u16*, text))
-/* text - cstring
- * Converts a cstring into an u32. */
-#define SI_CSTR_U32(text) (*si_cast(u32*, text))
-/* text - cstring
- * Converts a cstring into an u64. */
-#define SI_CSTR_U64(text) (*si_cast(u64*, text))
-/* text - cstring | bytes - usize
- * Converts a cstring into an u64 containing 'bytes' amount of data from the string.
- * Maximum byte count is 8. */
-#define SI_CSTR_UBYTE(text, bytes) si_u64FromPtr(text, bytes)
+/* ptr - rawptr
+ * Converts the pointer's value into an u8. */
+#define SI_TO_U8(text)  (*si_cast(u8*, ptr))
+/* ptr - rawptr
+ * Converts the pointer's value into an u16. */
+#define SI_TO_U16(ptr) (*si_cast(u16*, ptr))
+/* ptr - rawptr
+ * Converts the pointer's value into an u32. */
+#define SI_TO_U32(ptr) (*si_cast(u32*, ptr))
+/* ptr - rawptr
+ * Converts the pointer's value into an u64. */
+#define SI_TO_U64(ptr) (*si_cast(u64*, ptr))
+/* ptr - rawptr | bytes - usize
+ * Converts the pointer's value into an u64 containing specified amount of bytes
+ * from it. Maximum byte count is 8. */
+#define SI_TO_UBYTE(ptr, bytes) si_u64FromPtr(ptr, bytes)
 
 
 /*
@@ -845,6 +845,19 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	| SI_ASSERT            |
 	========================
 */
+
+#ifndef SI_DEBUG_TRAP
+	#if defined(_MSC_VER)
+	 	#if _MSC_VER < 1300
+			#define SI_DEBUG_TRAP() __asm int 3
+		#else
+			#define SI_DEBUG_TRAP() __debugbreak()
+		#endif
+	#else
+		#define SI_DEBUG_TRAP() __builtin_trap()
+	#endif
+#endif
+
 usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 		cstring func, cstring message, ...);
 
@@ -878,10 +891,10 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
 
 /* Crashes the app immediately. */
-#define SI_PANIC() si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil)
+#define SI_PANIC() si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil); SI_DEBUG_TRAP()
 /* message - cstring
  * Crashes the app immediately with a message. */
-#define SI_PANIC_MSG(message) si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, "")
+#define SI_PANIC_MSG(message) si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, ""); SI_DEBUG_TRAP()
 /* condition - EXPRESSION | ACTION - ANYTHING
  * Checks if the condition is true. If it is, execute 'action'. */
 #define SI_STOPIF(condition, .../* ACTION */) if (condition) { __VA_ARGS__; } do {} while(0)
@@ -976,6 +989,9 @@ typedef struct { i32 x, y; } siPoint;
 /* x - i32 | y - i32
  * Macro to define an XY i32 point. */
 #define SI_POINT(x, y) ((siPoint){x, y})
+/* p1 - siPoint | p2 - siPoint
+ * Does a quick comparison if the two points are different. */
+#define si_pointCmp(p1, p2) (SI_TO_U64(&p1) == SI_TO_U64(&p2))
 
 /* An XY point structure. Both are isize integers. */
 typedef struct { isize x, y; } siPointS;
@@ -997,6 +1013,9 @@ typedef struct { i32 width, height; } siArea;
 /* width - i32 | height - i32
  * Macro to define a signed area. */
 #define SI_AREA(width, height) ((siArea){width, height})
+/* p1 - siArea | p2 - siArea
+ * Does a quick comparison if the two areas are different. */
+#define si_areaCmp(a1, a2) (SI_TO_U64(&a1) == SI_TO_U64(&a2))
 
 /* Poistion and area structure. */
 typedef struct { i32 x, y, width, height; } siRect;
@@ -1584,7 +1603,7 @@ void si_stringReverseLen(siString str, usize len);
 
 /* Returns a siArray of substrings that were split based on the delimiter. */
 siArray(siString) si_stringSplit(siString str, siAllocator* alloc, cstring delimiter);
-siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* alloc, 
+siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* alloc,
 	cstring delimiter, usize delimiterLen);
 /* Clears the string by setting the first letter and length to 0. */
 void si_stringClear(siString str);
@@ -1628,7 +1647,7 @@ typedef u16* siUtf16String;
 
 
 /* Denotes that the UTF-8 character is invalid. */
-#define SI_UTF8_INVALID (-1)
+#define SI_UNICODE_INVALID (-1)
 
 
 typedef struct {
@@ -1647,7 +1666,7 @@ typedef struct {
 
 
 /* Decodes the given UTF-8 character into UTF-32 and returns a 'siUtf32Char' structure.
- * If the specified character is invalid, the function returns a '(siUtf32Char){SI_UTF8_INVALID, 0}. */
+ * If the specified character is invalid, the function returns a '(siUtf32Char){SI_UNICODE_INVALID, 0}. */
 siUtf32Char si_utf8Decode(const char character[4]);
 /* Encodes the specified UTF-32 character into UTF-8 and returns a 'siUtf8Char'
  * structure. This function does not check if the UTF-32 is invalid. */
@@ -1665,6 +1684,14 @@ siUtf32Char si_utf8StrAt(siUtf8String str, usize charIndex);
 siUtf16String si_utf8ToUtf16Str(siAllocator* alloc, siUtf8String str, usize* strLenOut);
 /* Encodes a NULL-terminated UTF-16 string into UTF-8. */
 siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* strLenOut);
+
+
+/* Decodes the given UTF-16 character into UTF-32 and returns a 'siUtf32Char' structure.
+ * If the specified character is invalid, the function returns a '(siUtf32Char){SI_UNICODE_INVALID, 0}. */
+siUtf32Char si_utf16Decode(const u16 character[2]);
+/* Decodes the given UTF-16 character into UTF-8 and returns a 'siUtf8Char' structure.
+ * If the specified character is invalid, the function returns a '(siUtf8Char){SI_UNICODE_INVALID, 0}. */
+siUtf8Char si_utf16Encode(const u16 character[2]);
 
 
 #endif /* SI_NO_UNICODE */
@@ -1739,7 +1766,7 @@ void si_cstrTitle(char* str);
 /* Uppercases the first NULL-terminated C-string's character, then the rest are lowercased. */
 void si_cstrCapitalize(char* str);
 
-/* str - cstring | alloc - siAllocator* | delimiter - cstring 
+/* str - cstring | alloc - siAllocator* | delimiter - cstring
  * Returns a siArray of substrings that were split based on the delimiter. */
 #define si_cstrSplit(str, alloc, delimiter) si_cstrSplitLen(str, si_cstrLen(str), alloc, delimiter, si_cstrLen(delimiter))
 /* str - cstring | strLen - usize | alloc - siAllocator* | delimiter - cstring | delimiterLen - usize */
@@ -1751,17 +1778,17 @@ b32 si_cstrEqual(cstring str1, cstring str2);
 b32 si_cstrEqualLen(cstring str1, usize str1Len, cstring str2, usize str2Len);
 
 /* Returns an unsigned 64-bit integer form of the NULL-terminated C-string.
- * The string must be a number. */
+ * The string _must_ be a number. */
 u64 si_cstrToU64(cstring str);
 /* Returns an unsigned 64-bit integer form of the C-string with specified length.
- * The string must be a number. */
-u64 si_cstrToU64Len(cstring str, usize len);
+ * The string _must_ be a number. */
+u64 si_cstrToU64Ex(cstring str, usize len, u32 base);
 /* Returns a signed 64-bit integer form of the NULL-terminated C-string.
- * The string must be a number. */
+ * The string _must_ be a number. */
 i64 si_cstrToI64(cstring str);
 /* Returns an signed 64-bit integer form of the C-string with specified length.
- * The string must be a number. */
-u64 si_cstrToI64Len(cstring str, usize len);
+ * The string _must_ be a number. */
+u64 si_cstrToI64Ex(cstring str, usize len, u32 base);
 /* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
 
 /* Creates a string from the given unsigned number. By default the function assumes
@@ -2188,8 +2215,6 @@ b32 si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry);
  * contain both the entry's filename AND the directory 'dir.path'. Returns 'true'
  * if a new entry was found, 'false' if there are no more entries in the directory. */
 b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath);
-/* Closes the directory context. */
-void si_dirClose(siDirectory dir);
 
 #endif
 
@@ -3066,7 +3091,7 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, c
 		va_end(va);
 	}
 
-	abort();
+	SI_DEBUG_TRAP();
 	return 1;
 }
 
@@ -4243,33 +4268,20 @@ char* si_u64ToCstrEx(siAllocator* alloc, u64 num, i32 base, usize* outLen) {
 	SI_STOPIF(outLen != nil, *outLen = len);
 	return res;
 }
+F_TRAITS(inline)
 u64 si_cstrToU64(cstring str) {
-	SI_ASSERT_NOT_NULL(str);
-
-	u64 res = 0;
-	char cur;
-	while ((cur = *str++)) {
-		if (si_between(cur, '0', '9')) {
-			res = (res * 10) + (cur - '0');
-		}
-		else {
-			SI_ASSERT_MSG(si_between(cur, '0', '9'), "Attempted to use `si_cstrToU64` with a string that contains non numbers.");
-		}
-	}
-
-	return res;
+	return si_cstrToU64Ex(str, USIZE_MAX, 10);
 }
-u64 si_cstrToU64Len(cstring str, usize len) {
+u64 si_cstrToU64Ex(cstring str, usize len, u32 base) {
 	SI_ASSERT_NOT_NULL(str);
-/*TODO(EimaMei): Update this to include other bases */
+
 	u64 res = 0;
 	while (len != 0) {
-		if (si_between(*str, '0', '9')) {
-			res = (res * 10) + (*str - '0');
-		}
-		else {
-			SI_ASSERT_MSG(si_between(*str, '0', '9'), "Attempted to use `si_cstrToU64` with a string that contains non numbers.");
-		}
+		SI_STOPIF(*str == '\0', break);
+		SI_ASSERT_MSG(si_between(*str, '0', '9'), "Attempted to use `si_cstrToU64` with a string that contains non numbers.");
+
+		res *= base;
+		res += (*str - '0');
 		len -= 1;
 		str += 1;
 	}
@@ -4340,58 +4352,20 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 }
 
 i64 si_cstrToI64(cstring str) {
-	SI_ASSERT_NOT_NULL(str);
-
-	i64 res = 0;
-	char cur;
-	b32 negative = false;
-
-	if ((*str) == '-') {
-		negative = true;
-		str++;
-	}
-
-	while ((cur = *str++)) {
-		if (cur >= '0' && cur <= '9') {
-			res = (res * 10) + (cur - '0');
-		}
-		else {
-			SI_ASSERT_MSG(!(cur >= '0' && cur <= '9'), "Attempted to use `si_cstrToI64` with a string that contains non numbers.");
-		}
-	}
-
-	if (negative) {
-		res = -res;
-	}
-
-	return res;
+	return si_cstrToI64Ex(str, USIZE_MAX, 10);
 }
-u64 si_cstrToI64Len(cstring str, usize len) {
+u64 si_cstrToI64Ex(cstring str, usize len, u32 base) {
 	SI_ASSERT_NOT_NULL(str);
 
-	i64 res = 0;
-	b32 negative = false;
+	i32 modifier = 1;
 
 	if ((*str) == '-') {
-		negative = true;
+		modifier = -1;
 		str += 1;
 		len -= 1;
 	}
-
-	while (len != 0) {
-		if (*str >= '0' && *str <= '9') {
-			res = (res * 10) + (*str - '0');
-		}
-		else {
-			SI_ASSERT_MSG(!(*str >= '0' && *str <= '9'), "Attempted to use `si_cstrToI64` with a string that contains non numbers.");
-		}
-		len -= 1;
-		str += 1;
-	}
-
-	if (negative) {
-		res = -res;
-	}
+	i64 res = si_cstrToU64Ex(str, len, base);
+	res *= modifier; /* NOTE(EimaMei): Negatifies the number, if needed. */
 
 	return res;
 }
@@ -4485,7 +4459,7 @@ siUtf32Char si_utf8Decode(const char character[4]) {
 
 	switch (state) {
 		case 0: return (siUtf32Char){codepoint, character - (cstring)ogPtr};
-		default: return (siUtf32Char){SI_UTF8_INVALID, 0};
+		default: return (siUtf32Char){SI_UNICODE_INVALID, 0};
 	}
 	#undef FAILURE
 }
@@ -4534,53 +4508,57 @@ siUtf32Char si_utf8StrAt(siUtf8String str, usize charIndex) {
 	return character;
 }
 
-F_TRAITS(inline)
+
 siUtf16String si_utf8ToUtf16Str(siAllocator* alloc, siUtf8String str, usize* strLenOut) {
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_NOT_NULL(str);
 
-	siUtf16String res = (siUtf16String)si_allocatorCurPtr(alloc);
-	usize len = 0;
 	siUtf8String utf8Ptr = str;
+	siUtf16String res = (siUtf16String)si_allocatorCurPtr(alloc);
+	u16* curPos = (u16*)res;
 
 	while (true) {
 		siUtf32Char utf32 = si_utf8Decode(utf8Ptr);
 		i32 codepoint = utf32.codepoint;
-		SI_ASSERT_MSG(codepoint != SI_UTF8_INVALID, "Invalid UTF-8 character.");
+		SI_ASSERT_MSG(codepoint != SI_UNICODE_INVALID, "Invalid UTF-8 character.");
 
 		SI_STOPIF(codepoint == '\0', break);
 		utf8Ptr += utf32.len;
 
-		if (codepoint > 0xFFFF) {
-			u32* curPos = si_mallocItem(alloc, u32);
+		if (codepoint < 0xFFFF) {
+			alloc->offset += 2;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
+
+			*curPos = codepoint;
+			curPos += 1;
+		}
+		else {
+			alloc->offset += 4;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
 
 			u32 t = codepoint - 0x10000;
 			u32 high = (t << 10) + 0xD800;
 			u32 low = t + 0xDC00;
 
 			*curPos = (high << 16) | (low & 0x0000FFFF);
-			len += 4;
-		}
-		else {
-			u16* curPos = si_mallocItem(alloc, u16);
-			*curPos = codepoint;
-			len += 2;
+			curPos += 2;
 		}
 	}
-	u16* curPos = si_mallocItem(alloc, u16);
+end:
 	*curPos = '\0';
-	len += 2;
+	usize len = (char*)curPos - (char*)res;
+	alloc->offset += len + 1;
 
 	SI_STOPIF(strLenOut != nil, *strLenOut = len);
-
 	return res;
 }
+
 siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* strLenOut) {
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_NOT_NULL(str);
 
-	siUtf8String string = (siUtf8String)si_allocatorCurPtr(alloc);
-	usize len = 0;
+	siUtf8String res = (siUtf8String)si_allocatorCurPtr(alloc);
+	char* curPtr = (char*)res;
 
 	while (true) {
 		u32 chr = *str;
@@ -4588,45 +4566,85 @@ siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* str
 		SI_STOPIF(chr == '\0', break);
 
 		if (chr <= 0xFF) {
-			char* res = si_mallocArray(alloc, char, 1);
-			*res = chr;
-			len += 1;
+			alloc->offset += 1;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
+
+			*curPtr = chr;
+			curPtr += 1;
 		}
 		else if (chr <= 0x7FF) {
-			char* res = si_mallocArray(alloc, char, 2);
-			res[0] = 0xC0 | (chr >> 6);            /* 110xxxxx */
-			res[1] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
-			len += 2;
+			alloc->offset += 2;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
+
+			curPtr[0] = 0xC0 | (chr >> 6);            /* 110xxxxx */
+			curPtr[1] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
+			curPtr += 2;
 		}
-		else if (chr <= (0xD800 - 1)) {
-			char* res = si_mallocArray(alloc, char, 3);
-			res[0] = 0xE0 | (chr >> 12);           /* 1110xxxx */
-			res[1] = 0x80 | ((chr >> 6) & 0x3F);   /* 10xxxxxx */
-			res[2] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
-			len += 3;
+		else if (chr <= 0xD7FF) {
+			alloc->offset += 3;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
+
+			curPtr[0] = 0xE0 | (chr >> 12);           /* 1110xxxx */
+			curPtr[1] = 0x80 | ((chr >> 6) & 0x3F);   /* 10xxxxxx */
+			curPtr[2] = 0x80 | (chr & 0x3F);          /* 10xxxxxx */
+
+			curPtr += 3;
 		}
 		else if (chr >= 0xD800) {
 			u16 high = chr;
 			u16 low = *str;
 			str += 1;
 
+			alloc->offset += 4;
+			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
+
 			u32 tHigh = (high - 0xD800) << 10;
 			u32 tLow = (low - 0xDC00);
 			u32 codepoint = (tHigh | tLow) + 0x10000;
 
-			char* res = si_mallocArray(alloc, char, 4);
-			res[0] = 0xF0 | (codepoint >> 18);           /* 11110xxx */
-			res[1] = 0x80 | ((codepoint >> 12) & 0x3F);  /* 10xxxxxx */
-			res[2] = 0x80 | ((codepoint >> 6) & 0x3F);   /* 10xxxxxx */
-			res[3] = 0x80 | (codepoint & 0x3F);          /* 10xxxxxx */
+			curPtr[0] = 0xF0 | (codepoint >> 18);           /* 11110xxx */
+			curPtr[1] = 0x80 | ((codepoint >> 12) & 0x3F);  /* 10xxxxxx */
+			curPtr[2] = 0x80 | ((codepoint >> 6) & 0x3F);   /* 10xxxxxx */
+			curPtr[3] = 0x80 | (codepoint & 0x3F);          /* 10xxxxxx */
 
-			len += 4;
+			curPtr += 4;
 		}
 	}
-	si_allocatorPush(alloc, '\0');
+end:
+	*curPtr = '\0';
+
+	usize len = curPtr - res;
+	alloc->offset += len + 1;
+
 	SI_STOPIF(strLenOut != nil, *strLenOut = len);
 
-	return string;
+	return res;
+}
+
+
+F_TRAITS(inline)
+siUtf32Char si_utf16Decode(const u16 character[2]) {
+	siUtf32Char utf32;
+	u32 chr = character[0];
+
+	if (si_betweenu(chr, 0xD800, 0xDBFF)) {
+		u32 high = chr;
+		u32 low = character[1];
+
+		utf32.codepoint = ((high - 0xD800) << 10) + (low - 0xDC00) + 0x10000;
+		utf32.len = 3 + (utf32.codepoint >= 0x10000);
+	}
+	else {
+		utf32.codepoint = chr;
+		utf32.len = (chr >= 0x80) + (chr >= 0x800);
+	}
+
+	return utf32;
+}
+F_TRAITS(inline)
+siUtf8Char si_utf16Encode(const u16 character[2]) {
+	siUtf32Char utf32 = si_utf16Decode(character);
+	return si_utf8Encode(utf32.codepoint);
 }
 #endif
 
@@ -4993,7 +5011,6 @@ u32 si_pathItemsCopy(cstring pathSrc, cstring pathDst) {
 		si_pathCopy(entry.path, outPath);
 		itemsCopied += 1;
 	}
-	si_dirClose(dir);
 
 	return itemsCopied;
 }
@@ -5719,6 +5736,7 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
 	WIN32_FIND_DATAW file;
 	if (FindNextFileW(dir.handle, &file) == 0) {
+		CloseHandle(dir.handle);
 		return false;
 	}
 
@@ -5743,7 +5761,10 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	return true;
 #else
 	struct dirent* direntEntry = readdir((DIR*)dir.handle);
-	SI_STOPIF(direntEntry == nil, return false);
+	if (direntEntry == nil) {
+		closedir(dir.handle);
+		return false;
+	}
 
 	entry->len = strlen(direntEntry->d_name);
 
@@ -5762,13 +5783,6 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	}
 
 	return true;
-#endif
-}
-void si_dirClose(siDirectory dir) {
-#if defined(SI_SYSTEM_WINDOWS)
-	CloseHandle(dir.handle);
-#else
-	closedir(dir.handle);
 #endif
 }
 
@@ -6264,7 +6278,7 @@ SI_GOTO_LABEL(GOTO_PRINT_SWITCH)
 				}
 				SET_FMT_PTR(x, fmtPtr);
 
-				usize count = si_cstrToU64Len((char*)stack->ptr, buf - stack->ptr);
+				usize count = si_cstrToU64Ex((char*)stack->ptr, buf - stack->ptr, 10);
 				*ptrToVar = count;
 				goto GOTO_PRINT_SWITCH;
 			}
@@ -6656,7 +6670,7 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
 	SI_ASSERT_NOT_NULL(name);
 #if defined(SI_SYSTEM_WINDOWS)
 	PROC proc = GetProcAddress((HMODULE)dll, name);
-	return SI_FUNC_PTR_CHANGE(proc, rawptr);
+	return SI_FUNC_PTR_CHANGE(*proc, rawptr);
 #else
 	return (siDllProc)dlsym(dll, name);
 #endif
