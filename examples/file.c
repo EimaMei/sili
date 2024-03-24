@@ -168,7 +168,6 @@ void example4(siAllocator* alloc) {
 		si_printf("%zu: %s - %i\n", count, entry.path, entry.type);
 		count += 1;
 	}
-	si_dirClose(dir);
 }
 
 void example5(siAllocator* alloc) {
