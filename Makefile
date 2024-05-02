@@ -27,12 +27,12 @@ $(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
 
 # Check the assembly output.
-dump_asm:
+asm:
 	$(CC) -g $(FLAGS) $(INCLUDE) $(LIBS) -masm=intel -S $(SRC) -o sili.S
 
 
-# Runs and compiles every example.
-run_examples:
+# Compiles and runs every example.
+compile_examples:
 	@for f in $(shell ls examples/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 
