@@ -501,7 +501,7 @@ SI_STATIC_ASSERT(false == 0);
 	#if defined(SI_CPU_X86) && defined(SI_GNUC_COMPLIANT)
 		/* asmStr - cstring | ...IOR - ASM INPUT, OUTPUT OR REGISTERS
 		 * Inserts inline assembly into the program using GNU C assembly syntax. */
-		#define si_asm(asmStr, .../* IOR */) \
+		#define si_asm(asmStr, ...) \
 			__asm__ __volatile__( \
 				".intel_syntax noprefix" SI_ASM_NL \
 				asmStr SI_ASM_NL \
