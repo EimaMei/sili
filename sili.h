@@ -499,26 +499,26 @@ SI_STATIC_ASSERT(false == 0);
 	#define si_asm(... /* asm */) __asm  { __VA_ARGS__ }
 #else
 	#if defined(SI_CPU_X86) && defined(SI_GNUC_COMPLIANT)
-		/* asm - cstring | ...IOR - ASM INPUT, OUTPUT OR REGISTERS
+		/* asmStr - cstring | ...IOR - ASM INPUT, OUTPUT OR REGISTERS
 		 * Inserts inline assembly into the program using GNU C assembly syntax. */
-		#define si_asm(asm, .../* IOR */) \
+		#define si_asm(asmStr, .../* IOR */) \
 			__asm__ __volatile__( \
 				".intel_syntax noprefix" SI_ASM_NL \
-				asm SI_ASM_NL \
+				asmStr SI_ASM_NL \
 				".att_syntax" \
 				__VA_ARGS__ \
 				)
-
-		#define SI_ASM_INPUT(...) : __VA_ARGS__
-		#define SI_ASM_OUTPUT(...) : __VA_ARGS__
-		#define SI_ASM_REGISTERS(...) : __VA_ARGS__
-		#define SI_ASM_NL "\n"
 	#else
-		/* asm - cstring | ...IOR - ASM INPUT, OUTPUT OR REGISTERS
+		/* asmStr - cstring | ...IOR - ASM INPUT, OUTPUT OR REGISTERS
 		 * Inserts inline assembly into the program using GNU C assembly syntax. */
-		#define si_asm(asm, .../ * IOR */) __asm__ __volatile__(asm __VA_ARGS__)
+		#define si_asm(asmStr, .../ * IOR */) __asm__ __volatile__(asmStr __VA_ARGS__)
 	#endif
 #endif
+
+#define SI_ASM_INPUT(...) : __VA_ARGS__
+#define SI_ASM_OUTPUT(...) : __VA_ARGS__
+#define SI_ASM_REGISTERS(...) : __VA_ARGS__
+#define SI_ASM_NL "\n"
 
 
 
