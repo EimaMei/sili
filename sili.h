@@ -219,7 +219,7 @@ extern "C" {
 	#define SI_CPU_X86 1
 	#define SI_CACHE_LINE_SIZE 64
 
-#elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc64__) || defined(_ARCH_PPC) || #defined(__ppc64__)
+#elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc64__) || defined(_ARCH_PPC) || defined(__ppc64__)
 	#define SI_CPU_PPC 1
 	#define SI_CPU_PPC64 (__powerpc64__ || __ppc64__)
 	#define SI_CACHE_LINE_SIZE 128
