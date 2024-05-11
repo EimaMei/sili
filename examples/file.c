@@ -4,7 +4,7 @@
 
 void example1(siAllocator* heap) {
 	siAllocator* stack = si_allocatorMakeStack(SI_KILO(4));
-	
+
 	si_printf("==============\n\n==============\nExample 1:\n");
 
 	siFile file = si_fileOpen("examples/file.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
@@ -17,7 +17,7 @@ void example1(siAllocator* heap) {
 
 	siFile newFile = si_fileCreate("random.txt");
 	si_fileWrite(&newFile, "A silly file\nwith a sili newline.");
-	siString content = si_fileReadContents(heap, newFile);
+	siString content = si_fileReadContents(newFile, heap);
 
 	si_printf(
 		"About 'random.txt':\n\t"
@@ -28,7 +28,7 @@ void example1(siAllocator* heap) {
 		content
 	);
 
-	siArray(siString) fileLine = si_fileReadlines(heap, file);
+	siArray(siString) fileLine = si_fileReadlines(file, heap);
 	si_printf(
 		"QContents of '%s' ('%zd' lines in total):\n",
 		si_pathBaseName(file.filename), si_arrayLen(fileLine)
@@ -42,7 +42,7 @@ void example1(siAllocator* heap) {
 	si_allocatorReset(heap);
 
 	si_fileWriteAtLine(&newFile, "but now we have a changed line", 1);
-	siArray(siString) newFileLines = si_fileReadlines(heap, newFile);
+	siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
 	si_printf(
 		"Contents of '%s' ('%zd' lines in total):\n",
 		si_pathBaseName("randomDir/random.txt"), si_arrayLen(newFileLines)
