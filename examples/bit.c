@@ -1,7 +1,7 @@
 #define SI_IMPLEMENTATION
 #include <sili.h>
 
-inline cstring operatingSystem(void) {
+cstring operatingSystem(void) {
 	static char res[] =
 		#if defined(SI_SYSTEM_WINDOWS)
 			"Windows"
@@ -22,7 +22,7 @@ inline cstring operatingSystem(void) {
 }
 
 
-inline cstring cpuArch(void) {
+cstring cpuArch(void) {
 	static char res[] =
 		#if defined(SI_CPU_X86)
 			"x86"
@@ -48,7 +48,7 @@ inline cstring cpuArch(void) {
 	return res;
 }
 
-inline usize cpu_arch_bit(void) {
+usize cpu_arch_bit(void) {
 	#if defined(SI_ARCH_64_BIT)
 		return 64;
 	#elif defined(SI_ARCH_32_BIT)
@@ -56,11 +56,11 @@ inline usize cpu_arch_bit(void) {
 	#endif
 }
 
-inline cstring cpuEndian(void) {
+cstring cpuEndian(void) {
 	return (SI_HOST_IS_LITTLE_ENDIAN == true) ? "little-endian" : "big-endian";
 }
 
-inline cstring compiler(void) {
+cstring compiler(void) {
 	static char res[] =
 		#if defined(SI_COMPILER_GCC)
 			"GCC"
@@ -76,7 +76,7 @@ inline cstring compiler(void) {
 	return res;
 }
 
-inline cstring language(void) {
+cstring language(void) {
 	static char res[] =
 		#if defined(SI_LANGUAGE_C)
 			"C"
@@ -93,7 +93,7 @@ inline cstring language(void) {
 	return res;
 }
 
-inline cstring standard(void) {
+cstring standard(void) {
 	static char res[] =
 		#if !defined(SI_LANGUAGE_CPP)
 			#if SI_STANDARD_VERSION == SI_STANDARD_C89

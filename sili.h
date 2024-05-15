@@ -1064,6 +1064,9 @@ typedef struct { u8 r, g, b, a; } siColor;
 /* r, g, b - u8
  * Macro to define an RGB color. */
 #define SI_RGB(r, g, b) SI_RGBA(r, g, b, 255)
+/* hex - u32
+ * Converts an u32 hex value to RGB. */
+#define SI_HEX(hex) SI_RGBA(((hex) >> 16) & 0xFF, ((hex) >> 8) & 0xFF, hex & 0xFF, 255)
 
 /* Width and height i32 structure. */
 typedef struct { i32 width, height; } siArea;
@@ -1097,6 +1100,9 @@ typedef struct { f32 x, y; } siVec2;
 /* area - siArea
  * Macro to define a 2D vector from an area. */
 #define SI_VEC2_A(area) SI_VEC2((area).width, (area).height)
+/* vec1Ptr - siVec2* |  vec2 - siVec2
+ * Adds vec2 into vec1 */
+#define si_vec2Add(vec1Ptr, vec2) (vec1Ptr)->x += vec2.x; (vec1Ptr)->y += vec2.y
 
 /* 3D vector structure. */
 typedef struct { f32 x, y, z; } siVec3;
@@ -2741,6 +2747,14 @@ i64 si_max3(i64 a, i64 b, i64 c);
 f64 si_max3F64(f64 a, f64 b, f64 c);
 f32 si_max3F32(f32 a, f32 b, f32 c);
 #define si_max3f(a, b, c) (sizeof(a) == 4 ? si_max3F32(a, b, c) : si_max3F64(a, b, c))
+
+/* Returns 'lower' if x is lower than it, 'upper' if x is upper than it or itself
+ * if neither. */
+i64 si_clamp(i64 x, i64 lower, i64 upper);
+f64 si_clampF64(f64 x, f64 lower, f64 upper);
+f32 si_clampF32(f32 x, f32 lower, f32 upper);
+#define si_clampf(x, lower, upper) (sizeof(x) == 4 ? si_clampF32(x, lower, upper) : si_clampF64(x, lower, upper))
+
 
 /* Returns the absolute value of 'x'. */
 i64 si_abs(i64 x);
@@ -6816,6 +6830,10 @@ inline f32 si_maxF32(f32 a, f32 b) { return a > b ? a : b; }
 inline i64 si_max3(i64 a, i64 b, i64 c) { return si_max(si_max(a, b), c); }
 inline f64 si_max3F64(f64 a, f64 b, f64 c) { return si_maxF64(si_maxF64(a, b), c); }
 inline f32 si_max3F32(f32 a, f32 b, f32 c)  { return si_maxF32(si_maxF32(a, b), c); }
+
+inline i64 si_clamp(i64 x, i64 lower, i64 upper) { return si_min(upper, si_max(x, lower)); }
+inline f64 si_clampF64(f64 x, f64 lower, f64 upper) {return si_minF64(upper, si_maxF64(x, lower)); }
+inline f32 si_clampF32(f32 x, f32 lower, f32 upper) { return si_minF32(upper, si_maxF32(x, lower)); }
 
 inline i64 si_abs(i64 x) { return x < 0 ? -x : x; }
 inline f64 si_absF64(f64 x) { return x < 0 ? -x : x; }
