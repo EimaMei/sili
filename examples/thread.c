@@ -10,7 +10,7 @@ i16 threadTest(b32* arg) {
 	i16 count = INT16_MIN;
 
 	if (loop) {
-		printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
+		si_printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
 		si_sleep(2000);
 		while (count < INT16_MAX) {
 			count += 1;
