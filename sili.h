@@ -5339,11 +5339,13 @@ b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
 	#endif
 }
 
+#if !defined(SI_SYSTEM_WINDOWS)
 force_inline
-i32 unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* ftwbuf) {
+i32 si__unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* ftwbuf) {
     return remove(path);
 	SI_UNUSED(sb); SI_UNUSED(typeflag); SI_UNUSED(ftwbuf);
 }
+#endif
 
 SIDEF
 b32 si_pathRemove(cstring path) {
@@ -5368,7 +5370,7 @@ b32 si_pathRemove(cstring path) {
 			return RemoveDirectoryW(widePath);
 		}
 	#else
-		i32 res = nftw(path, unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
+		i32 res = nftw(path, si__unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
 		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
