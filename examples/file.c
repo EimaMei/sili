@@ -60,14 +60,14 @@ void example2(void)	{
 	si_printf("==============\n\n==============\nExample 2:\n");
 
 	b32 exist = si_pathExists("example.c");
-	si_printf("File 'example.c' %s\n", (exist ? "DOES exist" : "DOESN'T exist"));
 
 	exist = si_pathExists("random.txt");
 	if (!exist) {
+		SI_PANIC();
 		si_printf("Since 'random.txt' doesn't exist, we'll just create one\n");
 
 		siFile file = si_fileCreate("random.txt");
-		si_fileWrite(&file, "KANT RUINED US ALL");
+		si_fileWrite(&file, "KANT RUINED EVERYTHING");
 		si_fileClose(file);
 	}
 
@@ -113,7 +113,9 @@ void example3(void)	{
 	{
 		si_pathRemove("SI_FILE_THAT_DOESNT_EXIST");
 
-		si_pathCreateFolder("testFolder");
+		b32 res = si_pathCreateFolder("testFolder");
+		SI_ASSERT(res);
+
 		siFilePermissions perms = si_pathPermissions("testFolder");
 		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
 
@@ -142,6 +144,8 @@ void example3(void)	{
 		si_fileClose(file);
 
 		si_pathRemove(file.filename);
+		si_pathRemove("hardLink");
+		si_pathRemove("softLink");
 
 		si_printf("Temporary path of the system: %s\n", si_pathGetTmp());
 	}
@@ -168,6 +172,8 @@ void example4(siAllocator* alloc) {
 		si_printf("%zu: %s - %i\n", count, entry.path, entry.type);
 		count += 1;
 	}
+
+	si_pathRemove(ROOT_PATH);
 }
 
 void example5(siAllocator* alloc) {
@@ -184,7 +190,7 @@ void example5(siAllocator* alloc) {
 	si_printf("%B - %B (%#b, %#b)\n", true, false, true, false);
 	si_printf("Pointer to the heap: %p\n", alloc);
 	si_printf("This will print nothing: '%n', 100%%.\n", (signed int*)nil);
-	si_printf("%CRThis text will be displayed in red%C, while this: %CBblue%C!\n");
+	si_printf("%CRThis text will be displayed in red%C, while this: %CBin blue%C!\n");
 	si_fprintf(SI_STDOUT, "Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%CY* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n");
 }
 

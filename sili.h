@@ -290,6 +290,7 @@ extern "C" {
 	#include <unistd.h>
 	#include <dirent.h>
 	#include <dlfcn.h>
+	#include <ftw.h>
 
 	#include <sys/stat.h>
 	#include <sys/fcntl.h>
@@ -5201,7 +5202,7 @@ b32 si_pathExists(cstring path) {
 	#else
 		struct stat tmp;
 		i32 res = stat(path, &tmp);
-		return res == 0;
+		return (res == 0);
 	#endif
 }
 SIDEF
@@ -5217,21 +5218,21 @@ isize si_pathCopy(cstring existingPath, cstring newPath) {
 		return (CopyFileW(wideExisting, wideNew, true) != 0);
 	#else
 		i32 existingFile = open(existingPath, O_RDONLY, 0);
-		SI_STOPIF(existingFile != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(existingFile == -1, { SI_FS_ERROR_DECLARE(); return false; });
 
 		i32 newFile = open(newPath, O_WRONLY | O_CREAT, 0666);
-		SI_STOPIF(newFile != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(newFile == -1, { SI_FS_ERROR_DECLARE(); return false; });
 
 		struct stat statExisting;
 		i32 res = fstat(existingFile, &statExisting);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 
 		#if defined(SI_SYSTEM_UNIX)
 			isize size = sendfile64(newFile, existingFile, 0, statExisting.st_size);
 		#else
 			isize size = sendfile(newFile, existingFile, 0, &statExisting.st_size, NULL, 0);
 		#endif
-		SI_STOPIF(size != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(size == -1, { SI_FS_ERROR_DECLARE(); return false; });
 
 		close(newFile);
 		close(existingFile);
@@ -5316,8 +5317,10 @@ b32 si_pathCreateFolder(cstring path) {
 		b32 res = CreateDirectoryW(widePath, nil);
 		return res;
 	#else
+		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
+		 * but still create the folder and set 'errno' to 0. What? */
 		i32 res = mkdir(path, SI_FS_PERM_ALL);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(res == -1 && errno != 0, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
 }
@@ -5331,9 +5334,15 @@ b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
 		SI_UNUSED(perms);
 	#else
 		i32 res = mkdir(path, perms);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
+}
+
+force_inline
+i32 unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* ftwbuf) {
+    return remove(path);
+	SI_UNUSED(sb); SI_UNUSED(typeflag); SI_UNUSED(ftwbuf);
 }
 
 SIDEF
@@ -5359,8 +5368,8 @@ b32 si_pathRemove(cstring path) {
 			return RemoveDirectoryW(widePath);
 		}
 	#else
-		i32 res = remove(path);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		i32 res = nftw(path, unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
 }
@@ -5378,7 +5387,7 @@ b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
 		return CreateHardLinkW(wideLink, wideExisting, nil) != 0;
 	#else
 		i32 res = link(existingPath, linkPath);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
 
@@ -5406,7 +5415,7 @@ b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
 		return CreateSymbolicLinkW(wideLink, wideExisting, isDir) != 0;
 	#else
 		i32 res = symlink(existingPath, linkPath);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
 

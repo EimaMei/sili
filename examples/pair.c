@@ -6,7 +6,7 @@ int main(void) {
 	siAllocator* stack = si_allocatorMakeStack(0xFF);
 
 	/* Example 3.0: siPair (based on https://cplusplus.com/reference/utility/pair/pair/) */
-	printf("==============\n\n==============\nExample 3.0:\n");
+	si_printf("==============\n\n==============\nExample 3.0:\n");
 
 	siPair(siString, f64) product1;
 	siPair(siString, f64) product2 = si_pairMake(si_stringMake(stack, "tomatoes"), 2.30);
