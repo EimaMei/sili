@@ -52,6 +52,7 @@ DOCUMENTATION
 		- FUNCTION - the name of any visibly-exposed function without enquotes.
 		- EXPRESSION - any legal C value (60, "hello", SI_RGB(255, 255, 255)).
 		- NAME - regular text with no enquotes (test, var, len).
+		- VAR - any variable that's visible in the current scope.
 		- ANYTHING - anything.
 
 ===========================================================================
@@ -430,7 +431,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 		#define USIZE_MAX UINT64_MAX
 	#endif
 	#ifndef USIZE_MIN
-		#define USIZE_MIN UINT64_MIN
+		#define USIZE_MIN 0
 	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT64_MAX
@@ -443,7 +444,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 		#define USIZE_MAX UINT32_MAX
 	#endif
 	#ifndef USIZE_MIN
-		#define USIZE_MIN UINT32_MIN
+		#define USIZE_MIN 0
 	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT32_MAX
@@ -483,7 +484,7 @@ SI_STATIC_ASSERT(sizeof(b16) == 2);
 SI_STATIC_ASSERT(sizeof(b32) == 4);
 SI_STATIC_ASSERT(sizeof(b64) == 8);
 
-SI_STATIC_ASSERT(true == 1);
+SI_STATIC_ASSERT(true  == 1);
 SI_STATIC_ASSERT(false == 0);
 
 
@@ -550,13 +551,11 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 
-#if !(defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C99)
+#if !defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION < SI_STANDARD_C99
 	#if defined(SI_GNUC_COMPLIANT)  && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
 		#define restrict __restrict
 	#elif defined(_MSC_VER) && _MSC_VER >= 1400
 		#define restrict __restrict
-	#else
-		#define restrict
 	#endif
 #endif
 
@@ -629,9 +628,11 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #endif
 
 #if __has_builtin(__builtin_unreachable)
+	/* Notifies the compiler that this part of the code cannot be reached. */
 	#define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
 #else
-	#define SI_BUILTSI_BUILTIN_UNREACHABLE() SI_PANIC()
+	/* Notifies the compiler that this part of the code cannot be reached. */
+	#define SI_BUILTIN_UNREACHABLE() SI_PANIC()
 #endif
 
 
@@ -658,16 +659,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
  * Creates a jump label while also fixing an annoying C error, where trying to
  * create variables in the label scope is illegal. */
 #define SI_GOTO_LABEL(label) label: (void)((int)0);
-
-/*
-	========================
-	| Macro related        |
-	========================
-*/
-
-/* a - ANYTHING | b - ANYTHING
- * Combines 'a' and 'b' into 'ab' for macro shenanigans. */
-#define SI_CAT(a, b) a##b
 
 
 /*
@@ -721,12 +712,12 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #if !defined(countof)
 	/* value - ARRAY
 	* Gets the static length of the given value (must be an array). */
-	#define countof(value) (sizeof(value) / sizeof((value)[0]))
+	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
 #endif
 
 #if !defined(si_offsetof)
 	/* type - STRUCT TYPE | element - TYPE's member
-	* Get's the offset of the provided member. Doesn't work as a compile-time macro. */
+	* Gets the offset of the provided member. Doesn't work as a compile-time macro. */
 	#define si_offsetof(type, element) ((isize)&(((type*)nil)->element))
 #endif
 
@@ -752,20 +743,29 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* type - TYPE/EXPRESSION | count - usize
  * Allocates an array of 'sizeof(type)' bytes to the stack and casts the value. */
 #define si_sallocArray(type, count) (type*)si_salloc(sizeof(type) * count)
+/* variable - VAR
+ * Allocates 'sizeof(variable)' bytes to the stack and copies the value of
+ * 'variable' to the allocated memory. */
+#define si_sallocCopy(variable) \
+	memcpy( \
+		si_salloc(sizeof(variable)),  \
+		&(variable) , \
+		sizeof(variable) \
+	)
 /* allocator - siAllocator* | type - TYPE
  * Allocates 'sizeof(type)' bytes to the allocator and casts the value. */
 #define si_mallocItem(allocator, type) (type*)si_malloc(allocator, sizeof(type))
 /* allocator - siAllocator* | type - TYPE | count - usize
  * Allocates an array of 'sizeof(type)' bytes to the allocator and casts the value. */
 #define si_mallocArray(allocator, type, count) (type*)si_malloc(allocator, sizeof(type) * (count))
-/* allocator - siAllocator* | pointer - POINTER
+/* allocator - siAllocator* | variable - VAR
  * Allocates 'sizeof(variable)' bytes to the allocator and copies the value of
- * 'variable' to the allocated memory. Variable _must_ be a pointer. */
-#define si_mallocCopy(allocator, pointer) \
+ * 'variable' to the allocated memory. */
+#define si_mallocCopy(allocator, variable) \
 	memcpy( \
-		si_mallocItem(allocator, typeof(*(pointer))),  \
-		pointer , \
-		sizeof(typeof(*(pointer))) \
+		si_malloc(allocator, sizeof(variable)),  \
+		&(variable) , \
+		sizeof(variable) \
 	)
 /* type - TYPE | ...VALUES - <EXPRESSION>, [EXPRESSION] ...
  * Declares a static buffer. */
@@ -979,42 +979,6 @@ typedef struct {
 		sizeof(typeof(__VA_ARGS__)) \
 	}
 
-/*
-	========================
-	| siGeneric/siFatPtr   |
-	========================
-*/
-
-/* A generic fat pointer header, which stores a length. Usually good enough for
- * most things. */
-typedef struct {
-	usize len;
-} siGenericHeader;
-
-/* x - generic's original pointer
- * A macro to access the generic header. */
-#define SI_GENERIC_HEADER(x) ((siGenericHeader*)x - 1)
-/* type - TYPE
- * Denotes that this is a generic fat pointer. */
-#define siGenericFat(type) type*
-
-
-/* headerType - STRUCT TYPE | ..CONTENT - pointer to data that'll be copied over
- * Creates a fat pointer from the given header type AND content in the stack.
- * IMPORTANT NOTE(EimaMei): You're responsible for filling out the header, not sili.
-*/
-#define si_fatPtrMake(headerType, .../*CONTENT*/)  \
-	memcpy( \
-		si_fatPtrMakeReserve(headerType, typeof(__VA_ARGS__), 1), \
-		&(typeof(__VA_ARGS__)){__VA_ARGS__}, \
-		sizeof(typeof(__VA_ARGS__)) \
-	)
-
-/* headerType - STRUCT HEADER | type - TYPE | count - usize
- * Reserves an array of fat pointers in the stack. */
-#define si_fatPtrMakeReserve(headerType, type, count)  \
-	((siByte*)si_salloc((sizeof(type) * count) + sizeof(headerType)) + sizeof(headerType))
-
 
 /*
 	========================
@@ -1057,7 +1021,7 @@ typedef rawptr SI_FUNC_PTR(siFunction, (rawptr));
 /* A struct denoting the version. */
 typedef struct { i32 major, minor; } siVersion;
 
-/* An XY point structure. Both are 32-bit integers. */
+/* An XY point structur	e. Both are 32-bit integers. */
 typedef struct { i32 x, y; } siPoint;
 /* x - i32 | y - i32
  * Macro to define an XY i32 point. */
@@ -1065,12 +1029,6 @@ typedef struct { i32 x, y; } siPoint;
 /* p1 - siPoint | p2 - siPoint
  * Does a quick comparison if the two points are different. */
 #define si_pointCmp(p1, p2) (SI_TO_U64(&p1) == SI_TO_U64(&p2))
-
-/* An XY point structure. Both are isize integers. */
-typedef struct { isize x, y; } siPointS;
-/* x - isize | y - isize
- * Macro to define an XY isize point. */
-#define SI_POINT_S(x, y) ((siPointS){x, y})
 
 /* An RGBA structure. */
 typedef struct { u8 r, g, b, a; } siColor;
@@ -1150,8 +1108,12 @@ typedef struct { u32 x1, x2, y1, y2; } siCoordsU32;
 	#define SI_MAX_PATH_LEN 260
 #endif
 
-/* Moves memory by 'moveBy' amount of bytes depending on the direction. */
-void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, b32 moveLeft);
+/* src - rawptr | srcLen - usize | moveBy - isize
+ * Moves the memory by the specified amount to the right. */
+#define si_ptrMoveRight(src, srcLen, moveBy) memcpy((siByte*)(src) - moveBy, src, srcLen)
+/* src - rawptr | srcLen - usize | moveBy - isize
+ * Moves the memory by the specified amount to the left. */
+#define si_ptrMoveLeft(src, srcLen, moveBy) memcpy((siByte*)(src) + moveBy, src, srcLen)
 
 /*
 *
@@ -3298,12 +3260,6 @@ void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 }
 
 
-SIDEF
-void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, b32 moveLeft) {
-	isize mul = moveLeft * -2 + 1;
-	memcpy((siByte*)src + (moveBy * mul), src, srcLen);
-}
-
 #endif /* SI_IMPLEMENTATION_GENERAL */
 
 #if defined(SI_IMPLEMENTATION_PAIR) && !defined(SI_NO_PAIR)
@@ -4055,7 +4011,7 @@ void si_stringEnquote(siString* str) {
 	}
 	siString curStr = *str;
 
-	si_ptrMoveBy(curStr, header->len, 1, false);
+	si_ptrMoveRight(curStr, header->len, 1);
 	curStr[0] = '\"';
 	curStr[header->len - 1] = '\"';
 }

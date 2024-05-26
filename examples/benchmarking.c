@@ -1,6 +1,6 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
-#include <immintrin.h>
+
 
 i32 res[4];
 static i32 first[] = {10, 20, 30, 40};
@@ -12,10 +12,24 @@ void performanceTest(void) {
 	}
 }
 
+#if defined(SI_CPU_X86)
+#include <immintrin.h>
+
 void performanceTest2(void) {
 	__m128i result = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
 	memcpy(res, (i32*)&result, sizeof(__m128i));
 }
+
+#elif defined(SI_CPU_ARM64)
+#include <arm_neon.h>
+
+void performanceTest2(void) {
+	int32x4_t vec_first = vld1q_s32(first);
+	int32x4_t vec_second = vld1q_s32(second);
+	int32x4_t result = vaddq_s32(vec_first, vec_second);
+	vst1q_s32(res, result);
+}
+#endif
 
 int main(void) {
 	si_print("Running 'performanceTest()' 30000 times. Lets see how long it takes to execute that many times...\n");
