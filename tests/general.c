@@ -72,6 +72,33 @@ int main(void) {
 	}
 
 	{
+		usize ceil = si_alignCeilEx(12, 8);
+		SI_ASSERT(ceil == 16);
+
+		siAllocator* alloc = si_allocatorMake(SI_MEGA(1));
+		SI_ASSERT(alloc->ptr == (siByte*)(alloc + 1));
+		SI_ASSERT(alloc->offset == 0);
+		SI_ASSERT(alloc->maxLen == SI_MEGA(1));
+
+		char x[128];
+		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
+		SI_ASSERT(tmp.ptr == (siByte*)x);
+		SI_ASSERT(tmp.maxLen == countof(x));
+
+		si_malloc(alloc, 234);
+		SI_ASSERT(si_allocatorAvailable(alloc) == alloc->maxLen - 234);
+
+		si_allocatorResetFrom(alloc, 444);
+		SI_ASSERT(alloc->offset == 444);
+
+		si_allocatorPush(&tmp, 'Q');
+		si_allocatorPush(&tmp, 'W');
+		SI_ASSERT(tmp.ptr[0] == 'Q' && tmp.ptr[1] == 'W');
+
+		si_allocatorFree(alloc);
+	}
+
+	{
 		usize* ptr1 = si_sallocItem(usize);
 		*ptr1 = USIZE_MAX;
 		usize* ptr2 = si_sallocCopy(*ptr1);
