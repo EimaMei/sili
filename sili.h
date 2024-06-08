@@ -103,6 +103,9 @@ MACROS
 	'si__hashKey' inside this file, creating the option of defining a custom
 	implementation.
 
+	- SI_NO_HASH_OVERWRITE - disables the ovewrite of a pre-existing entry's
+	value when using 'si_hashtableSet/WithHash'.
+
 ===========================================================================
 CREDITS
 	- Ginger Bill's 'gb.h' (https://github.com//gingerBill/gb) - inspired me to
@@ -144,9 +147,9 @@ extern "C" {
 	#include <TargetConditionals.h>
 
 	#if TARGET_IPHONE_SIMULATOR == 1
-		#define SI_PLATFORM_IOS 1
+		#define SI_SYSTEM_IOS 1
 	#elif TARGET_OS_IPHONE == 1
-		#define SI_PLATFORM_IOS 1
+		#define SI_SYSTEM_IOS 1
 	#elif TARGET_OS_MAC
 		#define SI_SYSTEM_OSX 1
 	#endif
@@ -954,10 +957,10 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
 
 /* Crashes the app immediately. */
-#define SI_PANIC() si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil); SI_DEBUG_TRAP()
+#define SI_PANIC() do { si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil); SI_DEBUG_TRAP(); } while (0)
 /* message - cstring
  * Crashes the app immediately with a message. */
-#define SI_PANIC_MSG(message) si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, ""); SI_DEBUG_TRAP()
+#define SI_PANIC_MSG(message) do { si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, ""); SI_DEBUG_TRAP(); } while(0)
 /* condition - EXPRESSION | ACTION - ANYTHING
  * Checks if the condition is true. If it is, execute 'action'. */
 #define SI_STOPIF(condition, .../* ACTION */) if (condition) { __VA_ARGS__; } do {} while(0)
@@ -1212,6 +1215,8 @@ void si_allocatorResize(siAllocator* alloc, usize newSize);
 void si_allocatorReset(siAllocator* alloc);
 /* Resets the allocator to the given offset. */
 void si_allocatorResetFrom(siAllocator* alloc, usize offset);
+/* Resets the allocator to the current offset subtracted by the specified amount. */
+void si_allocatorResetSub(siAllocator* alloc, usize amount);
 /* Pushes a byte into the allocator. */
 void si_allocatorPush(siAllocator* alloc, siByte byte);
 /* Frees the allocator from memory. All allocations from the allocator are also
@@ -1889,11 +1894,13 @@ siSiliStr si_siliStrMakeFmt(siAllocator* alloc, cstring str, ...);
  * Denotes that this is a 'siHashTable' variable. */
 #define siHt(type) siHashTable
 
-typedef struct {
+typedef struct siHashEntry {
 	/* Key of the value. */
 	u64 key;
 	/* Pointer to the value. */
 	rawptr value;
+	/* Points to the next valid item. */
+	struct siHashEntry* next;
 } siHashEntry;
 
 typedef siArray(siHashEntry) siHashTable;
@@ -1913,10 +1920,15 @@ rawptr si_hashtableGet(const siHashTable ht, const rawptr key, usize keyLen);
 /* Returns the key entry's value pointer from the hash table. If not found, nil
  * is returned. */
 rawptr si_hashtableGetWithHash(const siHashTable ht, u64 hash);
-/* Adds a 'key' entry to the hash table. */
+/* Adds a 'key' entry to the hash table and returns the entry pointer, regardless
+ * if it's a new or pre-existing one. 'outSuccess' is set to true if the hash
+ * didn't exist before the set, otherwise it's set to 'false' and the entry's
+ * value's gets overwritten either way (unless disabled via a macro). 'outSuccess'
+ * can be nullable.*/
 siHashEntry* si_hashtableSet(siHashTable ht, const rawptr key, usize keyLen,
-		const rawptr valuePtr);
-siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr);
+		const rawptr valuePtr, b32* outSuccess);
+siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr,
+		b32* outSuccess);
 
 #endif /* SI_NO_HASHTABLE */
 
@@ -3029,6 +3041,13 @@ void si_allocatorResetFrom(siAllocator* alloc, usize offset) {
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_MSG(offset < alloc->maxLen, "Provided offset is too large.");
 	alloc->offset = offset;
+}
+SIDEF
+void si_allocatorResetSub(siAllocator* alloc, usize amount) {
+	SI_ASSERT_NOT_NULL(alloc);
+	SI_ASSERT_MSG(amount < alloc->maxLen, "Provided amount is too large.");
+	alloc->offset -= amount;
+
 }
 SIDEF
 usize si_allocatorAvailable(siAllocator* alloc) {
@@ -4976,7 +4995,7 @@ siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize k
 
 	siByte* ptr = (siByte*)dataArray;
 	for_range (i, 0, len) {
-		si_hashtableSet(table, keyArray[i], keyLen, ptr);
+		si_hashtableSet(table, keyArray[i], keyLen, ptr, nil);
 		ptr += sizeofElement;
 	}
 
@@ -4986,10 +5005,21 @@ siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize k
 SIDEF
 siHashTable si_hashtableMakeReserve(siAllocator* alloc, usize capacity) {
 	SI_ASSERT(capacity != 0);
-	SI_ASSERT((capacity & (capacity - 1)) == 0);
+	/* NOTE(EimaMei): A power of 2 capacity is enforced so that truncating a hash
+	 * into a valid index would only require a 'hash & (capacity - 1)', which
+	 * basically takes no time in comparison to the usual modulo operator. */
+	SI_ASSERT_MSG((capacity & (capacity - 1)) == 0, "The specified capacity must be a power of 2 number (8, 64, 512, 1024, etc).");
 
 	siHashTable table = si_arrayMakeReserve(alloc, sizeof(siHashEntry), capacity);
-	memset(table, 0, capacity * sizeof(siHashEntry));
+	siHashEntry entry;
+	entry.key = 0;
+	entry.value = nil;
+	for_range (i, 0, capacity - 1) {
+		entry.next = 0;
+		table[i] = entry;
+	}
+	entry.next = 0;
+	table[capacity] = entry;
 
 	return table;
 }
@@ -5005,56 +5035,70 @@ rawptr si_hashtableGet(const siHashTable ht, rawptr key, usize keyLen) {
 }
 SIDEF
 rawptr si_hashtableGetWithHash(const siHashTable ht, u64 hash) {
-	usize index = hash & (si_arrayCapacity(ht) - 1);
+	SI_ASSERT_NOT_NULL(ht);
+
+	siArrayHeader* header = SI_ARRAY_HEADER(ht);
+	usize index = hash & (header->capacity - 1);
 
 	siHashEntry* entry = &ht[index];
-	siHashEntry* original = entry;
-	siHashEntry* end = &ht[si_arrayCapacity(ht)];
-	do {
-		if (hash == entry->key) {
-			return ht[index].value;
-		}
+	goto skip; /* NOTE(EimaMei):	We skip the 'entry->next' line so that the
+									first entry can get checked. */
 
-		entry += 1;
-		SI_STOPIF(entry == end, entry = &ht[0]);
-	} while (entry != original);
+	while (entry->next != 0) {
+		entry = entry->next;
+skip:
+		if (hash == entry->key) {
+			return entry->value;
+		}
+	}
 
 	return nil;
 }
 siHashEntry* si_hashtableSet(siHashTable ht, const rawptr key, usize keyLen,
-		const rawptr valuePtr) {
+		const rawptr valuePtr, b32* outSuccess) {
 	SI_ASSERT_NOT_NULL(ht);
 	SI_ASSERT_NOT_NULL(key);
 	SI_ASSERT(keyLen != 0);
 
+	u64 hash = si__hashKey(key, keyLen);
+	return si_hashtableSetWithHash(ht, hash, valuePtr, outSuccess);
+}
+SIDEF
+siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr,
+		b32* outSuccess) {
+	SI_ASSERT_NOT_NULL(ht);
+
 	siArrayHeader* header = SI_ARRAY_HEADER(ht);
 	SI_ASSERT_MSG(header->len < header->capacity, "The capacity of the hashtable has been surpassed.");
 
-	u64 hash = si__hashKey(key, keyLen);
-
-	return si_hashtableSetWithHash(ht, hash, valuePtr);
-}
-SIDEF
-siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr) {
-	siArrayHeader* header = SI_ARRAY_HEADER(ht);
-
 	usize index = hash & (header->capacity - 1);
 	siHashEntry* entry = &ht[index];
-	siHashEntry* end = &ht[header->capacity];
+	siHashEntry* original = entry;
 
 	while (entry->key != 0) {
 		if (hash == entry->key) {
-			return &ht[index];
+			SI_STOPIF(outSuccess != nil, *outSuccess = false);
+#if !defined(SI_NO_HASH_OVERWRITE)
+			entry->value = valuePtr;
+#endif
+			return entry;
 		}
 
-		entry += 1;
-		SI_STOPIF(entry == end, entry = &ht[0]);
+		entry = entry->next ? entry->next : (entry + 1);
 	}
+	SI_ASSERT(entry->key == 0);
+
 	entry->key = hash;
 	entry->value = valuePtr;
 
+	if (entry != original) {
+		while (original->next != 0) { original = original->next; }
+		original->next = entry;
+	}
+	SI_STOPIF(outSuccess != nil, *outSuccess = true);
+
 	header->len += 1;
-	return &ht[index];
+	return entry;
 }
 
 #endif
