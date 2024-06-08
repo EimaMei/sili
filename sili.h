@@ -334,7 +334,7 @@ extern "C" {
 #endif
 
 
-#if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(__powerpc64__) || defined(__ppc64__)
+#if defined(__LP64__) || __WORDSIZE == 64 || defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || SI_CPU_ARM64 || SI_CPU_PPC64
 	#define SI_ARCH_64_BIT 1
 #else
 	#define SI_ARCH_32_BIT 1
