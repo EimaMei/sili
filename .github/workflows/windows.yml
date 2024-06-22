@@ -14,4 +14,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: make
-      run: make compile_examples
+      run: |
+        make compile_examples
+        make SRC=tests/general.c

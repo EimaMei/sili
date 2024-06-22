@@ -41,17 +41,19 @@ DOCUMENTATION
 		description of the macro. /
 		#define smth(argumentName, otherArgumentName, .../ VALUES/)
 
-	- More often than not a macro's argument will not be a specific type and instead
-	some kind of 'text'. Such arguments are noted if their type denotation is
-	A FULLY CAPITALIZED KEYWORD. This is a general list of the keywords, their meanings
-	and examples of them:
+	- More often than not a macro's argument will not be a specific type and
+	instead some kind of 'text'. Such arguments are noted if their type denotation
+	is a fuly CAPITALIZED keyword. This is a general list of the keywords, their
+	meanings and examples of them:
 		- TYPE - the type name (siString, usize, rawptr).
 		- TYPE* - the pointer of a type (siString*, usize*, rawptr*).
 		- INT - a signed integer (50, -250LL, ISIZE_MAX).
 		- UINT - an unsigned integer (50, 250ULL, USIZE_MAX).
 		- FUNCTION - the name of any visibly-exposed function without enquotes.
 		- EXPRESSION - any legal C value (60, "hello", SI_RGB(255, 255, 255)).
+		- VARIADIC - an indefinite amount of valid expressions ("firstValue", 230, "third")
 		- NAME - regular text with no enquotes (test, var, len).
+		- VAR - any variable that's visible in the current scope.
 		- ANYTHING - anything.
 
 ===========================================================================
@@ -96,6 +98,14 @@ MACROS
 	proper replacement.
 
 	- SI_NO_TYPEOF - disables the usage of '__typeof__' inside of the library.
+	NOTE: Might break certain features in the library.
+
+	- SI_DEFINE_CUSTOM_HASH_FUNCTION - undefines the base implementation of
+	'si__hashKey' inside this file, creating the option of defining a custom
+	implementation.
+
+	- SI_NO_HASH_OVERWRITE - disables the ovewrite of a pre-existing entry's
+	value when using 'si_hashtableSet/WithHash'.
 
 ===========================================================================
 CREDITS
@@ -138,9 +148,9 @@ extern "C" {
 	#include <TargetConditionals.h>
 
 	#if TARGET_IPHONE_SIMULATOR == 1
-		#define SI_PLATFORM_IOS 1
+		#define SI_SYSTEM_IOS 1
 	#elif TARGET_OS_IPHONE == 1
-		#define SI_PLATFORM_IOS 1
+		#define SI_SYSTEM_IOS 1
 	#elif TARGET_OS_MAC
 		#define SI_SYSTEM_OSX 1
 	#endif
@@ -225,13 +235,19 @@ extern "C" {
 
 #elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc64__) || defined(_ARCH_PPC) || defined(__ppc64__)
 	#define SI_CPU_PPC 1
-	#define SI_CPU_PPC64 (__powerpc64__ || __ppc64__)
 	#define SI_CACHE_LINE_SIZE 128
+
+	#if defined (__powerpc64__ || __ppc64__)
+		#define SI_CPU_PPC64  1
+	#endif
 
 #elif defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(_ARM) || defined(_M_ARM) || defined(__arm) || defined(__aarch64__)
 	#define SI_CPU_ARM 1
-	#define SI_CPU_ARM64 __aarch64__
 	#define SI_CACHE_LINE_SIZE 64
+
+	#if defined(__aarch64__)
+		#define SI_CPU_ARM64 1
+	#endif
 
 #elif defined(__mips__) || defined(__mips) || defined(__MIPSEL__) || defined(__mips_isa_rev)
 	#define SI_CPU_MIPS 1
@@ -325,7 +341,7 @@ extern "C" {
 #endif
 
 
-#if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(__powerpc64__) || defined(__ppc64__)
+#if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(SI_CPU_ARM64) || defined(SI_CPU_PPC64)
 	#define SI_ARCH_64_BIT 1
 #else
 	#define SI_ARCH_32_BIT 1
@@ -430,7 +446,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 		#define USIZE_MAX UINT64_MAX
 	#endif
 	#ifndef USIZE_MIN
-		#define USIZE_MIN UINT64_MIN
+		#define USIZE_MIN 0
 	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT64_MAX
@@ -443,7 +459,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 		#define USIZE_MAX UINT32_MAX
 	#endif
 	#ifndef USIZE_MIN
-		#define USIZE_MIN UINT32_MIN
+		#define USIZE_MIN 0
 	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT32_MAX
@@ -483,7 +499,7 @@ SI_STATIC_ASSERT(sizeof(b16) == 2);
 SI_STATIC_ASSERT(sizeof(b32) == 4);
 SI_STATIC_ASSERT(sizeof(b64) == 8);
 
-SI_STATIC_ASSERT(true == 1);
+SI_STATIC_ASSERT(true  == 1);
 SI_STATIC_ASSERT(false == 0);
 
 
@@ -550,13 +566,11 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 
-#if !(defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C99)
+#if !defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION < SI_STANDARD_C99
 	#if defined(SI_GNUC_COMPLIANT)  && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))
 		#define restrict __restrict
 	#elif defined(_MSC_VER) && _MSC_VER >= 1400
 		#define restrict __restrict
-	#else
-		#define restrict
 	#endif
 #endif
 
@@ -629,9 +643,11 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #endif
 
 #if __has_builtin(__builtin_unreachable)
+	/* Notifies the compiler that this part of the code cannot be reached. */
 	#define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
 #else
-	#define SI_BUILTSI_BUILTIN_UNREACHABLE() SI_PANIC()
+	/* Notifies the compiler that this part of the code cannot be reached. */
+	#define SI_BUILTIN_UNREACHABLE() SI_PANIC()
 #endif
 
 
@@ -658,16 +674,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
  * Creates a jump label while also fixing an annoying C error, where trying to
  * create variables in the label scope is illegal. */
 #define SI_GOTO_LABEL(label) label: (void)((int)0);
-
-/*
-	========================
-	| Macro related        |
-	========================
-*/
-
-/* a - ANYTHING | b - ANYTHING
- * Combines 'a' and 'b' into 'ab' for macro shenanigans. */
-#define SI_CAT(a, b) a##b
 
 
 /*
@@ -711,22 +717,35 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	| Unary operators      |
 	========================
 */
-#if !defined(typeof) && !(defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION > SI_STANDARD_C17) && !defined(SI_NO_TYPEOF)
-	/* ...VALUE - TYPE/EXPRESSION
-	* Gets the value's type and expresses it as just a regular type. */
-	#define typeof(.../* VALUE */)  __typeof__(__VA_ARGS__)
+#if !defined(typeof) && !defined(SI_NO_TYPEOF)
+	#ifdef SI_LANGUAGE_C
+		#if SI_STANDARD_VERSION <= SI_STANDARD_C17
+			/* ...VALUE - TYPE/EXPRESSION
+			* Gets the value's type and expresses it as just a regular type. */
+			#define typeof(.../* VALUE */)  __typeof__(__VA_ARGS__)
+			#define SI_TYPEOF_USED 1
+		#endif
+	#elif defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
+		/* ...VALUE - TYPE/EXPRESSION
+		* Gets the value's type and expresses it as just a regular type. */
+		#define typeof(.../* VALUE */) decltype(__VA_ARGS__)
+	#endif
 	#define SI_TYPEOF_USED 1
+#elif !defined(SI_NO_TYPEOF)
+	#define SI_TYPEOF_USED 1
+#else
+	#define typeof(.../* VALUE */)
 #endif
 
 #if !defined(countof)
 	/* value - ARRAY
 	* Gets the static length of the given value (must be an array). */
-	#define countof(value) (sizeof(value) / sizeof((value)[0]))
+	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
 #endif
 
 #if !defined(si_offsetof)
 	/* type - STRUCT TYPE | element - TYPE's member
-	* Get's the offset of the provided member. Doesn't work as a compile-time macro. */
+	* Gets the offset of the provided member. Doesn't work as a compile-time macro. */
 	#define si_offsetof(type, element) ((isize)&(((type*)nil)->element))
 #endif
 
@@ -735,6 +754,13 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	* Gets the alignment of a type. */
 	#define alignof(type) offsetof(struct { char c; type member; }, member)
 #endif
+
+#if !defined(si_alignof)
+	/* type - TYPE
+	* Gets the alignment of a type. Doesn't work as a compile-time macro. */
+	#define si_alignof(type) si_offsetof(struct { char c; type member; }, member)
+#endif
+
 
 
 /*
@@ -752,20 +778,29 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* type - TYPE/EXPRESSION | count - usize
  * Allocates an array of 'sizeof(type)' bytes to the stack and casts the value. */
 #define si_sallocArray(type, count) (type*)si_salloc(sizeof(type) * count)
+/* variable - VAR
+ * Allocates 'sizeof(variable)' bytes to the stack and copies the value of
+ * 'variable' to the allocated memory. */
+#define si_sallocCopy(variable) \
+	memcpy( \
+		si_salloc(sizeof(variable)),  \
+		&(variable) , \
+		sizeof(variable) \
+	)
 /* allocator - siAllocator* | type - TYPE
  * Allocates 'sizeof(type)' bytes to the allocator and casts the value. */
 #define si_mallocItem(allocator, type) (type*)si_malloc(allocator, sizeof(type))
 /* allocator - siAllocator* | type - TYPE | count - usize
  * Allocates an array of 'sizeof(type)' bytes to the allocator and casts the value. */
 #define si_mallocArray(allocator, type, count) (type*)si_malloc(allocator, sizeof(type) * (count))
-/* allocator - siAllocator* | pointer - POINTER
+/* allocator - siAllocator* | variable - VAR
  * Allocates 'sizeof(variable)' bytes to the allocator and copies the value of
- * 'variable' to the allocated memory. Variable _must_ be a pointer. */
-#define si_mallocCopy(allocator, pointer) \
+ * 'variable' to the allocated memory. */
+#define si_mallocCopy(allocator, variable) \
 	memcpy( \
-		si_mallocItem(allocator, typeof(*(pointer))),  \
-		pointer , \
-		sizeof(typeof(*(pointer))) \
+		si_malloc(allocator, sizeof(variable)),  \
+		&(variable) , \
+		sizeof(variable) \
 	)
 /* type - TYPE | ...VALUES - <EXPRESSION>, [EXPRESSION] ...
  * Declares a static buffer. */
@@ -826,7 +861,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #if SI_STANDARD_VERSION < SI_STANDARD_C11 && !defined(memcpy_s)
 /* dst - rawptr | dstsz - usize | src - rawptr | count - usize
  * A pre-C11 implementation of memcpy_s without 'errorno_t'. */
-#define memcpy_s(dst, dstsz, src, count) (memcpy(dst, src, si_min(dstsz, count)) != dst)
+#define memcpy_s(dst, dstsz, src, count) memcpy(dst, src, si_min(dstsz, count))
 #endif
 /*
 	========================
@@ -931,7 +966,7 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 /* condition - EXPRESSION | message - cstring
  * Crashes the app with a message if the condition is not met. */
 #define SI_ASSERT_MSG(condition, message) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, "")
-/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC ARGUMENTS
+/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC
  * Crashes the app with a formatted message if the condition is not met. */
 #define SI_ASSERT_FMT(condition, message, ...) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__)
 /* ptr - rawptr
@@ -949,10 +984,14 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
 
 /* Crashes the app immediately. */
-#define SI_PANIC() si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil); SI_DEBUG_TRAP()
+#define SI_PANIC() do { si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, nil); SI_DEBUG_TRAP(); } while (0)
 /* message - cstring
  * Crashes the app immediately with a message. */
-#define SI_PANIC_MSG(message) si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, ""); SI_DEBUG_TRAP()
+#define SI_PANIC_MSG(message) do { si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, ""); SI_DEBUG_TRAP(); } while(0)
+/* message - cstring | ...FMT - VARIADIC
+ * Crashes the app immediately with a formatted message. */
+#define SI_PANIC_FMT(message, ...) do { si_assertEx(false, "SI_PANIC()", __FILE__, __LINE__, __func__, message, __VA_ARGS__); } while (0)
+
 /* condition - EXPRESSION | ACTION - ANYTHING
  * Checks if the condition is true. If it is, execute 'action'. */
 #define SI_STOPIF(condition, .../* ACTION */) if (condition) { __VA_ARGS__; } do {} while(0)
@@ -978,42 +1017,6 @@ typedef struct {
 		(rawptr)&((struct { typeof(__VA_ARGS__) in; }){__VA_ARGS__}.in), \
 		sizeof(typeof(__VA_ARGS__)) \
 	}
-
-/*
-	========================
-	| siGeneric/siFatPtr   |
-	========================
-*/
-
-/* A generic fat pointer header, which stores a length. Usually good enough for
- * most things. */
-typedef struct {
-	usize len;
-} siGenericHeader;
-
-/* x - generic's original pointer
- * A macro to access the generic header. */
-#define SI_GENERIC_HEADER(x) ((siGenericHeader*)x - 1)
-/* type - TYPE
- * Denotes that this is a generic fat pointer. */
-#define siGenericFat(type) type*
-
-
-/* headerType - STRUCT TYPE | ..CONTENT - pointer to data that'll be copied over
- * Creates a fat pointer from the given header type AND content in the stack.
- * IMPORTANT NOTE(EimaMei): You're responsible for filling out the header, not sili.
-*/
-#define si_fatPtrMake(headerType, .../*CONTENT*/)  \
-	memcpy( \
-		si_fatPtrMakeReserve(headerType, typeof(__VA_ARGS__), 1), \
-		&(typeof(__VA_ARGS__)){__VA_ARGS__}, \
-		sizeof(typeof(__VA_ARGS__)) \
-	)
-
-/* headerType - STRUCT HEADER | type - TYPE | count - usize
- * Reserves an array of fat pointers in the stack. */
-#define si_fatPtrMakeReserve(headerType, type, count)  \
-	((siByte*)si_salloc((sizeof(type) * count) + sizeof(headerType)) + sizeof(headerType))
 
 
 /*
@@ -1065,12 +1068,6 @@ typedef struct { i32 x, y; } siPoint;
 /* p1 - siPoint | p2 - siPoint
  * Does a quick comparison if the two points are different. */
 #define si_pointCmp(p1, p2) (SI_TO_U64(&p1) == SI_TO_U64(&p2))
-
-/* An XY point structure. Both are isize integers. */
-typedef struct { isize x, y; } siPointS;
-/* x - isize | y - isize
- * Macro to define an XY isize point. */
-#define SI_POINT_S(x, y) ((siPointS){x, y})
 
 /* An RGBA structure. */
 typedef struct { u8 r, g, b, a; } siColor;
@@ -1150,8 +1147,12 @@ typedef struct { u32 x1, x2, y1, y2; } siCoordsU32;
 	#define SI_MAX_PATH_LEN 260
 #endif
 
-/* Moves memory by 'moveBy' amount of bytes depending on the direction. */
-void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, b32 moveLeft);
+/* src - rawptr | srcLen - usize | moveBy - isize
+ * Moves the memory by the specified amount to the right. */
+#define si_ptrMoveRight(src, srcLen, moveBy) memcpy((siByte*)(src) - (moveBy), src, srcLen)
+/* src - rawptr | srcLen - usize | moveBy - isize
+ * Moves the memory by the specified amount to the left. */
+#define si_ptrMoveLeft(src, srcLen, moveBy) memcpy((siByte*)(src) + (moveBy), src, srcLen)
 
 /*
 *
@@ -1216,7 +1217,9 @@ typedef struct {
 } siAllocator;
 
 /* Sets memory alignment. By default it's 4 bytes. */
-#define SI_DEFAULT_MEMORY_ALIGNMENT (4)
+#ifndef SI_DEFAULT_MEMORY_ALIGNMENT
+	#define SI_DEFAULT_MEMORY_ALIGNMENT (4)
+#endif
 /* Aligns 'n' by SI_DEFAULT_MEMORY_ALIGNMENT. */
 usize si_alignCeil(usize n);
 /* Aligns 'n' by 'alignment'. */
@@ -1238,11 +1241,13 @@ usize si_allocatorAvailable(siAllocator* alloc);
 rawptr si_allocatorCurPtr(siAllocator* alloc);
 
 /* Resizes the amount of available bytes from the allocator. */
-void si_allocatorResize(siAllocator* alloc, usize newSize);
+void si_allocatorResize(siAllocator** alloc, usize newSize);
 /* Resets the allocator to start from the beginning. */
 void si_allocatorReset(siAllocator* alloc);
 /* Resets the allocator to the given offset. */
 void si_allocatorResetFrom(siAllocator* alloc, usize offset);
+/* Resets the allocator to the current offset subtracted by the specified amount. */
+void si_allocatorResetSub(siAllocator* alloc, usize amount);
 /* Pushes a byte into the allocator. */
 void si_allocatorPush(siAllocator* alloc, siByte byte);
 /* Frees the allocator from memory. All allocations from the allocator are also
@@ -1277,38 +1282,6 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
 #endif /* SI_NO_ALLOC_DEBUG_INFO */
 
 
-#if !defined(SI_NO_PAIR)
-/*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-	========================
-	| siPair               |
-	========================
-*/
-/* type1 - TYPE | type2 - TYPE
- * A pair structure. */
-#define siPair(type1, type2) struct { type1 first; type2 second; }
-/* firstValue - EXPRESSION | secondValue - EXPRESSION
- * Creates a pair structure variable. */
-#define si_pairMake(firstValue, secondValue) {firstValue, secondValue}
-/* pair - siPair
- * Makes a copy of the given pair. */
-#define si_pairCopy(pair) si_pairMake(pair.first, pair.second)
-
-#endif /* SI_NO_PAIR */
-
 #if !defined(SI_NO_OPTIONAL)
 /*
 *
@@ -1331,34 +1304,43 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
 */
 
 /* type - TYPE
- * Specifies the return of a 'siOptional(typpe)'. */
+ * Specifies the return of a 'siOptional(type)'. */
 #define siOptionalRet(type) rawptr
 /* type - TYPE
  * Denotes a 'siOptional' type. */
 #define siOptional(type) struct { b32 hasValue; type value; }*
+siIntern
+struct { b32 hasValue; } si__null = {0};
 /* A fully empty 'siOptional' variable. */
-#define SI_OPTIONAL_NULL(alloc) si_mallocCopy(alloc, &(struct { b32 hasValue; }){false})
+const rawptr SI_OPTIONAL_NULL = (const rawptr)&si__null;
 
+#if defined(SI_TYPEOF_USED)
 /* allocator - siAllocator* | ...VALUE - EXPRESSION
  * Creates a 'siOptional' from the given value, writes it into the allocator and
  * returns a pointer to the written data.. */
-#define si_optionalMake(allocator, .../* VALUE */) \
-	si_optionalMakeEx( \
-		si_mallocItem(allocator, struct { b32 hasValue; typeof(__VA_ARGS__) value; }), \
+#define si_optionalMake(allocator, .../* VALUE */) si_optionalMakeEx(allocator, typeof(__VA_ARGS__), __VA_ARGS__)
+#endif
+/* allocator - siAllocator* | type - TYPE | ...VALUE - EXPRESSION
+ * Creates a 'siOptional' from the given value, writes it into the allocator and
+ * returns a pointer to the written data.. */
+#define si_optionalMakeEx(allocator, type, .../* VALUE */) \
+	si__optionalMakeEx( \
+		si_mallocItem(allocator, struct { b32 hasValue; type value; }), \
 		si_anyMake(__VA_ARGS__), \
-		si_offsetof(struct { b32 hasValue; typeof(__VA_ARGS__) value; }, value) \
+		si_offsetof(struct { b32 hasValue; type value; }, value) \
 	)
-/* optionalVar -  siOptional(TYPE) | defaultValue - EXPRESSION
- * Gets the value of the provided 'siObject' object. HOWVER if 'hasValue' is set
+/* optionalVar - siOptional(TYPE) | defaultValue - EXPRESSION
+ * Gets the value of the provided 'siObject' object. However if 'hasValue' is set
  * to false, return 'defaultValue' instead. */
 #define si_optionalGetOrDefault(optionalVar, defaultValue) \
-	((optionalVar)->hasValue ? (optionalVar)->value : (typeof((optionalVar)->value))(defaultValue))
+	((optionalVar)->hasValue ? (optionalVar)->value : (defaultValue))
+
 
 /* optionalVar - siOptional(TYPE)
  * Resets the optional variable. */
 #define si_optionalReset(optionalVar) \
 	do { \
-		memset(&(optionalVar)->value, 0, sizeof(typeof((optionalVar)->value))); \
+		memset(&(optionalVar)->value, 0, sizeof (optionalVar)->value); \
 		(optionalVar)->hasValue = false; \
 	} while(0)
 
@@ -1419,7 +1401,7 @@ typedef struct {
 /* array - siArray(TYPE) | index - usize
  * Gets a specific item's pointer and return it as a 'siByte*' for pointer arithmetic. */
 #define si_arrayGetPtr(array, index) \
-	(si_cast(siByte*, array) + si_arrayTypeSize(array) * (index))
+	(((siByte*)(array)) + si_arrayTypeSize(array) * (index))
 
 /* allocator - siAllocator* | ...BUFFER - STATIC BUFFER
  * Creates a siArray from the provided static buffer. */
@@ -1575,7 +1557,7 @@ siString si_stringMakeReserve(siAllocator* alloc, usize capacity);
 siString si_stringMakeFmt(siAllocator* alloc, cstring str, ...);
 /* str - cstring
  * Creates a _static_ siString on the current stack. */
-#define si_stringMakeStack(str) si_stringMakeLen(si_allocatorMakeStack(countof(str -) - 1 + sizeof(siStringHeader)), str, countof(str) - 1)
+#define si_stringMakeStack(str) si_stringMakeLen(si_allocatorMakeStack(countof(str) - 1 + sizeof(siStringHeader)), str, countof(str) - 1)
 
 /* Creates a copy of an existing siString. */
 siString si_stringCopy(siAllocator* alloc, siString from);
@@ -1818,6 +1800,8 @@ i32 si_charHexDigitToInt(char c);
 
 #define SI_NUM_MAX_DIGITS 20
 
+extern const char* SI_NUM_TO_CHAR_TABLE;
+
 /* Writes a NULL-terminated C-string into the allocator. */
 char* si_cstrMake(siAllocator* alloc, cstring cstr);
 /* Writes a C-string with specified length into the allocator. */
@@ -1918,18 +1902,20 @@ siSiliStr si_siliStrMakeFmt(siAllocator* alloc, cstring str, ...);
  * Denotes that this is a 'siHashTable' variable. */
 #define siHt(type) siHashTable
 
-typedef struct {
+typedef struct siHashEntry {
 	/* Key of the value. */
-	siByte* key;
+	u64 key;
 	/* Pointer to the value. */
 	rawptr value;
+	/* Points to the next valid item. */
+	struct siHashEntry* next;
 } siHashEntry;
 
 typedef siArray(siHashEntry) siHashTable;
 
 /* Creates a hash table using the given names and data. */
 siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize keyLen,
-		const rawptr dataArray, usize sizeofElement, usize len);
+		const rawptr* dataArray, usize len);
 /* Reserves a 'capacity' amount of items for the hash table. */
 siHashTable si_hashtableMakeReserve(siAllocator* alloc, usize capacity);
 /* Returns the key entry's value pointer from the hash table. If not found, nil
@@ -1939,12 +1925,18 @@ rawptr si_hashtableGet(const siHashTable ht, const rawptr key, usize keyLen);
  * Returns the key entry's value as the specified type. If the item does NOT exist,
  * this will 100% crash, as the return of 'si_hashtableGet' will be nil. */
 #define si_hashtableGetItem(ht, key, type) (*((type*)si_hashtableGet(ht, key)))
-/* Adds a 'key' entry to the hash table.
- * NOTE(EimaMei): This functions makes a copy of the specified key pointer by allocating
- * its length amount to the allocator. The value, provided by 'valuePtr', is NOT
- * copied, thus you are responsible for that pointer being valid for getter calls. */
-siHashEntry* si_hashtableSet(siHashTable ht, siAllocator* allocator, const rawptr key,
-		usize keyLen, const rawptr valuePtr);
+/* Returns the key entry's value pointer from the hash table. If not found, nil
+ * is returned. */
+rawptr si_hashtableGetWithHash(const siHashTable ht, u64 hash);
+/* Adds a 'key' entry to the hash table and returns the entry pointer, regardless
+ * if it's a new or pre-existing one. 'outSuccess' is set to true if the hash
+ * didn't exist before the set, otherwise it's set to 'false' and the entry's
+ * value's gets overwritten either way (unless disabled via a macro). 'outSuccess'
+ * can be nullable.*/
+siHashEntry* si_hashtableSet(siHashTable ht, const rawptr key, usize keyLen,
+		const rawptr valuePtr, b32* outSuccess);
+siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr,
+		b32* outSuccess);
 
 #endif /* SI_NO_HASHTABLE */
 
@@ -3016,6 +3008,8 @@ siAllocator* si_allocatorMake(usize bytes) {
 	return res;
 }
 siAllocator* si_allocatorMakeStackEx(usize bytes, rawptr ptr) {
+	SI_ASSERT_NOT_NULL(ptr);
+
 	siAllocator* res = (siAllocator*)ptr;
 	res->ptr = (siByte*)ptr + sizeof(siAllocator);
 	res->offset = 0;
@@ -3025,6 +3019,8 @@ siAllocator* si_allocatorMakeStackEx(usize bytes, rawptr ptr) {
 }
 SIDEF
 siAllocator si_allocatorMakeTmp(rawptr pointer, usize maxLen) {
+	SI_ASSERT_NOT_NULL(pointer);
+
 	siAllocator alloc;
 	alloc.ptr = (siByte*)pointer;
 	alloc.maxLen = maxLen;
@@ -3034,16 +3030,22 @@ siAllocator si_allocatorMakeTmp(rawptr pointer, usize maxLen) {
 }
 SIDEF
 void si_allocatorFree(siAllocator* alloc) {
-	SI_UNUSED(alloc);
+	SI_ASSERT_NOT_NULL(alloc);
 	free(alloc);
 }
 
 SIDEF
-void si_allocatorResize(siAllocator* alloc, usize newSize) {
-	alloc = (siAllocator*)realloc(alloc, sizeof(siAllocator) + newSize);
-	alloc->ptr = (siByte*)(alloc + 1);
-	alloc->maxLen = newSize;
-	alloc->offset = 0;
+void si_allocatorResize(siAllocator** alloc, usize newSize) {
+	SI_ASSERT_NOT_NULL(alloc);
+
+	siAllocator* newAlloc = (siAllocator*)realloc(*alloc, sizeof(siAllocator) + newSize);
+	SI_ASSERT_NOT_NULL(alloc);
+
+	newAlloc->ptr = (siByte*)(newAlloc + 1);
+	newAlloc->maxLen = newSize;
+	newAlloc->offset = 0;
+
+	*alloc = newAlloc;
 }
 
 SIDEF
@@ -3057,6 +3059,13 @@ void si_allocatorResetFrom(siAllocator* alloc, usize offset) {
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_MSG(offset < alloc->maxLen, "Provided offset is too large.");
 	alloc->offset = offset;
+}
+SIDEF
+void si_allocatorResetSub(siAllocator* alloc, usize amount) {
+	SI_ASSERT_NOT_NULL(alloc);
+	SI_ASSERT_MSG(amount <= alloc->maxLen && amount <= alloc->offset, "Provided amount is too large.");
+	alloc->offset -= amount;
+
 }
 SIDEF
 usize si_allocatorAvailable(siAllocator* alloc) {
@@ -3298,12 +3307,6 @@ void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 }
 
 
-SIDEF
-void si_ptrMoveBy(rawptr src, usize srcLen, isize moveBy, b32 moveLeft) {
-	isize mul = moveLeft * -2 + 1;
-	memcpy((siByte*)src + (moveBy * mul), src, srcLen);
-}
-
 #endif /* SI_IMPLEMENTATION_GENERAL */
 
 #if defined(SI_IMPLEMENTATION_PAIR) && !defined(SI_NO_PAIR)
@@ -3321,10 +3324,11 @@ rawptr si_intern_pairMake(siAllocator* alloc, siAny first, siAny second) {
 #if defined(SI_IMPLEMENTATION_OPTIONAL) && !defined(SI_NO_OPTIONAL)
 
 SIDEF
-rawptr si_optionalMakeEx(rawptr res, siAny any, usize offset) {
+rawptr si__optionalMakeEx(rawptr res, siAny any, usize offset) {
 	siByte* ptr = (siByte*)res;
 	*(b32*)ptr = true;
-	memcpy(ptr + offset, any.ptr, any.typeSize);
+	memcpy(&ptr[offset], any.ptr, any.typeSize);
+
 	return res;
 }
 #endif /* SI_IMPLEMENTATION_OPTIONAL */
@@ -4055,7 +4059,7 @@ void si_stringEnquote(siString* str) {
 	}
 	siString curStr = *str;
 
-	si_ptrMoveBy(curStr, header->len, 1, false);
+	si_ptrMoveRight(curStr, header->len, 1);
 	curStr[0] = '\"';
 	curStr[header->len - 1] = '\"';
 }
@@ -4373,7 +4377,7 @@ b32 si_cstrEqualLen(cstring str1, usize str1Len, cstring str2, usize str2Len) {
 	return true;
 }
 
-static const char SI_NUM_TO_CHAR_TABLE[] =
+const char* SI_NUM_TO_CHAR_TABLE =
 	"0123456789"
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"abcdefghijklmnopqrstuvwxyz"
@@ -4958,10 +4962,10 @@ i32 si_charHexDigitToInt(char c) {
 	if (si_charIsDigit(c)) {
 		return si_charDigitToInt(c);
 	}
-	else if (c <= 'a' && c >= 'f') {
+	else if (c >= 'a' && c <= 'f') {
 		return c - 'a' + 10;
 	}
-	else if (c <= 'A' && c >= 'F') {
+	else if (c >= 'A' && c <= 'F') {
 		return c - 'A' + 10;
 	}
 
@@ -4971,6 +4975,10 @@ i32 si_charHexDigitToInt(char c) {
 
 #if defined(SI_IMPLEMENTATION_HASHTABLE) && !defined(SI_NO_HASHTABLE)
 
+force_inline
+u64 si__hashKey(siByte* key, usize len);
+
+#if !defined(SI_DEFINE_CUSTOM_HASH_FUNCTION)
 #define SI__FNV_OFFSET 14695981039346656037UL
 #define SI__FNV_PRIME 1099511628211UL
 
@@ -4984,14 +4992,16 @@ u64 si__hashKey(siByte* key, usize len) {
 	}
 	return hash;
 }
-
-
 #undef SI__FNV_OFFSET
 #undef SI__FNV_PRIME
 
+#endif
+
+
+
 
 siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize keyLen,
-		const rawptr dataArray, usize sizeofElement, usize len) {
+		const rawptr* dataArray, usize len) {
 	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_NOT_NULL(keyArray);
 	SI_ASSERT_NOT_NULL(dataArray);
@@ -5002,10 +5012,8 @@ siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize k
 	siArrayHeader* arrayHeader = SI_ARRAY_HEADER(table);
 	arrayHeader->len = len;
 
-	siByte* ptr = (siByte*)dataArray;
 	for_range (i, 0, len) {
-		si_hashtableSet(table, alloc, keyArray[i], keyLen, ptr);
-		ptr += sizeofElement;
+		si_hashtableSet(table, keyArray[i], keyLen, dataArray[i], nil);
 	}
 
 	return table;
@@ -5013,8 +5021,22 @@ siHashTable si_hashtableMake(siAllocator* alloc, const rawptr* keyArray, usize k
 
 SIDEF
 siHashTable si_hashtableMakeReserve(siAllocator* alloc, usize capacity) {
+	SI_ASSERT(capacity != 0);
+	/* NOTE(EimaMei): A power of 2 capacity is enforced so that truncating a hash
+	 * into a valid index would only require a 'hash & (capacity - 1)', which
+	 * basically takes no time in comparison to the usual modulo operator. */
+	SI_ASSERT_MSG((capacity & (capacity - 1)) == 0, "The specified capacity must be a power of 2 number (8, 64, 512, 1024, etc).");
+
 	siHashTable table = si_arrayMakeReserve(alloc, sizeof(siHashEntry), capacity);
-	memset(table, 0, capacity * sizeof(siHashEntry));
+	siHashEntry entry;
+	entry.key = 0;
+	entry.value = nil;
+	for_range (i, 0, capacity - 1) {
+		entry.next = 0;
+		table[i] = entry;
+	}
+	entry.next = 0;
+	table[capacity] = entry;
 
 	return table;
 }
@@ -5026,58 +5048,76 @@ rawptr si_hashtableGet(const siHashTable ht, rawptr key, usize keyLen) {
 	SI_STOPIF(si_arrayLen(ht) == 0, return nil);
 
 	u64 hash = si__hashKey(key, keyLen);
-	usize index = (usize)(hash % (si_arrayCapacity(ht) - 1));
+	return si_hashtableGetWithHash(ht, hash);
+}
+SIDEF
+rawptr si_hashtableGetWithHash(const siHashTable ht, u64 hash) {
+	SI_ASSERT_NOT_NULL(ht);
+
+	siArrayHeader* header = SI_ARRAY_HEADER(ht);
+	usize index = hash & (header->capacity - 1);
 
 	siHashEntry* entry = &ht[index];
-	siHashEntry* original = entry;
-	siHashEntry* end = &ht[si_arrayCapacity(ht)];
-	do {
-		SI_STOPIF(entry->key == nil, goto increment_entry);
-		// TODO(EimaMei): Have a usize in the structure that would point to the next valid one?
+	goto skip; /* NOTE(EimaMei):	We skip the 'entry->next' line so that the
+									first entry can get checked. */
 
-		if (*(siByte*)key == *entry->key && memcmp((siByte*)key + 1, entry->key + 1, keyLen - 1) == 0) {
+	while (entry->next != 0) {
+		entry = entry->next;
+skip:
+		if (hash == entry->key) {
 			return entry->value;
 		}
-
-increment_entry:
-		entry += 1;
-		if (entry == end) {
-			entry = ht;
-		}
-	} while (entry != original);
+	}
 
 	return nil;
 }
-siHashEntry* si_hashtableSet(siHashTable ht, siAllocator* alloc, const rawptr key,
-		usize keyLen, const rawptr valuePtr) {
+siHashEntry* si_hashtableSet(siHashTable ht, const rawptr key, usize keyLen,
+		const rawptr valuePtr, b32* outSuccess) {
 	SI_ASSERT_NOT_NULL(ht);
 	SI_ASSERT_NOT_NULL(key);
 	SI_ASSERT(keyLen != 0);
 
+	u64 hash = si__hashKey(key, keyLen);
+	return si_hashtableSetWithHash(ht, hash, valuePtr, outSuccess);
+}
+SIDEF
+siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr,
+		b32* outSuccess) {
+	SI_ASSERT_NOT_NULL(ht);
+
 	siArrayHeader* header = SI_ARRAY_HEADER(ht);
 	SI_ASSERT_MSG(header->len < header->capacity, "The capacity of the hashtable has been surpassed.");
 
-	u64 hash = si__hashKey(key, keyLen);
-	usize index = hash % (header->capacity - 1);
-
+	usize index = hash & (header->capacity - 1);
 	siHashEntry* entry = &ht[index];
-	siHashEntry* end = &ht[header->capacity];
+	siHashEntry* original = entry;
 
-	while (entry->key != nil) {
-		if (*(siByte*)key == *entry->key && memcmp((siByte*)key + 1, entry->key + 1, keyLen - 1) == 0) {
-			return &ht[index];
+	while (entry->key != 0) {
+		if (hash == entry->key) {
+			SI_STOPIF(outSuccess != nil, *outSuccess = false);
+#if !defined(SI_NO_HASH_OVERWRITE)
+			entry->value = valuePtr;
+#endif
+			return entry;
 		}
 
-		entry += 1;
-		SI_STOPIF(entry == end, entry = &ht[0]);
+		entry = entry->next ? entry->next : (entry + 1);
 	}
-	entry->key = si_mallocArray(alloc, siByte, keyLen);
-	memcpy(entry->key, key, keyLen);
+	SI_ASSERT(entry->key == 0);
+
+	entry->key = hash;
 	entry->value = valuePtr;
 
+	if (entry != original) {
+		while (original->next != 0) { original = original->next; }
+		original->next = entry;
+	}
+	SI_STOPIF(outSuccess != nil, *outSuccess = true);
+
 	header->len += 1;
-	return &ht[index];
+	return entry;
 }
+
 #endif
 
 #if defined(SI_IMPLEMENTATION_IO) && !defined(SI_NO_IO)
@@ -5342,7 +5382,7 @@ b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
 #if !defined(SI_SYSTEM_WINDOWS)
 force_inline
 i32 si__unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* ftwbuf) {
-    return remove(path);
+	return remove(path);
 	SI_UNUSED(sb); SI_UNUSED(typeflag); SI_UNUSED(ftwbuf);
 }
 #endif
@@ -6618,7 +6658,8 @@ SI_GOTO_LABEL(GOTO_PRINT_SWITCH)
 				cstring beforeAlt = fmtPtr;
 				do {
 					SI_SET_FMT_PTR(x, fmtPtr);
-				} while (x == 'l' || si_charIsDigit(x) || x == '.' || x == '*');
+				}
+				while (x == 'l' || si_charIsDigit(x) || x == '.' || x == '*');
 
 				char altForm[2];
 				altForm[0] = '0';
@@ -6626,7 +6667,7 @@ SI_GOTO_LABEL(GOTO_PRINT_SWITCH)
 
 				SI_STR_CPY(altForm, 2, remainingLen, buffer, bufIndex);
 
-				fmtPtr = beforeAlt;
+				fmtPtr = beforeAlt + 1;
 				x = *beforeAlt;
 
 				goto GOTO_PRINT_SWITCH;
@@ -7361,7 +7402,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 }
 #endif
 
-#endif /* SI_IMPLEMENTATION */
+#endif /* SI_INCLUDE_SI_H */
 
 #if defined(SI_NO_ASSERTIONS_IN_HEADER) && !defined(SI_NO_ASSERTIONS)
 	#undef SI_ASSERT
@@ -7375,7 +7416,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 	/* condition - EXPRESSION | message - cstring
 	 * Crashes the app with a message if the condition is not met. */
 	#define SI_ASSERT_MSG(condition, message) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, "")
-	/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC ARGUMENTS
+	/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC
 	 * Crashes the app with a formatted message if the condition is not met. */
 	#define SI_ASSERT_FMT(condition, message, ...) si_assertEx(condition, #condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__)
 	/* ptr - rawptr

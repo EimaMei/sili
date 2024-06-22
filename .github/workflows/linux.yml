@@ -16,4 +16,7 @@ jobs:
     - name: apt
       run: sudo apt-get install libxcursor-dev
     - name: make
-      run: make compile_examples
+      run: |
+        make compile_examples
+        make SRC=tests/general.c
+

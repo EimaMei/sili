@@ -4,7 +4,7 @@ OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = examples/array.c
+SRC = tests/general.c
 FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"

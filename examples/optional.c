@@ -3,7 +3,7 @@
 
 
 siOptionalRet(cstring) create(siAllocator* alloc, b32 value) {
- 	return (value ? si_optionalMake(alloc, &"Godzilla") : SI_OPTIONAL_NULL(alloc));
+ 	return (value ? si_optionalMake(alloc, &"Godzilla") : SI_OPTIONAL_NULL);
 }
 
 typedef SI_ENUM(usize, siType) {
@@ -28,7 +28,7 @@ siOptionalRet(ANY) createOptional(siAllocator* alloc, siType type) {
 
 	switch (type) {
 		case SI_TYPE_NULL:
-			res = SI_OPTIONAL_NULL(alloc);
+			res = SI_OPTIONAL_NULL;
 			break;
 		case SI_TYPE_I32:
 			res = si_optionalMake(alloc, INT32_MIN);
