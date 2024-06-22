@@ -1241,7 +1241,7 @@ usize si_allocatorAvailable(siAllocator* alloc);
 rawptr si_allocatorCurPtr(siAllocator* alloc);
 
 /* Resizes the amount of available bytes from the allocator. */
-void si_allocatorResize(siAllocator* alloc, usize newSize);
+void si_allocatorResize(siAllocator** alloc, usize newSize);
 /* Resets the allocator to start from the beginning. */
 void si_allocatorReset(siAllocator* alloc);
 /* Resets the allocator to the given offset. */
@@ -3035,15 +3035,17 @@ void si_allocatorFree(siAllocator* alloc) {
 }
 
 SIDEF
-void si_allocatorResize(siAllocator* alloc, usize newSize) {
+void si_allocatorResize(siAllocator** alloc, usize newSize) {
 	SI_ASSERT_NOT_NULL(alloc);
 
-	alloc = (siAllocator*)realloc(alloc, sizeof(siAllocator) + newSize);
+	siAllocator* newAlloc = (siAllocator*)realloc(*alloc, sizeof(siAllocator) + newSize);
 	SI_ASSERT_NOT_NULL(alloc);
 
-	alloc->ptr = (siByte*)(alloc + 1);
-	alloc->maxLen = newSize;
-	alloc->offset = 0;
+	newAlloc->ptr = (siByte*)(newAlloc + 1);
+	newAlloc->maxLen = newSize;
+	newAlloc->offset = 0;
+
+	*alloc = newAlloc;
 }
 
 SIDEF

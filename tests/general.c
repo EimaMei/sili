@@ -80,9 +80,8 @@ int main(void) {
 		SI_ASSERT(alloc->offset == 0);
 		SI_ASSERT(alloc->maxLen == SI_MEGA(1));
 
-		si_allocatorResize(alloc, SI_KILO(1));
-		si_printf("%i\n", alloc->maxLen);
-		//SI_ASSERT(alloc->maxLen == SI_KILO(1));
+		si_allocatorResize(&alloc, SI_KILO(1));
+		SI_ASSERT(alloc->maxLen == SI_KILO(1));
 
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
