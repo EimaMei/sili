@@ -18,7 +18,8 @@ int main(void) {
 		SI_ASSERT(nil == (void*)0);
 
 		isize m = si_transmuteEx(isize, USIZE_MAX, usize);
-		SI_ASSERT(m == -1);
+		si_printf("%lli\n", m);
+		SI_ASSERT(m == (isize)-1);
 
 		u32 value;
 		if (SI_LIKELY(SI_HOST_IS_LITTLE_ENDIAN)) {
