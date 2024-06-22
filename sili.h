@@ -235,13 +235,19 @@ extern "C" {
 
 #elif defined(_M_PPC) || defined(__powerpc__) || defined(__powerpc64__) || defined(_ARCH_PPC) || defined(__ppc64__)
 	#define SI_CPU_PPC 1
-	#define SI_CPU_PPC64 (__powerpc64__ || __ppc64__)
 	#define SI_CACHE_LINE_SIZE 128
+
+	#if defined (__powerpc64__ || __ppc64__)
+		#define SI_CPU_PPC64  1
+	#endif
 
 #elif defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(_ARM) || defined(_M_ARM) || defined(__arm) || defined(__aarch64__)
 	#define SI_CPU_ARM 1
-	#define SI_CPU_ARM64 __aarch64__
 	#define SI_CACHE_LINE_SIZE 64
+
+	#if defined(__aarch64__)
+		#define SI_CPU_ARM64 1
+	#endif
 
 #elif defined(__mips__) || defined(__mips) || defined(__MIPSEL__) || defined(__mips_isa_rev)
 	#define SI_CPU_MIPS 1
@@ -335,7 +341,7 @@ extern "C" {
 #endif
 
 
-#if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(__powerpc64__) || defined(__ppc64__)
+#if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(__64BIT__) || defined(SI_CPU_ARM64) || defined(SI_CPU_PPC64)
 	#define SI_ARCH_64_BIT 1
 #else
 	#define SI_ARCH_32_BIT 1
