@@ -36,7 +36,7 @@ int main(void) {
 
 		SI_ASSERT(countof((i32[]){2, 4, 8}) == 3);
 		SI_ASSERT(si_offsetof(randomStruct, three) == 12);
-		SI_ASSERT(alignof(randomStruct) == 8);
+		SI_ASSERT(si_alignof(randomStruct) == 8);
 
 		char* buf1 = si_buf(char, 'Q', 'W', 'E', 'R', 'T', 'Y', '\0');
 		SI_ASSERT(si_isNil(buf1[0]) == false && si_isNil(buf1[6]));
@@ -80,6 +80,9 @@ int main(void) {
 		SI_ASSERT(alloc->offset == 0);
 		SI_ASSERT(alloc->maxLen == SI_MEGA(1));
 
+		si_allocatorResize(alloc, SI_KILO(1));
+		SI_ASSERT(alloc->maxLen == SI_KILO(1));
+
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
 		SI_ASSERT(tmp.ptr == (siByte*)x);
@@ -91,9 +94,16 @@ int main(void) {
 		si_allocatorResetFrom(alloc, 444);
 		SI_ASSERT(alloc->offset == 444);
 
-		si_allocatorPush(&tmp, 'Q');
-		si_allocatorPush(&tmp, 'W');
-		SI_ASSERT(tmp.ptr[0] == 'Q' && tmp.ptr[1] == 'W');
+		siAllocator* stack = si_allocatorMakeStack(32);
+		si_allocatorPush(stack, 'Q');
+		si_allocatorPush(stack, 'W');
+		SI_ASSERT(stack->ptr[0] == 'Q' && stack->ptr[1] == 'W');
+		SI_ASSERT(si_allocatorCurPtr(stack) == &stack->ptr[2]);
+
+		usize oldAmount = stack->offset;
+		si_allocatorResetSub(stack, 2);
+		SI_ASSERT(stack->offset == oldAmount - 2);
+
 
 		si_allocatorFree(alloc);
 	}
@@ -113,6 +123,7 @@ int main(void) {
 		SI_ASSERT(alloc1->one == alloc3->one && SI_TO_U64(&alloc1->two) == SI_TO_U64(&alloc3->two));
 
 		si_allocatorFree(allocator);
+		SI_UNUSED(alloc2);
 	}
 
 	{
@@ -133,11 +144,28 @@ int main(void) {
 			   r2 = SI_RECT_A(4, 4, area),
 			   r3 = SI_RECT_P(p1, 2, 3),
 			   r4 = SI_RECT_PA(SI_POINT(0, 1), area);
+		SI_UNUSED(r1), SI_UNUSED(r2), SI_UNUSED(r3), SI_UNUSED(r4);
 
 		siVec2 v2 = SI_VEC2(2, 2);
 		si_vec2Sub(&v2, SI_VEC2(-2, -2));
 		SI_ASSERT(v2.x == 4 && v2.y == 4);
 		si_vec2Add(&v2, SI_VEC2(-2, -2));
 		SI_ASSERT(v2.x == 2 && v2.y == 2);
+
+	}
+
+	{
+		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+
+		siOptional(u64) opt = si_optionalMake(stack, 19920216ULL);
+		SI_ASSERT(opt->hasValue && opt->value == 19920216ULL);
+
+		si_optionalReset(opt);
+		SI_ASSERT(opt->value == 0 && opt->hasValue == false);
+
+		opt = SI_OPTIONAL_NULL;
+
+		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
+		SI_ASSERT(res == UINT64_MAX);
 	}
 }
