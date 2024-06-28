@@ -1,11 +1,10 @@
 CC = gcc
-#x86_64-w64-mingw32-gcc
 OUTPUT = build
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
 
-SRC = tests/general.c
-FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
+SRC = examples/benchmarking.c
+FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
 LIBS = -L"lib"
 INCLUDE = -I"." -I"include"
 
@@ -34,6 +33,10 @@ asm:
 # Compiles and runs every example.
 compile_examples:
 	@for f in $(shell ls examples/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+
+# Compiles and runs every test.
+compile_tests:
+	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 
 # If 'build' doesn't exist, create it

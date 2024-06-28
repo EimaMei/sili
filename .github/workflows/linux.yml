@@ -18,5 +18,5 @@ jobs:
     - name: make
       run: |
         make compile_examples
-        make SRC=tests/general.c
+        make compile_tests
 
