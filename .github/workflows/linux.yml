@@ -72,8 +72,8 @@ jobs:
     - name: Generate Artifacts
       run: |
         cp -v ./sili.h ./build/${{ env.RELEASE_NAME }}/include
-        cp -v ./libsili.a ./build/${{ env.RELEASE_NAME }}/lib
-        cp -v ./libsili.so ./build/${{ env.RELEASE_NAME }}/lib
+        cp -v ./build/libsili.a ./build/${{ env.RELEASE_NAME }}/lib
+        cp -v ./build/libsili.so ./build/${{ env.RELEASE_NAME }}/lib
         cp -v ./README.md ./build/${{ env.RELEASE_NAME }}/README.md
         cp -v ./LICENSE ./build/${{ env.RELEASE_NAME }}/LICENSE
         cd build
