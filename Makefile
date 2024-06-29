@@ -25,7 +25,7 @@ static:
 
 dynamic:
 	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) -fPIC $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
-	$(CC) $(FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/$(DYNAMIC_NAME)
+	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/$(DYNAMIC_NAME)
 
 
 # Run the exe.
