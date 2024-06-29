@@ -2,9 +2,13 @@ CC = clang
 AR = ar
 OUTPUT = build
 
-FLAGS = -O3 -flto -Wl,-allow-multiple-definition -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+FLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+EXTRA_FLAGS = 
 LIBS =
 INCLUDE = -I"." -I"include"
+
+STATIC_NAME = libsili.a
+DYNAMIC_NAME = libsili.so
 
 # For testing
 NAME = test
@@ -16,12 +20,12 @@ all: $(OUTPUT) $(EXE) run
 
 # 'make static'
 static:
-	$(CC) -x c $(FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
-	$(AR) rcs $(OUTPUT)/libsili.a $(OUTPUT)/sili.o
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
+	$(AR) rcs $(OUTPUT)/$(STATIC_NAME) $(OUTPUT)/sili.o
 
 dynamic:
-	$(CC) -x c $(FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
-	$(CC) $(FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/libsili.so
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
+	$(CC) $(FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/$(DYNAMIC_NAME)
 
 
 # Run the exe.

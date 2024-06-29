@@ -6608,6 +6608,16 @@ isize si_snprintfVa(char* buffer, usize capacity, cstring fmt, va_list va) {
 		(info)->strLen = countof("\33[0;" code "m") - 1; \
 		si__printStrCpy(info)
 
+	#define SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint) \
+		do { \
+			if (afterPointIsSet) { \
+				SI_STOPIF(afterPoint == 0, break); \
+				info.padLetter = '0'; \
+				info.padSize = afterPoint; \
+			} \
+		} while (0)
+
+
 
 	info.capacity -= 1; /* NOTE(EimaMei): To ensure we have enough space for the NULL-terminator. */
 	while (info.index < info.capacity) {
@@ -6819,6 +6829,7 @@ GOTO_PADCALC_SWITCH:
 					vaValue.U32 = (u8)va_arg(va, u32);
 					fmtPtr += 1;
 				}
+				SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint);
 
 				if (*fmtPtr == 'u') {
 					info.str = si_u64ToCstrEx(stack, vaValue.U32, 10, &info.strLen);
@@ -6833,6 +6844,7 @@ GOTO_PADCALC_SWITCH:
 			}
 			case 't': case 'z': {
 				vaValue.USIZE = va_arg(va, usize);
+				SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint);
 
 				if (*fmtPtr == 'u') {
 					info.str = si_u64ToCstrEx(stack, vaValue.USIZE, 10, &info.strLen);
@@ -6847,26 +6859,23 @@ GOTO_PADCALC_SWITCH:
 			}
 			case 'j': {
 				vaValue.U64 = va_arg(va, u64);
-				info.str = si_i64ToCstrEx(stack, vaValue.U64, 10, &info.strLen);
+				SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint);
 
+				info.str = si_i64ToCstrEx(stack, vaValue.U64, 10, &info.strLen);
 				si__printStrToBuf(&info);
 				break;
 			}
 			case 'u': {
 				vaValue.U64 = (argIsLong) ? va_arg(va, u64) : va_arg(va, u32);
-				info.str = si_i64ToCstrEx(stack, vaValue.U64, 10, &info.strLen);
+				SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint);
 
+				info.str = si_i64ToCstrEx(stack, vaValue.U64, 10, &info.strLen);
 				si__printStrToBuf(&info);
 				break;
 			}
 			case 'i': case 'd': {
 				vaValue.I64 = (argIsLong) ? va_arg(va, i64) : va_arg(va, i32);
-
-				if (afterPointIsSet) {
-					SI_STOPIF(afterPoint == 0, break);
-					info.padLetter = '0';
-					info.padSize = afterPoint;
-				}
+				SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint);
 
 				info.str = si_i64ToCstrEx(stack, vaValue.I64, 10, &info.strLen);
 				si__printStrToBuf(&info);
