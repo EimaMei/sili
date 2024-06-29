@@ -63,18 +63,13 @@ jobs:
         cd ../../../sili
         # ${{ matrix.ARCH }}-linux-gnu-gcc -v
       
-    steps:
-    - uses: actions/checkout@v3
     - name: Tests
       run: |
         make compile_tests
 
-    steps:
-    - uses: actions/checkout@v3
     - name: Examples
       run: |
         make compile_examples
-
 
     - name: Build Library
       run: |

@@ -48,9 +48,15 @@ jobs:
         mkdir include
         mkdir lib
         cd ../..
-   
-    # Generating static + shared library, note that i386 architecture is deprecated
-    # Defining GL_SILENCE_DEPRECATION because OpenGL is deprecated on macOS
+      
+    - name: Tests
+      run: |
+        make compile_tests
+
+    - name: Examples
+      run: |
+        make compile_examples
+
     - name: Build Library
       run: |
         clang --version
