@@ -67,6 +67,7 @@ jobs:
         # Build sili x86_64 & arm64 static
         make static OUTPUT="/tmp" EXTRA_FLAGS="-target x86_64-apple-macos10.12" STATIC_NAME="libsili_x86_64.a"
         make static OUTPUT="/tmp" EXTRA_FLAGS="-target arm64-apple-macos11" STATIC_NAME="libsili_arm64.a"
+        rm -f sili.o
         
         # Join x86_64 and arm64 static
         lipo -create -output build/${{ env.RELEASE_NAME }}/lib/libsili.a /tmp/libsili_x86_64.a /tmp/libsili_arm64.a
