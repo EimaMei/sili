@@ -10,6 +10,7 @@ sili.h - a cross-platform standard library for modern C99 programming
 	- All other files should just include the library without the #define macro.
 
 	- If you want to disable certain features, you can do:
+		- #define SI_NO_GENERAL
 		- #define SI_NO_OPTIONAL
 		- #define SI_NO_ARRAY
 		- #define SI_NO_STRING
@@ -137,7 +138,11 @@ extern "C" {
 #endif
 
 #ifndef SIDEF
-#define SIDEF
+	#ifdef SI_STATIC
+		#define SIDEF static
+	#else
+		#define SIDEF extern
+	#endif
 #endif
 
 #if defined(_WIN32) || defined(_WIN64) || (defined(__CYGWIN__) && !defined(_WIN32))
@@ -269,11 +274,16 @@ extern "C" {
 	#define SI_CACHE_LINE_SIZE 0
 #endif
 
-#if 1
-	#define SI_STATIC_ASSERT2(condition, msg)  typedef char si_static_assertion_##msg[(!!(condition)) * 2 - 1]
-	#define SI_STATIC_ASSERT1(condition, line) SI_STATIC_ASSERT2(condition, line)
+
+#if defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C11
+	#define SI_STATIC_ASSERT(condition) _Static_assert(condition)
+#elif defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
+	#define SI_STATIC_ASSERT(condiion) static_assert(condition)
+#else
+	#define SI_STATIC_ASSERT(expr) \
+		extern int (*__Static_assert_function (void)) \
+		[!!sizeof (struct { int __error_if_negative: (expr) ? 2 : -1; })]
 #endif
-#define SI_STATIC_ASSERT(cond) SI_STATIC_ASSERT1(cond, __LINE__)
 
 
 #if defined(SI_SYSTEM_WINDOWS)
@@ -609,11 +619,6 @@ typedef struct {
 	========================
 */
 
-/* Output is successful. */
-#define SI_OKAY  (0)
-/* Output is unsuccessful. */
-#define SI_ERROR (-1)
-
 /* x - INT.
  * Converts kilobytes into bytes. */
 #define SI_KILO(x) ((usize)(x) * 1024)
@@ -637,24 +642,6 @@ typedef struct {
 #endif
 
 SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
-
-/*
-	========================
-	| Builtin functions    |
-	========================
-*/
-#if !defined(__has_builtin)
-	#define __has_builtin(x) 0
-#endif
-
-#if __has_builtin(__builtin_unreachable)
-	/* Notifies the compiler that this part of the code cannot be reached. */
-	#define SI_BUILTIN_UNREACHABLE() __builtin_unreachable()
-#else
-	/* Notifies the compiler that this part of the code cannot be reached. */
-	#define SI_BUILTIN_UNREACHABLE() SI_PANIC()
-#endif
-
 
 /*
 	========================
@@ -702,10 +689,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* ptr - rawptr
  * Converts the pointer's value into an u64. */
 #define SI_TO_U64(ptr) (*si_transmuteEx(u64*, (const rawptr)(ptr), const rawptr))
-/* ptr - rawptr | bytes - usize
- * Converts the pointer's value into an u64 containing specified amount of bytes
- * from it. Maximum byte count is 8. */
-#define SI_TO_UBYTE(ptr, bytes) si_u64FromPtr(ptr, bytes)
 
 
 /*
@@ -801,11 +784,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* type - TYPE | ...VALUES - <EXPRESSION>, [EXPRESSION] ...
  * Declares a static buffer. */
 #define si_buf(type, .../* VALUES */) (type[]){__VA_ARGS__}
-/* Pauses the thread and waits for the user to press enter in the terminal. */
-#define si_pause() do { si_print("Press any key to continue..."); getchar(); } while(0)
-/* x - EXPRESSION
- * Checks if value is nil/zero. */
-#define si_isNil(x) ((x) == 0)
 
 #if defined(SI_TYPEOF_USED)
 /* a - VARIABLE | b - VARIABLE
@@ -970,15 +948,11 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 /* ptr - rawptr
  * Crashes the app if a pointer is NULL. */
 #define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
-/* path - cstring
- * Crashes the app if the provided path doesn't exist. */
-#define SI_ASSERT_PATH_EXISTS(path) SI_ASSERT_FMT(si_pathExists(path), "Path '%s' doesn't exist.", path)
 #else
 #define SI_ASSERT(condition) do { } while(0)
 #define SI_ASSERT_MSG(condition, message) do {} while(0)
 #define SI_ASSERT_FMT(condition, message, ...) do {} while(0)
 #define SI_ASSERT_NOT_NULL(ptr) do { SI_UNUSED(ptr); } while(0)
-#define SI_ASSERT_PATH_EXISTS(path) do {} while(0)
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
 
 /* Crashes the app immediately. */
@@ -1134,11 +1108,6 @@ typedef struct { f32 x, y, z, w; } siVec4;
 /* vec1 - siVec2 | vec2 - siVec2
  * Macro to define a 4D vector from two 2D vectors. */
 #define SI_VEC4_2V(vec1, vec2) SI_VEC4((vec1).x, (vec1).y, (vec2).x, (vec2).y)
-
-/* A struct containing 4 floats used for coordinates */
-typedef struct { f32 x1, x2, y1, y2; } siCoordsF32;
-/* A struct containing 4 u32s used for coordinates */
-typedef struct { u32 x1, x2, y1, y2; } siCoordsU32;
 
 
 #ifndef SI_MAX_PATH_LEN
@@ -1307,8 +1276,7 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
 /* type - TYPE
  * Denotes a 'siOptional' type. */
 #define siOptional(type) struct { b32 hasValue; type value; }*
-siIntern
-struct { b32 hasValue; } si__null = {0};
+siIntern struct { b32 hasValue; } si__null = {0};
 /* A fully empty 'siOptional' variable. */
 const rawptr SI_OPTIONAL_NULL = (const rawptr)&si__null;
 
@@ -2380,32 +2348,6 @@ void si_threadPrioritySet(siThread t, i32 priority);
 	========================
 */
 
-typedef SI_ENUM(u32, siMonth) {
-	siJanuary = 1,
-	siFebruary,
-	siMarch,
-	siApril,
-	siMay,
-	siJune,
-	siJuly,
-	siAugust,
-	siSeptember,
-	siOctober,
-	siNovember,
-	siDecember
-};
-
-/* NOTE(EimaMei): This uses the ISO-8601 standard. */
-typedef SI_ENUM(i32, siWeek) {
-	Monday,
-	Tuesday,
-	Wednesday,
-	Thursday,
-	Friday,
-	Saturday,
-	Sunday
-};
-
 /* How many clocks of 'si_clock()' are equivalent to a second (1s = 1e+9 ns). */
 #define SI_CLOCKS_PER_SECOND (1000000000)
 /* How many clocks of 'si_clock()' are equivalent to a milisecond (1ms = 1e+6 ns). */
@@ -2750,86 +2692,20 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name);
 #define SI_TO_RADIANS(degrees) ((degrees) * SI_PI / 180.0f)
 #define SI_TO_DEGREES(radians) ((radians) * 180.0f / SI_PI)
 
-#if 1 /* Declaration macros. Can be ignored. */
-#define SI_MATH_FUNC_DECLARE_ARG2(name, param1, param2) \
-	i8  name ## I8  (i8  param1, i8  param2); \
-	i16 name ## I16 (i16 param1, i16 param2); \
-	i32 name ## I32 (i32 param1, i32 param2); \
-	i64 name ## I64 (i64 param1, i64 param2); \
-	\
-	u8  name ## U8  (u8  param1, u8  param2); \
-	u16 name ## U16 (u16 param1, u16 param2); \
-	u32 name ## U32 (u32 param1, u32 param2); \
-	u64 name ## U64 (u64 param1, u64 param2); \
-	\
-	f32 name ## F32 (f32 param1, f32 param2); \
-	f64 name ## F64 (f64 param1, f64 param2);
-#define SI_MATH_FUNC_DECLARE_ARG3(name, param1, param2, param3) \
-	i8  name ## I8  (i8  param1, i8  param2, i8  param3); \
-	i16 name ## I16 (i16 param1, i16 param2, i16 param3); \
-	i32 name ## I32 (i32 param1, i32 param2, i32 param3); \
-	i64 name ## I64 (i64 param1, i64 param2, i64 param3); \
-	\
-	u8  name ## U8  (u8  param1, u8  param2, u8  param3); \
-	u16 name ## U16 (u16 param1, u16 param2, u16 param3); \
-	u32 name ## U32 (u32 param1, u32 param2, u32 param3); \
-	u64 name ## U64 (u64 param1, u64 param2, u64 param3); \
-	\
-	f32 name ## F32 (f32 param1, f32 param2, f32 param3); \
-	f64 name ## F64 (f64 param1, f64 param2, f64 param3);
 
-#define SI_MATH_FUNC_AUTOTYPING_ARG2_INT(func, type, a, b) \
-	(\
-	 sizeof(a) == 1 ? func ##  8( (type##8)(a),  (type##8)(b)) : \
-	 sizeof(a) == 2 ? func ## 16((type##16)(a), (type##16)(b)) : \
-	 sizeof(a) == 4 ? func ## 32((type##32)(a), (type##32)(b)) : \
-	 func ## 64((type##64)(a), (type##64)(b)) \
-	)
-#define SI_MATH_FUNC_AUTOTYPING_ARG2_FLOAT(func, a, b) \
-	((sizeof(4) == 1) ? func ## 32((f32)(a), (f32)(b)) : func ## 64((f64)(a), (f64)(b)))
-#define SI_MATH_FUNC_AUTOTYPING_ARG3_INT(func, a, b, c) \
-	(\
-	 sizeof(a) == 1 ? func ##  8( (type##8)(a),  (type##8)(b),  (type##8)(c)) : \
-	 sizeof(a) == 2 ? func ## 16((type##16)(a), (type##16)(b), (type##16)(c)) : \
-	 sizeof(a) == 4 ? func ## 32((type##32)(a), (type##32)(b), (type##32)(c)) : \
-	 func ## 64((type##64)(a), (type##64)(b), (type##64)(c)) \
-	)
-#define SI_MATH_FUNC_AUTOTYPING_ARG3_FLOAT(func, a, b) \
-	((sizeof(4) == 1) ? func ## 32((f32)(a), (f32)(b), (f32)(c)) : func ## 64((f64)(a), (f64)(b), (f64)(c)))
+/* Returns the smallest of its arguments: either a or b.*/
+#define si_min(a, b) ((a) < (b) ? (a) : (b))
+/* Returns the smallest of its arguments: either a, b or c.*/
+#define si_min3(a, b, c) si_min(si_min(a, b), c)
 
-
-#endif /* 1 */
-
-/* Returns the smaller of its arguments: either a or b.*/
-SI_MATH_FUNC_DECLARE_ARG2(si_min, a, b)
-#define si_min(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_INT(si_minI, i, a, b)
-#define si_minu(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_INT(si_minU, u, a, b)
-#define si_minf(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_FLOAT(si_minF, a, b)
-/* Returns the smaller of its arguments: either a, b or c.*/
-SI_MATH_FUNC_DECLARE_ARG3(si_min3, a, b, c)
-#define si_min3(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_min3I, i, a, b, c)
-#define si_min3u(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_min3U, u, a, b, c)
-#define si_min3f(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_FLOAT(si_minF, a, b, c)
-
-
-/* Returns the larger of its arguments: either a or b.*/
-SI_MATH_FUNC_DECLARE_ARG2(si_max, a , b)
-#define si_max(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_INT(si_maxI, i, a, b)
-#define si_maxu(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_INT(si_maxU, u, a, b)
-#define si_maxf(a, b) SI_MATH_FUNC_AUTOTYPING_ARG2_FLOAT(si_maxF, a, b)
-/* Returns the smaller of its arguments: either a, b or c.*/
-SI_MATH_FUNC_DECLARE_ARG3(si_max3, a, b, c)
-#define si_max3(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_max3I, i, a, b, c)
-#define si_max3u(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_max3U, u, a, b, c)
-#define si_max3f(a, b, c) SI_MATH_FUNC_AUTOTYPING_ARG3_FLOAT(si_maxF, a, b, c)
+/* Returns the largest of its arguments: either a or b.*/
+#define si_max(a, b) ((a) > (b) ? (a) : (b))
+/* Returns the largest of its arguments: either a, b or c.*/
+#define si_max3(a, b, c) si_max(si_max(a, b), c)
 
 /* Returns 'lower' if x is lower than it, 'upper' if x is upper than it or itself
  * if neither. */
-SI_MATH_FUNC_DECLARE_ARG3(si_clamp, x, lower, upper)
-#define si_clamp(x, lower, upper) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_clampI, i, x, lower, upper)
-#define si_clampu(x, lower, upper) SI_MATH_FUNC_AUTOTYPING_ARG3_INT(si_clampU, u, x, lower, upper)
-#define si_clampf(x, lower, upper) SI_MATH_FUNC_AUTOTYPING_ARG3_FLOAT(si_clampF, x, lower, upper)
-
+#define si_clamp(x, lower, upper) si_min(upper, si_max(x, lower))
 
 /* Returns the absolute value of 'x'. */
 i64 si_abs(i64 x);
@@ -3044,7 +2920,7 @@ void si_intern_benchmarkThread(u32* arg);
 #endif
 
 
-#if defined(SI_IMPLEMENTATION_GENERAL)
+#if defined(SI_IMPLEMENTATION_GENERAL) && !defined(SI_NO_GENERAL)
 
 SIDEF
 usize si_alignCeil(usize n) {
@@ -3517,7 +3393,7 @@ isize si_intern_arrayRFind(rawptr array, usize start, usize end, siAny value) {
 		}
 	}
 
-	return (found ? (isize)i : SI_ERROR);
+	return (found ? (isize)i : -1);
 }
 
 SIDEF
@@ -3760,7 +3636,7 @@ b32 si_arrayEqual(rawptr lha, rawptr rha) {
 	usize width = lha_header->typeSize;
 	usize i;
 	for (i = 0; i < lha_header->len; i++) {
-		if (memcmp((siByte*)lha + i * width, (siByte*)rha + i * width, width) != SI_OKAY) {
+		if (memcmp((siByte*)lha + i * width, (siByte*)rha + i * width, width) != 0) {
 			return false;
 		}
 	}
@@ -3908,7 +3784,7 @@ SIDEF
 char si_stringAt(siString str, usize index) {
 	SI_ASSERT_NOT_NULL(str);
 	if (index > si_stringLen(str) || si_stringLen(str) == 0) {
-		return SI_ERROR;
+		return -1;
 	}
 
 	return str[index];
@@ -3918,7 +3794,7 @@ SIDEF
 char si_stringFront(siString str) {
 	SI_ASSERT_NOT_NULL(str);
 	if (si_stringLen(str) == 0) {
-		return SI_OKAY;
+		return 0;
 	}
 
 	return str[0];
@@ -3961,7 +3837,7 @@ isize si_stringFindEx(siString str, usize start, usize end, cstring cstr, usize 
 		curCount = 0;
 	}
 
-	return SI_ERROR;
+	return -1;
 }
 
 SIDEF
@@ -3987,7 +3863,7 @@ isize si_stringFindStopAtEx(siString str, usize start, usize end, cstring cstr,
 		curCount = 0;
 	}
 
-	return SI_ERROR;
+	return -1;
 }
 
 SIDEF
@@ -4009,7 +3885,7 @@ isize si_stringRFindEx(siString str, usize start, usize end, cstring cstr, usize
 		curCount = 0;
 	}
 
-	return SI_ERROR;
+	return -1;
 }
 
 SIDEF
@@ -4034,7 +3910,7 @@ isize si_stringRFindStopAtEx(siString str, usize start, usize end, cstring cstr,
 		}
 	}
 
-	return SI_ERROR;
+	return -1;
 }
 
 SIDEF
@@ -4081,7 +3957,7 @@ void si_stringReplaceEx(siString* str, cstring oldValue, usize oldLen, cstring n
 	while (true) {
 		siString curStr = *str;
 		index = si_stringFindEx(curStr, index, si_stringLen(curStr), oldValue, oldLen);
-		if (index == SI_ERROR) {
+		if (index == -1) {
 			break;
 		}
 
@@ -4225,7 +4101,7 @@ void si_stringRemoveCstr(siString str, cstring cstr) {
 	usize cstrLen = si_cstrLen(cstr);
 	while (true) {
 		isize index = si_stringRFindEx(str, header->len - 1, 0, cstr, cstrLen);
-		SI_STOPIF(index == SI_ERROR, break);
+		SI_STOPIF(index == -1, break);
 
 		usize afterIndexLen = index + cstrLen;
 
@@ -4301,7 +4177,7 @@ siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* all
 
 	while (true) {
 		isize pos = si_stringFindEx(str, beginPos, strLen, delimiter, delimiterLen);
-		if (pos == SI_ERROR) {
+		if (pos == -1) {
 			posBuffer[count] = posBuffer[count - 1];
 			count++;
 			break;
@@ -5280,7 +5156,6 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 	#endif
 #endif
 siIntern
-SIDEF
 siFileSystemError si_intern_fileGetOSError(void) {
 #if defined(SI_SYSTEM_WINDOWS)
 	switch (GetLastError()) {
@@ -5483,7 +5358,7 @@ b32 si_pathRemove(cstring path) {
 			len / 2, 0,
 			".", 1,
 			SI_PATH_SEPARATOR
-		) == SI_ERROR;
+		) == -1;
 
 		if (!isDir) {
 			return DeleteFileW(widePath);
@@ -5534,7 +5409,7 @@ b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
 			existingLen / 2, 0,
 			".", 1,
 			SI_PATH_SEPARATOR
-		) == SI_ERROR;
+		) == -1;
 
 		return CreateSymbolicLinkW(wideLink, wideExisting, isDir) != 0;
 	#else
@@ -5613,7 +5488,7 @@ cstring si_pathExtension(cstring path) {
 		".", 1,
 		SI_PATH_SEPARATOR
 	);
-	return si_cast(cstring, ((usize)path + pos + 1) * (pos != SI_ERROR));
+	return si_cast(cstring, ((usize)path + pos + 1) * (pos != -1));
 }
 
 SIDEF
@@ -5701,7 +5576,7 @@ cstring si_pathGetTmp(void) {
 
 	return tmp;
 #else
-	static cstring tmpDirsEnv[] = {"TMPDIR", "TMP", "TEMP", "TEMPDIR"};
+	cstring tmpDirsEnv[] = {"TMPDIR", "TMP", "TEMP", "TEMPDIR"};
 	for_range (i, 0, countof(tmpDirsEnv)) {
 		cstring dir = getenv(tmpDirsEnv[i]);
 		SI_STOPIF(dir != nil, return dir);
@@ -6290,14 +6165,14 @@ void si_threadStartStack(siThread* t, usize stackSize) {
 
 		cstring error_msg = nil;
 		switch (error_code) {
-			case SI_OKAY: break;
+			case 0: break;
 			case EAGAIN:  error_msg = "The system lacked the necessary resources to create another thread, or the system-imposed"
 						  "limit on the total number of threads in a process PTHREAD_THREADS_MAX would be exceeded."; break;
 			case EINVAL:  error_msg = "The value specified by attr is invalid at 'pthread_create'."; break;
 			case EPERM:   error_msg = "The caller does not have appropriate permission to set the required scheduling parameters or scheduling policy."; break;
 			default:      error_msg = "Unknown error code (%li)."; break;
 		}
-		SI_ASSERT_FMT(error_code == SI_OKAY, error_msg, error_code);
+		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
 		pthread_attr_destroy(&attr);
 	#endif
 }
@@ -6315,11 +6190,11 @@ void si_threadJoin(siThread* t) {
 
 		cstring error_msg = nil;
 		switch (error_code) {
-			case SI_OKAY: break;
+			case 0: break;
 			case EDEADLK: error_msg = "A deadlock was detected."; break;
 			default:      error_msg = "Unknown error code (%li)."; break;
 		}
-		SI_ASSERT_FMT(error_code == SI_OKAY, error_msg, error_code);
+		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
 	#endif
 
 	t->isRunning = false;
@@ -6336,11 +6211,11 @@ void si_threadCancel(siThread* t) {
 
 		cstring error_msg = nil;
 		switch (error_code) {
-			case SI_OKAY:   break;
+			case 0:   break;
 			case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
 			default:        error_msg = "Unknown error code (%li)."; break;
 		}
-		SI_ASSERT_FMT(error_code == SI_OKAY, error_msg, error_code);
+		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
 
 	#endif
 }
@@ -6361,7 +6236,7 @@ void si_threadPrioritySet(siThread t, i32 priority) {
 
 		cstring error_msg = nil;
 		switch (error_code) {
-			case SI_OKAY:  break;
+			case 0:  break;
 			case EINVAL:   error_msg = "The value of 'priority' is invalid for the scheduling policy of the specified thread."; break;
 			case ENOTSUP:  error_msg = "An attempt was made to set the priority to an unsupported value."; break;
 			case EPERM:    error_msg = "The caller does not have the appropriate permission to set the scheduling policy"
@@ -6370,7 +6245,7 @@ void si_threadPrioritySet(siThread t, i32 priority) {
 			case ESRCH:    error_msg = "The value specified by thread does not refer to an existing thread."; break;
 			default:       error_msg = "Unknown error code (%li)."; break;
 		}
-		SI_ASSERT_FMT(error_code == SI_OKAY, error_msg, error_code);
+		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
 	#else
 		SI_PANIC_MSG("si_threadPrioritySet: Not supported on MacOS.");
 		SI_UNUSED(t);
@@ -7170,59 +7045,24 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
 #if 1
 
 #define SI_MATH_FUNC_IMPLEMENT_ARG2(name, param1, param2, ...) \
-	SIDEF i8  name ## I8  (i8  param1, i8  param2) { return (i8)(__VA_ARGS__); } \
-	SIDEF i16 name ## I16 (i16 param1, i16 param2) { return (i16)(__VA_ARGS__); } \
 	SIDEF i32 name ## I32 (i32 param1, i32 param2) { return (i32)(__VA_ARGS__); } \
 	SIDEF i64 name ## I64 (i64 param1, i64 param2) { return (i64)(__VA_ARGS__); } \
-	\
-	SIDEF u8  name ## U8  (u8  param1, u8  param2) { return (u8)(__VA_ARGS__); } \
-	SIDEF u16 name ## U16 (u16 param1, u16 param2) { return (u16)(__VA_ARGS__); } \
 	SIDEF u32 name ## U32 (u32 param1, u32 param2) { return (u32)(__VA_ARGS__); } \
 	SIDEF u64 name ## U64 (u64 param1, u64 param2) { return (u64)(__VA_ARGS__); } \
-	\
 	SIDEF f32 name ## F32 (f32 param1, f32 param2) { return (f32)(__VA_ARGS__); } \
 	SIDEF f64 name ## F64 (f64 param1, f64 param2) { return (f64)(__VA_ARGS__); }
 
 #define SI_MATH_FUNC_IMPLEMENT_ARG3(name, param1, param2, param3, ...) \
-	SIDEF i8  name ## I8  (i8  param1, i8  param2,  i8 param3) { return (i8)(__VA_ARGS__); } \
-	SIDEF i16 name ## I16 (i16 param1, i16 param2, i16 param3) { return (i16)(__VA_ARGS__); } \
 	SIDEF i32 name ## I32 (i32 param1, i32 param2, i32 param3) { return (i32)(__VA_ARGS__); } \
 	SIDEF i64 name ## I64 (i64 param1, i64 param2, i64 param3) { return (i64)(__VA_ARGS__); } \
-	\
-	SIDEF u8  name ## U8  (u8  param1, u8  param2,  u8 param3) { return (u8)(__VA_ARGS__); } \
-	SIDEF u16 name ## U16 (u16 param1, u16 param2, u16 param3) { return (u16)(__VA_ARGS__); } \
 	SIDEF u32 name ## U32 (u32 param1, u32 param2, u32 param3) { return (u32)(__VA_ARGS__); } \
 	SIDEF u64 name ## U64 (u64 param1, u64 param2, u64 param3) { return (u64)(__VA_ARGS__); } \
-	\
 	SIDEF f32 name ## F32 (f32 param1, f32 param2, f32 param3) { return (f32)(__VA_ARGS__); } \
 	SIDEF f64 name ## F64 (f64 param1, f64 param2, f64 param3) { return (f64)(__VA_ARGS__); }
 
 
 #endif /* 1 */
 
-SI_MATH_FUNC_IMPLEMENT_ARG2(
-	si_min, a, b,
-	a < b ? a : b
-)
-
-SI_MATH_FUNC_IMPLEMENT_ARG3(
-	si_min3, a, b, c,
-	si_min(si_min(a, b), c)
-)
-
-SI_MATH_FUNC_IMPLEMENT_ARG2(
-	si_max, a, b,
-	a > b ? a : b
-)
-SI_MATH_FUNC_IMPLEMENT_ARG3(
-	si_max3, a, b, c,
-	si_max(si_max(a, b), c)
-)
-
-SI_MATH_FUNC_IMPLEMENT_ARG3(
-	si_clamp, x, lower, upper,
-	si_min(upper, si_max(x, lower))
-)
 
 SIDEF i64 si_abs(i64 x) { return x < 0 ? -x : x; }
 SIDEF f64 si_absF64(f64 x) { return x < 0 ? -x : x; }
@@ -7541,10 +7381,6 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 	/* ptr - rawptr
 	 * Crashes the app if a pointer is NULL. */
 	#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
-	/* path - cstring
-	 * Crashes the app if the provided path doesn't exist. */
-	#define SI_ASSERT_PATH_EXISTS(path) SI_ASSERT_FMT(si_pathExists(path), "Path '%s' doesn't exist.", path)
-
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
 
 /*

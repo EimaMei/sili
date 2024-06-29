@@ -1,20 +1,32 @@
-CC = gcc
+CC = clang
+AR = ar
 OUTPUT = build
+
+FLAGS = -O3 -flto -Wl,-allow-multiple-definition -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+LIBS =
+INCLUDE = -I"." -I"include"
+
+# For testing
 NAME = test
 EXE = $(OUTPUT)/$(NAME)
-
 SRC = examples/benchmarking.c
-FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
-LIBS = -L"lib"
-INCLUDE = -I"." -I"include"
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
 
+# 'make static'
+static:
+	$(CC) -x c $(FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
+	$(AR) rcs $(OUTPUT)/libsili.a $(OUTPUT)/sili.o
+
+dynamic:
+	$(CC) -x c $(FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
+	$(CC) $(FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/libsili.so
+
+
 # Run the exe.
 run: $(EXE)
 	./$(EXE)
-#.exe
 
 # Clean the 'build' folder.
 clean:
