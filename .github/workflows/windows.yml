@@ -1,19 +1,115 @@
-name: windows
+name: Windows
 
 on:
+  workflow_dispatch:
   push:
+    paths:
+      - '**'
+      - 'examples/**'
+      - '.github/workflows/windows.yml'
     branches: [ "main", "dev" ]
   pull_request:
+    paths:
+      - '**'
+      - 'examples/**'
+      - '.github/workflows/windows.yml'
     branches: [ "main", "dev" ]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   build:
-
+    permissions:
+      contents: write  # for actions/upload-release-asset to upload release asset
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        compiler: [mingw-w64]
+        bits: [64]
+        include:
+        - compiler: mingw-w64
+          bits: 64
+          ARCH: "x86_64"
+          WINDRES_ARCH: pe-x86-64
+
+    env:
+      RELEASE_NAME: sili-dev_win${{ matrix.bits }}_${{ matrix.compiler }}
+      GNUTARGET: default
 
     steps:
-    - uses: actions/checkout@v3
-    - name: make
+    - name: Checkout
+      uses: actions/checkout@master
+    
+    - name: Setup Release Version
+      run: |
+        echo "RELEASE_NAME=sili-${{ github.event.release.tag_name }}_win${{ matrix.bits }}_${{ matrix.compiler }}" >> $GITHUB_ENV
+      shell: bash
+      if: github.event_name == 'release' && github.event.action == 'published'
+
+    - name: Setup Environment
+      run: | 
+        dir
+        mkdir build
+        cd build
+        mkdir ${{ env.RELEASE_NAME }}
+        cd ${{ env.RELEASE_NAME }}
+        mkdir include
+        mkdir lib
+        cd ../../../sili
+
+    # Setup MSBuild.exe path if required
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+      if: matrix.compiler == 'msvc16'
+
+    - name: Tests
+      run: |
+        make compile_tests
+
+    - name: Examples
       run: |
         make compile_examples
-        make compile_tests
+
+    - name: Build Library (MinGW-w64 64bit)
+      run: |
+        ${{ matrix.ARCH }}-w64-mingw32-gcc.exe --version
+        windres.exe --version
+        dir C:\msys64\mingw64\bin
+        make static
+        make dynamic DYNAMIC_NAME="libsili.dll"
+        copy /Y .\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
+      shell: cmd
+      if: |
+        matrix.compiler == 'mingw-w64' &&
+        matrix.bits == 64
+
+    - name: Generate Artifacts
+      run: |
+        copy /Y .\sili.h .\build\${{ env.RELEASE_NAME }}\include
+        xcopy .\deps .\build\${{ env.RELEASE_NAME }}\include /E /I /Y
+        copy /Y .\libsili.a .\build\${{ env.RELEASE_NAME }}\lib
+        copy /Y .\README.md .\build\${{ env.RELEASE_NAME }}\README.md
+        copy /Y .\LICENSE .\build\${{ env.RELEASE_NAME }}\LICENSE
+        cd build
+        7z a ./${{ env.RELEASE_NAME }}.zip ./${{ env.RELEASE_NAME }}
+        dir
+      shell: cmd
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.RELEASE_NAME }}.zip
+        path: ./build/${{ env.RELEASE_NAME }}.zip
+        
+    - name: Upload Artifact to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./build/${{ env.RELEASE_NAME }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: github.event_name == 'release' && github.event.action == 'published'

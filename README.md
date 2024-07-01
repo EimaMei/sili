@@ -1,7 +1,7 @@
 # Sili
-![vm workflow linux](https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml/badge.svg)
-![vm workflow windows](https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml/badge.svg)
-![vm workflow macos](https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg)
+![VM workflow Linux](https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml/badge.svg)
+![VM workflow Windows](https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml/badge.svg)
+![VM workflow MacOS](https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg)
 
 Sili is a cross-platform standard library for modern C99 programming, providing
 many new features, improvements and fixes to the language's standard libraries,

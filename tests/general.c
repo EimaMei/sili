@@ -24,11 +24,8 @@ int main(void) {
 		if (SI_LIKELY(SI_HOST_IS_LITTLE_ENDIAN)) {
 			value = 0x44434241;
 		}
-		else if (SI_UNLIKELY(SI_HOST_IS_BIG_ENDIAN)) {
-			value = 0x41424344;
-		}
 		else {
-			SI_PANIC();
+			value = 0x41424344;
 		}
 
 		cstring str = "ABCD";
@@ -39,7 +36,7 @@ int main(void) {
 		SI_ASSERT(si_alignof(randomStruct) == 8);
 
 		char* buf1 = si_buf(char, 'Q', 'W', 'E', 'R', 'T', 'Y', '\0');
-		SI_ASSERT(si_isNil(buf1[0]) == false && si_isNil(buf1[6]));
+		SI_ASSERT(buf1[0] != '\0' && buf1[6] == '\0');
 		char* buf2 = "AZERTY";
 
 		si_swap(buf1, buf2);
@@ -155,9 +152,7 @@ int main(void) {
 	}
 
 	{
-		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
-
-		siOptional(u64) opt = si_optionalMake(stack, 19920216ULL);
+		siOptional(u64) opt = si_optionalMake(19920216ULL);
 		SI_ASSERT(opt->hasValue && opt->value == 19920216ULL);
 
 		si_optionalReset(opt);

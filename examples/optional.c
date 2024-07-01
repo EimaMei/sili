@@ -2,8 +2,8 @@
 #include <sili.h>
 
 
-siOptionalRet(cstring) create(siAllocator* alloc, b32 value) {
- 	return (value ? si_optionalMake(alloc, &"Godzilla") : SI_OPTIONAL_NULL);
+siOptionalRet(cstring) create(b32 value) {
+ 	return (value ? si_optionalMakeEx(cstring, "Godzilla") : SI_OPTIONAL_NULL);
 }
 
 typedef SI_ENUM(usize, siType) {
@@ -31,22 +31,22 @@ siOptionalRet(ANY) createOptional(siAllocator* alloc, siType type) {
 			res = SI_OPTIONAL_NULL;
 			break;
 		case SI_TYPE_I32:
-			res = si_optionalMake(alloc, INT32_MIN);
+			res = si_optionalMake(INT32_MIN);
 			break;
 		case SI_TYPE_STRING:
-			res = si_optionalMake(alloc, si_stringMake(alloc, "Ayn Rand"));
+			res = si_optionalMake(si_stringMake(alloc, "Ayn Rand"));
 			break;
 		case SI_TYPE_ARRAY:
-			res = si_optionalMake(alloc, si_arrayMake(alloc, si_buf(i32, 1, 2, 4, 6, 8)));
+			res = si_optionalMake(si_arrayMake(alloc, si_buf(i32, 1, 2, 4, 6, 8)));
 			break;
 		case SI_TYPE_STRUCT:
-			res = si_optionalMake(alloc, (u128Struct){0xFF, UINT64_MAX});
+			res = si_optionalMake((u128Struct){0xFF, UINT64_MAX});
 			break;
 		case SI_TYPE_ENUM:
-			res = si_optionalMake(alloc, (siMonth)siFebruary);
+			res = si_optionalMake((siFileMode)SI_FILE_ALL);
 			break;
 		case SI_TYPE_FUNC_PTR:
-			res = si_optionalMake(alloc, &createOptional);
+			res = si_optionalMake(&createOptional);
 			break;
 		default: SI_PANIC();
 	}
@@ -54,14 +54,14 @@ siOptionalRet(ANY) createOptional(siAllocator* alloc, siType type) {
 	return res;
 }
 
-void example1(siAllocator* alloc) {
+void example1(void) {
 	/* Example 5.0: siOptional (based on https://en.cppreference.com/w/cpp/utility/optional). */
 	si_printf("==============\n\n==============\nExample 5.0:\n");
 
-	siOptional(cstring) str = create(alloc, false);
+	siOptional(cstring) str = create(false);
 	si_printf("create(false) returned '%s'\n", si_optionalGetOrDefault(str, "empty"));
 
-	str = create(alloc, true);
+	str = create(true);
 	si_printf("create2(true) returned '%s'\n", str->value);
 
 	si_optionalReset(str);
@@ -90,7 +90,7 @@ void example2(siAllocator* alloc) {
 	u128Struct num = ((siOptional(u128Struct))results[4])->value;
 	si_printf("Element 4: '0x%016lX|%016lX'\n", num.high, num.low);
 
-	si_printf("Element 5: '%zd'\n", ((siOptional(siMonth))results[5])->value);
+	si_printf("Element 5: '%zd'\n", ((siOptional(siFileMode))results[5])->value);
 	si_printf("Element 6: '%p'\n", ((siOptional(rawptr))results[6])->value);
 }
 
@@ -98,7 +98,7 @@ void example2(siAllocator* alloc) {
 int main(void) {
 	siAllocator * stack = si_allocatorMakeStack(0xFF);
 
-	example1(stack);
+	example1();
 	example2(stack);
 
 	return 0;
