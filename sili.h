@@ -1825,7 +1825,7 @@ b32 si_cstrEqualLen(cstring str1, usize str1Len, cstring str2, usize str2Len);
 
 
 /* Sets the boolean to use lowercase/uppercase characters when converting an integer to
- * a string. If 'upper' is set to true, 255 (base 16) gets turned to "FF", otherwise 
+ * a string. If 'upper' is set to true, 255 (base 16) gets turned to "FF", otherwise
  it turns to "ff". By default this is set to true. */
 void si_numChangeTable(b32 upper);
 
@@ -4429,11 +4429,11 @@ char* si_i64ToCstrEx(siAllocator* alloc, i64 num, i32 base, usize* outLen) {
 
 	b32 isNegative = si_numIsNeg(num);
 	usize len = si_numLenI64Ex(num, base);
-	
+
 	char* res = si_mallocArray(alloc, char, len);
 	char* endPtr = &res[len];
-	
-	
+
+
 	if (isNegative) {
 		num = -num;
 		endPtr[-len] = '-';
@@ -4679,7 +4679,7 @@ siUtf8Char si_utf8Encode(i32 codepoint) {
 
 	usize i;
 	for (i = 1; i < result.len; i += 1) {
-		result.codepoint[i] = 0x80 | ((codepoint >> (6 * (len - i))) & 0x3F);
+		result.codepoint[i] = si_cast(char, 0x80 | ((codepoint >> (6 * (len - i))) & 0x3F));
 	}
 
 	return result;
@@ -4836,17 +4836,17 @@ siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* str
 			alloc->offset += 2;
 			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
 
-			curPtr[0] = 0xC0 | si_cast(u8, chr >> 6);            /* 110xxxxx */
-			curPtr[1] = 0x80 | si_cast(u8, chr & 0x3F);          /* 10xxxxxx */
+			curPtr[0] = si_cast(u8, 0xC0 | (chr >> 6));            /* 110xxxxx */
+			curPtr[1] = si_cast(u8, 0x80 | (chr & 0x3F));          /* 10xxxxxx */
 			curPtr += 2;
 		}
 		else if (chr <= 0xD7FF) {
 			alloc->offset += 3;
 			SI_STOPIF(alloc->offset >= alloc->maxLen, goto end);
 
-			curPtr[0] = 0xE0 | si_cast(u8, chr >> 12);           /* 1110xxxx */
-			curPtr[1] = 0x80 | si_cast(u8, (chr >> 6) & 0x3F);   /* 10xxxxxx */
-			curPtr[2] = 0x80 | si_cast(u8, chr & 0x3F);          /* 10xxxxxx */
+			curPtr[0] = si_cast(u8, 0xE0 | (chr >> 12));           /* 1110xxxx */
+			curPtr[1] = si_cast(u8, 0xE0 | ((chr >> 6) & 0x3F));   /* 10xxxxxx */
+			curPtr[2] = si_cast(u8, 0xE0 | (chr & 0x3F));          /* 10xxxxxx */
 
 			curPtr += 3;
 		}
@@ -4862,10 +4862,10 @@ siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* str
 			u32 tLow = (low - 0xDC00);
 			u32 codepoint = (tHigh | tLow) + 0x10000;
 
-			curPtr[0] = 0xF0 | si_cast(u8, codepoint >> 18);           /* 11110xxx */
-			curPtr[1] = 0x80 | si_cast(u8, (codepoint >> 12) & 0x3F);  /* 10xxxxxx */
-			curPtr[2] = 0x80 | si_cast(u8, (codepoint >> 6) & 0x3F);   /* 10xxxxxx */
-			curPtr[3] = 0x80 | si_cast(u8, codepoint & 0x3F);          /* 10xxxxxx */
+			curPtr[0] = si_cast(u8, 0xF0 | (codepoint >> 18));           /* 11110xxx */
+			curPtr[1] = si_cast(u8, 0x80 | ((codepoint >> 12) & 0x3F));  /* 10xxxxxx */
+			curPtr[2] = si_cast(u8, 0x80 | ((codepoint >> 6) & 0x3F));   /* 10xxxxxx */
+			curPtr[3] = si_cast(u8, 0x80 | (codepoint & 0x3F));          /* 10xxxxxx */
 
 			curPtr += 4;
 		}
@@ -5643,7 +5643,7 @@ siFilePermissions si_pathPermissions(cstring path) {
 
 		SECURITY_INFORMATION info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
 		SECURITY_DESCRIPTOR* desc = (SECURITY_DESCRIPTOR*)si_allocatorCurPtr(stack);
-		GetFileSecurityW(widePath, info, desc, si_allocatorAvailable(stack), nil);
+		GetFileSecurityW(widePath, info, desc, (DWORD)si_allocatorAvailable(stack), nil);
 
 		GetEffectiveRightsFromAclA(desc->Dacl, desc->Owner, &mask);
 	}
@@ -5876,7 +5876,7 @@ rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer
 	si_fileSeek(file, offset, SI_FILE_MOVE_BEGIN);
 
 	DWORD bytesRead;
-	b32 res = ReadFile(file.handle, outBuffer, len, &bytesRead, NULL);
+	b32 res = ReadFile(file.handle, outBuffer, (DWORD)len, &bytesRead, NULL);
 	SI_STOPIF(!res, { SI_FS_ERROR_DECLARE(); return nil; });
 #else
 	isize bytesRead = pread((int)file.handle, outBuffer, len, offset);
@@ -5941,7 +5941,7 @@ usize si_fileWriteAtLen(siFile* file, const rawptr content, usize contentLen, is
 #if defined(SI_SYSTEM_WINDOWS)
 	si_fileSeek(*file, offset, SI_FILE_MOVE_BEGIN);
 	DWORD bytesWritten;
-	WriteFile(file->handle, content, contentLen, &bytesWritten, NULL);
+	WriteFile(file->handle, content, (DWORD)contentLen, &bytesWritten, NULL);
 #else
 	isize curOffset = si_fileSeek(*file, 0, SI_FILE_MOVE_CURRENT);
 	isize bytesWritten = (curOffset == offset)
@@ -6016,15 +6016,14 @@ b32 si_fileTruncate(siFile* file, usize size) {
 
 #if defined(SI_SYSTEM_WINDOWS)
 	usize prevOffset = si_fileTell(*file);
-	b32 res = si_fileSeek(*file, size, SI_FILE_MOVE_BEGIN);
-	SI_STOPIF(!res, return false);
+	isize res = si_fileSeek(*file, size, SI_FILE_MOVE_BEGIN);
+	SI_STOPIF(res == 0, return false);
 
 	res = SetEndOfFile(file->handle);
-	SI_STOPIF(!res, SI_FS_ERROR_DECLARE_EX(SI_FS_ERROR_TRUNCATE_FAILURE));
+	SI_STOPIF(res == 0, SI_FS_ERROR_DECLARE_EX(SI_FS_ERROR_TRUNCATE_FAILURE));
 
-	si_fileSeek(*file, prevOffset, SI_FILE_MOVE_BEGIN);
-
-	return res;
+	res = si_fileSeek(*file, prevOffset, SI_FILE_MOVE_BEGIN);
+	return res != 0;
 #else
 	i32 res = ftruncate((int)file->handle, size);
 	SI_STOPIF(res == -1, SI_FS_ERROR_DECLARE_EX(SI_FS_ERROR_TRUNCATE_FAILURE));
@@ -6116,8 +6115,7 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 		entry->type = SI_IO_TYPE_DIR;
 	}
-	SIDEF
-else if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+	else if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
 		entry->type = SI_IO_TYPE_LINK;
 	}
 	else {
@@ -6427,26 +6425,26 @@ u64 si_bytesToNumArr(siByte* array, usize len) {
 
 SIDEF
 usize si_numLen(u64 num) {
-    if (num < 10) return 1;
-    if (num < 100) return 2;
-    if (num < 1000) return 3;
-    if (num < 10000) return 4;
-    if (num < 100000) return 5;
-    if (num < 1000000) return 6;
-    if (num < 10000000) return 7;
-    if (num < 100000000) return 8;
-    if (num < 1000000000) return 9;
-    if (num < 10000000000) return 10;
-    if (num < 100000000000) return 11;
-    if (num < 1000000000000) return 12;
-    if (num < 10000000000000) return 13;
-    if (num < 100000000000000) return 14;
-    if (num < 1000000000000000) return 15;
-    if (num < 10000000000000000) return 16;
-    if (num < 100000000000000000) return 17;
-    if (num < 1000000000000000000) return 18;
-    if (num < 10000000000000000000U) return 19;
-    return 20;
+	if (num < 10) return 1;
+	if (num < 100) return 2;
+	if (num < 1000) return 3;
+	if (num < 10000) return 4;
+	if (num < 100000) return 5;
+	if (num < 1000000) return 6;
+	if (num < 10000000) return 7;
+	if (num < 100000000) return 8;
+	if (num < 1000000000) return 9;
+	if (num < 10000000000) return 10;
+	if (num < 100000000000) return 11;
+	if (num < 1000000000000) return 12;
+	if (num < 10000000000000) return 13;
+	if (num < 100000000000000) return 14;
+	if (num < 1000000000000000) return 15;
+	if (num < 10000000000000000) return 16;
+	if (num < 100000000000000000) return 17;
+	if (num < 1000000000000000000) return 18;
+	if (num < 10000000000000000000U) return 19;
+	return 20;
 }
 
 SIDEF
@@ -6490,7 +6488,7 @@ u32 si_cpuClockSpeed(void) {
 	u64 end = si_RDTSC();
 
 	u32 val = si_cast(u32, end - begin) / 100000;
-	SI_CPU_FREQ_MHZ = si_numRoundNearestMultiple(val, 10);
+	SI_CPU_FREQ_MHZ = (u32)si_numRoundNearestMultiple(val, 10);
 	return SI_CPU_FREQ_MHZ;
 }
 

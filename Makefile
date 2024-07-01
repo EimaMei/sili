@@ -3,7 +3,7 @@ AR = ar
 OUTPUT = build
 
 FLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
-EXTRA_FLAGS = 
+EXTRA_FLAGS =
 LIBS =
 INCLUDE = -I"." -I"include"
 
@@ -28,7 +28,7 @@ dynamic:
 	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/$(DYNAMIC_NAME)
 
 
-# Run the exe.
+# Run the executable.
 run: $(EXE)
 	./$(EXE)
 
