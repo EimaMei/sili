@@ -69,11 +69,11 @@ jobs:
 
     - name: Tests
       run: |
-        make compile_tests
+        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_tests
 
     - name: Examples
       run: |
-        make compile_examples
+        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_examples
 
     - name: Build Library (MinGW-w64 64bit)
       run: |
@@ -82,7 +82,7 @@ jobs:
         dir C:\msys64\mingw64\bin
         make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe static
         make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe dynamic DYNAMIC_NAME="libsili.dll"
-        copy /Y .\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
+        copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |
         matrix.compiler == 'mingw-w64' &&
