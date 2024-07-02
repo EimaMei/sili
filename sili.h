@@ -1756,12 +1756,12 @@ usize si_utf8StrLen(siUtf8String str);
 siUtf32Char si_utf8StrAt(siUtf8String str, usize charIndex);
 
 /* Encodes a NULL-terminated UTF-8 string into UTF-16. */
-siUtf16String si_utf8ToUtf16Str(siAllocator* alloc, siUtf8String str, usize* strLenOut);
+siUtf16String si_utf8ToUtf16Str(siAllocator* alloc, siUtf8String str, siNullable usize* strLenOut);
 /* Encodes a length-specified UTF-8 string into UTF-16. */
 siUtf16String si_utf8ToUtf16StrEx(siAllocator* alloc, siUtf8String str, usize strLen,
-		usize* strLenOut);
+		siNullable usize* strLenOut);
 /* Encodes a NULL-terminated UTF-16 string into UTF-8. */
-siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, usize* strLenOut);
+siUtf8String si_utf16ToUtf8Str(siAllocator* alloc, siUtf16String str, siNullable usize* strLenOut);
 
 
 /* Decodes the given UTF-16 character into UTF-32 and returns a 'siUtf32Char' structure.
@@ -1878,24 +1878,24 @@ i64 si_cstrToI64Ex(cstring str, usize len, u32 base);
 /* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
 
 /* Creates a string from the given unsigned number. By default the function assumes
- * the number is base-10. */
-char* si_u64ToCstr(siAllocator* alloc, u64 num);
+ * the number is base 10. */
+char* si_u64ToCstr(siAllocator* alloc, u64 num, usize* outLen);
 /* Creates a string from the specified unsigned number and its base. Length of
  * the string is written into 'outLen'. */
 char* si_u64ToCstrEx(siAllocator* alloc, u64 num, i32 base, usize* outLen);
 /* Creates a string from the specified signed number. By default the function assumes
- * the number is base-10. */
-char* si_i64ToCstr(siAllocator* alloc, i64 num);
+ * the number is base 10. */
+char* si_i64ToCstr(siAllocator* alloc, i64 num, usize* outLen);
 /* Creates a string from the specified signed number and its base. Length of
  * the string, including the minus sign if the integer is negative, is written
- * into 'outLen', unless 'outLen' is nil. */
+ * into 'outLen'. */
 char* si_i64ToCstrEx(siAllocator* alloc, i64 num, i32 base, usize* outLen);
 
-/* Creates a string from the specified float. By default the function assumes that
- * the float is base-10, and that the afterPoint count is set to 6 decimals. */
-char* si_f64ToCstr(siAllocator* alloc, f64 num);
+/* Creates a string from the specified float. By default the output base is base 10,
+ * and that the afterPoint count is 6 decimals. */
+char* si_f64ToCstr(siAllocator* alloc, f64 num, usize* outLen);
 /* Creates a string from the specified float, its base and afterPoint decimal count.
- * Length of the string is written into 'outLen', unless 'outLen' is nil. */
+ * Length of the string is written into 'outLen'. */
 char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 		usize* outLen);
 
@@ -1967,7 +1967,7 @@ rawptr si_hashtableGetWithHash(const siHashTable ht, u64 hash);
 siHashEntry* si_hashtableSet(siHashTable ht, const rawptr key, usize keyLen,
 		const rawptr valuePtr, b32* outSuccess);
 siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawptr valuePtr,
-		b32* outSuccess);
+		siNullable b32* outSuccess);
 
 #endif /* SI_NO_HASHTABLE */
 
@@ -2530,35 +2530,35 @@ usize si_numCountBitsU64(u64 num);
 		)(X)
 #endif
 
-/* num - UINT | bitType - siBitType
+/* type - TYPE | num - UINT | bitType - siBitType
  * Returns the amount of leading bits of the specified bit type (0 or 1). */
-#define si_numLeadingBit(num, bitType) si_numLeadingBitEx(num, sizeof(typeof(num)) * 8, bitType)
-/* num - UINT | bitType - siBitType
+#define si_numLeadingBit(type, num, bitType) (type)si_numLeadingBitEx(num, sizeof(type) * 8, bitType)
+/* type - TYPE | num - UINT | bitType - siBitType
  * Returns the amount of trailing bits of the specified bit type (0 or 1). */
-#define si_numTrailingBit(num, bitType) si_numTrailingBitEx(num, sizeof(typeof(num)) * 8, bitType)
-/* num - UINT | bits - usize
+#define si_numTrailingBit(type, num, bitType) (type)si_numTrailingBitEx(num, sizeof(type) * 8, bitType)
+/* type - TYPE | num - UINT | bits - usize
  * Rotates the bits of the number left by 'bits' amount. */
-#define si_numRotateLeft(num, bits) si_numRotateLeftEx(num, sizeof(typeof(num)) * 8, bits)
-/* num - UINT | bits - usize
+#define si_numRotateLeft(type, num, bits) (type)si_numRotateLeftEx(num, sizeof(type) * 8, bits)
+/* type - TYPE | num - UINT | bits - usize
  * Rotates the bits of the number right by 'bits' amount. */
-#define si_numRotateRight(num, bits) siNumRotateRightEx(num, sizeof(typeof(num)) * 8, bits)
-/* num - UINT
+#define si_numRotateRight(type, num, bits) (type)siNumRotateRightEx(num, sizeof(type) * 8, bits)
+/* type - TYPE | num - UINT
  * Reverses the bits of the number. */
-#define si_numReverseBits(num) siNumReverseBitsEx(num, sizeof(typeof(num)) * 8 )
-/* allocator - siAllocator* | num - UINT
+#define si_numReverseBits(type, num) (type)siNumReverseBitsEx(num, sizeof(type) * 8 )
+/* allocator - siAllocator* | type - TYPE | num - UINT
  * Creates a 'siArray(u8)' from the specified number and writes it into the allocator. */
-#define si_numToBytes(allocator, num) si_numToBytesEx(allocator, num, sizeof(typeof(num)))
+#define si_numToBytes(allocator, type, num) si_numToBytesEx(allocator, num, sizeof(type))
 /* Makes a number from the specified siArray(u8). */
 u64 si_bytesToNumSiArr(siArray(siByte) arr);
 /* Makes a number from a C-array. */
 u64 si_bytesToNumArr(siByte* array, usize len);
 
 
-/* Returns the length of a base-10 unsigned number. */
+/* Returns the length of a base 10 unsigned number. */
 usize si_numLen(u64 num);
 /* Returns the length of a specified base unsigned number. */
 usize si_numLenEx(u64 num, u32 base);
-/* Returns the length of a base-10 signed number. */
+/* Returns the length of a base 10 signed number. */
 usize si_numLenI64(i64 num);
 /* Returns the length of a specified base signed number. */
 usize si_numLenI64Ex(i64 num, u32 base);
@@ -4415,8 +4415,8 @@ void si_numChangeTable(b32 upper) {
 	SI_NUM_TO_CHAR_TABLE = choices[upper];
 }
 
-char* si_u64ToCstr(siAllocator* alloc, u64 num) {
-	return si_u64ToCstrEx(alloc, num, 10, nil);
+char* si_u64ToCstr(siAllocator* alloc, u64 num, usize* outLen) {
+	return si_u64ToCstrEx(alloc, num, 10, outLen);
 }
 char* si_u64ToCstrEx(siAllocator* alloc, u64 num, i32 base, usize* outLen) {
 	SI_ASSERT_NOT_NULL(alloc);
@@ -4446,7 +4446,7 @@ u64 si_cstrToU64Ex(cstring str, usize len, u32 base) {
 	SI_ASSERT_NOT_NULL(str);
 
 	u64 res = 0;
-	while (len != 0) {
+	while (len) {
 		SI_STOPIF(*str == '\0', break);
 
 		res *= base;
@@ -4458,8 +4458,8 @@ u64 si_cstrToU64Ex(cstring str, usize len, u32 base) {
 	return res;
 }
 
-char* si_i64ToCstr(siAllocator* alloc, i64 num) {
-	return si_i64ToCstrEx(alloc, num, 10, nil);
+char* si_i64ToCstr(siAllocator* alloc, i64 num, usize* outLen) {
+	return si_i64ToCstrEx(alloc, num, 10, outLen);
 }
 char* si_i64ToCstrEx(siAllocator* alloc, i64 num, i32 base, usize* outLen) {
 	SI_ASSERT_NOT_NULL(alloc);
@@ -4485,8 +4485,8 @@ char* si_i64ToCstrEx(siAllocator* alloc, i64 num, i32 base, usize* outLen) {
 	*outLen = len;
 	return res;
 }
-char* si_f64ToCstr(siAllocator* alloc, f64 num) {
-	return si_f64ToCstrEx(alloc, num, 10, 6, nil);
+char* si_f64ToCstr(siAllocator* alloc, f64 num, usize* outLen) {
+	return si_f64ToCstrEx(alloc, num, 10, 6, outLen);
 }
 char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 		usize* outLen) {
@@ -4529,6 +4529,7 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 			return res;
 		}
 	}
+	
 	isize baseLen = 0;
 	f64 copy = (afterPoint != 0)
 		? num
@@ -4537,9 +4538,9 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 		copy /= base;
 		baseLen += 1;
 	}
-	usize len = isNegative + baseLen + (afterPoint != 0) + afterPoint;
+	*outLen = isNegative + baseLen + (afterPoint != 0) + afterPoint;
 
-	char* res = si_mallocArray(alloc, char, len);
+	char* res = si_mallocArray(alloc, char, *outLen);
 	char* endPtr = res;
 
 	SI_STOPIF(isNegative, *endPtr = '-'; endPtr += 1);
@@ -4555,7 +4556,12 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 		baseLen -= 1;
 	} while (baseLen > 0);
 
-	SI_STOPIF(afterPoint != 0, *endPtr = '.'; endPtr += 1);
+	if (afterPoint == 0) {
+		return res;
+	}
+		
+	*endPtr = '.'; 
+	endPtr += 1;
 
 	f64 baseNum = num - si_floor(num);
 	while (afterPoint) {
@@ -4569,7 +4575,6 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 		baseNum -= (f64)num;
 	}
 
-	*outLen = len;
 	return res;
 }
 
@@ -6396,11 +6401,11 @@ usize si_numCountBitsU64(u64 num) {
 
 
 SIDEF
-usize si_numLeadingBitEx(u64 num, usize total_bits, siBitType bit) {
+usize si_numLeadingBitEx(u64 num, usize totalBits, siBitType bit) {
 	u64 count = 0;
 
 	usize i;
-	for (i = total_bits - 1; i < USIZE_MAX; i -= 1) {
+	for (i = totalBits - 1; i < USIZE_MAX; i -= 1) {
 		if (SI_NUM_BIT_GET(num, i) == bit) {
 			count += 1;
 		}
@@ -6413,10 +6418,10 @@ usize si_numLeadingBitEx(u64 num, usize total_bits, siBitType bit) {
 }
 
 SIDEF
-usize si_numTrailingBitEx(u64 num, usize total_bits, siBitType bit) {
+usize si_numTrailingBitEx(u64 num, usize totalBits, siBitType bit) {
 	u64 count = 0;
 
-	for_range (i, 0, total_bits) {
+	for_range (i, 0, totalBits) {
 		if (SI_NUM_BIT_GET(num, i) == bit) {
 			count += 1;
 		}
@@ -6429,21 +6434,21 @@ usize si_numTrailingBitEx(u64 num, usize total_bits, siBitType bit) {
 }
 
 SIDEF
-u64 si_numRotateLeftEx(u64 num, usize total_bits, usize bits) {
-	return (num << bits) | (num >> (total_bits - bits));
+u64 si_numRotateLeftEx(u64 num, usize totalBits, usize bits) {
+	return (num << bits) | (num >> (totalBits - bits));
 }
 
 SIDEF
-u64 siNumRotateRightEx(u64 num, usize total_bits, usize bits) {
-	return (num >> bits) | (num << (total_bits - bits));
+u64 siNumRotateRightEx(u64 num, usize totalBits, usize bits) {
+	return (num >> bits) | (num << (totalBits - bits));
 }
 
 
 SIDEF
-u64 siNumReverseBitsEx(u64 num, usize total_bits) {
+u64 siNumReverseBitsEx(u64 num, usize totalBits) {
 	u64 res = 0;
 
-	for_range(i, 0, total_bits) {
+	for_range (i, 0, totalBits) {
 		res <<= 1;
 		res |= (num & 1);
 		num >>= 1;

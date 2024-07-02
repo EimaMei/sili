@@ -41,7 +41,7 @@ void example1(siAllocator* heap) {
 	si_fileClose(file);
 	si_allocatorReset(heap);
 
-	si_fileWriteAtLine(&newFile, "but now we have a changed line", 1);
+	si_fileWriteAtLine(&newFile, "and now we have a changed line", 1);
 	siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
 	si_printf(
 		"Contents of '%s' ('%zd' lines in total):\n",

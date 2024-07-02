@@ -15,6 +15,8 @@ cstring operatingSystem(void) {
 			"iOS"
 		#elif defined(SI_SYSTEM_WASM)
 			"WebAssembly"
+		#else 
+			"N/A"
 		#endif
 	;
 
@@ -53,6 +55,8 @@ usize cpu_arch_bit(void) {
 		return 64;
 	#elif defined(SI_ARCH_32_BIT)
 		return 32;
+	#elif 
+		return 0;
 	#endif
 }
 
@@ -174,24 +178,24 @@ int main(void) {
 	si_printf(
 		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
 		 leadTrailNum,
-		 si_numLeadingBit(leadTrailNum, SI_BIT_ONE), si_numTrailingBit(leadTrailNum, SI_BIT_ZERO)
+		 si_numLeadingBit(u8, leadTrailNum, SI_BIT_ONE), si_numTrailingBit(u8, leadTrailNum, SI_BIT_ZERO)
 	);
 
-	u32 rotateAdr = si_numRotateLeft((u32)0x00001234, 24);
+	u32 rotateAdr = si_numRotateLeft(u32, 0x00001234, 24);
 	si_printf("Rotating '0x00001234' left by 24 bits: '%#08X'\n", rotateAdr);
 
-	rotateAdr = si_numRotateRight(rotateAdr, 24);
+	rotateAdr = si_numRotateRight(u32, rotateAdr, 24);
 	si_printf("Rotating '0x34000012' right by 24 bits: '%#08X'\n", rotateAdr);
 
-	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(0x1234567890123456));
+	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
 
-	siArray(u8) array = si_numToBytes(alloc, (u32)0xFF00EEAA);
+	siArray(u8) array = si_numToBytes(alloc, u32, 0xFF00EEAA);
 	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
 	for_range (i, 0, si_arrayLen(array)) {
 		si_printf("\tElement %zd: '0x%02X'\n", i, array[i]);
 	}
 
-	u32 newNum = si_bytesToNumSiArr(array);
+	u32 newNum = (u32)si_bytesToNumSiArr(array);
 	si_printf("Combining them all back, we get '%#X'\n", newNum);
 
 	adr = si_swap16(adr);
