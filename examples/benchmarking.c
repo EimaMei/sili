@@ -3,8 +3,8 @@
 
 
 i32 res[4];
-static i32 first[] = {10, 20, 30, 40};
-static i32 second[] =  {5, 5, 5, 5};
+i32 first[] = {10, 20, 30, 40};
+i32 second[] =  {5, 5, 5, 5};
 
 void performanceTest(void) {
 	for_range (i, 0, countof(res)) {
@@ -39,10 +39,10 @@ int main(void) {
 	si_benchmarkExecutesPerMs(5000, performanceTest());
 
 	si_print("The average performance:\n");
-	si_benchmarkLoopsAvg(10000, performanceTest());
+	si_benchmarkLoopsAvg(100000, performanceTest());
 
 	si_print("Now we will compare the performance stats between 'performanceTest()' and 'performanceTest2()':\n");
-	si_benchmarkLoopsAvgCmp(10000, performanceTest(), performanceTest2());
+	si_benchmarkLoopsAvgCmp(100000, performanceTest(), performanceTest2());
 
 	return 0;
 }

@@ -59,34 +59,51 @@ void example2(siAllocator* heap) {
 	si_allocatorReset(heap);
 	si_printf("==============\n\n==============\nExample 2:\n");
 
-	/* Int stuff: */
-	siString str = si_stringMake(heap, si_i64ToCstr(heap, -342));
-	si_printf("str: \"%s\"\n", str);
+	siString str;
+	
+	{
+		siAllocator* stack = si_allocatorMake(32);
+		usize len;
 
-	isize num = si_cstrToU64("9300");
-	si_printf("num: %zd\n\n", num);
+		char* num = si_i64ToCstr(stack, -342, &len);
+		str = si_stringMakeLen(heap, num, len);
+		si_printf("str: \"%s\"\n", str);
+	}
 
-	/* Join, upper, lower, title, capitalize */
-	si_stringSet(&str, "/home");
-	si_printf("Original str: \"%s\"\n", str);
+	{
+		isize num = si_cstrToU64("9300");
+		si_printf("num: %zd\n\n", num);
 
-	si_stringJoin(&str, "random.txt", "/");
-	si_printf("Joined str: \"%s\"\n", str);
+		char buf[1024];
+		usize len;
+		siAllocator alloc = si_allocatorMakeTmp(buf, sizeof(buf));
+		
+		char* str = si_f64ToCstr(&alloc, FLOAT32_MAX, &len);
+		si_printf("%.*s\n", len, str);
+	}
 
-	si_cstrUpper(str);
-	si_printf("Upper str: \"%s\"\n", str);
+	{
+		si_stringSet(&str, "/home");
+		si_printf("Original str: \"%s\"\n", str);
 
-	si_stringSet(&str, "I'VE COME TO MAKE AN ANNOUNCEMENT");
-	si_printf("Original str: \"%s\"\n", str);
+		si_stringJoin(&str, "random.txt", "/");
+		si_printf("Joined str: \"%s\"\n", str);
 
-	si_cstrLower(str);
-	si_printf("Lower str: \"%s\"\n", str);
+		si_cstrUpper(str);
+		si_printf("Upper str: \"%s\"\n", str);
 
-	si_cstrTitle(str);
-	si_printf("Titled str: \"%s\"\n", str);
+		si_stringSet(&str, "I'VE COME TO MAKE AN ANNOUNCEMENT");
+		si_printf("Original str: \"%s\"\n", str);
 
-	si_cstrCapitalize(str);
-	si_printf("Capitalized str: \"%s\"\n", str);
+		si_cstrLower(str);
+		si_printf("Lower str: \"%s\"\n", str);
+
+		si_cstrTitle(str);
+		si_printf("Titled str: \"%s\"\n", str);
+
+		si_cstrCapitalize(str);
+		si_printf("Capitalized str: \"%s\"\n", str);
+	}
 }
 
 void example3(siAllocator* heap) {

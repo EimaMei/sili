@@ -16,32 +16,32 @@ void example1(siAllocator* heap) {
 	);
 
 	siFile newFile = si_fileCreate("random.txt");
-	si_fileWrite(&newFile, "A silly file\nwith a sili newline.");
-	siString content = si_fileReadContents(newFile, heap);
+	si_fileWrite(&newFile, "A silly file\nwith three sili newlines\nbut not much else.");
+	cstring content = si_fileReadContents(newFile, heap);
 
 	si_printf(
 		"About 'random.txt':\n\t"
 			"Full path - '%s'\n\t"
 			"Size - '%zu' bytes\n\t"
-			"Content - '%s'\n\n",
+			"Content - '%.*s'\n\n",
 		si_pathGetFullName(stack, "random.txt"), newFile.size,
-		content
+		newFile.size, content
 	);
 
 	siArray(siString) fileLine = si_fileReadlines(file, heap);
 	si_printf(
-		"QContents of '%s' ('%zd' lines in total):\n",
+		"Contents of '%s' ('%zd' lines in total):\n",
 		si_pathBaseName(file.filename), si_arrayLen(fileLine)
 	);
 
 	for_range (i, 0, si_arrayLen(fileLine)) {
 		si_stringStrip(fileLine[i]);
-		si_printf("\tLine %zd: '%s'\n", i, fileLine[i]);
+		si_printf("\tLine %zu: '%s'\n", i + 1, fileLine[i]);
 	}
 	si_fileClose(file);
 	si_allocatorReset(heap);
 
-	si_fileWriteAtLine(&newFile, "but now we have a changed line", 1);
+	si_fileWriteAtLine(&newFile, "and now we have a changed line", 1);
 	siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
 	si_printf(
 		"Contents of '%s' ('%zd' lines in total):\n",
@@ -50,7 +50,7 @@ void example1(siAllocator* heap) {
 
 	for_range (i, 0, si_arrayLen(newFileLines)) {
 		si_stringStrip(newFileLines[i]);
-		si_printf("\tLine %zd: '%s'\n", i, newFileLines[i]);
+		si_printf("\tLine %zu: '%s'\n", i + 1, newFileLines[i]);
 	}
 	si_fileClose(newFile);
 }
@@ -67,19 +67,19 @@ void example2(void)	{
 		si_printf("Since 'random.txt' doesn't exist, we'll just create one\n");
 
 		siFile file = si_fileCreate("random.txt");
-		si_fileWrite(&file, "KANT RUINED EVERYTHING");
+		si_fileWrite(&file, "QWERTYUIOP");
 		si_fileClose(file);
 	}
 
-	b32 res = si_pathCopy("random.txt", "random-2.txt");
+	isize res = si_pathCopy("random.txt", "random-2.txt");
 	si_printf(
-		"Does 'random-2.txt' exist: '%u' (res: '%u')\n",
+		"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n",
 		si_pathExists("random-2.txt"), res
 	);
 
 	res = si_pathMove("random.txt", "renamed.txt");
 	si_printf(
-		"Does 'random.txt' exist: '%u'\n'renamed.txt' outputs a '%u' (res: '%u')\n",
+		"Does 'random.txt' exist: %B\n'renamed.txt' outputs a %B (res: '%zi')\n",
 		si_pathExists("random.txt"), si_pathExists("renamed.txt"), res
 	);
 
@@ -90,20 +90,20 @@ void example2(void)	{
 			"Base name - '%s'\n\t"
 			"Extension - '%s'\n\t"
 			"Full path - '%s'\n\t"
-			"Is relative: %u\n",
+			"Is relative: %B\n",
 		path, si_pathBaseName(path), si_pathExtension(path),
 		fullPath, si_pathIsRelative(path)
 	);
 
 	res = si_pathRemove("random-2.txt");
 	si_printf(
-		"Does 'random-2.txt' exist: '%u' (res: '%u')\n",
+		"Does 'random-2.txt' exist: '%B' (res: '%B')\n",
 		si_pathExists("random-2.txt"), res
 	);
 
 	res = si_pathRemove("renamed.txt");
 	si_printf(
-		"Does 'renamed.txt' exist: '%u' (res: '%u')\n",
+		"Does 'renamed.txt' exist: '%B' (res: '%B')\n",
 		si_pathExists("renamed.txt"), res
 	);
 }
@@ -133,11 +133,11 @@ void example3(void)	{
 		u64 curWriteTime = si_pathLastWriteTime(file.filename);
 
 		si_sleep(1000);
-		si_printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
 
 		si_fileWrite(&file, "random garbage");
 		curWriteTime = si_pathLastWriteTime(file.filename);
-		si_printf("Has the file been changed?: %s\n", (lastWriteTime != curWriteTime) ? "yes" : "no");
+		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
 
 		si_pathCreateHardLink(file.filename, "hardLink");
 		si_pathCreateSoftLink(file.filename, "softLink");
@@ -169,7 +169,7 @@ void example4(siAllocator* alloc) {
 
 	usize count = 0;
 	while (si_dirPollEntry(dir, &entry)) {
-		si_printf("%zu: %s - %i\n", count, entry.path, entry.type);
+		si_printf("%zu: %s ('%zu' bytes, '%i' type)\n", count, entry.path, entry.len, entry.type);
 		count += 1;
 	}
 
@@ -189,13 +189,13 @@ void example5(siAllocator* alloc) {
 	si_printf("%.5s\n", "A string");
 	si_printf("%B - %B (%#b, %#b)\n", true, false, true, false);
 	si_printf("Pointer to the heap: %p\n", alloc);
-	si_printf("This will print nothing: '%n', 100%%.\n", (signed int*)nil);
+	si_printf("This will print nothing: '%n', 100%%.\n", nil);
 	si_printf("%CRThis text will be displayed in red%C, while this: %CBin blue%C!\n");
 	si_fprintf(SI_STDOUT, "Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%CY* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n");
 }
 
 int main(void) {
-	siAllocator* heap = si_allocatorMake(SI_KILO(16));
+	siAllocator* heap = si_allocatorMake(SI_MEGA(1));
 
 	example1(heap);
 	example2();

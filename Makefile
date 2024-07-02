@@ -1,21 +1,61 @@
-CC = gcc
-#x86_64-w64-mingw32-gcc
+CC = clang
+AR = ar
 OUTPUT = build
-NAME = test
-EXE = $(OUTPUT)/$(NAME)
 
-SRC = tests/general.c
-FLAGS = -g -std=c99 -Wall -Wextra -Wpedantic
-LIBS = -L"lib"
+NAME = sili
+FLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+EXTRA_FLAGS =
+EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
+
+# NOTE(EimaMei): Original source is from 'https://github.com/ColleagueRiley/RGFW'
+ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc))
+	DETECTED_OS := Windows
+else
+	ifeq '$(findstring ;,$(PATH))' ';'
+		DETECTED_OS := Windows
+	else
+		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
+		DETECTED_OS := $(patsubst CYGWIN%,Cygwin,$(DETECTED_OS))
+		DETECTED_OS := $(patsubst MSYS%,MSYS,$(DETECTED_OS))
+		DETECTED_OS := $(patsubst MINGW%,MSYS,$(DETECTED_OS))
+	endif
+endif
+
+ifeq ($(DETECTED_OS),Windows)
+	EXE = $(OUTPUT)/test.exe
+	DLL_EXT = .dll
+endif
+ifeq ($(DETECTED_OS),Darwin)
+	LIBS = -lpthread -ldl
+	EXE = $(OUTPUT)/test
+	DLL_EXT = .so
+endif
+ifeq ($(DETECTED_OS),Linux)
+	LIBS = -lpthread -ldl
+	EXE = $(OUTPUT)/test
+	DLL_EXT = .so
+endif
+
+# For testing
+SRC = examples/array.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
 
-# Run the exe.
+# 'make static'
+static:
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/$(NAME).o
+	$(AR) rcs $(OUTPUT)/lib$(NAME).a $(OUTPUT)/$(NAME).o
+
+dynamic:
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) -fPIC $(INCLUDE) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/$(NAME).o
+	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) $(EXTRA_LIBS) -shared $(OUTPUT)/$(NAME).o -o $(OUTPUT)/lib$(NAME)$(DLL_EXT)
+
+
+# Run the executable.
 run: $(EXE)
 	./$(EXE)
-#.exe
 
 # Clean the 'build' folder.
 clean:
@@ -34,6 +74,10 @@ asm:
 # Compiles and runs every example.
 compile_examples:
 	@for f in $(shell ls examples/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+
+# Compiles and runs every test.
+compile_tests:
+	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 
 # If 'build' doesn't exist, create it

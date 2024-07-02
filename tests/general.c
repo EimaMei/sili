@@ -24,11 +24,8 @@ int main(void) {
 		if (SI_LIKELY(SI_HOST_IS_LITTLE_ENDIAN)) {
 			value = 0x44434241;
 		}
-		else if (SI_UNLIKELY(SI_HOST_IS_BIG_ENDIAN)) {
-			value = 0x41424344;
-		}
 		else {
-			SI_PANIC();
+			value = 0x41424344;
 		}
 
 		cstring str = "ABCD";
@@ -39,7 +36,7 @@ int main(void) {
 		SI_ASSERT(si_alignof(randomStruct) == 8);
 
 		char* buf1 = si_buf(char, 'Q', 'W', 'E', 'R', 'T', 'Y', '\0');
-		SI_ASSERT(si_isNil(buf1[0]) == false && si_isNil(buf1[6]));
+		SI_ASSERT(buf1[0] != '\0' && buf1[6] == '\0');
 		char* buf2 = "AZERTY";
 
 		si_swap(buf1, buf2);
@@ -68,8 +65,8 @@ int main(void) {
 		y[1] = 0;
 		si_ptrMoveLeft(&y[0], 2, 2);
 		SI_ASSERT(y[1] == 0x8080);
-
 	}
+	si_print("Test 1 has been completed.\n");
 
 	{
 		usize ceil = si_alignCeilEx(12, 8);
@@ -107,6 +104,7 @@ int main(void) {
 
 		si_allocatorFree(alloc);
 	}
+	si_print("Test 2 has been completed.\n");
 
 	{
 		usize* ptr1 = si_sallocItem(usize);
@@ -125,9 +123,10 @@ int main(void) {
 		si_allocatorFree(allocator);
 		SI_UNUSED(alloc2);
 	}
+	si_print("Test 3 has been completed.\n");
 
 	{
-		siAny any = si_anyMake(23);
+		siAny any = si_anyMakeType(i32, 23);
 		SI_ASSERT(any.typeSize == sizeof((i32)23));
 
 		siPoint p1 = SI_POINT(50, 50),
@@ -151,13 +150,11 @@ int main(void) {
 		SI_ASSERT(v2.x == 4 && v2.y == 4);
 		si_vec2Add(&v2, SI_VEC2(-2, -2));
 		SI_ASSERT(v2.x == 2 && v2.y == 2);
-
 	}
+	si_print("Test 4 has been completed.\n");
 
 	{
-		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
-
-		siOptional(u64) opt = si_optionalMake(stack, 19920216ULL);
+		siOptional(u64) opt = si_optionalMake(19920216ULL);
 		SI_ASSERT(opt->hasValue && opt->value == 19920216ULL);
 
 		si_optionalReset(opt);
@@ -168,4 +165,8 @@ int main(void) {
 		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
 		SI_ASSERT(res == UINT64_MAX);
 	}
+	si_print("Test 5 has been completed.\n");
+
+	
+	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
 }
