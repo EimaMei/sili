@@ -713,7 +713,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #if !defined(typeof) && !defined(SI_NO_TYPEOF)
 	#if defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C17
 		#define SI_TYPEOF_USED 1
-	#elif defined(SI_GNUC_COMPLIANT) 
+	#elif defined(SI_GNUC_COMPLIANT)
 		/* ...VALUE - TYPE/EXPRESSION
 		* Gets the value's type and expresses it as a regular type. */
 		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
@@ -3630,7 +3630,7 @@ void si__internArrayFill(rawptr arrayPtr, usize index, usize count, siAny value)
 	isize newItemCount = (index + count) - header->len;
 	newItemCount = si_max(0, newItemCount);
 	header->len += newItemCount;
-	
+
 	if (header->capacity < header->len) {
 		rawptr res = si_realloc(
 			header->allocator,
@@ -4529,7 +4529,7 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 			return res;
 		}
 	}
-	
+
 	isize baseLen = 0;
 	f64 copy = (afterPoint != 0)
 		? num
@@ -4559,8 +4559,8 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 	if (afterPoint == 0) {
 		return res;
 	}
-		
-	*endPtr = '.'; 
+
+	*endPtr = '.';
 	endPtr += 1;
 
 	f64 baseNum = num - si_floor(num);

@@ -27,12 +27,12 @@ ifeq ($(DETECTED_OS),Windows)
 	DLL_EXT = .dll
 endif
 ifeq ($(DETECTED_OS),Darwin)
-	LIBS = -lpthread
+	LIBS = -lpthread -ldl
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif
 ifeq ($(DETECTED_OS),Linux)
-	LIBS = -lpthread
+	LIBS = -lpthread -ldl
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif
@@ -45,7 +45,7 @@ all: $(OUTPUT) $(EXE) run
 
 # 'make static'
 static:
-	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) -D SI_IMPLEMENTATION -D SI_STATIC -c sili.h -o $(OUTPUT)/$(NAME).o
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/$(NAME).o
 	$(AR) rcs $(OUTPUT)/lib$(NAME).a $(OUTPUT)/$(NAME).o
 
 dynamic:
