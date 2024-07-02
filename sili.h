@@ -1971,7 +1971,7 @@ typedef struct {
 	#if defined(SI_SYSTEM_WINDOWS)
 		/* OS-specific handle of the file. */
 		rawptr handle;
-	#elif defined(SI_SYSTEM_UNIX)
+	#else
 		/* OS-specific handle of the file. */
 		i64 handle;
 	#endif
@@ -5376,7 +5376,7 @@ b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
 		return si_pathCreateFolder(path);
 		SI_UNUSED(perms);
 	#else
-		i32 res = mkdir(path, perms);
+		i32 res = mkdir(path, (mode_t)perms);
 		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
@@ -5475,7 +5475,7 @@ b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms) {
 		SI_UNUSED(newPerms);
 		return false;
 	#else
-		i32 res = chmod(path, newPerms);
+		i32 res = chmod(path, (mode_t)newPerms);
 		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
