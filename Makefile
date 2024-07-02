@@ -2,30 +2,55 @@ CC = clang
 AR = ar
 OUTPUT = build
 
+NAME = sili
 FLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
 EXTRA_FLAGS =
-LIBS =
+EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
 
-STATIC_NAME = libsili.a
-DYNAMIC_NAME = libsili.so
+# NOTE(EimaMei): Original source is from 'https://github.com/ColleagueRiley/RGFW'
+ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc))
+	DETECTED_OS := Windows
+else
+	ifeq '$(findstring ;,$(PATH))' ';'
+		DETECTED_OS := Windows
+	else
+		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
+		DETECTED_OS := $(patsubst CYGWIN%,Cygwin,$(DETECTED_OS))
+		DETECTED_OS := $(patsubst MSYS%,MSYS,$(DETECTED_OS))
+		DETECTED_OS := $(patsubst MINGW%,MSYS,$(DETECTED_OS))
+	endif
+endif
+
+ifeq ($(DETECTED_OS),Windows)
+	EXE = $(OUTPUT)/test.exe
+	DLL_EXT = .dll
+endif
+ifeq ($(DETECTED_OS),Darwin)
+	LIBS = -lpthread
+	EXE = $(OUTPUT)/test
+	DLL_EXT = .so
+endif
+ifeq ($(DETECTED_OS),Linux)
+	LIBS = -lpthread
+	EXE = $(OUTPUT)/test
+	DLL_EXT = .so
+endif
 
 # For testing
-NAME = test
-EXE = $(OUTPUT)/$(NAME)
-SRC = examples/benchmarking.c
+SRC = examples/array.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
 
 # 'make static'
 static:
-	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
-	$(AR) rcs $(OUTPUT)/$(STATIC_NAME) $(OUTPUT)/sili.o
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) -D SI_IMPLEMENTATION -D SI_STATIC -c sili.h -o $(OUTPUT)/$(NAME).o
+	$(AR) rcs $(OUTPUT)/lib$(NAME).a $(OUTPUT)/$(NAME).o
 
 dynamic:
-	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) -fPIC $(INCLUDE) $(LIBS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
-	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) -shared $(OUTPUT)/sili.o -o $(OUTPUT)/$(DYNAMIC_NAME)
+	$(CC) -x c $(FLAGS) $(EXTRA_FLAGS) -fPIC $(INCLUDE) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/$(NAME).o
+	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(INCLUDE) $(LIBS) $(EXTRA_LIBS) -shared $(OUTPUT)/$(NAME).o -o $(OUTPUT)/lib$(NAME)$(DLL_EXT)
 
 
 # Run the executable.

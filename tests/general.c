@@ -65,8 +65,8 @@ int main(void) {
 		y[1] = 0;
 		si_ptrMoveLeft(&y[0], 2, 2);
 		SI_ASSERT(y[1] == 0x8080);
-
 	}
+	si_print("Test 1 has been completed.\n");
 
 	{
 		usize ceil = si_alignCeilEx(12, 8);
@@ -104,6 +104,7 @@ int main(void) {
 
 		si_allocatorFree(alloc);
 	}
+	si_print("Test 2 has been completed.\n");
 
 	{
 		usize* ptr1 = si_sallocItem(usize);
@@ -122,9 +123,10 @@ int main(void) {
 		si_allocatorFree(allocator);
 		SI_UNUSED(alloc2);
 	}
+	si_print("Test 3 has been completed.\n");
 
 	{
-		siAny any = si_anyMake(23);
+		siAny any = si_anyMakeType(i32, 23);
 		SI_ASSERT(any.typeSize == sizeof((i32)23));
 
 		siPoint p1 = SI_POINT(50, 50),
@@ -148,8 +150,8 @@ int main(void) {
 		SI_ASSERT(v2.x == 4 && v2.y == 4);
 		si_vec2Add(&v2, SI_VEC2(-2, -2));
 		SI_ASSERT(v2.x == 2 && v2.y == 2);
-
 	}
+	si_print("Test 4 has been completed.\n");
 
 	{
 		siOptional(u64) opt = si_optionalMake(19920216ULL);
@@ -163,4 +165,8 @@ int main(void) {
 		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
 		SI_ASSERT(res == UINT64_MAX);
 	}
+	si_print("Test 5 has been completed.\n");
+
+	
+	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
 }

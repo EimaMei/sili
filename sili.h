@@ -1,5 +1,5 @@
 /*
-sili.h - a cross-platform standard library for modern C99 programming
+sili.h - v0.1.0 - a cross-platform standard library for modern C99 programming
 ===========================================================================
 	- YOU MUST DEFINE 'SI_IMPLEMENTATION' in EXACTLY _one_ C file that includes
 	this header, BEFORE the include like this:
@@ -107,6 +107,11 @@ MACROS
 	- SI_NO_HASH_OVERWRITE - disables the ovewrite of a pre-existing entry's
 	value when using 'si_hashtableSet/WithHash'.
 
+	- SI_NO_SILI_PRINTF_STYLE - disables some of sili's added features for
+	'si_printf' that break ouput compatibility with the old 'printf'. The list of
+	said features:
+		1. Octal numbers being prefixed with '0o' instead of just '0'.
+
 ===========================================================================
 CREDITS
 	- Ginger Bill's 'gb.h' (https://github.com//gingerBill/gb) - inspired me to
@@ -131,10 +136,19 @@ WARNING
 extern "C" {
 #endif
 
-#if defined(__cplusplus)
-	#define SI_EXTERN extern "C"
-#else
-	#define SI_EXTERN extern
+#ifndef SI_VERSION_MAJOR
+	#define SI_VERSION_MAJOR 0
+	#define SI_VERSION_MINOR 1
+	#define SI_VERSION_PATCH 0
+#endif
+#define SI_VERSION (SI_VERSION_MAJOR * 1000 + SI_VERSINO_MINOR * 100 + SI_VERSION_PATCH)
+
+#ifndef SI_EXTERN
+	#if defined(__cplusplus)
+		#define SI_EXTERN extern "C"
+	#else
+		#define SI_EXTERN extern
+	#endif
 #endif
 
 #ifndef SIDEF
@@ -225,7 +239,7 @@ extern "C" {
 		#define SI_STANDARD_CPP14 201402L
 		#define SI_STANDARD_CPP17 201703L
 		#define SI_STANDARD_CPP20 202002L
-		#define SI_STANDARD_CPP23 202311L
+		#define SI_STANDARD_CPP23 202302L
 	#endif
 #endif
 
@@ -287,7 +301,7 @@ extern "C" {
 
 
 #if defined(SI_SYSTEM_WINDOWS)
-	#if !defined(_CRT_SECURE_NO_WARNINGS)
+	#ifndef _CRT_SECURE_NO_WARNINGS
 		#define _CRT_SECURE_NO_WARNINGS
 	#endif
 #endif
@@ -368,7 +382,8 @@ extern "C" {
 #endif
 
 #if !defined(SI_NO_TYPE_DEFS)
-#if defined(SI_SYSTEM_WINDOWS)
+
+#if defined(SI_SYSTEM_WINDOWS) && defined(SI_COMPILER_MSVC)
 	#if _MSC_VER < 1300
 		typedef unsigned char     u8;
 		typedef   signed char     i8;
@@ -400,7 +415,6 @@ extern "C" {
 	#define UINT16_MAX   _UI16_MAX
 	#define UINT32_MAX   _UI32_MAX
 	#define UINT64_MAX   _UI64_MAX
-
 #else
 	#include <stdint.h>
 	#include <stddef.h>
@@ -697,23 +711,23 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	========================
 */
 #if !defined(typeof) && !defined(SI_NO_TYPEOF)
-	#ifdef SI_LANGUAGE_C
-		#if SI_STANDARD_VERSION <= SI_STANDARD_C17
-			/* ...VALUE - TYPE/EXPRESSION
-			* Gets the value's type and expresses it as just a regular type. */
-			#define typeof(.../* VALUE */)  __typeof__(__VA_ARGS__)
-			#define SI_TYPEOF_USED 1
-		#endif
+	#if defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C17
+		#define SI_TYPEOF_USED 1
+	#elif defined(SI_GNUC_COMPLIANT) 
+		/* ...VALUE - TYPE/EXPRESSION
+		* Gets the value's type and expresses it as a regular type. */
+		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
+		#define SI_TYPEOF_USED 1
 	#elif defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
 		/* ...VALUE - TYPE/EXPRESSION
-		* Gets the value's type and expresses it as just a regular type. */
+		* Gets the value's type and expresses it as a regular type. */
 		#define typeof(.../* VALUE */) decltype(__VA_ARGS__)
+		#define SI_TYPEOF_USED 1
+	#elif !defined(SI_COMPILER_MSVC)
+		#define SI_TYPEOF_USED 1
 	#endif
+#elif defined(typeof) && !defined(SI_NO_TYPEOF)
 	#define SI_TYPEOF_USED 1
-#elif !defined(SI_NO_TYPEOF)
-	#define SI_TYPEOF_USED 1
-#else
-	#define typeof(.../* VALUE */)
 #endif
 
 #if !defined(countof)
@@ -721,11 +735,31 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 	* Gets the static length of the given value (must be an array). */
 	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
 #endif
+#if !defined(countof_str)
+	/* value - ARRAY
+	* Gets the static length of the given string while excluding the NULL terminator. */
+	#define countof_str(.../* value */) (countof(__VA_ARGS__) - 1)
+#endif
+SI_STATIC_ASSERT(countof("abcd") == 5);
+SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
+SI_STATIC_ASSERT(countof_str("abcd") == 4);
+
+#if !defined(offsetof)
+	#if defined(SI_COMPILER_GCC) ||  defined(SI_COMPILER_CLANG)
+		/* type - STRUCT TYPE | element - TYPE's member
+		* Gets the offset of the provided member using '__builtin_offsetof'. */
+		#define offsetof(type, element)  __builtin_offsetof(type, element)
+	#else
+		/* type - STRUCT TYPE | element - TYPE's member
+		* Gets the offset of the provided member using 'si_offsetof'. */
+		#define offsetof(type, element) si_offsetof(type, element)
+	#endif
+#endif
 
 #if !defined(si_offsetof)
 	/* type - STRUCT TYPE | element - TYPE's member
 	* Gets the offset of the provided member. Doesn't work as a compile-time macro. */
-	#define si_offsetof(type, element) ((isize)&(((type*)nil)->element))
+	#define si_offsetof(type, element) ((usize)&(((type*)nil)->element))
 #endif
 
 #if (!defined(SI_LANGUAGE_CPP) && !defined(alignof)) || (defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION < SI_STANDARD_CPP11)
@@ -1193,9 +1227,9 @@ typedef struct {
 	usize offset;
 } siAllocator;
 
-/* Sets memory alignment. By default it's 4 bytes. */
+/* Sets memory alignment default for 'si_alignCeil'. Change it if need be. */
 #ifndef SI_DEFAULT_MEMORY_ALIGNMENT
-	#define SI_DEFAULT_MEMORY_ALIGNMENT (4)
+	#define SI_DEFAULT_MEMORY_ALIGNMENT (2 * sizeof(rawptr))
 #endif
 /* Aligns 'n' by SI_DEFAULT_MEMORY_ALIGNMENT. */
 usize si_alignCeil(usize n);
@@ -2166,7 +2200,7 @@ rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer
 /* Allocates 'file.size' amount of bytes from the allocator, reads the entire file's
  * contents, then returns the buffer. The file stream offset does not get changed.
  * 'SI_FS_READ_BYTES' gets modified by how many bytes were read. */
-rawptr si_fileReadContents(siFile file, siAllocator*);
+rawptr si_fileReadContents(siFile file, siAllocator* alloc);
 rawptr si_fileReadContentsBuf(siFile file, rawptr outBuffer);
 /* Allocates 'bufferLen' amount of bytes from the allocator, reads 'si_min(file.size, bufferLen)',
  * amount of bytes, then returns the buffer. The file stream offset does not get
@@ -2193,9 +2227,13 @@ usize si_fileWriteAt(siFile* file, cstring content, isize offset);
  * offset, then returns the amount of bytes that were successfully written. The
  * file stream offset also changes to 'offset + <writtenBytes>'. */
 usize si_fileWriteAtLen(siFile* file, const rawptr content, usize contentLen, isize offset);
-/* Writes a C-string into the file at the specified line. Writes the amount of
- * characters that were written into the file. */
+/* Writes the NULL-terminated C-string into the file at the specified line. Writes
+ * the amount of characters that were written into the file. The file stream does
+ * not get changed */
 usize si_fileWriteAtLine(siFile* file, cstring content, usize index);
+/* Writes the length-specified C-string into the file at the specified line. Writes
+ * the amount of characters that were written into the file. */
+usize si_fileWriteAtLineEx(siFile* file, cstring content, usize contentLen, usize index);
 
 /* Returns the current offset of the file stream. */
 isize si_fileTell(siFile file);
@@ -3586,13 +3624,13 @@ void si__internArrayFill(rawptr arrayPtr, usize index, usize count, siAny value)
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
 	SI_ASSERT_MSG(value.typeSize <= header->typeSize, "The given value's sizeof is too large compared to the elements' in the array.");
 	SI_ASSERT_MSG(index < header->capacity, "Index is higher than the array's length.");
-	SI_ASSERT_MSG(index + count < header->len, "Index and count combined must be less than the current length.");
+	SI_ASSERT_MSG(index + count <= header->capacity, "Index and count combined must be less than the current capacity.");
 	usize previousLen = header->len;
 
 	isize newItemCount = (index + count) - header->len;
-	newItemCount = si_min(0, newItemCount);
+	newItemCount = si_max(0, newItemCount);
 	header->len += newItemCount;
-
+	
 	if (header->capacity < header->len) {
 		rawptr res = si_realloc(
 			header->allocator,
@@ -3609,7 +3647,7 @@ void si__internArrayFill(rawptr arrayPtr, usize index, usize count, siAny value)
 		header->capacity = header->capacity * 2 + newItemCount;
 	}
 
-	for_range(i, index, count) {
+	for_range(i, index, index + count) {
 		siByte* dst = si_arrayGetPtr(array, previousLen + i);
 		memcpy(dst, value.ptr, header->typeSize);
 	}
@@ -4208,22 +4246,22 @@ siArray(siString) si_stringSplitLen(siString str, usize strLen, siAllocator* all
 
 	usize count = 0;
 	usize beginPos = 0;
-	siArray(siString) res;
 	usize posBuffer[SI_KILO(1)];
 
 	while (true) {
 		isize pos = si_stringFindEx(str, beginPos, strLen, delimiter, delimiterLen);
 		if (pos == -1) {
-			posBuffer[count] = posBuffer[count - 1];
-			count++;
+			posBuffer[count] = strLen - beginPos;
+			count += 1;
 			break;
 		}
 		posBuffer[count] = pos - beginPos;
-		count++;
+		count += 1;
 
 		beginPos = pos + delimiterLen;
 	}
-	res = (siString*)si_arrayMakeReserve(alloc, sizeof(*res), count);
+
+	siArray(siString) res = (siString*)si_arrayMakeReserve(alloc, sizeof(*res), count);
 	SI_ARRAY_HEADER(res)->len = count;
 
 	for_range (i, 0, count) {
@@ -5785,13 +5823,11 @@ siFile si_fileOpenMode(cstring path, siFileMode mode) {
 		i64 handle = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 		SI_STOPIF(handle == -1, { SI_FS_ERROR_DECLARE(); return (siFile){0}; });
 #endif
-	siFile res = {
-		handle,
-		0,
-		path,
-		si_pathLastWriteTime(path)
-	};
-	si_fileSizeUpdate(&res);
+	siFile res;
+	res.handle = handle;
+	res.size = si_fileSize(res);
+	res.filename = path;
+	res.lastWriteTime = si_pathLastWriteTime(path);
 
 	return res;
 }
@@ -5801,29 +5837,21 @@ usize si_fileSize(siFile file) {
 	SI_ASSERT_NOT_NULL((rawptr)file.handle);
 
 #if defined(SI_SYSTEM_WINDOWS)
-	LARGE_INTEGER size;
-	GetFileSizeEx(file.handle, &size);
-	return size.QuadPart;
+	LARGE_INTEGER res;
+	GetFileSizeEx(file.handle, &res);
+	return res.QuadPart;
 #else
-	usize prevOffset = si_fileTell(file);
-	isize bytes = si_fileSeek(file, 0, SI_FILE_MOVE_END);
+	isize prevOffset = si_fileTell(file);
+	usize len = si_fileSeek(file, 0, SI_FILE_MOVE_END);
 	si_fileSeek(file, prevOffset, SI_FILE_MOVE_BEGIN);
-
-	return bytes;
+	return len;
 #endif
 }
 
 SIDEF
 void si_fileSizeUpdate(siFile* file) {
 	SI_ASSERT_NOT_NULL(file);
-	SI_ASSERT_NOT_NULL((rawptr)file->handle);
-#if defined(SI_SYSTEM_WINDOWS)
-	LARGE_INTEGER res;
-	GetFileSizeEx(file->handle, &res);
-	file->size = res.QuadPart;
-#else
-	file->size = si_fileSeek(*file, 0, SI_FILE_MOVE_END);
-#endif
+	file->size = si_fileSize(*file);
 }
 
 
@@ -5859,6 +5887,7 @@ rawptr si_fileReadAtBuf(siFile file, isize offset, usize len, rawptr outBuffer) 
 SIDEF
 rawptr si_fileReadAtEx(siFile file, siAllocator* alloc, isize offset, usize len,
 		usize bufferLen) {
+	SI_ASSERT_NOT_NULL(alloc);
 	SI_ASSERT_NOT_NULL((rawptr)file.handle);
 
 	len = si_min(len, bufferLen);
@@ -5870,6 +5899,7 @@ SIDEF
 rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer,
 		usize bufferLen) {
 	SI_ASSERT_NOT_NULL((rawptr)file.handle);
+	SI_ASSERT_NOT_NULL(outBuffer);
 	len = si_min(len, bufferLen);
 
 #if defined(SI_SYSTEM_WINDOWS)
@@ -5888,30 +5918,37 @@ rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer
 }
 
 SIDEF
-rawptr si_fileReadContents(siFile file, siAllocator* alloc) {
-	return si_fileReadAtEx(file, alloc, 0, file.size, file.size);
-}
-
-SIDEF
 rawptr si_fileReadContentsBuf(siFile file, rawptr outBuffer) {
-	return si_fileReadAtBufEx(file, 0, file.size, outBuffer, file.size);
-}
-
-SIDEF
-rawptr si_fileReadContentsEx(siFile file, siAllocator* alloc, usize bufferLen) {
-	return si_fileReadAtEx(file, alloc, 0, file.size, bufferLen);
+	return si_fileReadContentsBufEx(file, outBuffer, file.size);
 }
 
 SIDEF
 rawptr si_fileReadContentsBufEx(siFile file, rawptr outBuffer, usize bufferLen) {
-	return si_fileReadAtBufEx(file, 0, file.size, outBuffer, bufferLen);
+	isize oldOffset = si_fileTell(file);
+	rawptr content = si_fileReadAtBufEx(file, 0, bufferLen, outBuffer, bufferLen);
+	si_fileSeek(file, oldOffset, SI_FILE_MOVE_BEGIN);
+	return content;
 }
+
+SIDEF
+rawptr si_fileReadContents(siFile file, siAllocator* alloc) {
+	return si_fileReadContentsEx(file, alloc, file.size);
+}
+
+SIDEF
+rawptr si_fileReadContentsEx(siFile file, siAllocator* alloc, usize bufferLen) {
+	isize oldOffset = si_fileTell(file);
+	rawptr content = si_fileReadAtEx(file, alloc, 0, bufferLen, bufferLen);
+	si_fileSeek(file, oldOffset, SI_FILE_MOVE_BEGIN);
+	return content;
+}
+
 siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc) {
 	SI_ASSERT_NOT_NULL(alloc);
-	siAllocator* tmp = si_allocatorMake(file.size + sizeof(siStringHeader));
+	siAllocator* tmp = si_allocatorMake(file.size);
 
-	siString buffer = si_fileReadContents(file, tmp);
-	siArray(siString) res = si_cstrSplitLen(buffer, file.size, alloc, "\n", 1);
+	char* buffer = si_fileReadContents(file, tmp);
+	siArray(siString) res = si_cstrSplitLen(buffer, file.size, alloc, "\n", countof_str("\n"));
 
 	si_allocatorFree(tmp);
 	return res;
@@ -5950,23 +5987,56 @@ usize si_fileWriteAtLen(siFile* file, const rawptr content, usize contentLen, is
 	SI_STOPIF(bytesWritten == -1, { SI_FS_ERROR_DECLARE(); return 0; });
 #endif
 
-	file->size += bytesWritten;
+	file->size += (offset - file->size) + bytesWritten;
 	return bytesWritten;
 }
 SIDEF
 usize si_fileWriteAtLine(siFile* file, cstring content, usize index) {
+	return si_fileWriteAtLineEx(file, content, si_cstrLen(content), index);
+}
+SIDEF
+usize si_fileWriteAtLineEx(siFile* file, cstring content, usize contentLen, usize index) {
 	SI_ASSERT_NOT_NULL(file);
-	SI_ASSERT_NOT_NULL((rawptr)file->handle);
 	SI_ASSERT_NOT_NULL(content);
 
-	siAllocator* tmp = si_allocatorMake(2 * file->size * (sizeof(siStringHeader) + sizeof(siString)));
-	siArray(siString) buffer = si_fileReadlines(*file, tmp);
-	SI_ASSERT_MSG(index < si_arrayLen(buffer), "Index is either not 0 or higher than the amount of lines in the file.");
+	siAllocator* tmp = si_allocatorMake(file->size + contentLen);
+	char* buffer = si_fileReadContents(*file, tmp);
+	si_printf("%i - %i\n", file->size, si_fileTell(*file));
 
-	buffer[index] = (siString)content;
-	siString newFileContent = si_arrayToSistring(buffer, "\n");
+	isize lineStart = 0, oldLen;
+	while (index) {
+		si_printf("one: %i\n", lineStart);
+		lineStart = si_stringFindEx(buffer, lineStart + 1, file->size, "\n", countof_str("\n"));
+		SI_ASSERT_MSG(lineStart != -1, "Invalid index");
+		index -= 1;
+	}
+	lineStart += (lineStart != 0);
 
-	usize len = si_fileWriteLen(file, newFileContent, si_stringLen(newFileContent));
+	isize lineEnd = si_stringFindEx(buffer, lineStart, file->size, "\n", countof_str("\n"));
+
+	if (lineEnd == -1) { /* NOTE(EimaMei): Index is the last line. */
+		oldLen = file->size - lineStart;
+		memcpy(&buffer[lineStart], content, contentLen);
+	}
+	else {
+		oldLen = lineEnd - lineStart;
+
+		memcpy(
+			&buffer[lineStart + contentLen],
+			&buffer[lineStart + oldLen],
+			file->size - lineStart
+		);
+		memcpy(&buffer[lineStart], content, contentLen);
+		buffer[lineStart + contentLen] = '\n';
+
+	}
+	file->size += (isize)contentLen - (isize)oldLen;
+
+	isize oldOffset = si_fileTell(*file);
+	usize len = si_fileWriteAtLen(file, buffer, file->size, 0);
+	si_fileSeek(*file, oldOffset, SI_FILE_MOVE_BEGIN);
+
+	si_allocatorFree(tmp);
 	return len;
 }
 
@@ -7035,10 +7105,10 @@ GOTO_SCIENTIFIC_NOTATION:
 				break;
 			}
 			case 'B': { /* Boolean */
-				static char* values[] = {"true", "false"};
-				static size_t lengths[] = {4, 5};
+				static char* values[] = {"false", "true"};
+				static size_t lengths[] = {countof_str("false"), countof_str("true")};
 
-				usize index = va_arg(va, b32) & ~(b32)1;
+				usize index = va_arg(va, b32) & 1;
 				info.str = values[index];
 				info.strLen = lengths[index];
 

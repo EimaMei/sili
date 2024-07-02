@@ -81,7 +81,7 @@ jobs:
         windres.exe --version
         dir C:\msys64\mingw64\bin
         make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe static
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe dynamic DYNAMIC_NAME="libsili.dll"
+        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe dynamic
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |

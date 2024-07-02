@@ -17,7 +17,7 @@
 		} \
 		i32 res = strcmp(buffer, expectedStr); \
 		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%s'", res, buffer); \
-		printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
+		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
 	} while(0)
 
 #define TEST_PRINT_REG(expectedStr) TEST_PRINT(expectedStr, expectedStr, 0)
@@ -61,4 +61,9 @@ int main(void) {
 
 	TEST_PRINT_REG("Fixed-width types:\n");
 	TEST_PRINT("\tLargest 32-bit value is 4294967295 or 0xffffffff\n", "\tLargest 32-bit value is %u or %#x\n", UINT32_MAX, UINT32_MAX);
+
+	TEST_PRINT("true false 0b1 0b0\n", "%B %B %#b %#b\n", true, false, 1, 0);
+
+
+	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
 }

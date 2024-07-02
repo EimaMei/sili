@@ -2,18 +2,9 @@
 #include <sili.h>
 
 
-void print_arrI(siArray(void) arr) {
-	usize len = 0;
-	char buf[SI_KILO(4)];
+void print_arrI(siArray(void) arr);
+void print_arrColor(siArray(siColor) array);
 
-	buf[0] = '{', len += 1;
-	for_range (i, 0, si_arrayLen(arr) - 1) {
-		len += si_snprintf(&buf[len], sizeof(buf) - len, "%i, ", ((i32*)arr)[i]) - 1;
-	}
-	si_snprintf(&buf[len], sizeof(buf) - len, "%i}\n", ((i32*)arr)[si_arrayLen(arr)]);
-
-	si_printf(buf);
-}
 
 void example1(siAllocator* heap) {
 	si_allocatorReset(heap);
@@ -41,7 +32,7 @@ void example1(siAllocator* heap) {
 	);
 
 	si_arrayReplace(&array, i32, 4, INT32_MIN);
-	si_printf("The element at position '%d' was replaced with: -'%i'\n", 3, array[3]);
+	si_printf("The element at position '%d' was replaced with: '%i'\n", 3, array[3]);
 
 	siArray(i32) copy = si_arrayCopy(heap, array);
 	b32 res = si_arrayEqual(array, copy);
@@ -73,42 +64,34 @@ void example3(siAllocator* heap) {
 		si_buf(siColor, SI_RGB(255, 0, 0), SI_RGBA(0, 255, 0, 127), SI_RGB(0, 0, 255))
 	);
 
-	si_arrayAppend(&array, siColor, {255, 255, 255, 255});
+	{
+		si_arrayAppend(&array, siColor, {255, 255, 255, 255});
+		print_arrColor(array);
 
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+		si_arrayPop(&array);
+		si_printf("Current length now - '%zd'\n", si_arrayLen(array));
 	}
 
-	si_arrayPop(&array);
-	si_printf("Current length now - '%zd'\n", si_arrayLen(array));
-
-	si_arrayInsert(&array, siColor, 2, SI_RGB(127, 127, 127));
-
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	{
+		si_arrayInsert(&array, siColor, 2, SI_RGB(127, 127, 127));
+		print_arrColor(array);
 	}
 
-	si_arrayErase(&array, 2);
-
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	{
+		si_arrayErase(&array, 2);
+		print_arrColor(array);
 	}
 
-	si_arrayEraseCount(&array, 0, 3);
-	si_printf("array_empty: '%u', capacity: '%zd'\n", si_arrayEmpty(array), si_arrayCapacity(array));
+	{
+		si_arrayEraseCount(&array, 0, 3);
+		si_printf("Is the array empty: %B, capacity: '%zu'\n", si_arrayEmpty(array), si_arrayCapacity(array));
 
-	si_arrayFill(&array, siColor, 0, si_arrayCapacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+		si_arrayFill(&array, siColor, 0, si_arrayCapacity(array), SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+		print_arrColor(array);
 
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+		si_arrayRemoveItem(&array, siColor, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
+		print_arrColor(array);
 	}
-
-	si_arrayRemoveItem(&array, siColor, SI_RGBA(0xFF, 0xFF, 0xFF, 0xFF));
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
 }
 
 
@@ -121,4 +104,25 @@ int main(void) {
 
 	si_allocatorFree(heap);
 	return 0;
+}
+
+
+void print_arrI(siArray(void) arr) {
+	usize len = 0;
+	char buf[SI_KILO(4)];
+
+	buf[0] = '{', len += 1;
+	for_range (i, 0, si_arrayLen(arr) - 1) {
+		len += si_snprintf(&buf[len], sizeof(buf) - len, "%i, ", ((i32*)arr)[i]) - 1;
+	}
+	si_snprintf(&buf[len], sizeof(buf) - len, "%i}\n", ((i32*)arr)[si_arrayLen(arr)]);
+
+	si_printf(buf);
+}
+
+void print_arrColor(siArray(siColor) array) {
+	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
+	for_range (i, 0, si_arrayLen(array)) {
+		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	}
 }
