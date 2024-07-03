@@ -1411,12 +1411,15 @@ typedef struct siArrayHeader {
  * Gets the siArray's header. */
 #define SI_ARRAY_HEADER(array) ((siArrayHeader*)array - 1)
 
-
-#define for_eachArr(type, variableName, array) \
-	for (type* variableName = array; variableName != (type*)si_arrayBack(array); variableName += 1 )
-
-#define for_eachRevArr(type, variableName, array) \
-	for (type* variableName = (type*)si_arrayBack(array); variableName >= array; variableName -= 1 )
+/* type - TYPE | name - NAME | array - siArray(TYPE) 
+ * Iterates through a 'siArray' and creates a 'type*' element via a specified name. */
+#define for_eachArr(type, name, array) \
+	for (type* name = array; name != (type*)si_arrayBack(array); name += 1 )
+/* type - TYPE | name - NAME | array - siArray(TYPE) 
+ * Iterates through a 'siArray' in reverse and creates a 'type*' element via a specified
+ * name. */
+#define for_eachRevArr(type, name, array) \
+	for (type* name = (type*)si_arrayBack(array); name >= array; name -= 1 )
 
 
 /* array - siArray(TYPE) | index - usize

@@ -25,16 +25,15 @@ working C99 compiler.
 - Architecture/OS/Compiler/Standard indentification macros (`SI_CPU_X86`,
 `SI_SYSTEM_WINDOWS`, `SI_COMPILER_CLANG`, `SI_STANDARD_C99`, `SI_STANDARD_ANSI`
 etc).
-- Useful macros (`typeof()`, `SI_ASSERT`/`SI_STATIC_ASSERT`, `SI_BIT`, `foreach` etc).
+- Useful macros (`typeof()`, `SI_ASSERT`/`SI_STATIC_ASSERT`, `SI_BIT`, `for_range`/`for_eachArr` etc).
 - Robust string implementation (`siString`, fully compatible with `char*`).
 - Better arrays (`siArray(<type>)`, compatible with other C arrays).
 - `char` specific functions (`si_charToLower`, `si_charIsSpace`, `si_hexDigitToInt` etc).
 - Hashtable functions (`si_hashtableMakeReserve`, `si_hashtableGetWithHash`, `si_hashtableSet`)
 - Path related functions (`si_pathExists`, `si_pathCopy`, `si_pathGetFullname` etc).
-- A cross-platform file IO functions (`si_fileOpen`, `si_fileReadContents`,
-`si_fileWriteLineAt` etc).
+- A cross-platform file IO functions (`si_fileOpen`, `si_fileReadContents`, `si_fileWriteLineAt` etc).
 - `siOptional` type similar to `std::optional`.
-- Cross-platform multi-thread support (`si_threadCreate`, `si_threadStart`, `si_threadJoin`).
+- Cross-platform multi-thread support (`si_threadMake`, `si_threadRun`, `si_threadJoin`).
 - Easy to use benchmarking functions to check performance (`si_benchmarkRunsPerLoop`,
 `si_benchmarkExecutesPerMs`, `si_benchmarkLoopsAvg` etc).
 - An allocator system, making allocations 3x faster than the traditional `malloc`/`free`.
