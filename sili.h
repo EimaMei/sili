@@ -290,7 +290,7 @@ extern "C" {
 
 
 #if defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C11
-	#define SI_STATIC_ASSERT(condition) _Static_assert(condition)
+	#define SI_STATIC_ASSERT(condition) _Static_assert(condition, "")
 #elif defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
 	#define SI_STATIC_ASSERT(condiion) static_assert(condition)
 #else
@@ -615,7 +615,7 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 	/* A struct containing information about an error that happened during an operation. */
-typedef struct {
+typedef struct siErrorInfo {
 	/* Error code from the operation. */
 	i32 code;
 
@@ -665,7 +665,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 
 /* type - TYPE | name - NAME
  * Defines the enum with the given integer type. */
-#define SI_ENUM(type, name) type name; enum
+#define SI_ENUM(type, name) typedef type name; enum name
 /* varName - NAME | multipleArgs - (TYPE1, TYPE2...)
  * Macro to define a function pointer. */
 #define SI_FUNC_PTR(varName, multipleArgs) (*varName)multipleArgs
@@ -827,6 +827,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
  * A loop that loops from 'start' to 'end' and increments 'countVar' each cycle. */
 #define for_range(countVar, start, end) \
 	for (typeof(end) countVar = (start); countVar < (end); countVar += 1)
+
 #else
 /* a - VARIABLE | b - VARIABLE
  * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
@@ -866,7 +867,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	#define SI_UNLIKELY(x) (x)
 #endif
 
-#if SI_STANDARD_VERSION < SI_STANDARD_C11 && !defined(memcpy_s)
+#if (SI_STANDARD_VERSION < SI_STANDARD_C11 || !defined(__STDC_LIB_EXT1__)) && !defined(memcpy_s)
 /* dst - rawptr | dstsz - usize | src - rawptr | count - usize
  * A pre-C11 implementation of memcpy_s without 'errorno_t'. */
 #define memcpy_s(dst, dstsz, src, count) memcpy(dst, src, si_min(dstsz, count))
@@ -1009,7 +1010,7 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line,
 	========================
 */
 
-typedef struct {
+typedef struct siAny {
 	/* Pointer to the data. */
 	rawptr ptr;
 	/* Size of the data */
@@ -1221,7 +1222,7 @@ typedef struct { f32 x, y, z, w; } siVec4;
 
 /* A structure containing the starting pointer of the data, maximum length and
  * the current index of the data. */
-typedef struct {
+typedef struct siAllocator {
 	siByte* ptr;
 	usize maxLen;
 	usize offset;
@@ -1392,7 +1393,7 @@ const rawptr SI_OPTIONAL_NULL = (const rawptr)&si__internOptionalNull;
 */
 
 /* The header for 'siArray'. */
-typedef struct {
+typedef struct siArrayHeader {
 	/* The allocator used for creating the array. Used for reallocations, frees, etc. */
 	siAllocator* allocator;
 	/* The current amount of items. */
@@ -1410,22 +1411,18 @@ typedef struct {
  * Gets the siArray's header. */
 #define SI_ARRAY_HEADER(array) ((siArrayHeader*)array - 1)
 
-#if !defined(for_each) && SI_TYPEOF_USED
-	/* variableName - NAME | array - siArray(TYPE)
-	 * Iterates through a siArray. */
-	#define for_each(variableName, array) \
-		typeof(array) variableName; \
-		for ( \
-			variableName = array; \
-			variableName != (typeof(array))si_arrayGetPtr(array, si_arrayLen(array)); \
-			variableName += 1 \
-		)
-#endif
+
+#define for_eachArr(type, variableName, array) \
+	for (type* variableName = array; variableName != (type*)si_arrayBack(array); variableName += 1 )
+
+#define for_eachRevArr(type, variableName, array) \
+	for (type* variableName = (type*)si_arrayBack(array); variableName >= array; variableName -= 1 )
+
 
 /* array - siArray(TYPE) | index - usize
  * Gets a specific item's pointer and return it as a 'siByte*' for pointer arithmetic. */
 #define si_arrayGetPtr(array, index) \
-	(((siByte*)(array)) + si_arrayTypeSize(array) * (index))
+	(((siByte*)(array)) + SI_ARRAY_HEADER(array)->typeSize * (index))
 
 /* allocator - siAllocator* | ...BUFFER - STATIC BUFFER
  * Creates a siArray from the provided static buffer. */
@@ -1452,9 +1449,11 @@ usize si_arrayTotalSize(rawptr array);
 /* Returns true if 'array' is nil or the length is zero. */
 b32 si_arrayEmpty(siNullable rawptr array);
 
-/* Returns a pointer of the item. If the index is out of the bounds, the return is nil. */
+/* Returns a pointer of the item. If the index is out of the bounds, the return
+ * is nil. */
 rawptr si_arrayAt(rawptr array, usize index);
-/* Returns a pointer of the front item. */
+/* Returns a pointer of the front item. Just syntax sugar, same as just returning
+ * array. */
 rawptr si_arrayFront(rawptr array);
 /* Returns a pointer of the back item. */
 rawptr si_arrayBack(rawptr array);
@@ -1493,11 +1492,11 @@ void si_arrayEraseCount(rawptr arrayPtr, usize index, usize count);
 /* array - siArray(TYPE) | type - TYPE | ...VALUE - EXPRESSION
  * Returns an optional value of the last mention of the specified value, starting
   from the back. */
-#define si_arrayRFind(array, type, ...) si_intern_arrayRFind(array, si_arrayLen(array) - 1, 0, si_anyMakeType(type, __VA_ARGS__))
+#define si_arrayRFind(array, type, ...) si__internArrayRFind(array, si_arrayLen(array) - 1, 0, si_anyMakeType(type, __VA_ARGS__))
 /* array - siArray(TYPE) | type - TYPE | | start - usize | end - usize | ...VALUE - EXPRESSION
  * Returns an optional value of the last mention of the specified value, starting
   from the specified start to the specified end. */
-#define si_arrayRFindEx(array, type, start, end, ...) si_intern_arrayRFind(array, start, end, si_anyMakeType(type, __VA_ARGS__))
+#define si_arrayRFindEx(array, type, start, end, ...) si__internArrayRFind(array, start, end, si_anyMakeType(type, __VA_ARGS__))
 /* array - siArray(TYPE) | type - TYPE | | oldValue - EXPRESSION | ...newValue - EXPRESSION
  * Replaces every mention of the old specified value with the newly specified one. */
 #define si_arrayReplace(arrayPtr, type, oldValue, .../* newValue */) si__internArrayReplace(array, si_anyMakeType(type, oldValue), si_anyMakeType(type, __VA_ARGS__))
@@ -1521,7 +1520,7 @@ b32 si_arrayEqual(siArray(void) left, siArray(void) right);
 #if 1 /* NOTE(EimaMei): The actual implementations. Shouldn't be used in practice really. */
 siOptionalRet(usize) si__internArrayFind(rawptr array, usize start, usize end,
 		siAny value);
-siOptionalRet(usize) si_intern_arrayRFind(rawptr array, usize start, usize end,
+siOptionalRet(usize) si__internArrayRFind(rawptr array, usize start, usize end,
 		siAny value);
 rawptr si__internArrayAppend(rawptr arrayPtr, siAny value);
 void si__internArrayInsert(rawptr arrayPtr, usize index, siAny value);
@@ -1557,7 +1556,7 @@ void si__internArrayFill(rawptr arrayPtr, usize index, usize count, siAny item);
 typedef char* siString;
 
 /* The string header. */
-typedef struct {
+typedef struct siStringHeader {
 	/* Allocator used by the string. */
 	siAllocator* allocator;
 	/* Current length of the string. */
@@ -1992,7 +1991,7 @@ siHashEntry* si_hashtableSetWithHash(const siHashTable ht, u64 hash, const rawpt
 	========================
 */
 
-typedef SI_ENUM(u32, siFileMode) {
+SI_ENUM(u32, siFileMode) {
 	SI_FILE_READ = SI_BIT(0),
 	SI_FILE_WRITE = SI_BIT(1),
 	SI_FILE_APPEND = SI_BIT(2),
@@ -2001,7 +2000,7 @@ typedef SI_ENUM(u32, siFileMode) {
 	SI_FILE_ALL = SI_FILE_READ | SI_FILE_WRITE | SI_FILE_APPEND | SI_FILE_PLUS
 };
 
-typedef struct {
+typedef struct siFile {
 	#if defined(SI_SYSTEM_WINDOWS)
 		/* OS-specific handle of the file. */
 		rawptr handle;
@@ -2017,7 +2016,7 @@ typedef struct {
 	u64 lastWriteTime;
 } siFile;
 
-typedef SI_ENUM(u32, siFilePermissions) {
+SI_ENUM(u32, siFilePermissions) {
 	SI_FS_PERM_NONE = 0, /* No permission bits are set. */
 
 	SI_FS_PERM_OWNER_READ = 0400, /* File owner has read permission. */
@@ -2046,13 +2045,13 @@ typedef SI_ENUM(u32, siFilePermissions) {
 									SI_FS_PERM_SET_GID | SI_FS_PERM_STICKY_BIT'. */
 };
 
-typedef SI_ENUM(i32, siFileMoveMethod) {
+SI_ENUM(i32, siFileMoveMethod) {
 	SI_FILE_MOVE_BEGIN = 0, /* Sets the pointer from the beginning of the file. */
 	SI_FILE_MOVE_CURRENT = 1, /* Sets the pointer from the current offset. */
 	SI_FILE_MOVE_END = 2 /* Sets the pointer from the EOF offset. */
 };
 
-typedef SI_ENUM(i32, siStdFileType) {
+SI_ENUM(i32, siStdFileType) {
 	SI_STDTYPE_INPUT,
 	SI_STDTYPE_OUTPUT,
 	SI_STDTYPE_ERROR,
@@ -2063,7 +2062,7 @@ typedef SI_ENUM(i32, siStdFileType) {
 #define SI_STDOUT (si_fileGetStdFile(SI_STDTYPE_OUTPUT))
 #define SI_STDERR (si_fileGetStdFile(SI_STDTYPE_ERROR))
 
-typedef SI_ENUM(i32, siFileSystemError) {
+SI_ENUM(i32, siFileSystemError) {
 	SI_FS_ERROR_NONE = 0, /* No error has been encountered. */
 	SI_FS_ERROR_INVALID, /* Provided value is invalid. */
 	SI_FS_ERROR_INVALID_FILENAME, /* Invalid filename. */
@@ -2257,7 +2256,7 @@ void si_fileClose(siFile file);
 	|  siDirectory         |
 	========================
 */
-typedef SI_ENUM(i32, siIOType) {
+SI_ENUM(i32, siIOType) {
 	SI_IO_TYPE_ANY = 1,
 
 	/* === Cross-platform === */
@@ -2276,7 +2275,7 @@ typedef SI_ENUM(i32, siIOType) {
 	SI_IO_TYPE_BITS_ALL = SI_IO_TYPE_BITS | SI_IO_TYPE_SOCKET | SI_IO_TYPE_DEVICE | SI_IO_TYPE_BLOCK | SI_IO_TYPE_FIFO
 };
 
-typedef struct {
+typedef struct siDirectoryEntry {
 	/* Pointer to the full path. Note that this will be the same as 'baseName'
 	 * if the 'fullPath' flag in 'si_dirPollEntryEx' wasn't set to true. */
 	char path[SI_MAX_PATH_LEN];
@@ -2288,7 +2287,7 @@ typedef struct {
 	siIOType type;
 } siDirectoryEntry;
 
-typedef struct {
+typedef struct siDirectory {
 	/* OS Specific handle. */
 	rawptr handle;
 	/* The directory's path. */
@@ -2333,7 +2332,7 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath);
 */
 
 
-typedef struct {
+typedef struct siThread {
 	#if defined(SI_SYSTEM_WINDOWS)
 		/* Win32 thread ID. */
 		HANDLE id;
@@ -2341,8 +2340,16 @@ typedef struct {
 		/* POSIX thread ID. */
 		pthread_t id;
 	#endif
+
+	/* Dictates how much stack size gets allocated for th thread. Setting this
+	 * to 0 makes the system give the default amount of stack size to the thread. */
+	usize stackSize;
+
+	/* A booleaned inidicating if the structure was made through 'si_threadMake'. */
+	b32 initialized;
 	/* A boolean indicating if the thread is still running. */
 	volatile b32 isRunning;
+
 	/* The rawptr return of the function. */
 	rawptr returnValue;
 
@@ -2354,34 +2361,65 @@ typedef struct {
 
 /* TODO(EimaMei): Add mutexes and other threading stuff. */
 
-/* function - NAME | arg - rawptr
- * Returns a siThread from the given function name and argument. */
-#define si_threadCreate(function, arg) si_threadCreateEx(siFunc(function), arg)
-/* Returns a siThread from the given name and argument. */
-siThread si_threadCreateEx(siFunction function, rawptr arg);
 
-/* Starts the thread. */
-void si_threadStart(siThread* t);
-/* Starts the thread with a specified stack size. */
-void si_threadStartStack(siThread* t, usize stackSize);
+/* function - NAME | arg - siNullable rawptr | runThread - b32 | outThread - siThread*
+ * Creates a 'siThread' data strucutre and if specified, immediately runs the
+ * thread.  If the function fails to create the thread, the returned thread's
+ * 'id' member is set to 'nil', as well as 'isRunning'.*/
+#define si_threadMake(function, arg, runThread, outThread) \
+	si__internThreadMakeEx(siFunc(function), arg, 0, runThread, outThread)
+#define si_threadMakeArr(function, arg, runThread, outThreads, len) \
+	for_range (i, 0, len) { \
+		si_threadMake(function, arg, runThread, &((outThreads)[i])); \
+	} do {} while (0)
+
+/* function - NAME | arg - siNullable rawptr | stackSize - usize | runThread - b32
+ * Creates a 'siThread' data strucutre with the given stack size and if specified,
+ * immediately runs the thread. */
+#define si_threadMakeEx(function, arg, stackSize, runThread, outThread) \
+	si__internThreadMakeEx(siFunc(function), arg, stackSize, runThread, outThread)
+#define si_threadMakeArrEx(function, arg, stackSize, runThread, outThreads, len) \
+	for_range (i, 0, len) { \
+		si_threadMakeEx(function, arg, stackSize, runThread, &outThreads[i]); \
+	} do {} while (0)
+
+
+/* thread - siThread | type - TYPE
+ * Casts 'thread.returnValue' correctly to match the given type instead of it being
+ * rawptr. */
+#define si_threadGetReturn(thread, type) (*(type*)(&(thread).returnValue))
+
+/* Runs the thread. */
+b32 si_threadRun(siThread* t);
 /* Starts the thread while hanging the parent thread until the specified thread
  * is finished. */
-void si_threadJoin(siThread* t);
-/* thread - siThread | type - TYPE
- * Casts 'thread.returnValue' correctly to match the given type instead of being rawptr. */
-#define si_threadGetReturn(thread, type) (*(type*)(&thread.returnValue))
+b32 si_threadJoin(siThread* t);
+/* Starts the threads while hanging the parent thread until the specified thread
+ * is finished. */
+#define si_threadJoinArr(threads, len) \
+	for_range (i, 0, len) { \
+		si_threadJoin(&threads[i]); \
+	} do {} while (0)
 
-/* Stops the thread mid-execution. */
-void si_threadCancel(siThread* t); /* NOTE(EimaMei): Only works on Unix. */
+
+/* Stops the thread mid-execution.
+ * NOTE: Only works on Unix. */
+b32 si_threadCancel(siThread* t);
 /* Destroys the thread. */
-void si_threadDestroy(siThread* t);
+b32 si_threadDestroy(siThread* t);
 
 /* Sets the priority of the thread. */
-void si_threadPrioritySet(siThread t, i32 priority);
+b32 si_threadPrioritySet(siThread t, i32 priority);
+
+
+#if 1
+void si__internThreadMakeEx(siFunction function, siNullable rawptr arg, usize stackSize,
+		b32 runThread, siThread* outThread);
+#endif
 
 #endif
 
-#if !defined(SI_TIME_UNDEFINE)
+#if !defined(SI_NO_TIME)
 /*
 *
 *
@@ -2464,7 +2502,7 @@ void si_sleep(usize miliseconds);
 	========================
 */
 
-typedef SI_ENUM(usize, siBitType) {
+SI_ENUM(usize, siBitType) {
 	/* 0b00000000. */
 	SI_BIT_ZERO,
 	/* 0b00000001. */
@@ -2841,8 +2879,8 @@ i64 si_numRoundNearestMultipleI64(i64 num, i32 multiple);
 	do { \
 		u64 counter = 0; \
 		u32 miliseconds = (u32)ms; \
-		siThread thread = si_threadCreate(si_intern_benchmarkThread, &miliseconds); \
-		si_threadStart(&thread); \
+		siThread thread; \
+		si_threadMake(si__internBenchmarkThread, &miliseconds, true, &thread); \
 		while (thread.isRunning) { \
 			function; \
 			counter += 1; \
@@ -2923,7 +2961,6 @@ typedef struct { siTimeStamp duration; cstring unit; } siBenchmarkLimit;
 extern const siBenchmarkLimit siBenchLimit[];
 
 const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time);
-void si_intern_benchmarkThread(u32* arg);
 
 #endif
 
@@ -3174,7 +3211,7 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, c
 	SI_STOPIF(condition, return 0);
 	si_fprintf(
 		SI_STDERR,
-		"Assertion \"%s\" at \"%s:%d\": %s%s",
+		"%CRAssertion \"%s\" at \"%s:%d\"%C: %CR%s%C%s",
 		conditionStr, file, line, func, (message != nil ? ": " : "\n")
 	);
 
@@ -3287,7 +3324,7 @@ siTimeStamp si_RDTSC(void) {
 
 SIDEF
 u64 si_clock(void) {
-	return (si_RDTSC() / si_cpuClockSpeed()) / 1000;
+	return si_RDTSC() / si_cpuClockSpeed() * 1000;
 }
 
 
@@ -3298,7 +3335,7 @@ siTimeStamp si_timeStampStart(void) {
 SIDEF
 void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 	u64 end = si_RDTSC();
-	u64 diff = (end - ts) / si_cpuClockSpeed() / 1000;
+	u64 diff = (end - ts) / si_cpuClockSpeed() * 1000;
 
 	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
 	si_printf(
@@ -3401,12 +3438,13 @@ siAllocator* si_arrayAllocator(rawptr array) {
 
 SIDEF
 b32 si_arrayEmpty(siNullable rawptr array) {
-	return (si_arrayLen(array) == 0 || array == nil);
+	return (array == nil || si_arrayLen(array) == 0);
 }
 
 
 SIDEF
 rawptr si_arrayAt(rawptr array, usize index) {
+	SI_ASSERT_NOT_NULL(array);
 	SI_STOPIF(index >= si_arrayLen(array), return nil);
 
 	return si_arrayGetPtr(array, index);
@@ -3414,14 +3452,17 @@ rawptr si_arrayAt(rawptr array, usize index) {
 
 SIDEF
 rawptr si_arrayFront(rawptr array) {
-	SI_ASSERT_MSG(si_arrayLen(array) != 0, "Array is empty.");
+	SI_ASSERT_NOT_NULL(array);
 	return array;
 }
 
 SIDEF
 rawptr si_arrayBack(rawptr array) {
-	SI_ASSERT_MSG(si_arrayLen(array) != 0, "Array is empty.");
-	return si_arrayGetPtr(array, si_arrayLen(array) - 1);
+	SI_ASSERT_NOT_NULL(array);
+
+	usize len = SI_ARRAY_HEADER(array)->len;
+	rawptr values[] = {si_arrayGetPtr(array, len - 1), array};
+	return values[len == 0];
 }
 
 SIDEF
@@ -3441,7 +3482,7 @@ siOptionalRet(usize) si__internArrayFind(rawptr array, usize start, usize end,
 	return SI_OPTIONAL_NULL;
 }
 SIDEF
-siOptionalRet(usize) si_intern_arrayRFind(rawptr array, usize start, usize end,
+siOptionalRet(usize) si__internArrayRFind(rawptr array, usize start, usize end,
 		siAny value) {
 	SI_ASSERT_NOT_NULL(array);
 	SI_ASSERT_NOT_NULL(value.ptr);
@@ -3605,7 +3646,7 @@ void si__internArrayRemoveItem(rawptr arrayPtr, siAny value) {
 	siArrayHeader* header = SI_ARRAY_HEADER(array);
 
 	while (header->len != 0) {
-		siOptional(usize) res = si_intern_arrayRFind(array, header->len - 1, 0, value);
+		siOptional(usize) res = si__internArrayRFind(array, header->len - 1, 0, value);
 		SI_STOPIF(!res->hasValue, break);
 
 		siByte* dst = si_arrayGetPtr(array, res->value);
@@ -3900,9 +3941,8 @@ isize si_stringFindEx(siString str, usize start, usize end, cstring cstr, usize 
 	SI_ASSERT_NOT_NULL(str);
 	SI_ASSERT_NOT_NULL(cstr);
 
-	usize i;
 	usize curCount = 0;
-	for (i = start; i < end; i++) {
+	for_range(i, start, end) {
 		if (str[i] == cstr[curCount]) {
 			curCount += 1;
 			SI_STOPIF(curCount == cstrLen, return i - cstrLen + 1);
@@ -4534,10 +4574,10 @@ char* si_f64ToCstrEx(siAllocator* alloc, f64 num, i32 base, u32 afterPoint,
 	f64 copy = (afterPoint != 0)
 		? num
 		: si_round(num);
-	while (copy > 0.9999999999999999f) { /* NOTE(EimaMei): How long can this be?? */
+	do {
 		copy /= base;
 		baseLen += 1;
-	}
+	} while (copy > 0.9999999999999999f); /* NOTE(EimaMei): How long can this be?? */
 	*outLen = isNegative + baseLen + (afterPoint != 0) + afterPoint;
 
 	char* res = si_mallocArray(alloc, char, *outLen);
@@ -5210,7 +5250,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 			SI_FS_ERROR_LOG(); \
 		}
 	#define SI_FS_ERROR_DECLARE() \
-		SI_FS_ERROR_DECLARE_EX(si_intern_fileGetOSError())
+		SI_FS_ERROR_DECLARE_EX(si__internfileGetOSError())
 
 	#if !defined(SI_NO_FS_ERROR_PRINTS)
 		#define SI_FS_ERROR_LOG() \
@@ -5230,7 +5270,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 			SI_FS_ERROR_LOG(); \
 		}
 	#define SI_FS_ERROR_DECLARE() \
-		SI_FS_ERROR_DECLARE_EX(si_intern_fileGetOSError())
+		SI_FS_ERROR_DECLARE_EX(si__internfileGetOSError())
 
 	#if !defined(SI_NO_FS_ERROR_PRINTS)
 		#define SI_FS_ERROR_LOG() \
@@ -5245,7 +5285,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 	#endif
 #endif
 siIntern
-siFileSystemError si_intern_fileGetOSError(void) {
+siFileSystemError si__internfileGetOSError(void) {
 #if defined(SI_SYSTEM_WINDOWS)
 	switch (GetLastError()) {
 		case ERROR_SUCCESS: return SI_FS_ERROR_NONE;
@@ -6231,7 +6271,7 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 
 #if defined(SI_SYSTEM_WINDOWS)
 siIntern
-DWORD WINAPI si_impl_threadProc(LPVOID arg) {
+DWORD WINAPI si__internThreadProc(LPVOID arg) {
 	siThread* t = (siThread*)arg;
 	t->returnValue = t->func(t->arg);
 	t->isRunning = false;
@@ -6240,7 +6280,7 @@ DWORD WINAPI si_impl_threadProc(LPVOID arg) {
 }
 #else
 siIntern
-rawptr si_impl_threadProc(rawptr arg) {
+rawptr si__internThreadProc(rawptr arg) {
 	siThread* t = (siThread*)arg;
 	t->returnValue = t->func(t->arg);
 	t->isRunning = false;
@@ -6251,101 +6291,115 @@ rawptr si_impl_threadProc(rawptr arg) {
 
 
 SIDEF
-siThread si_threadCreateEx(siFunction function, rawptr arg) {
-	siThread t;
-	t.isRunning = false;
-	t.func = function;
-	t.arg = arg;
+void si__internThreadMakeEx(siFunction function, siNullable rawptr arg, usize stackSize,
+		b32 runThread, siThread* outThread) {
+	SI_ASSERT_NOT_NULL(function);
 
-	return t;
-}
-
-
-
-SIDEF
-void si_threadStart(siThread* t) {
-	si_threadStartStack(t, 0);
-}
-
-SIDEF
-void si_threadStartStack(siThread* t, usize stackSize) {
-	#if defined(SI_SYSTEM_WINDOWS)
-		t->id = CreateThread(nil, stackSize, si_impl_threadProc, t, 0, nil);
-		t->isRunning = true;
-		SI_ASSERT_MSG(t->id != nil, "Something went wrong with creating a new thread.");
-	#else
-		pthread_attr_t attr;
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		pthread_attr_setstacksize(&attr, stackSize);
-		t->isRunning = true;
-
-		usize error_code = pthread_create(&t->id, &attr, si_impl_threadProc, t);
-
-		cstring error_msg = nil;
-		switch (error_code) {
-			case 0: break;
-			case EAGAIN:  error_msg = "The system lacked the necessary resources to create another thread, or the system-imposed"
-						  "limit on the total number of threads in a process PTHREAD_THREADS_MAX would be exceeded."; break;
-			case EINVAL:  error_msg = "The value specified by attr is invalid at 'pthread_create'."; break;
-			case EPERM:   error_msg = "The caller does not have appropriate permission to set the required scheduling parameters or scheduling policy."; break;
-			default:      error_msg = "Unknown error code (%li)."; break;
-		}
-		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
-		pthread_attr_destroy(&attr);
-	#endif
-}
-
-SIDEF
-void si_threadJoin(siThread* t) {
-	t->isRunning = true;
-
-	#if defined(SI_SYSTEM_WINDOWS)
-		WaitForSingleObject(t->id, INFINITE);
-		CloseHandle(t->id);
-		t->id = INVALID_HANDLE_VALUE;
-	#else
-		usize error_code = pthread_join(t->id, nil);
-
-		cstring error_msg = nil;
-		switch (error_code) {
-			case 0: break;
-			case EDEADLK: error_msg = "A deadlock was detected."; break;
-			default:      error_msg = "Unknown error code (%li)."; break;
-		}
-		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
-	#endif
-
+	siThread* t = outThread;
+	t->func = function;
+	t->arg = arg;
+	t->stackSize = stackSize;
+	t->initialized = true;
+	t->returnValue = nil;
 	t->isRunning = false;
+
+	if (runThread) {
+		si_threadRun(t);
+	}
+}
+
+SIDEF
+b32 si_threadRun(siThread* t) {
+	SI_ASSERT_NOT_NULL(t);
+	SI_ASSERT(t->initialized);
+	SI_ASSERT(!t->isRunning);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		t->id = CreateThread(nil, t->stackSize, si__internThreadProc, t, 0, nil);
+		t->isRunning = (t->id != nil);
+	#else
+		int res;
+		if (t->stackSize != 0) {
+			pthread_attr_t attr;
+			res = pthread_attr_init(&attr);
+			SI_ASSERT(res == 0);
+
+			pthread_attr_setstacksize(&attr, t->stackSize);
+			res = pthread_create(&t->id, &attr, si__internThreadProc, t);
+			if (res) {
+				pthread_attr_destroy(&attr);
+			}
+		}
+		else {
+			res = pthread_create(&t->id, nil, si__internThreadProc, t);
+		}
+		t->isRunning = (res == 0);
+
+	#endif
+
+	return t->isRunning;
+}
+
+SIDEF
+b32 si_threadJoin(siThread* t) {
+	SI_ASSERT_NOT_NULL(t);
+	SI_ASSERT_NOT_NULL((rawptr)t->id);
+	SI_ASSERT(t->initialized);
+
+	#if defined(SI_SYSTEM_WINDOWS)
+		DWORD res = WaitForSingleObject(t->id, INFINITE);
+	#else
+		int res = pthread_join(t->id, nil);
+	#endif
+
+	return res == 0;
 }
 SIDEF
-void si_threadCancel(siThread* t) {
-	#if defined(SI_SYSTEM_WINDOWS)
-		si_fprintf(SI_STDERR, "%CRsi_threadCancel: This feature on Windows is not supported as of now.%C");
-		SI_UNUSED(t);
-	#else
+b32 si_threadCancel(siThread* t) {
+	SI_ASSERT_NOT_NULL(t);
+	SI_ASSERT_NOT_NULL((rawptr)t->id);
+	SI_ASSERT(t->initialized);
 
-		usize error_code = pthread_cancel(t->id);
+	#if defined(SI_SYSTEM_WINDOWS)
+#ifndef SI_RELEASE_MODE
+		si_fprintf(
+			SI_STDERR,
+			"%CRsi_threadCancel: This feature on Windows is not supported as of sili v%u.%u.%u.%C",
+			SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_MINOR
+		);
+#endif
+		return false;
+	#else
+		int res = pthread_cancel(t->id);
 		t->isRunning = false;
 
-		cstring error_msg = nil;
-		switch (error_code) {
-			case 0:   break;
-			case ESRCH:     error_msg = "No thread could be found corresponding to that specified by the given thread ID."; break;
-			default:        error_msg = "Unknown error code (%li)."; break;
-		}
-		SI_ASSERT_FMT(error_code == 0, error_msg, error_code);
-
+		return res == 0;
 	#endif
 }
 
 SIDEF
-void si_threadDestroy(siThread* t) {
-	si_threadJoin(t);
+b32 si_threadDestroy(siThread* t) {
+	SI_ASSERT_NOT_NULL(t);
+	SI_ASSERT_NOT_NULL((rawptr)t->id);
+	SI_ASSERT_MSG(!t->isRunning, "You musn't attempt to destroy a thread while it's still running");
+	SI_ASSERT(t->initialized);
+
+	t->initialized = false;
+#if defined(SI_SYSTEM_WINDOWS)
+	b32 res = CloseHandle(t->id);
+	if (res) {
+		t->id = nil;
+	}
+	return res;
+#else
+	t->id = 0;
+	return true;
+#endif
+
 }
 
 SIDEF
-void si_threadPrioritySet(siThread t, i32 priority) {
+b32 si_threadPrioritySet(siThread t, i32 priority) {
 	#if defined(SI_SYSTEM_WINDOWS)
 		isize res = SetThreadPriority(t.id, priority);
 		SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
@@ -7330,8 +7384,7 @@ i64 si_numRoundNearestMultipleI64(i64 num, i32 multiple) {
 #if defined(SI_IMPLEMENTATION_BENCHMARK) && !defined(SI_NO_BENCHMARK)
 
 
-SIDEF
-void si_intern_benchmarkThread(u32* arg) {
+void si__internBenchmarkThread(u32* arg) {
 	si_sleep(*arg);
 }
 
@@ -7422,8 +7475,12 @@ void si_benchmarkLoopsAvgCmpPrint(siAllocator* alloc, cstring funcname[2],
 
 		b32 zeroIsSlower = (time_0 > time_1);
 		f64 ratio = zeroIsSlower ? (time_0 / time_1) : (time_1 / time_0);
-		i32 clr0 = zeroIsSlower ? 'R' : 'G',
-				clr1 = zeroIsSlower ? 'G' : 'R';
+		i32 clr0 = zeroIsSlower
+			? 'R'
+			: (ratio == 1.0f) ? 'Y' : 'G';
+		i32 clr1 = zeroIsSlower
+			? 'G'
+			: (ratio == 1.0f) ? 'Y' : 'R';
 
 		element0 = si_benchmarkLimitLoop(time_0);
 		element1 = si_benchmarkLimitLoop(time_1);
@@ -7483,7 +7540,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 	const siBenchmarkLimit* end = &siBenchLimit[countof(siBenchLimit)];
 
 	while (element != end) {
-		if (si_between(time, (&element[0])->duration, (&element[1])->duration)) {
+		if (si_betweenu(time, (&element[0])->duration, (&element[1])->duration)) {
 			break;
 		}
 		element += 1;

@@ -122,7 +122,8 @@ void print_arrI(siArray(void) arr) {
 
 void print_arrColor(siArray(siColor) array) {
 	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", i, array[i].r, array[i].g, array[i].g, array[i].b);
+	for_eachArr (siColor, clr, array) {
+		usize index = clr - array;
+		si_printf("\tElement %zd: (%i, %i, %i, %i)\n", index, clr->r, clr->g, clr->g, clr->a);
 	}
 }

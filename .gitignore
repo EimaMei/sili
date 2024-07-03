@@ -4,6 +4,7 @@ res/
 src/
 include/
 lib/
+.cache/
 
 # Files
 *.exe

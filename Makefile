@@ -9,7 +9,7 @@ EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
 
 # NOTE(EimaMei): Original source is from 'https://github.com/ColleagueRiley/RGFW'
-ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc))
+ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc))
 	DETECTED_OS := Windows
 else
 	ifeq '$(findstring ;,$(PATH))' ';'
@@ -23,6 +23,7 @@ else
 endif
 
 ifeq ($(DETECTED_OS),Windows)
+	LIBS = -lkernel32
 	EXE = $(OUTPUT)/test.exe
 	DLL_EXT = .dll
 endif
@@ -38,7 +39,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/array.c
+SRC = tests/general.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

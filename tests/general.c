@@ -1,24 +1,48 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
-typedef struct {
+typedef struct randomStruct {
 	usize one;
 	char two;
 	f32 three;
 } randomStruct;
 
+
+#define TEST_EQ(arg1, arg2, format) \
+	SI_ASSERT_FMT((arg1) == (arg2), format " | " format, arg1, arg2)
+#define TEST_N_EQ(arg1, arg2, format) \
+	SI_ASSERT_FMT((arg1) != (arg2), format " | " format, arg1, arg2)
+
+
+#define TEST_EQ_U64(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%lu")
+#define TEST_EQ_H64(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%#lx")
+#define TEST_EQ_I64(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%li")
+#define TEST_EQ_F64(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%f")
+#define TEST_EQ_CHAR(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%c")
+
+
+#define TEST_N_EQ_U64(arg1, arg2) \
+	TEST_N_EQ(arg1, arg2, "%lu")
+
+
+
 int main(void) {
 	{
-		SI_ASSERT(SI_KILO(1) == 1024);
-		SI_ASSERT(SI_MEGA(1) == 1024 * 1024);
-		SI_ASSERT(SI_GIGA(1) == 1024 * 1024 * 1024);
-		SI_ASSERT(SI_TERA(1) == 1024 * 1024 * 1024 * 1024ull);
+		TEST_EQ_U64(SI_KILO(1), 1024);
+		TEST_EQ_U64(SI_MEGA(1), 1024 * 1024);
+		TEST_EQ_U64(SI_GIGA(1), 1024 * 1024 * 1024);
+		TEST_EQ_U64(SI_TERA(1), 1024 * 1024 * 1024 * 1024ull);
 
-		SI_ASSERT(SI_BIT(63) == 0x8000000000000000);
-		SI_ASSERT(nil == (void*)0);
+		TEST_EQ_U64(SI_BIT(63), 0x8000000000000000);
+		TEST_EQ_U64(nil, (void*)0);
 
 		isize m = si_transmuteEx(isize, USIZE_MAX, usize);
-		SI_ASSERT(m == (isize)-1);
+		TEST_EQ_I64(m, (isize)-1);
 
 		u32 value;
 		if (SI_LIKELY(SI_HOST_IS_LITTLE_ENDIAN)) {
@@ -29,78 +53,79 @@ int main(void) {
 		}
 
 		cstring str = "ABCD";
-		SI_ASSERT(SI_TO_U32(str) == value);
+		TEST_EQ_U64(SI_TO_U32(str), value);
 
-		SI_ASSERT(countof((i32[]){2, 4, 8}) == 3);
-		SI_ASSERT(si_offsetof(randomStruct, three) == 12);
-		SI_ASSERT(si_alignof(randomStruct) == 8);
+		TEST_EQ_U64(si_offsetof(randomStruct, three), 12);
+		TEST_EQ_U64(si_alignof(randomStruct), 8);
 
 		char* buf1 = si_buf(char, 'Q', 'W', 'E', 'R', 'T', 'Y', '\0');
-		SI_ASSERT(buf1[0] != '\0' && buf1[6] == '\0');
 		char* buf2 = "AZERTY";
+		TEST_EQ_CHAR(buf1[0], 'Q');
+		TEST_EQ_CHAR(buf1[6], '\0');
 
 		si_swap(buf1, buf2);
-		SI_ASSERT(strcmp(buf1, "AZERTY") == 0 && strcmp(buf2, "QWERTY") == 0);
+		TEST_EQ_U64(strcmp(buf2, "QWERTY"), 0);
+		TEST_EQ_U64(strcmp(buf1, "AZERTY"), strcmp(buf2, "QWERTY"));
 
 		i16 x = 0;
 		for_range (i, INT16_MIN, 0) {
 			x -= 1;
 		}
-		SI_ASSERT(x == INT16_MIN);
+		TEST_EQ_I64(x, INT16_MIN);
 
 		u64 src = 0x00FF00FF00FF00FF;
 		u32 dst;
 		memcpy_s(&dst, sizeof(dst), &src, sizeof(src));
-		SI_ASSERT(dst == 0x00FF00FF);
+		TEST_EQ_H64(dst, 0x00FF00FF);
 
-		SI_ASSERT(0x44434241 == si_swap32le(value));
-		SI_ASSERT(0xFF00FF00FF00FF00 == si_swap64(0x00FF00FF00FF00FF));
-		SI_ASSERT(0xFF == si_swap16(0xFF00));
+		TEST_EQ_H64(0x44434241, si_swap32le(value));
+		TEST_EQ_H64(0xFF00FF00FF00FF00, si_swap64(0x00FF00FF00FF00FF));
+		TEST_EQ_H64(0xFF, si_swap16(0xFF00));
 
 		u16 y[] = {0, UINT16_MAX};
 		si_ptrMoveRight(&y[1], 2, 2);
-		SI_ASSERT(y[0] == 0xFFFF);
+		TEST_EQ_H64(y[0], 0xFFFF);
 
 		y[0] = 0x8080;
 		y[1] = 0;
 		si_ptrMoveLeft(&y[0], 2, 2);
-		SI_ASSERT(y[1] == 0x8080);
+		TEST_EQ_H64(y[1], 0x8080);
 	}
 	si_print("Test 1 has been completed.\n");
 
 	{
 		usize ceil = si_alignCeilEx(12, 8);
-		SI_ASSERT(ceil == 16);
+		TEST_EQ_U64(ceil, 16);
 
 		siAllocator* alloc = si_allocatorMake(SI_MEGA(1));
-		SI_ASSERT(alloc->ptr == (siByte*)(alloc + 1));
-		SI_ASSERT(alloc->offset == 0);
-		SI_ASSERT(alloc->maxLen == SI_MEGA(1));
+		TEST_EQ_H64(alloc->ptr, (siByte*)(alloc + 1));
+		TEST_EQ_U64(alloc->offset, 0);
+		TEST_EQ_U64(alloc->maxLen, SI_MEGA(1));
 
 		si_allocatorResize(&alloc, SI_KILO(1));
-		SI_ASSERT(alloc->maxLen == SI_KILO(1));
+		TEST_EQ_U64(alloc->maxLen, SI_KILO(1));
 
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
-		SI_ASSERT(tmp.ptr == (siByte*)x);
-		SI_ASSERT(tmp.maxLen == countof(x));
+		TEST_EQ_H64(tmp.ptr, (siByte*)x);
+		TEST_EQ_U64(tmp.maxLen, countof(x));
 
 		si_malloc(alloc, 234);
-		SI_ASSERT(si_allocatorAvailable(alloc) == alloc->maxLen - 234);
+		TEST_EQ_U64(si_allocatorAvailable(alloc), alloc->maxLen - 234);
 
 		si_allocatorResetFrom(alloc, 444);
-		SI_ASSERT(alloc->offset == 444);
+		TEST_EQ_U64(alloc->offset, 444);
 
 		siAllocator* stack = si_allocatorMakeStack(32);
 		si_allocatorPush(stack, 'Q');
 		si_allocatorPush(stack, 'W');
-		SI_ASSERT(stack->ptr[0] == 'Q' && stack->ptr[1] == 'W');
-		SI_ASSERT(si_allocatorCurPtr(stack) == &stack->ptr[2]);
+		TEST_EQ_CHAR(stack->ptr[0], 'Q');
+		TEST_EQ_CHAR(stack->ptr[1], 'W');
+		TEST_EQ_CHAR(si_allocatorCurPtr(stack), &stack->ptr[2]);
 
 		usize oldAmount = stack->offset;
 		si_allocatorResetSub(stack, 2);
-		SI_ASSERT(stack->offset == oldAmount - 2);
-
+		TEST_EQ_U64(stack->offset, oldAmount - 2);
 
 		si_allocatorFree(alloc);
 	}
@@ -110,7 +135,8 @@ int main(void) {
 		usize* ptr1 = si_sallocItem(usize);
 		*ptr1 = USIZE_MAX;
 		usize* ptr2 = si_sallocCopy(*ptr1);
-		SI_ASSERT(*ptr1 == *ptr2 && *ptr1 == USIZE_MAX);
+		TEST_EQ_H64(*ptr1, *ptr2);
+		TEST_EQ_H64(*ptr1, USIZE_MAX);
 
 		siAllocator* allocator = si_allocatorMake(SI_KILO(1));
 		randomStruct* alloc1 = si_mallocItem(allocator, randomStruct);
@@ -118,7 +144,8 @@ int main(void) {
 		*alloc1 = (randomStruct){USIZE_MIN, INT8_MAX, FLOAT32_MIN};
 
 		randomStruct* alloc3 = si_mallocCopy(allocator, *alloc1);
-		SI_ASSERT(alloc1->one == alloc3->one && SI_TO_U64(&alloc1->two) == SI_TO_U64(&alloc3->two));
+		TEST_EQ_H64(alloc1->one, alloc3->one);
+		TEST_EQ_H64(SI_TO_U64(&alloc1->two), SI_TO_U64(&alloc3->two));
 
 		si_allocatorFree(allocator);
 		SI_UNUSED(alloc2);
@@ -127,16 +154,17 @@ int main(void) {
 
 	{
 		siAny any = si_anyMakeType(i32, 23);
-		SI_ASSERT(any.typeSize == sizeof((i32)23));
+		TEST_EQ_I64(any.typeSize, sizeof((i32)23));
 
 		siPoint p1 = SI_POINT(50, 50),
 				p2 = (siPoint){28, 28};
-		SI_ASSERT(si_pointCmp(p1, p2) == 0);
+		TEST_EQ_U64(si_pointCmp(p1, p2), 0);
 
 		siColor c1 = SI_RGBA(128, 128, 128, 255),
 				c2 = SI_RGB(255, 0, 0),
 				c3 = SI_HEX(0x808080);
-		SI_ASSERT(SI_TO_U32(&c1) == SI_TO_U32(&c3) && SI_TO_U32(&c1) != SI_TO_U32(&c2));
+		TEST_EQ_U64(SI_TO_U32(&c1), SI_TO_U32(&c3));
+		TEST_N_EQ_U64(SI_TO_U32(&c1), SI_TO_U32(&c2));
 
 		siArea area = SI_AREA(2, 3);
 		siRect r1 = SI_RECT(0, 1, 2, 3),
@@ -147,26 +175,30 @@ int main(void) {
 
 		siVec2 v2 = SI_VEC2(2, 2);
 		si_vec2Sub(&v2, SI_VEC2(-2, -2));
-		SI_ASSERT(v2.x == 4 && v2.y == 4);
+		TEST_EQ_F64(v2.x, 4);
+		TEST_EQ_F64(v2.y, 4);
 		si_vec2Add(&v2, SI_VEC2(-2, -2));
-		SI_ASSERT(v2.x == 2 && v2.y == 2);
+		TEST_EQ_F64(v2.x, 2);
+		TEST_EQ_F64(v2.y, 2);
 	}
 	si_print("Test 4 has been completed.\n");
 
 	{
 		siOptional(u64) opt = si_optionalMake(19920216ULL);
-		SI_ASSERT(opt->hasValue && opt->value == 19920216ULL);
+		TEST_EQ_U64(opt->hasValue, 1);
+		TEST_EQ_U64(opt->value, 19920216ULL);
 
 		si_optionalReset(opt);
-		SI_ASSERT(opt->value == 0 && opt->hasValue == false);
+		TEST_EQ_U64(opt->value, 0);
+		TEST_EQ_U64(opt->hasValue, false);
 
 		opt = SI_OPTIONAL_NULL;
 
 		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
-		SI_ASSERT(res == UINT64_MAX);
+		TEST_EQ_U64(res, UINT64_MAX);
 	}
 	si_print("Test 5 has been completed.\n");
 
-	
+
 	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
 }
