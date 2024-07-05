@@ -24,7 +24,7 @@ void example2(void);
 
 
 int main(void) {
-	//example1();
+	example1();
 	example2();
 }
 
