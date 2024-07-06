@@ -39,7 +39,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/main2.c
+SRC = examples/file.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

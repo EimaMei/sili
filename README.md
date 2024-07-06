@@ -48,3 +48,21 @@ as better cross-platform support (`%ll` and `%l` both equal to `i64`).
 # Examples
 Examples of most (but definitely not all) sili's features are utilized in the
 `examples` folder.
+
+# Release model
+Sili uses the standard major, minor and patch (e.g., `v1.2.5`) for its `main` 
+branch releases, which are meant to be stable and eligible for development. 
+They're guaranteed to pass all of the tests, have working examples and compiled
+binary releases available for Windows, MacOS and Linux.
+
+If you're using the `dev` branch of sili, then you must be aware that they follow 
+the versioning system of `v<current.main.version>-dev-<commit count for the release>`. 
+For example, if 3 commits have been released for the `dev` branch, while the `main`
+branch version is `v0.5.3`, then those are going to be referred as `v0.5.3-dev-1`, 
+`v0.5.3-dev-2` and `v0.5.3-dev-3` respectively. `dev` releases are less likely to
+have fully working examples or tests are compile and work as intended on every 
+platform. 
+
+The `experimental` version of sili is not meant for any stable use and is reserved 
+for the most cutting-edge release of sili. The branch follows the versioning system
+of `v<current.main.version>-experimental-<commit ID>`.

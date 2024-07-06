@@ -128,12 +128,14 @@ LICENSE:
 	bottom of the file).
 
 WARNING
-	- Sili is _slightly_ experimental and not a fully matured project that covers
-	many different fields of general programming. Because of that, the following
-	may occur or be present when using the library:
-		1) Features may not work as expected,
-		2) Functions may not be documented or only contain incomplete documentation,
-		3) API breaking changes.
+	- Sili is designed to be as a fast, modern, but also experimental STL alternative,
+	and because of it some unwarranted results may occur or be present when using
+	the library, those being:
+		1) Features may not work as expected
+		2) Functions may not be documented or only contain incomplete documentation
+		3) API breaking changes between releases.
+		4) Little to no security checks for malicious code attempting to explode
+		sections of the code.
 
 */
 
@@ -1342,7 +1344,7 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
 SIDEF rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size);
 /* Copies a sum amount of bytes from the provided source into the specified
  * destination. Both pointers can overlap each other. */
-SIDEF rawptr si_memmove(rawptr dst, const rawptr src, isize size);
+SIDEF rawptr si_memmove(rawptr dst, const void* src, isize size);
 /* Sets a give amount of bytes from the provided data source to the specified
  * value. */
 SIDEF rawptr si_memset(rawptr data, u8 value, usize size);
@@ -1359,6 +1361,9 @@ SIDEF rawptr si_memchr(const rawptr data, u8 value, usize size);
  * either a pointer containing the last occurence of the value, or a nil pointer
  * if there were no occurences. */
 SIDEF rawptr si_memrchr(const rawptr data, u8 value, usize size);
+
+/* Returns the length of a NULL-terminated C-string. */
+SIDEF usize si_cstrLen(cstring string);
 
 
 #endif /* SI_NO_MEMORY */
@@ -2056,9 +2061,8 @@ typedef struct siFile {
 		i64 handle;
 	#endif
 	/* Size of the read file. */
-	isize size;
+	usize size;
 	/* Filename of the file. */
-	cstring filename;
 	/* Last time it was written at. */
 	u64 lastWriteTime;
 } siFile;
@@ -2181,7 +2185,7 @@ cstring si_pathExtension(cstring path);
 cstring si_pathUnrooted(cstring path);
 /* Returnss a siString of the full filename of the given path and and writes it
  * into the allocator. */
-siString si_pathGetFullName(siAllocator* alloc, cstring path);
+siString si_pathGetFullName(siString path, siAllocator*);
 /* Returns the last time the path was edited. */
 u64 si_pathLastWriteTime(cstring path);
 /* Returns the system's temporary path. */
@@ -2221,41 +2225,38 @@ b32 si_fileHasChanged(siFile file);
  * file's current offset, then returns the buffer. The file stream offset is also
  * increased by 'len' amount. 'SI_FS_READ_BYTES' gets modified by how many bytes
  * were read. */
-rawptr si_fileRead(siFile file, siAllocator* alloc, usize len);
-rawptr si_fileReadBuf(siFile file, usize len, rawptr outBuffer);
+SIDEF rawptr si_fileRead(siFile file, usize len, siAllocator* alloc);
+SIDEF rawptr si_fileReadBuf(siFile file, usize len, rawptr outBuffer);
 /* Allocates 'bufferLen' amount of bytes from the allocator, reads 'si_min(len, bufferLen)'
  * amount of bytes from the file's current offset, then returns the buffer. The
  * file stream offset is also increased by the amount read. 'SI_FS_READ_BYTES'
  * gets modified by how many bytes were read. */
-rawptr si_fileReadEx(siFile file, siAllocator* alloc, usize len, usize bufferLen);
-rawptr si_fileReadBufEx(siFile file, usize len, rawptr outBuffer, usize bufferLen);
+SIDEF rawptr si_fileReadEx(siFile file, usize len, usize bufferLen, siAllocator* alloc);
+SIDEF rawptr si_fileReadBufEx(siFile file, usize len, usize bufferLen, rawptr outBuffer);
 /* Allocates 'len' amount of bytes from the allocator, reads that amount from the
  * specified offset, then returns the buffer. The file stream offset also changes
  * to ('offset' + 'len'). 'SI_FS_READ_BYTES' gets modified by how many bytes
  * were read. */
-rawptr si_fileReadAt(siFile file, siAllocator* alloc, isize offset, usize len);
-rawptr si_fileReadAtBuf(siFile file, isize offset, usize len, rawptr outBuffer);
+SIDEF rawptr si_fileReadAt(siFile file, isize offset, usize len, siAllocator* alloc);
+SIDEF rawptr si_fileReadAtBuf(siFile file, isize offset, usize len, rawptr outBuffer);
 /* Allocates 'bufferLen' amount of bytes from the allocator, reads 'si_min(len, bufferLen)'
  * amount of bytes from the specified offset, then returns the buffer. The file
  * stream offset also changes to 'offset' + 'si_mint(len, bufferLen)'. 'SI_FS_READ_BYTES'
  * gets modified by how many bytes were read. */
-rawptr si_fileReadAtEx(siFile file, siAllocator* alloc, isize offset, usize len,
-		usize bufferLen);
-rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer,
-		usize bufferLen);
+SIDEF rawptr si_fileReadAtEx(siFile file, isize offset, usize len, usize bufferLen,
+		siAllocator* alloc);
+SIDEF rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, usize bufferLen,
+		rawptr outBuffer);
+SIDEF rawptr si_fileReadAtExUnsafe(siFile file, isize offset, usize len, rawptr outBuffer);
 /* Allocates 'file.size' amount of bytes from the allocator, reads the entire file's
  * contents, then returns the buffer. The file stream offset does not get changed.
  * 'SI_FS_READ_BYTES' gets modified by how many bytes were read. */
-rawptr si_fileReadContents(siFile file, siAllocator* alloc);
-rawptr si_fileReadContentsBuf(siFile file, rawptr outBuffer);
-/* Allocates 'bufferLen' amount of bytes from the allocator, reads 'si_min(file.size, bufferLen)',
- * amount of bytes, then returns the buffer. The file stream offset does not get
- * changed. 'SI_FS_READ_BYTES' gets modified by how many bytes were read. */
-rawptr si_fileReadContentsEx(siFile file, siAllocator* alloc, usize bufferLen);
-rawptr si_fileReadContentsBufEx(siFile file, rawptr outBuffer, usize bufferLen);
+SIDEF siString si_fileReadContents(siFile file, siAllocator* alloc);
+SIDEF siString si_fileReadContentsBuf(siFile file, rawptr outBuffer);
+SIDEF siString si_fileReadContentsBufEx(siFile file, usize bufferLen, rawptr outBuffer);
 /* Reads the contents of the file, then splits every line and writes them all
  * into a 'siArray(siString)'. */
-siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc);
+SIDEF siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc);
 
 /* Writes a NULL-terminated C-string into the file from the current stream offset,
  * then returns the amount of bytes that were successfully written. The file stream
@@ -2273,13 +2274,8 @@ usize si_fileWriteAt(siFile* file, cstring content, isize offset);
  * offset, then returns the amount of bytes that were successfully written. The
  * file stream offset also changes to 'offset + <writtenBytes>'. */
 usize si_fileWriteAtLen(siFile* file, const rawptr content, usize contentLen, isize offset);
-/* Writes the NULL-terminated C-string into the file at the specified line. Writes
- * the amount of characters that were written into the file. The file stream does
- * not get changed */
-usize si_fileWriteAtLine(siFile* file, cstring content, usize index);
-/* Writes the length-specified C-string into the file at the specified line. Writes
- * the amount of characters that were written into the file. */
-usize si_fileWriteAtLineEx(siFile* file, cstring content, usize contentLen, usize index);
+/* TODO */
+SIDEF usize si_fileWriteAtLine(siFile* file, siString line, usize index);
 
 /* Returns the current offset of the file stream. */
 isize si_fileTell(siFile file);
@@ -3399,7 +3395,8 @@ void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 
 #if defined(SI_IMPLEMENTATION_MEMORY) && !defined(SI_NO_MEMORY)
 
-SIDEF
+
+inline
 rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
@@ -3411,9 +3408,8 @@ rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size) {
 #endif
 }
 
-
-SIDEF
-rawptr si_memmove(rawptr dst, const rawptr src, isize size) {
+inline
+rawptr si_memmove(rawptr dst, const void* src, isize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
@@ -3424,7 +3420,7 @@ rawptr si_memmove(rawptr dst, const rawptr src, isize size) {
 #endif
 
 }
-SIDEF
+inline
 rawptr si_memset(rawptr data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
@@ -3468,6 +3464,19 @@ rawptr si_memrchr(const rawptr data, u8 value, usize size) {
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
 #endif
+}
+
+
+inline
+usize si_cstrLen(cstring string) {
+	SI_ASSERT_NOT_NULL(string);
+
+#if !defined(SI_NO_CRT)
+	return strlen(string);
+#else
+	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
+#endif
+
 }
 
 
@@ -3922,6 +3931,20 @@ siString si_stringClone(siString from, siAllocator* alloc) {
 }
 
 SIDEF
+siString si_stringCloneCstr(cstring from, siAllocator* alloc) {
+	SI_ASSERT_NOT_NULL(alloc);
+
+	siString str;
+	str.len = si_cstrLen(from);
+	str.data = si_mallocArray(alloc, u8, str.len);
+	si_memcopy(str.data, from, str.len);
+
+	return str;
+
+}
+
+
+SIDEF
 siString si_stringMakeReserve(usize len, siAllocator* alloc) {
 	SI_ASSERT_NOT_NULL(alloc);
 	return SI_STR_LEN(si_mallocArray(alloc, u8, len), len);
@@ -4046,12 +4069,12 @@ usize si_stringFindCount(siString string, siString subStr) {
 }
 
 
-SIDEF
+inline
 i32 si_stringCompare(siString lhs, siString rhs) {
 	return si_memcompare(lhs.data, rhs.data, si_min(lhs.len, rhs.len));
 }
 
-SIDEF
+inline
 b32 si_stringEqual(siString lhs, siString rhs) {
 	SI_STOPIF(lhs.len != rhs.len, return false);
 	SI_STOPIF(lhs.data == rhs.data, return true);
@@ -4095,7 +4118,7 @@ siString si_stringJoin(siString* stringArr, usize len, siString separator,
 	return res;
 }
 
-SIDEF
+inline
 b32 si_stringReplaceAll(siString* string, siString oldStr, siString newStr,
 		siAllocator* alloc) {
 	return si_stringReplace(string, oldStr, newStr, -1, alloc);
@@ -4120,21 +4143,21 @@ b32 si_stringReplace(siString* string, siString oldStr, siString newStr, isize a
 
 	isize dif = newStr.len - oldStr.len;
 	siString res = si_stringMakeReserve(string->len + amount * dif, alloc);
-	usize beginPos = 0, indexRes = 0;
+	usize lineStart = 0, indexRes = 0;
 
 	while (amount) {
-		siString substr = si_stringSubToEnd(*string, beginPos);
+		siString substr = si_stringSubToEnd(*string, lineStart);
 		isize len = si_stringFind(substr, oldStr);
 
 		si_memcopy(&res.data[indexRes], substr.data, len), indexRes += len;
 		si_memcopy(&res.data[indexRes], newStr.data, newStr.len), indexRes += newStr.len;
 
-		beginPos += len + oldStr.len;
+		lineStart += len + oldStr.len;
 
 		amount -= 1;
 	}
 
-	si_memcopy(&res.data[indexRes], &string->data[beginPos], string->len - beginPos);
+	si_memcopy(&res.data[indexRes], &string->data[lineStart], string->len - lineStart);
 
 	*string = res;
 	return true;
@@ -4171,7 +4194,7 @@ void si_stringTrimLeft(siString* string, siString cutSet) {
 	}
 }
 
-SIDEF
+inline
 void si_stringTrim(siString* string, siString cutSet) {
 	si_stringTrimRight(string, cutSet);
 	si_stringTrimLeft(string, cutSet);
@@ -4201,12 +4224,12 @@ void si_stringAppend(siString* string, siString other, siAllocator* alloc) {
 	si_memcopy(&string->data[oldLen], other.data, other.len);
 }
 
-SIDEF
+inline
 void si_stringPush(siString* string, char other, siAllocator* alloc) {
 	si_stringAppend(string, SI_STR_LEN(&other, 1), alloc);
 }
 
-SIDEF
+inline
 void si_stringPop(siString* string) {
 	SI_ASSERT_NOT_NULL(string);
 	string->len -= (string->len != 0);
@@ -4319,16 +4342,16 @@ siArray(siString) si_stringSplitEx(siString string, siString delimiter, isize am
 	siArray(siString) res = si_arrayMakeReserve(alloc, sizeof(*res), amount + 1);
 	SI_ARRAY_HEADER(res)->len = amount + 1;
 
-	isize beginPos = 0;
+	isize lineStart = 0;
 
 	for_eachArr (siString, x, res) {
-		siString substr = si_stringSubToEnd(string, beginPos);
+		siString substr = si_stringSubToEnd(string, lineStart);
 		isize len = si_stringFind(substr, delimiter);
 
 		*x = SI_STR_LEN(substr.data, len);
-		beginPos += len + delimiter.len;
+		lineStart += len + delimiter.len;
 	}
-	res[amount] = si_stringSub(string, beginPos, string.len - beginPos);
+	res[amount] = si_stringSub(string, lineStart, string.len - lineStart);
 
 	return res;
 }
@@ -4385,13 +4408,6 @@ char* si_cstrMakeFmt(siAllocator* alloc, cstring cstr, ...) {
 	va_end(va);
 
 	return out;
-}
-
-
-SIDEF
-usize si_cstrLen(cstring str) {
-	SI_ASSERT_NOT_NULL(str);
-	return strlen(str);
 }
 
 
@@ -5554,9 +5570,9 @@ cstring si_pathExtension(cstring path) {
 }
 
 SIDEF
-siString si_pathGetFullName(siAllocator* alloc, cstring path) {
+siString si_pathGetFullName(siString path, siAllocator* alloc) {
 	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_NOT_NULL(path);
+	SI_ASSERT_NOT_NULL(path.data);
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		siAllocator* stack = si_allocatorMake(SI_KILO(1));
@@ -5569,13 +5585,15 @@ siString si_pathGetFullName(siAllocator* alloc, cstring path) {
 
 		return si_stringMakeLen(alloc, utf8Res, len);
 	#else
-#if 0
+		/* NOTE(EimaMei): Since 'realpath' is not a very well-designed function,
+		 * for some reason folders that go over the 'PATH_MAX' limit are still
+		 * created and thus, overflow the data without you knowing as the
+		 * programmer. Yay.*/
 		char actualPath[4096];
-		realpath(path, actualPath);
-		SI_STOPIF(path == nil, { SI_FS_ERROR_DECLARE(); return nil; });
+		realpath((char*)path.data, actualPath);
+		SI_STOPIF(actualPath == nil, { SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0); });
 
-		return si_stringMake(alloc, actualPath);
-#endif
+		return si_stringCloneCstr(actualPath, alloc);
 	#endif
 }
 
@@ -5709,12 +5727,12 @@ siFile* si_fileGetStdFile(siStdFileType type) {
 }
 
 
-SIDEF
+inline
 siFile si_fileCreate(cstring path) {
 	return si_fileOpenMode(path, SI_FILE_WRITE | SI_FILE_PLUS);
 }
 
-SIDEF
+inline
 siFile si_fileOpen(cstring path) {
 	return si_fileOpenMode(path, SI_FILE_READ | SI_FILE_PLUS);
 }
@@ -5806,7 +5824,6 @@ siFile si_fileOpenMode(cstring path, siFileMode mode) {
 	siFile res;
 	res.handle = handle;
 	res.size = si_fileSize(res);
-	res.filename = path;
 	res.lastWriteTime = si_pathLastWriteTime(path);
 
 	return res;
@@ -5834,53 +5851,50 @@ void si_fileSizeUpdate(siFile* file) {
 	file->size = si_fileSize(*file);
 }
 
-
-SIDEF
-rawptr si_fileRead(siFile file, siAllocator* alloc, usize len) {
-	return si_fileReadAtEx(file, alloc, si_fileTell(file), len, len);
+inline
+rawptr si_fileRead(siFile file, usize len, siAllocator* alloc) {
+	return si_fileReadAtEx(file, si_fileTell(file), len, len, alloc);
 }
-
-SIDEF
-rawptr si_fileReadBuf(siFile file, usize len, rawptr outBuffer) {
-	return si_fileReadAtBufEx(file, si_fileTell(file), len, outBuffer, len);
+inline
+rawptr si_fileReadEx(siFile file, usize len, usize bufferLen, siAllocator* alloc) {
+	return si_fileReadAtEx(file, si_fileTell(file), len, bufferLen, alloc);
 }
-
-SIDEF
-rawptr si_fileReadEx(siFile file, siAllocator* alloc, usize len, usize bufferLen) {
-	return si_fileReadAtEx(file, alloc, si_fileTell(file), len, bufferLen);
+inline
+rawptr si_fileReadAt(siFile file, isize offset, usize len, siAllocator* alloc) {
+	return si_fileReadAtEx(file, offset, len, len, alloc);
 }
-
-SIDEF
-rawptr si_fileReadBufEx(siFile file, usize len, rawptr outBuffer, usize bufferLen) {
-	return si_fileReadAtBufEx(file, si_fileTell(file), len, outBuffer, bufferLen);
-}
-
-SIDEF
-rawptr si_fileReadAt(siFile file, siAllocator* alloc, isize offset, usize len) {
-	return si_fileReadAtEx(file, alloc, offset, len, len);
-}
-
-SIDEF
-rawptr si_fileReadAtBuf(siFile file, isize offset, usize len, rawptr outBuffer) {
-	return si_fileReadAtBufEx(file, offset, len, outBuffer, len);
-}
-SIDEF
-rawptr si_fileReadAtEx(siFile file, siAllocator* alloc, isize offset, usize len,
-		usize bufferLen) {
+inline
+rawptr si_fileReadAtEx(siFile file, isize offset, usize len, usize bufferLen,
+		siAllocator* alloc) {
 	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
 
 	len = si_min(len, bufferLen);
 	rawptr buffer = si_malloc(alloc, len);
-	si_fileReadAtBufEx(file, offset, len, buffer, len);
+	si_fileReadAtBufEx(file, offset, len, len, buffer);
 	return buffer;
 }
+
+inline
+rawptr si_fileReadBuf(siFile file, usize len, rawptr outBuffer) {
+	return si_fileReadAtExUnsafe(file, si_fileTell(file), len, outBuffer);
+}
+inline
+rawptr si_fileReadBufEx(siFile file, usize len, usize bufferLen, rawptr outBuffer) {
+	return si_fileReadAtBufEx(file, si_fileTell(file), len, bufferLen, outBuffer);
+}
+inline
+rawptr si_fileReadAtBuf(siFile file, isize offset, usize len, rawptr outBuffer) {
+	return si_fileReadAtExUnsafe(file, offset, len, outBuffer);
+}
+inline
+rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, usize bufferLen,
+		rawptr outBuffer) {
+	return si_fileReadAtExUnsafe(file, offset, si_min(len, bufferLen), outBuffer);
+}
 SIDEF
-rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer,
-		usize bufferLen) {
+rawptr si_fileReadAtExUnsafe(siFile file, isize offset, usize len, rawptr outBuffer) {
 	SI_ASSERT_NOT_NULL((rawptr)file.handle);
 	SI_ASSERT_NOT_NULL(outBuffer);
-	len = si_min(len, bufferLen);
 
 #if defined(SI_SYSTEM_WINDOWS)
 	si_fileSeek(file, offset, SI_FILE_MOVE_BEGIN);
@@ -5897,43 +5911,50 @@ rawptr si_fileReadAtBufEx(siFile file, isize offset, usize len, rawptr outBuffer
 	return outBuffer;
 }
 
-SIDEF
-rawptr si_fileReadContentsBuf(siFile file, rawptr outBuffer) {
-	return si_fileReadContentsBufEx(file, outBuffer, file.size);
+inline
+siString si_fileReadContentsBuf(siFile file, rawptr outBuffer) {
+	return si_fileReadContentsBufEx(file, file.size, outBuffer);
 }
 
-SIDEF
-rawptr si_fileReadContentsBufEx(siFile file, rawptr outBuffer, usize bufferLen) {
+inline
+siString si_fileReadContentsBufEx(siFile file, usize bufferLen, rawptr outBuffer) {
+	siString res;
+	res.len = si_min(bufferLen, file.size);
+	res.data = (u8*)si_fileReadAtExUnsafe(file, 0, res.len, outBuffer);
+	return res;
+}
+
+inline
+siString si_fileReadContents(siFile file, siAllocator* alloc) {
+	SI_ASSERT_NOT_NULL(alloc);
+	usize remainingLen = si_allocatorAvailable(alloc);
+
+	siString res;
+	res.len = si_min(remainingLen, file.size);
+	res.data = si_mallocArray(alloc, u8, res.len);
+	res.data = si_fileReadAtExUnsafe(file, 0, res.len, res.data);
+	return res;
+
+}
+
+inline
+siString si_fileReadContentsEx(siFile file, usize bufferLen, siAllocator* alloc) {
 	isize oldOffset = si_fileTell(file);
-	rawptr content = si_fileReadAtBufEx(file, 0, bufferLen, outBuffer, bufferLen);
+	char* content = (char*)si_fileReadAtEx(file, 0, bufferLen, bufferLen, alloc);
 	si_fileSeek(file, oldOffset, SI_FILE_MOVE_BEGIN);
-	return content;
-}
 
-SIDEF
-rawptr si_fileReadContents(siFile file, siAllocator* alloc) {
-	return si_fileReadContentsEx(file, alloc, file.size);
-}
-
-SIDEF
-rawptr si_fileReadContentsEx(siFile file, siAllocator* alloc, usize bufferLen) {
-	isize oldOffset = si_fileTell(file);
-	rawptr content = si_fileReadAtEx(file, alloc, 0, bufferLen, bufferLen);
-	si_fileSeek(file, oldOffset, SI_FILE_MOVE_BEGIN);
-	return content;
+	return SI_STR_LEN(content, bufferLen);
 }
 
 siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc) {
-#if 0
 	SI_ASSERT_NOT_NULL(alloc);
-	siAllocator* tmp = si_allocatorMake(file.size);
+	siAllocator tmp = si_allocatorMake(file.size);
 
-	char* buffer = si_fileReadContents(file, tmp);
-	siArray(siString) res = si_cstrSplitLen(buffer, file.size, alloc, "\n", countof_str("\n"));
+	siString str = si_fileReadContents(file, &tmp);
+	siArray(siString) res = si_stringSplit(str, SI_STR("\n"), alloc);
 
-	si_allocatorFree(tmp);
+	si_allocatorFree(&tmp);
 	return res;
-#endif
 }
 
 
@@ -5973,54 +5994,54 @@ usize si_fileWriteAtLen(siFile* file, const rawptr content, usize contentLen, is
 	return bytesWritten;
 }
 SIDEF
-usize si_fileWriteAtLine(siFile* file, cstring content, usize index) {
-	return si_fileWriteAtLineEx(file, content, si_cstrLen(content), index);
-}
-SIDEF
-usize si_fileWriteAtLineEx(siFile* file, cstring content, usize contentLen, usize index) {
-#if 0
+usize si_fileWriteAtLine(siFile* file, siString line, usize index) {
 	SI_ASSERT_NOT_NULL(file);
-	SI_ASSERT_NOT_NULL(content);
+	SI_ASSERT_NOT_NULL(line.data);
 
-	siAllocator* tmp = si_allocatorMake(file->size + contentLen);
-	char* buffer = si_fileReadContents(*file, tmp);
+	siAllocator tmp = si_allocatorMake(file->size + line.len);
+	siString content = si_fileReadContents(*file, &tmp);
 
-	isize lineStart = 0, oldLen;
+	isize lineStart = 0;
 	while (index) {
-		lineStart = si_stringFindEx(buffer, lineStart + 1, file->size, "\n", countof_str("\n"));
-		SI_ASSERT_MSG(lineStart != -1, "Invalid index");
+		siString substr = si_stringSubToEnd(content, lineStart);
+		isize len = si_stringFind(substr, SI_STR("\n"));
+		SI_ASSERT_MSG(len != -1, "Invalid index");
+
+		lineStart += len + countof_str("\n");
 		index -= 1;
 	}
-	lineStart += (lineStart != 0);
+	/* lineStart += (lineStart != 0); */
 
-	isize lineEnd = si_stringFindEx(buffer, lineStart, file->size, "\n", countof_str("\n"));
+	siString substr = si_stringSubToEnd(content, lineStart);
+	isize lineEnd = si_stringFind(substr, SI_STR("\n"));
+
+	u8* buffer = content.data;
+	isize oldLen;
 
 	if (lineEnd == -1) { /* NOTE(EimaMei): Index is the last line. */
-		oldLen = file->size - lineStart;
-		si_memcopy(&buffer[lineStart], content, contentLen);
+		oldLen = file->size - (lineStart + 1);
+		si_memcopy(&buffer[lineStart], line.data, line.len);
 	}
 	else {
-		oldLen = lineEnd - lineStart;
+		oldLen = lineEnd - (lineStart + 1);
 
 		si_memcopy(
-			&buffer[lineStart + contentLen],
+			&buffer[lineStart + line.len],
 			&buffer[lineStart + oldLen],
 			file->size - lineStart
 		);
-		si_memcopy(&buffer[lineStart], content, contentLen);
-		buffer[lineStart + contentLen] = '\n';
+		si_memcopy(&buffer[lineStart], line.data, line.len);
+		buffer[lineStart + line.len] = '\n';
 
 	}
-	file->size += (isize)contentLen - (isize)oldLen;
+	file->size += (isize)line.len - (isize)oldLen;
 
 	isize oldOffset = si_fileTell(*file);
 	usize len = si_fileWriteAtLen(file, buffer, file->size, 0);
 	si_fileSeek(*file, oldOffset, SI_FILE_MOVE_BEGIN);
 
-	si_allocatorFree(tmp);
+	si_allocatorFree(&tmp);
 	return len;
-
-#endif
 }
 
 
@@ -7331,7 +7352,7 @@ siPerformanceMSG* si_benchmarkGetMsgVars(siAllocator* alloc,
 	memset(spacePad, ' ', spacePadLen);
 
 
-	siPerformanceMSG* msg = (siPerformanceMSG*)si_malloc(alloc, sizeof(*msg));
+	siPerformanceMSG* msg = si_mallocItem(alloc, siPerformanceMSG);
 	si_memcopy(msg->runsCstr, runsCstr, countof(runsCstr));
 	si_memcopy(msg->spacePad, spacePad, spacePadLen);
 

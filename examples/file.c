@@ -3,58 +3,65 @@
 
 
 void example1(siAllocator* heap) {
-	siAllocator* stack = si_allocatorMakeStack(SI_KILO(4));
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
 
 	si_printf("==============\n\n==============\nExample 1:\n");
 
-	siFile file = si_fileOpen("examples/file.c"); /* If the file doesn't exist or fails to open any other way, then we will get an assertion error. */
-	si_printf(
-		"About 'examples/file.c':\n\t"
-			"Full path - '%s'\n\t"
-			"Size - '%zu' bytes\n",
-		si_pathGetFullName(stack, "examples/file.c"), file.size
-	);
-
+	/* If the file doesn't exist or fails to open any other way, then we will
+	 * get an assertion error. */
 	siFile newFile = si_fileCreate("random.txt");
 	si_fileWrite(&newFile, "A silly file\nwith three sili newlines\nbut not much else.");
-	cstring content = si_fileReadContents(newFile, heap);
+
+	siString content = si_fileReadContents(newFile, heap);
+	si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), heap);
 
 	si_printf(
-		"About 'random.txt':\n\t"
-			"Full path - '%s'\n\t"
+			"About 'random.txt':\n\t"
+			"Full path - '%S'\n\t"
 			"Size - '%zu' bytes\n\t"
-			"Content - '%.*s'\n\n",
-		si_pathGetFullName(stack, "random.txt"), newFile.size,
-		newFile.size, content
+			"Content - '%S'\n\n",
+		si_pathGetFullName(SI_STR("random.txt"), &stack), content.len, content
+	);
+
+
+	siFile file = si_fileOpen("examples/file.c");
+	si_printf(
+		"About 'examples/file.c':\n\t"
+			"Full path - '%S'\n\t"
+			"Size - '%zu' bytes\n",
+		si_pathGetFullName(SI_STR("examples/file.c"), &stack), file.size
 	);
 
 	siArray(siString) fileLine = si_fileReadlines(file, heap);
+#if 0
 	si_printf(
-		"Contents of '%s' ('%zd' lines in total):\n",
-		si_pathBaseName(file.filename), si_arrayLen(fileLine)
+		"Contents of '%S' ('%zd' lines in total):\n",
+		si_pathBaseName(), si_arrayLen(fileLine)
 	);
+#endif
 
 	for_range (i, 0, si_arrayLen(fileLine)) {
-		si_stringStrip(fileLine[i]);
-		si_printf("\tLine %zu: '%s'\n", i + 1, fileLine[i]);
+		si_stringStrip(&fileLine[i]);
+		si_printf("\tLine %zu: '%S'\n", i + 1, fileLine[i]);
 	}
 	si_fileClose(file);
 	si_allocatorReset(heap);
 
-	si_fileWriteAtLine(&newFile, "and now we have a changed line", 1);
+	si_fileWriteAtLine(&newFile, SI_STR("and now we have a changed line"), 1);
 	siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
 	si_printf(
-		"Contents of '%s' ('%zd' lines in total):\n",
+		"Contents of '%S' ('%zd' lines in total):\n",
 		si_pathBaseName("randomDir/random.txt"), si_arrayLen(newFileLines)
 	);
 
 	for_range (i, 0, si_arrayLen(newFileLines)) {
-		si_stringStrip(newFileLines[i]);
-		si_printf("\tLine %zu: '%s'\n", i + 1, newFileLines[i]);
+		si_stringStrip(&newFileLines[i]);
+		si_printf("\tLine %zu: '%S'\n", i + 1, newFileLines[i]);
 	}
 	si_fileClose(newFile);
 }
 
+#if 0
 void example2(void)	{
 	siAllocator* stack = si_allocatorMake(4096);
 	si_printf("==============\n\n==============\nExample 2:\n");
@@ -86,10 +93,10 @@ void example2(void)	{
 	cstring path = "example.c";
 	siString fullPath = si_pathGetFullName(stack, path);
 	si_printf(
-		"Information about '%s':\n\t"
-			"Base name - '%s'\n\t"
-			"Extension - '%s'\n\t"
-			"Full path - '%s'\n\t"
+		"Information about '%S':\n\t"
+			"Base name - '%S'\n\t"
+			"Extension - '%S'\n\t"
+			"Full path - '%S'\n\t"
 			"Is relative: %B\n",
 		path, si_pathBaseName(path), si_pathExtension(path),
 		fullPath, si_pathIsRelative(path)
@@ -147,7 +154,7 @@ void example3(void)	{
 		si_pathRemove("hardLink");
 		si_pathRemove("softLink");
 
-		si_printf("Temporary path of the system: %s\n", si_pathGetTmp());
+		si_printf("Temporary path of the system: %S\n", si_pathGetTmp());
 	}
 }
 
@@ -169,7 +176,7 @@ void example4(siAllocator* alloc) {
 
 	usize count = 0;
 	while (si_dirPollEntry(dir, &entry)) {
-		si_printf("%zu: %s ('%zu' bytes, '%i' type)\n", count, entry.path, entry.len, entry.type);
+		si_printf("%zu: %S ('%zu' bytes, '%i' type)\n", count, entry.path, entry.len, entry.type);
 		count += 1;
 	}
 
@@ -193,16 +200,17 @@ void example5(siAllocator* alloc) {
 	si_printf("%CRThis text will be displayed in red%C, while this: %CBin blue%C!\n");
 	si_fprintf(SI_STDOUT, "Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%CY* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n");
 }
+#endif
 
 int main(void) {
-	siAllocator* heap = si_allocatorMake(SI_MEGA(1));
+	siAllocator heap = si_allocatorMake(SI_MEGA(1));
 
-	example1(heap);
-	example2();
-	example3();
-	example4(heap);
-	example5(heap);
+	example1(&heap);
+	//example2();
+	//example3();
+	//example4(heap);
+	//example5(heap);
 
-	si_allocatorFree(heap);
+	si_allocatorFree(&heap);
 	return 0;
 }
