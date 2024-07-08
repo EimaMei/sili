@@ -1732,14 +1732,17 @@ SIDEF u8* si_stringBack(siString string);
  * Returns true if the sili-string's length is set. */
 #define si_stringEmpty(string) ((string).len == 0)
 
-/* Finds the first occurrence of a substring in the specified string. Returns -1
- * if nothing was found. */
-isize si_stringFind(siString string, siString subStr);
-/* Finds the last occurrence of a substring in the specified string. Returns -1
- * if nothing was found. */
-isize si_stringFindLast(siString string, siString subStr);
+/* TODO */
+SIDEF isize si_stringFind(siString string, siString subStr);
+/* TODO */
+SIDEF isize si_stringFindByte(siString string, siByte byte);
+/* TODO */
+SIDEF isize si_stringFindLast(siString string, siString subStr);
+/* TODO */
+SIDEF isize si_stringFindLastByte(siString string, siByte byte);
 /* Returns the amount of occurences of a substring in the sili-string. */
-usize si_stringFindCount(siString string, siString subStr);
+SIDEF usize si_stringFindCount(siString string, siString subStr);
+
 /* Compares two strings and returns an integer, representing which first byte comes
  * first lexicographically. '-1' for 'lhs', `1` for rhs, '0' if they're equal. */
 i32 si_stringCompare(siString lhs, siString rhs);
@@ -2105,7 +2108,8 @@ typedef struct siFile {
 	u64 lastWriteTime;
 } siFile;
 
-SI_ENUM(u32, siFilePermissions) {
+SI_ENUM(i32, siFilePermissions) {
+	SI_FS_PERM_ERR = -1, /* An error occurred. */
 	SI_FS_PERM_NONE = 0, /* No permission bits are set. */
 
 	SI_FS_PERM_OWNER_READ = 0400, /* File owner has read permission. */
@@ -2184,11 +2188,10 @@ extern isize SI_FS_READ_BYTES;
 	========================
 */
 
-/* Returns a boolean indicating if the given NULL-terminated C-string path exists. */
-b32 si_pathExists(cstring path);
-/* Copiess the specified path to a differnt path. Returns the size of the copied
- * file. */
-isize si_pathCopy(siString existingPath, siString newPath);
+/* TODO */
+SIDEF b32 si_pathExists(siString path);
+/* TODO */
+SIDEF isize si_pathCopy(siString existingPath, siString newPath);
 /* Copies every file and folder from 'pathSrc' to 'pathDst'. Returns the amount
  * of items that were copied. */
 SIDEF u32 si_pathItemsCopy(siString pathSrc, siString pathDst);
@@ -2196,43 +2199,38 @@ SIDEF u32 si_pathItemsCopy(siString pathSrc, siString pathDst);
 SIDEF b32 si_pathMove(siString existingPath, siString newPath);
 /* TODO */
 SIDEF b32 si_pathRename(siString oldName, siString newName);
-/* Creates a new folder based on the specified path, with the permission being
- * set to SI_FS_PERM_ALL. Returns true if the folder was created. */
-b32 si_pathCreateFolder(siString path);
-/* Creates a new folder based on the specified path and permissions. Returns true
- * if the folder was created. */
-b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms);
-/* Removes the file system object specified at 'path'. Returns true if the removal
- * was successful. */
-b32 si_pathRemove(cstring path);
-/* Creates a hard link of the specified file. */
-b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath);
-/* Creates a soft link of the specified file. */
-b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath);
-/* Modifies the permissions of the given path. Returns true if the edit succeeded. */
-b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms);
+/* TODO */
+SIDEF b32 si_pathCreateFolder(siString path);
+/* TODO */
+SIDEF b32 si_pathCreateFolderEx(siString path, siFilePermissions perms);
+/* TODO */
+SIDEF b32 si_pathRemove(siString path);
+/* TODO */
+SIDEF b32 si_pathCreateHardLink(siString existingPath, siString linkPath);
+/* TODO */
+SIDEF b32 si_pathCreateSoftLink(siString existingPath, siString linkPath);
+/* TODO */
+SIDEF b32 si_pathEditPermissions(siString path, siFilePermissions newPerms);
 
 /* TODO */
 SIDEF siString si_pathBaseName(siString path);
-/* Returns a pointer that points to the start of the file extension, if any. */
-cstring si_pathExtension(cstring path);
-/* Returns a pointer that points to the start of the directory WITHOUT the root
- * directory. Eg. 'res/images/img.png' -> 'images/img.png', 'C:\folder* -> 'folder' */
-cstring si_pathUnrooted(cstring path);
-/* Returnss a siString of the full filename of the given path and and writes it
- * into the allocator. */
-siString si_pathGetFullName(siString path, siAllocator*);
-/* Returns the last time the path was edited. */
-u64 si_pathLastWriteTime(cstring path);
+/* TODO */
+SIDEF siString si_pathExtension(siString path);
+/* TODO */
+SIDEF siString si_pathUnrooted(siString path);
+/* TODO */
+SIDEF siString si_pathGetFullName(siString path, siAllocator* alloc);
+/* TODO */
+SIDEF u64 si_pathLastWriteTime(siString path);
 /* TODO */
 SIDEF siString si_pathGetTmp(void);
-/* Returns the permissions of the given path. */
-siFilePermissions si_pathPermissions(cstring path);
+/* TODO */
+SIDEF siFilePermissions si_pathPermissions(siString path);
 
-/* Returns true if the path is absolute. */
-b32 si_pathIsAbsolute(cstring path);
-/* Returns true if the path is relative. */
-b32 si_pathIsRelative(cstring path);
+/* TODO */
+SIDEF b32 si_pathIsAbsolute(siString path);
+/* */
+SIDEF b32 si_pathIsRelative(siString path);
 
 /*
 	========================
@@ -4012,7 +4010,6 @@ u8* si_stringBack(siString string) {
 
 SIDEF
 isize si_stringFind(siString string, siString subStr) {
-	SI_ASSERT_NOT_NULL(string.data);
 	SI_STOPIF(subStr.len == 0, return -1);
 
 	usize counter = 0;
@@ -4025,13 +4022,24 @@ isize si_stringFind(siString string, siString subStr) {
 		counter += 1;
 		if (counter == subStr.len) {
 			usize index = letter - string.data;
-			/* NOTE(EimaMei): Length is subtracted because the result is an offset. */
 			return index - (subStr.len - 1);
 		}
 	}
 
 	return -1;
 }
+
+inline
+isize si_stringFindByte(siString string, siByte byte) {
+	for_eachStr (letter, string) {
+		if (*letter == byte) {
+			return letter - string.data;
+		}
+	}
+
+	return -1;
+}
+
 
 SIDEF
 isize si_stringFindLast(siString string, siString subStr) {
@@ -4049,6 +4057,18 @@ isize si_stringFindLast(siString string, siString subStr) {
 
 		counter -= 1;
 		if (counter == 0) {
+			return letter - string.data;
+		}
+	}
+
+	return -1;
+}
+
+
+inline
+isize si_stringFindLastByte(siString string, siByte byte) {
+	for_eachRevStr (letter, string) {
+		if (*letter == byte) {
 			return letter - string.data;
 		}
 	}
@@ -5249,29 +5269,30 @@ siFileSystemError si__internfileGetOSError(void) {
 
 
 SIDEF
-b32 si_pathExists(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
+b32 si_pathExists(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
 		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
 		DWORD file_attrib = GetFileAttributesW(widePath);
 		return file_attrib != INVALID_FILE_ATTRIBUTES;
 	#else
 		struct stat tmp;
-		i32 res = stat(path, &tmp);
-		return (res == 0);
+		return (stat(si_stringCloneToCstr(path, &stack), &tmp) == 0);
 	#endif
 }
 SIDEF
 isize si_pathCopy(siString existingPath, siString newPath) {
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
+	SI_ASSERT(existingPath.len <= SI_MAX_PATH_LEN);
+	SI_ASSERT(newPath.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		siUtf16String wideExisting = si_utf8ToUtf16Str(stack, existingPath, nil);
 		siUtf16String wideNew = si_utf8ToUtf16Str(stack, newPath, nil);
 
-		return (CopyFileW(wideExisting, wideNew, true) != 0);
+		b32 res = return (CopyFileW(wideExisting, wideNew, true) != 0);
 	#else
 		cstring srcPath = si_stringCloneToCstr(existingPath, &stack),
 				dstPath = si_stringCloneToCstr(newPath, &stack);
@@ -5358,37 +5379,32 @@ b32 si_pathRename(siString oldName, siString newName) {
 	return si_pathMove(oldName, newName);
 }
 
-SIDEF
+inline
 b32 si_pathCreateFolder(siString path) {
-	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-
-	#if defined(SI_SYSTEM_WINDOWS)
-		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
-
-		b32 res = CreateDirectoryW(widePath, nil);
-		return res;
-	#else
-		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
-		 * but still create the folder and set 'errno' to 0. What? */
-		i32 res = mkdir(si_stringCloneToCstr(path, &stack), SI_FS_PERM_ALL);
-		SI_STOPIF(res == -1 && errno != 0, { SI_FS_ERROR_DECLARE(); return false; });
-		return true;
-	#endif
+	return si_pathCreateFolderEx(path, SI_FS_PERM_ALL);
 }
 
 SIDEF
-b32 si_pathCreateFolderEx(cstring path, siFilePermissions perms) {
-	SI_ASSERT_NOT_NULL(path);
+b32 si_pathCreateFolderEx(siString path, siFilePermissions perms) {
+	SI_ASSERT(perms != -1);
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
+	b32 res;
 	#if defined(SI_SYSTEM_WINDOWS)
-		return si_pathCreateFolder(path);
+		siUtf16String  pathWide = si_utf8ToUtf16Str(stack, path, nil);
+
+		res = CreateDirectoryW(widePath, nil);
 		SI_UNUSED(perms);
 	#else
-		i32 res = mkdir(path, (mode_t)perms);
-		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
-		return true;
+		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
+		 * but still create the folder and set 'errno' to 0. What? */
+		cstring str = si_stringCloneToCstr(path, &stack);
+		res = (mkdir(str, perms) == 0);
 	#endif
+
+	SI_STOPIF(!res, { SI_FS_ERROR_DECLARE(); return false; });
+	return true;
 }
 
 #if !defined(SI_SYSTEM_WINDOWS)
@@ -5400,9 +5416,11 @@ i32 si__unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* 
 #endif
 
 SIDEF
-b32 si_pathRemove(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
+b32 si_pathRemove(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
+	b32 res;
 	#if defined(SI_SYSTEM_WINDOWS)
 		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
 		usize len;
@@ -5416,22 +5434,26 @@ b32 si_pathRemove(cstring path) {
 		) == -1;
 
 		if (!isDir) {
-			return DeleteFileW(widePath);
+			res = return DeleteFileW(widePath);
 		}
 		else {
 			return RemoveDirectoryW(widePath);
 		}
 	#else
-		i32 res = nftw(path, si__unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
-		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
-		return true;
+		cstring pathCstr = si_stringCloneToCstr(path, &stack);
+		res = nftw(pathCstr, si__unlinkCb, 64, FTW_DEPTH | FTW_PHYS) != -1;
 	#endif
+
+	SI_STOPIF(!res, { SI_FS_ERROR_DECLARE(); return false; });
+	return true;
 }
 
 SIDEF
-b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
-	SI_ASSERT_NOT_NULL(existingPath);
-	SI_ASSERT_NOT_NULL(linkPath);
+b32 si_pathCreateHardLink(siString existingPath, siString linkPath) {
+	SI_ASSERT(existingPath.len <= SI_MAX_PATH_LEN);
+	SI_ASSERT(linkPath.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
+
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		siAllocator* stack = si_allocatorMake(SI_KILO(2));
@@ -5440,7 +5462,10 @@ b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
 
 		return CreateHardLinkW(wideLink, wideExisting, nil) != 0;
 	#else
-		i32 res = link(existingPath, linkPath);
+		int res = link(
+			si_stringCloneToCstr(existingPath, &stack),
+			si_stringCloneToCstr(linkPath, &stack)
+		);
 		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
@@ -5448,9 +5473,10 @@ b32 si_pathCreateHardLink(cstring existingPath, cstring linkPath) {
 }
 
 SIDEF
-b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
-	SI_ASSERT_NOT_NULL(existingPath);
-	SI_ASSERT_NOT_NULL(linkPath);
+b32 si_pathCreateSoftLink(siString existingPath, siString linkPath) {
+	SI_ASSERT(existingPath.len <= SI_MAX_PATH_LEN);
+	SI_ASSERT(linkPath.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		siAllocator* stack = si_allocatorMake(SI_KILO(2));
@@ -5468,7 +5494,10 @@ b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
 
 		return CreateSymbolicLinkW(wideLink, wideExisting, isDir) != 0;
 	#else
-		i32 res = symlink(existingPath, linkPath);
+		int res = symlink(
+			si_stringCloneToCstr(existingPath, &stack),
+			si_stringCloneToCstr(linkPath, &stack)
+		);
 		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
@@ -5476,16 +5505,18 @@ b32 si_pathCreateSoftLink(cstring existingPath, cstring linkPath) {
 }
 
 SIDEF
-b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms) {
-	SI_ASSERT_NOT_NULL(path);
+b32 si_pathEditPermissions(siString path, siFilePermissions newPerms) {
+	SI_ASSERT(newPerms != -1);
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		/* TODO(EimaMei): Fix this. */
 		SI_UNUSED(newPerms);
 		return false;
 	#else
-		i32 res = chmod(path, (mode_t)newPerms);
-		SI_STOPIF(res != 0, { SI_FS_ERROR_DECLARE(); return false; });
+		int res = chmod(si_stringCloneToCstr(path, &stack), (mode_t)newPerms);
+		SI_STOPIF(res == -1, { SI_FS_ERROR_DECLARE(); return false; });
 		return true;
 	#endif
 }
@@ -5493,56 +5524,55 @@ b32 si_pathEditPermissions(cstring path, siFilePermissions newPerms) {
 
 inline
 siString si_pathBaseName(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+
 	for_eachRevStr (x, path) {
 		if (*x == SI_PATH_SEPARATOR) {
-			return SI_STR_LEN(x + 1, path.len - (x + 1 - path.data));
+			return si_stringSubToEnd(path, (x + 1) - path.data);
 		}
 	}
 	return path;
 }
 
 SIDEF
-cstring si_pathUnrooted(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
-
+siString si_pathUnrooted(siString path) {
 	#if defined(SI_SYSTEM_WINDOWS)
 		usize offset = 3 * si_pathIsAbsolute(path);
 	#else
 		usize offset = si_pathIsAbsolute(path);
 	#endif
-	usize ogOffset = offset;
+	path = si_stringSubToEnd(path, offset);
 
-	while (path[offset] != '\0') {
-		if (path[offset] == SI_PATH_SEPARATOR) {
-			return path + offset + 1;
+	for_eachStr (x, path) {
+		if (*x == SI_PATH_SEPARATOR) {
+			return si_stringSubToEnd(path, (x + 1) - path.data);
 		}
-		offset += 1;
 	}
-
-	return path + ogOffset;
+	return path;
 }
 
 SIDEF
-cstring si_pathExtension(cstring path) {
-	SI_PANIC();
-#if 0
-	isize pos = si_stringRFindStopAtEx(
-		(siString)path,
-		si_cstrLen(path) - 1, 0,
-		".", 1,
-		SI_PATH_SEPARATOR
-	);
-	return si_cast(cstring, ((usize)path + pos + 1) * (pos != -1));
-#endif
+siString si_pathExtension(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+
+	for_eachStr (x, path) {
+		if (*x == '.') {
+			return si_stringSubToEnd(path, x - path.data + 1);
+		}
+		else if (*x == SI_PATH_SEPARATOR) {
+			break;
+		}
+	}
+
+	return SI_STR("");
 }
 
 SIDEF
 siString si_pathGetFullName(siString path, siAllocator* alloc) {
-	SI_ASSERT_NOT_NULL(alloc);
-	SI_ASSERT_NOT_NULL(path.data);
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMake(SI_KILO(1));
 
 	#if defined(SI_SYSTEM_WINDOWS)
-		siAllocator* stack = si_allocatorMake(SI_KILO(1));
 		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
 		siUtf16String buf = si_mallocArray(stack, u16, MAX_PATH);
 		GetFullPathNameW(widePath, MAX_PATH, buf, nil);
@@ -5552,12 +5582,13 @@ siString si_pathGetFullName(siString path, siAllocator* alloc) {
 
 		return si_stringMakeLen(alloc, utf8Res, len);
 	#else
-		/* NOTE(EimaMei): Since 'realpath' is not a very well-designed function,
-		 * for some reason folders that go over the 'PATH_MAX' limit are still
-		 * created and thus, overflow the data without you knowing as the
-		 * programmer. Yay.*/
+		/* NOTE(EimaMei): Technically on Linux you have no issue creating paths
+		 * that go over the highest 'PATH_MAX' value (that being 4kb) except most
+		 * software doesn't take account this, so they either fail or crash.
+		 * What a trolleybus moment! */
 		char actualPath[4096];
-		realpath((char*)path.data, actualPath);
+
+		realpath(si_stringCloneToCstr(path, &stack), actualPath);
 		SI_STOPIF(actualPath == nil, { SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0); });
 
 		return si_stringMakeCstr(actualPath, alloc);
@@ -5565,9 +5596,9 @@ siString si_pathGetFullName(siString path, siAllocator* alloc) {
 }
 
 
-SIDEF
-b32 si_pathIsAbsolute(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
+inline
+b32 si_pathIsAbsolute(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
 
 	#if defined(SI_SYSTEM_WINDOWS)
 		return (
@@ -5577,18 +5608,20 @@ b32 si_pathIsAbsolute(cstring path) {
 			&& path[3] != '\0'
 		);
 	#else
-		return (path[0] == SI_PATH_SEPARATOR && path[1] != '\0');
+		return (path.data[0] == SI_PATH_SEPARATOR && path.len != 1);
 	#endif
 }
 
-SIDEF
-b32 si_pathIsRelative(cstring path) {
+inline
+b32 si_pathIsRelative(siString path) {
 	return !si_pathIsAbsolute(path);
 }
 
 SIDEF
-u64 si_pathLastWriteTime(cstring filename) {
-	SI_ASSERT_NOT_NULL(filename);
+u64 si_pathLastWriteTime(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMake(SI_KILO(1));
+
 
 #if defined(SI_SYSTEM_WINDOWS)
 	FILETIME lastWriteTime = {0};
@@ -5606,15 +5639,15 @@ u64 si_pathLastWriteTime(cstring filename) {
 	return res.QuadPart;
 #else
 	struct stat fs;
-	int res = stat(filename, &fs);
-	return (res) ? fs.st_mtime : 0;
+	int res = stat(si_stringCloneToCstr(path, &stack), &fs);
+	return (res == 0) ? fs.st_mtime : 0;
 #endif
 }
 
-SIDEF
+inline
 siString si_pathGetTmp(void) {
 #if defined(SI_SYSTEM_WINDOWS)
-	static char tmp[MAX_PATH + 1];
+	static char tmp[SI_MAX_PATH_LEN];
 	u16 wideTmp[SI_KILO(1)];
 	GetTempPathW(SI_KILO(1), wideTmp);
 
@@ -5629,8 +5662,10 @@ siString si_pathGetTmp(void) {
 
 
 SIDEF
-siFilePermissions si_pathPermissions(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
+siFilePermissions si_pathPermissions(siString path) {
+	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	siAllocator stack = si_allocatorMake(SI_KILO(1));
+
 #if defined(SI_SYSTEM_WINDOWS)
 	ACCESS_MASK mask;
 	{
@@ -5651,10 +5686,8 @@ siFilePermissions si_pathPermissions(cstring path) {
 	return perms;
 #else
 	struct stat fs;
-	i32 res = stat(path, &fs);
-	SI_STOPIF(res != 0, { SI_FS_ERROR_LOG(); return false; });
-
-	return fs.st_mode;
+	int res = stat(si_stringCloneToCstr(path, &stack), &fs);
+	return (res == 0) ? fs.st_mode : -1;
 #endif
 }
 
@@ -5921,15 +5954,14 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 	siString content = si_fileReadContents(*file, &tmp);
 
 	b32 isNeg = index < 0;
-	siString newline = SI_STR("\n");
 	isize lineStart = 0;
 
 	index = si_abs(index);
 	while (index) {
 		siString substr = si_stringSubToEnd(content, lineStart);
 		isize len = !isNeg
-			? si_stringFind(substr, newline)
-			: si_stringFindLast(substr, newline);
+			? si_stringFindByte(substr, '\n')
+			: si_stringFindLastByte(substr, '\n');
 		SI_STOPIF(len == -1, return -1);
 
 		lineStart += len + countof_str("\n");
@@ -5938,8 +5970,8 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 
 	siString substr = si_stringSubToEnd(content, lineStart);
 	isize lineEnd = !isNeg
-		? si_stringFind(substr, newline)
-		: si_stringFindLast(substr, newline);
+		? si_stringFindByte(substr, '\n')
+		: si_stringFindLastByte(substr, '\n');
 
 	isize oldLen;
 	if (lineEnd == -1) { /* NOTE(EimaMei): Index is the last line. */
@@ -5993,12 +6025,12 @@ isize si_fileSeek(siFile file, isize offset, siFileMoveMethod method) {
 #endif
 }
 
-SIDEF
+inline
 b32 si_fileSeekFront(siFile file) {
 	return si_fileSeek(file, 0, SI_FILE_MOVE_BEGIN) != 0;
 }
 
-SIDEF
+inline
 b32 si_fileSeekBack(siFile file) {
 	return si_fileSeek(file, 0, SI_FILE_MOVE_END) != 0;
 }
@@ -6150,7 +6182,9 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 		entry->path.len = len;
 	}
 	SI_ASSERT(entry->path.len <= SI_MAX_PATH_LEN);
+
 	si_memcopy(buffer, dirEntry->d_name, len);
+	entry->path.data = (siByte*)buffer;
 
 	return true;
 #endif
@@ -6467,7 +6501,7 @@ usize si_numLen(u64 num) {
 	return 20;
 }
 
-SIDEF
+inline
 usize si_numLenEx(u64 num, u32 base) {
 	usize count = 0;
 	do {
@@ -6478,14 +6512,12 @@ usize si_numLenEx(u64 num, u32 base) {
 	return count;
 }
 
-SIDEF
+inline
 usize si_numLenI64(i64 num) {
-	b64 isNegative = si_numIsNeg(num);
-	u64 unsignedNum = (num ^ -isNegative) + isNegative;
-	return si_numLen(unsignedNum);
+	return si_numLenI64Ex(num, 10);
 }
 
-SIDEF
+inline
 usize si_numLenI64Ex(i64 num, u32 base) {
 	b64 isNegative = si_numIsNeg(num);
 	u64 unsignedNum = (num ^ -isNegative) + isNegative;

@@ -71,126 +71,142 @@ void example1(siAllocator* heap) {
 
 }
 
-#if 0
 void example2(void)	{
-	siAllocator* stack = si_allocatorMake(4096);
+	siAllocator stack = si_allocatorMake(SI_KILO(4));
 	si_printf("==============\n\n==============\nExample 2:\n");
 
-	b32 exist = si_pathExists("example.c");
+	{
+		siString str_random = SI_STR("random.txt"),
+				 str_random2 = SI_STR("random-2.txt"),
+				 str_renamed = SI_STR("renamed.txt");
 
-	exist = si_pathExists("random.txt");
-	if (!exist) {
-		SI_PANIC();
-		si_printf("Since 'random.txt' doesn't exist, we'll just create one\n");
+		b32 exist = si_pathExists(str_random);
+		if (!exist) {
+			si_print("Since 'random.txt' doesn't exist, we'll just create one\n");
 
-		siFile file = si_fileCreate("random.txt");
-		si_fileWrite(&file, "QWERTYUIOP");
-		si_fileClose(file);
+			siFile file = si_fileCreate(str_random);
+			si_fileWrite(&file, SI_STR("QWERTYUIOP"));
+			si_fileClose(file);
+		}
+
+		isize res = si_pathCopy(str_random, str_random2);
+		si_printf(
+			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n",
+			si_pathExists(str_random2), res
+		);
+
+		res = si_pathMove(str_random, str_renamed);
+		si_printf(
+			"Does 'random.txt' exist: %B\n"
+			"'renamed.txt' outputs a %B (res: '%zi')\n",
+			si_pathExists(str_renamed), si_pathExists(str_renamed), res
+		);
+
+		res = si_pathRemove(str_random2);
+		si_printf(
+			"Does 'random-2.txt' exist: '%B' (res: '%B')\n",
+			si_pathExists(str_random2), res
+		);
+
+		res = si_pathRemove(str_renamed);
+		si_printf(
+			"Does 'renamed.txt' exist: '%B' (res: '%B')\n",
+			si_pathExists(str_renamed), res
+		);
 	}
 
-	isize res = si_pathCopy("random.txt", "random-2.txt");
-	si_printf(
-		"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n",
-		si_pathExists("random-2.txt"), res
-	);
-
-	res = si_pathMove("random.txt", "renamed.txt");
-	si_printf(
-		"Does 'random.txt' exist: %B\n'renamed.txt' outputs a %B (res: '%zi')\n",
-		si_pathExists("random.txt"), si_pathExists("renamed.txt"), res
-	);
-
-	cstring path = "example.c";
-	siString fullPath = si_pathGetFullName(stack, path);
-	si_printf(
-		"Information about '%S':\n\t"
-			"Base name - '%S'\n\t"
-			"Extension - '%S'\n\t"
-			"Full path - '%S'\n\t"
-			"Is relative: %B\n",
-		path, si_pathBaseName(path), si_pathExtension(path),
-		fullPath, si_pathIsRelative(path)
-	);
-
-	res = si_pathRemove("random-2.txt");
-	si_printf(
-		"Does 'random-2.txt' exist: '%B' (res: '%B')\n",
-		si_pathExists("random-2.txt"), res
-	);
-
-	res = si_pathRemove("renamed.txt");
-	si_printf(
-		"Does 'renamed.txt' exist: '%B' (res: '%B')\n",
-		si_pathExists("renamed.txt"), res
-	);
+	{
+		siString path = SI_STR("example.c");
+		siString fullPath = si_pathGetFullName(path, &stack);
+		si_printf(
+			"Information about '%S':\n\t"
+				"Base name - '%S'\n\t"
+				"Extension - '%S'\n\t"
+				"Full path - '%S'\n\t"
+				"Is relative: %B\n",
+			path, si_pathBaseName(path), si_pathExtension(path),
+			fullPath, si_pathIsRelative(path)
+		);
+	}
 }
+
+
 
 void example3(void)	{
 	si_printf("==============\n\n==============\nExample 3:\n");
+
 	{
-		si_pathRemove("SI_FILE_THAT_DOESNT_EXIST");
+		si_pathRemove(SI_STR("SI_FILE_THAT_DOESNT_EXIST"));
+	}
+	{
+		siString test_folder = SI_STR("testFolder");
 
-		b32 res = si_pathCreateFolder("testFolder");
-		SI_ASSERT(res);
+		b32 res = si_pathCreateFolder(test_folder);
+		SI_ASSERT(si_pathExists(test_folder) || res);
 
-		siFilePermissions perms = si_pathPermissions("testFolder");
+		siFilePermissions perms = si_pathPermissions(test_folder);
 		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
 
-		si_pathEditPermissions("testFolder", SI_FS_PERM_ALL);
-		perms = si_pathPermissions("testFolder");
-		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
+		si_pathEditPermissions(test_folder, SI_FS_PERM_ALL);
+		perms = si_pathPermissions(test_folder);
+		si_printf("d: Permissions of 'testFolder' (in octal): %o\n", perms);
 
-		si_pathRemove("testFolder");
+		si_pathRemove(test_folder);
 	}
 
 	{
-		siFile file = si_fileCreate("randomSiFile.txt");
+		siString str_hard = SI_STR("hardLink"),
+				 str_soft = SI_STR("softLink"),
+				 str_file = SI_STR("randomSiFile.silitxt");
+		siFile file = si_fileCreate(str_file);
 
 		u64 lastWriteTime = file.lastWriteTime;
-		u64 curWriteTime = si_pathLastWriteTime(file.filename);
+		u64 curWriteTime = si_pathLastWriteTime(str_file);
 
 		si_sleep(1000);
 		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
 
-		si_fileWrite(&file, "random garbage");
-		curWriteTime = si_pathLastWriteTime(file.filename);
+		si_fileWrite(&file, SI_STR("random garbage"));
+		curWriteTime = si_pathLastWriteTime(str_file);
 		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
 
-		si_pathCreateHardLink(file.filename, "hardLink");
-		si_pathCreateSoftLink(file.filename, "softLink");
+		si_pathCreateHardLink(str_file, str_hard);
+		si_pathCreateSoftLink(str_file, str_soft);
 		si_fileClose(file);
 
-		si_pathRemove(file.filename);
-		si_pathRemove("hardLink");
-		si_pathRemove("softLink");
+		si_pathRemove(str_file);
+		si_pathRemove(str_hard);
+		si_pathRemove(str_soft);
 
 		si_printf("Temporary path of the system: %S\n", si_pathGetTmp());
 	}
 }
 
-void example4(siAllocator* alloc) {
-	si_allocatorReset(alloc);
+void example4(void) {
 	si_printf("==============\n\n==============\nExample 4:\n");
 
 	#define ROOT_PATH "Česnakaujančio-убийца-世界"
-	si_pathCreateFolder(ROOT_PATH);
+	si_pathCreateFolder(SI_STR(ROOT_PATH));
 
-	si_pathCreateFolder(ROOT_PATH "/other");
-	siFile file = si_fileCreate(ROOT_PATH "/secret.txt");
-	si_fileWrite(&file, ROOT_PATH);
+	si_pathCreateFolder(SI_STR(ROOT_PATH "/other"));
+	siFile file = si_fileCreate(SI_STR(ROOT_PATH "/secret.txt"));
+	si_fileWrite(&file, SI_STR(ROOT_PATH));
 	si_fileClose(file);
-	si_pathCreateHardLink(ROOT_PATH "/secret.txt", ROOT_PATH "/hardLinkToSecret.link");
+	si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret.link"));
 
-	siDirectory dir = si_dirOpen(alloc, ROOT_PATH);
+	siDirectory dir = si_dirOpen(SI_STR(ROOT_PATH));
 	siDirectoryEntry entry;
 
 	usize count = 0;
-	while (si_dirPollEntry(dir, &entry)) {
-		si_printf("%zu: %S ('%zu' bytes, '%i' type)\n", count, entry.path, entry.len, entry.type);
+	while (si_dirPollEntryEx(dir, &entry, false)) {
+		si_printf(
+			"%zu: %S ('%zu' bytes, '%i' type)\n",
+			count, entry.path, entry.path.len, entry.type
+		);
 		count += 1;
 	}
 
-	si_pathRemove(ROOT_PATH);
+	si_pathRemove(SI_STR(ROOT_PATH));
 }
 
 void example5(siAllocator* alloc) {
@@ -210,16 +226,15 @@ void example5(siAllocator* alloc) {
 	si_printf("%CRThis text will be displayed in red%C, while this: %CBin blue%C!\n");
 	si_fprintf(SI_STDOUT, "Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%CY* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n");
 }
-#endif
 
 int main(void) {
 	siAllocator heap = si_allocatorMake(SI_MEGA(1));
 
 	example1(&heap);
-	//example2();
-	//example3();
-	//example4(heap);
-	//example5(heap);
+	example2();
+	example3();
+	example4();
+	example5(&heap);
 
 	si_allocatorFree(&heap);
 	return 0;
