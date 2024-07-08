@@ -2,63 +2,73 @@
 #include <sili.h>
 
 
+#define SI_BUF2_LEN(type, arr, length) \
+	(struct { usize len; type x[length]; }){length, arr}.x
+
+
+
 void example1(siAllocator* heap) {
 	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
 
 	si_printf("==============\n\n==============\nExample 1:\n");
+	siString file_random = SI_STR("random.txt");
+	siString file_examples_file = SI_STR("examples/file.c");
 
 	/* If the file doesn't exist or fails to open any other way, then we will
 	 * get an assertion error. */
-	siFile newFile = si_fileCreate("random.txt");
-	si_fileWrite(&newFile, "A silly file\nwith three sili newlines\nbut not much else.");
 
-	siString content = si_fileReadContents(newFile, heap);
-	si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), heap);
+	{
+		siFile newFile = si_fileCreate(file_random);
+		si_fileWrite(&newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else."));
 
-	si_printf(
+		siString content = si_fileReadContents(newFile, heap);
+		si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), heap);
+
+		si_printf(
 			"About 'random.txt':\n\t"
-			"Full path - '%S'\n\t"
-			"Size - '%zu' bytes\n\t"
-			"Content - '%S'\n\n",
-		si_pathGetFullName(SI_STR("random.txt"), &stack), content.len, content
-	);
+				"Full path - '%S'\n\t"
+				"Size - '%zu' bytes\n\t"
+				"Content - '%S'\n\n",
+			si_pathGetFullName(file_random, &stack), content.len, content
+		);
 
+		si_fileWriteAtLine(&newFile, SI_STR("and now we have a changed line"), 1);
 
-	siFile file = si_fileOpen("examples/file.c");
-	si_printf(
-		"About 'examples/file.c':\n\t"
-			"Full path - '%S'\n\t"
-			"Size - '%zu' bytes\n",
-		si_pathGetFullName(SI_STR("examples/file.c"), &stack), file.size
-	);
+		siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
+		si_printf(
+			"Contents of '%S' ('%zd' lines in total):\n",
+			si_pathBaseName(file_random), si_arrayLen(newFileLines)
+		);
 
-	siArray(siString) fileLine = si_fileReadlines(file, heap);
-#if 0
-	si_printf(
-		"Contents of '%S' ('%zd' lines in total):\n",
-		si_pathBaseName(), si_arrayLen(fileLine)
-	);
-#endif
-
-	for_range (i, 0, si_arrayLen(fileLine)) {
-		si_stringStrip(&fileLine[i]);
-		si_printf("\tLine %zu: '%S'\n", i + 1, fileLine[i]);
+		for_range (i, 0, si_arrayLen(newFileLines)) {
+			si_stringStrip(&newFileLines[i]);
+			si_printf("\tLine %zu: '%S'\n", i + 1, newFileLines[i]);
+		}
+		si_fileClose(newFile);
 	}
-	si_fileClose(file);
-	si_allocatorReset(heap);
 
-	si_fileWriteAtLine(&newFile, SI_STR("and now we have a changed line"), 1);
-	siArray(siString) newFileLines = si_fileReadlines(newFile, heap);
-	si_printf(
-		"Contents of '%S' ('%zd' lines in total):\n",
-		si_pathBaseName("randomDir/random.txt"), si_arrayLen(newFileLines)
-	);
+	{
+		siFile file = si_fileOpen(file_examples_file);
+		si_printf(
+			"About 'examples/file.c':\n\t"
+				"Full path - '%S'\n\t"
+				"Size - '%zu' bytes\n",
+			si_pathGetFullName(file_examples_file, &stack), file.size
+		);
 
-	for_range (i, 0, si_arrayLen(newFileLines)) {
-		si_stringStrip(&newFileLines[i]);
-		si_printf("\tLine %zu: '%S'\n", i + 1, newFileLines[i]);
+		siArray(siString) lines = si_fileReadlines(file, heap);
+		si_printf(
+			"Contents of '%S' ('%zd' lines in total):\n",
+			si_pathBaseName(file_examples_file), si_arrayLen(lines)
+		);
+
+		for_range (i, 0, si_arrayLen(lines)) {
+			si_stringStrip(&lines[i]);
+			si_printf("\tLine %zu (%zu bytes): '%S'\n", i + 1, lines[i].len, lines[i]);
+		}
+		si_fileClose(file);
 	}
-	si_fileClose(newFile);
+
 }
 
 #if 0

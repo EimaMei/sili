@@ -74,12 +74,14 @@ void matrix_multithreaded(f32* a, f32* b, f32* result);
 void example2(void) {
 	siAllocator* alloc = si_allocatorMake(4 * (SIZE * SIZE * sizeof(f32)));
 
+	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */
 	f32* A = si_mallocArray(alloc, f32, SIZE * SIZE);
 	f32* B = si_mallocArray(alloc, f32, SIZE * SIZE);
 	f32* res1 = si_mallocArray(alloc, f32, SIZE * SIZE);
 	f32* res2 = si_mallocArray(alloc, f32, SIZE * SIZE);
 
 
+	/* Fill out both matrix A and B with random data. */
 	srand((u32)si_clock());
 	for_range (i, 0, SIZE) {
 		for_range (j, 0, SIZE) {
@@ -90,6 +92,7 @@ void example2(void) {
 
 	si_benchmarkLoopsAvgCmp(1, matrix_singlethreaded(A, B, res1), matrix_multithreaded(A, B, res2));
 
+	/* Check if both outputs are correct. */
 	for_range (i, 0, SIZE) {
 		for_range (j, 0, SIZE) {
 			SI_ASSERT_MSG(res1[i * SIZE + j] == res2[i * SIZE + j], "Results are incorrect!");
