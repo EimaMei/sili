@@ -12,15 +12,14 @@ void performanceTest(void) {
 	}
 }
 
-#if defined(SI_CPU_X86)
+#if SI_ARCH_IS_X86
 #include <immintrin.h>
 
 void performanceTest2(void) {
-	__m128i result = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
-	memcpy(res, (i32*)&result, sizeof(__m128i));
+	*(__m128i*)res = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
 }
 
-#elif defined(SI_CPU_ARM64)
+#elif SI_ARCH_ARM64
 #include <arm_neon.h>
 
 void performanceTest2(void) {
@@ -32,14 +31,23 @@ void performanceTest2(void) {
 #endif
 
 int main(void) {
-	si_print("Running 'performanceTest()' 30000 times. Lets see how long it takes to execute that many times...\n");
-	si_benchmarkRunsPerLoop(30000, performanceTest());
+	{
+		/* Checking if both functions correctly behave. */
+		performanceTest();
+		SI_ASSERT(res[0] == 15 && res[1] == 25 && res[2] == 35 && res[3] == 45);
+
+		performanceTest2();
+		SI_ASSERT(res[0] == 15 && res[1] == 25 && res[2] == 35 && res[3] == 45);
+	}
+
+	si_print("Running 'performanceTest()' 100000 times. Lets see how long it takes to execute that many times...\n");
+	si_benchmarkRunsPerLoop(1000000, performanceTest());
 
 	si_print("Now let's see how many times 'performanceTest()' can be executed in 5 seconds...\n");
 	si_benchmarkExecutesPerMs(5000, performanceTest());
 
 	si_print("The average performance:\n");
-	si_benchmarkLoopsAvg(100000, performanceTest());
+	si_benchmarkLoopsAvg(1000000, performanceTest());
 
 	si_print("Now we will compare the performance stats between 'performanceTest()' and 'performanceTest2()':\n");
 	si_benchmarkLoopsAvgCmp(100000, performanceTest(), performanceTest2());

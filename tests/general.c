@@ -97,37 +97,50 @@ int main(void) {
 		usize ceil = si_alignCeilEx(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
-		siAllocator* alloc = si_allocatorMake(SI_MEGA(1));
-		TEST_EQ_H64(alloc->ptr, (siByte*)(alloc + 1));
-		TEST_EQ_U64(alloc->offset, 0);
-		TEST_EQ_U64(alloc->maxLen, SI_MEGA(1));
+		siAllocator alloc = si_allocatorMake(SI_MEGA(1));
+		TEST_N_EQ_U64(alloc.ptr, 0);
+		TEST_EQ_U64(alloc.offset, 0);
+		TEST_EQ_U64(alloc.capacity, SI_MEGA(1));
+		TEST_EQ_U64(alloc.isStack, false);
 
-		si_allocatorResize(&alloc, SI_KILO(1));
-		TEST_EQ_U64(alloc->maxLen, SI_KILO(1));
+		b32 res = si_allocatorResize(&alloc, SI_KILO(1));
+		TEST_EQ_U64(res, true);
+		TEST_EQ_U64(alloc.capacity, SI_KILO(1));
 
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
 		TEST_EQ_H64(tmp.ptr, (siByte*)x);
-		TEST_EQ_U64(tmp.maxLen, countof(x));
+		TEST_EQ_U64(tmp.capacity, countof(x));
 
-		si_malloc(alloc, 234);
-		TEST_EQ_U64(si_allocatorAvailable(alloc), alloc->maxLen - 234);
+		si_malloc(&alloc, si_alignCeil(234));
+		TEST_EQ_U64(si_allocatorAvailable(alloc), alloc.capacity - si_alignCeil(234));
 
-		si_allocatorResetFrom(alloc, 444);
-		TEST_EQ_U64(alloc->offset, 444);
+		si_allocatorResetFrom(&alloc, 444);
+		TEST_EQ_U64(alloc.offset, 444);
+		si_allocatorFree(&alloc);
+		TEST_EQ_H64(alloc.ptr, 0);
 
-		siAllocator* stack = si_allocatorMakeStack(32);
-		si_allocatorPush(stack, 'Q');
-		si_allocatorPush(stack, 'W');
-		TEST_EQ_CHAR(stack->ptr[0], 'Q');
-		TEST_EQ_CHAR(stack->ptr[1], 'W');
-		TEST_EQ_CHAR(si_allocatorCurPtr(stack), &stack->ptr[2]);
+		siAllocator stack = si_allocatorMakeStack(32);
+		TEST_EQ_U64(stack.isStack, true);
+		si_allocatorPush(&stack, 'Q');
+		si_allocatorPush(&stack, 'W');
+		TEST_EQ_CHAR(stack.ptr[0], 'Q');
+		TEST_EQ_CHAR(stack.ptr[1], 'W');
+		TEST_EQ_CHAR(si_allocatorCurPtr(stack), &stack.ptr[2]);
 
-		usize oldAmount = stack->offset;
-		si_allocatorResetSub(stack, 2);
-		TEST_EQ_U64(stack->offset, oldAmount - 2);
+		usize oldAmount = stack.offset;
+		si_allocatorResetSub(&stack, 2);
+		TEST_EQ_U64(stack.offset, oldAmount - 2);
 
-		si_allocatorFree(alloc);
+		usize amounts[] = {SI_KILO(2), SI_KILO(4), SI_KILO(8), SI_MEGA(1)};
+		b32 expectedResults[sizeof(amounts)] = {true, true, false, false};
+		for_range (i, 0, countof(amounts)) {
+			siAllocator alloc = si_allocatorMakeAny(SI_KILO(4),amounts[i]);
+			TEST_EQ_U64(alloc.isStack, expectedResults[i]);
+
+			si_allocatorFree(&alloc);
+			TEST_EQ_H64(alloc.ptr, 0);
+		}
 	}
 	si_print("Test 2 has been completed.\n");
 
@@ -138,16 +151,16 @@ int main(void) {
 		TEST_EQ_H64(*ptr1, *ptr2);
 		TEST_EQ_H64(*ptr1, USIZE_MAX);
 
-		siAllocator* allocator = si_allocatorMake(SI_KILO(1));
-		randomStruct* alloc1 = si_mallocItem(allocator, randomStruct);
-		randomStruct* alloc2 = si_mallocArray(allocator, randomStruct, 3);
+		siAllocator allocator = si_allocatorMake(SI_KILO(1));
+		randomStruct* alloc1 = si_mallocItem(&allocator, randomStruct);
+		randomStruct* alloc2 = si_mallocArray(&allocator, randomStruct, 3);
 		*alloc1 = (randomStruct){USIZE_MIN, INT8_MAX, FLOAT32_MIN};
 
-		randomStruct* alloc3 = si_mallocCopy(allocator, *alloc1);
+		randomStruct* alloc3 = si_mallocCopy(&allocator, *alloc1);
 		TEST_EQ_H64(alloc1->one, alloc3->one);
 		TEST_EQ_H64(SI_TO_U64(&alloc1->two), SI_TO_U64(&alloc3->two));
 
-		si_allocatorFree(allocator);
+		si_allocatorFree(&allocator);
 		SI_UNUSED(alloc2);
 	}
 	si_print("Test 3 has been completed.\n");
