@@ -72,13 +72,13 @@ void matrix_multithreaded(f32* a, f32* b, f32* result);
 
 
 void example2(void) {
-	siAllocator* alloc = si_allocatorMake(4 * (SIZE * SIZE * sizeof(f32)));
+	siAllocator alloc = si_allocatorMake(4 * (SIZE * SIZE * sizeof(f32)));
 
 	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */
-	f32* A = si_mallocArray(alloc, f32, SIZE * SIZE);
-	f32* B = si_mallocArray(alloc, f32, SIZE * SIZE);
-	f32* res1 = si_mallocArray(alloc, f32, SIZE * SIZE);
-	f32* res2 = si_mallocArray(alloc, f32, SIZE * SIZE);
+	f32* A = si_mallocArray(&alloc, f32, SIZE * SIZE);
+	f32* B = si_mallocArray(&alloc, f32, SIZE * SIZE);
+	f32* res1 = si_mallocArray(&alloc, f32, SIZE * SIZE);
+	f32* res2 = si_mallocArray(&alloc, f32, SIZE * SIZE);
 
 
 	/* Fill out both matrix A and B with random data. */
@@ -100,7 +100,7 @@ void example2(void) {
 	}
 	si_printf("Results are correct.\n");
 
-	si_allocatorFree(alloc);
+	si_allocatorFree(&alloc);
 }
 
 void matrix_singlethreaded(f32* a, f32* b, f32* result) {

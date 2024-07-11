@@ -39,7 +39,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/bit.c
+SRC = src/main2.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -56,7 +56,7 @@ dynamic:
 
 # Run the executable.
 run: $(EXE)
-	./$(EXE)
+	./$(EXE) --render "OpenGL"
 
 # Clean the 'build' folder.
 clean:

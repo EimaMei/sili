@@ -1370,34 +1370,30 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize);
 
 /* Copies a sum amount of bytes from the provided source into the specified
  * destination. Both pointers musn't overlap. */
-SIDEF rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size);
+SIDEF rawptr si_memcopy(void* restrict dst, const void* restrict src, usize size);
 /* Copies a sum amount of bytes from the provided source into the specified
  * destination. Both pointers can overlap each other. */
-SIDEF rawptr si_memmove(rawptr dst, const void* src, isize size);
+SIDEF rawptr si_memmove(void* dst, const void* src, isize size);
 /* Sets a give amount of bytes from the provided data source to the specified
  * value. */
-SIDEF rawptr si_memset(rawptr data, u8 value, usize size);
+SIDEF rawptr si_memset(void* data, u8 value, usize size);
 /* Compares a sum amount of bytes from two specified pointers and returns either:
  * A) zero, if all bytes match B) less than zero, if the first clashing byte in
  * the first pointer is lower than in the second one C) more than zero, if the
  * first clashing byte in the first pointer is higher than the second one. */
-SIDEF i32 si_memcompare(const rawptr ptr1, const rawptr ptr2, usize size);
+SIDEF i32 si_memcompare(const void* ptr1, const void* ptr2, usize size);
 /* Searches a given amount of bytes from the provided data source and returns
  * either a pointer containing the first occurence of the specified value, or a
  * nil pointer if there were no occurences. */
-SIDEF rawptr si_memchr(const rawptr data, u8 value, usize size);
+SIDEF rawptr si_memchr(const void* data, u8 value, usize size);
 /* Searches a given amount of bytes from the provided data source and returns
  * either a pointer containing the last occurence of the value, or a nil pointer
  * if there were no occurences. */
-SIDEF rawptr si_memrchr(const rawptr data, u8 value, usize size);
+SIDEF rawptr si_memrchr(const void* data, u8 value, usize size);
 
 /* Returns the length of a NULL-terminated C-string. */
 SIDEF usize si_cstrLen(cstring string);
 
-
-/* TODO
- * TODO */
-#define si_memcopyStr(dst, string) si_memcopy(dst, (string).data, (string).len)
 
 #endif /* SI_NO_MEMORY */
 
@@ -1839,12 +1835,19 @@ SIDEF siArray(siString) si_stringSplitEx(siString string, siString delimiter,
 	isize amount, siAllocator* alloc);
 
 
-
 /* Reverses the entirety of the sili-string */
 void si_stringReverse(siString string);
-
 /* Internal function. Allocates more space to the string. */
 void si_stringMakeSpaceFor(siString* string, siAllocator* alloc, usize addLen);
+
+#if !defined(SI_NO_MEMORY)
+
+/* TODO */
+SIDEF rawptr si_memcopyStr(void* dst, siString src);
+/* TODO */
+SIDEF i32 si_memcompareStr(const void* dst, siString src);
+
+#endif
 
 #endif /* SI_NO_STRING */
 
@@ -1903,12 +1906,13 @@ siUtf32Char si_utf8Decode(const char character[4]);
 siUtf8Char si_utf8Encode(i32 codepoint);
 
 /* Returns the amount of characters in an UTF-8 string. For example, an input
- * string of "リトアニア" returns 15 from 'si_cstrLen', while 'si_utf8StrLen'
- * returns 5. */
+ * string of "Ąsotis" would returns 7 from 'si_cstrLen', while 'si_utf8StrLen'
+ * would returns 6. */
 usize si_utf8StrLen(siUtf8String str);
 /* Returns a UTF-32 codepoint and length from the specified index. For example,
  * 'si_utf8StrAt("リトアニア", 2)' will return (siUtf32Char){0x30A2, 3}. */
 siUtf32Char si_utf8StrAt(siUtf8String str, usize charIndex);
+/* TODO(EimaMei): Add a version that returns siUtf8Char. */
 
 /* Encodes a NULL-terminated UTF-8 string into UTF-16. */
 siUtf16String si_utf8ToUtf16Str(siAllocator* alloc, siUtf8String str, siNullable usize* strLenOut);
@@ -1980,23 +1984,14 @@ i32 si_charHexDigitToInt(char c);
 
 extern const char* SI_NUM_TO_CHAR_TABLE;
 
-/* Writes a NULL-terminated C-string into the allocator. */
-char* si_cstrMake(siAllocator* alloc, cstring cstr);
-/* Writes a C-string with specified length into the allocator. */
-char* si_cstrMakeLen(siAllocator* alloc, cstring cstr, usize len);
-
-/* Returns the length of a NULL-terminated C-string. */
-usize si_cstrLen(cstring str);
-
 /* TODO */
-void si_cstrUpper(siString str);
+SIDEF void si_stringUpper(siString str);
 /* TODO */
-void si_stringLower(siString str);
+SIDEF void si_stringLower(siString str);
 /* TODO */
-void si_stringTitle(siString str);
+SIDEF void si_stringTitle(siString str);
 /* TODO */
-void si_stringCapitalize(siString str);
-
+SIDEF void si_stringCapitalize(siString str);
 
 /* Sets the boolean to use lowercase/uppercase characters when converting an
  * integer to a string. If 'upper' is set to true, 255 (base 16) gets turned to
@@ -3444,7 +3439,7 @@ void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
 
 
 inline
-rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size) {
+rawptr si_memcopy(void* restrict dst, const void* restrict src, usize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
@@ -3456,7 +3451,7 @@ rawptr si_memcopy(rawptr restrict dst, const void* restrict src, usize size) {
 }
 
 inline
-rawptr si_memmove(rawptr dst, const void* src, isize size) {
+rawptr si_memmove(void* dst, const void* src, isize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
@@ -3468,7 +3463,7 @@ rawptr si_memmove(rawptr dst, const void* src, isize size) {
 
 }
 inline
-rawptr si_memset(rawptr data, u8 value, usize size) {
+rawptr si_memset(void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
 #if !defined(SI_NO_CRT)
@@ -3480,7 +3475,7 @@ rawptr si_memset(rawptr data, u8 value, usize size) {
 }
 
 SIDEF
-i32 si_memcompare(const rawptr ptr1, const rawptr ptr2, usize size) {
+i32 si_memcompare(const void* ptr1, const void* ptr2, usize size) {
 	SI_ASSERT_NOT_NULL(ptr1);
 	SI_ASSERT_NOT_NULL(ptr2);
 
@@ -3492,7 +3487,7 @@ i32 si_memcompare(const rawptr ptr1, const rawptr ptr2, usize size) {
 }
 
 SIDEF
-rawptr si_memchr(const rawptr data, u8 value, usize size) {
+rawptr si_memchr(const void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
 #if !defined(SI_NO_CRT)
@@ -3503,7 +3498,7 @@ rawptr si_memchr(const rawptr data, u8 value, usize size) {
 }
 
 SIDEF
-rawptr si_memrchr(const rawptr data, u8 value, usize size) {
+rawptr si_memrchr(const void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
 #if !defined(SI_NO_CRT)
@@ -4470,6 +4465,15 @@ void si_stringMakeSpaceFor(siString* string, siAllocator* alloc, usize addLen) {
 	string->data = newData;
 	string->len = sizeNew;
 }
+
+
+#if defined(SI_IMPLEMENTATION_MEMORY)
+
+inline rawptr si_memcopyStr(void* dst, siString src) { return si_memcopy(dst, src.data, src.len); }
+inline i32 si_memcompareStr(const void* dst, siString src) { return si_memcompare(dst, src.data, src.len); }
+
+#endif
+
 
 inline
 void si_stringUpper(siString string) {
