@@ -773,9 +773,12 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* varName - NAME | multipleArgs - (TYPE1, TYPE2...)
  * Macro to define a function pointer. */
 #define SI_FUNC_PTR(varName, multipleArgs) (*varName)multipleArgs
-/* x - ANYTHING
- * Silences the unused warnings for a given variable. */
-#define SI_UNUSED(x) (void)(x)
+/* ...x - ANYTHING
+* Silences the 'unused identifier' warning for the specified expression. */
+#define SI_UNUSED(.../* x */) (void)(__VA_ARGS__)
+/* ...x - ANYTHING
+* Discards the function's return and silences the 'unused return value' warning. */
+#define SI_DISCARD(.../* x */) (void)!(__VA_ARGS__)
 
 /*
 	========================
@@ -1272,9 +1275,9 @@ typedef struct siAllocator {
 #endif
 
 #ifndef SI_DEFAULT_PAGE_SIZE
-	#if defined(SI_SYSTEM_WASM)
+	#if SI_SYSTEM_IS_WASM
 		#define SI_DEFAULT_PAGE_SIZE SI_KILO(64)
-	#elif defined(SI_SYSTEM_OSX) && defined(SI_CPU_ARM64)
+	#elif SI_SYSTEM_IS_APPLE && SI_ARCH_ARM64
 		#define SI_DEFAULT_PAGE_SIZE SI_KILO(16)
 	#else
 		#define SI_DEFAULT_PAGE_SIZE SI_KILO(4)
@@ -2754,6 +2757,41 @@ u32 si_cpuClockSpeed(void);
 	========================
 */
 
+SI_ENUM(u8, siPrintColorType) {
+	SI_PRINT_COLOR_TYPE_3BIT = 1,
+	SI_PRINT_COLOR_TYPE_8BIT,
+	SI_PRINT_COLOR_TYPE_24BIT,
+};
+
+SI_ENUM(u8, siAnsiColorType) {
+	SI_ANSI_BLACK,
+	SI_ANSI_RED,
+	SI_ANSI_GREEN,
+	SI_ANSI_YELLOW,
+	SI_ANSI_BLUE,
+	SI_ANSI_MAGENTA,
+	SI_ANSI_CYAN,
+	SI_ANSI_WHITE
+};
+
+typedef struct siPrintColor3bit {
+	siPrintColorType type;
+	siAnsiColorType color;
+	b8 bold;
+	b8 light;
+} siPrintColor3bit;
+
+typedef struct siPrintColor24bit {
+	siPrintColorType type;
+	u8 r, g, b;
+} siPrintColor24bit;
+SI_STATIC_ASSERT(sizeof(siPrintColor3bit) == sizeof(siPrintColor24bit));
+
+/* TODO
+ * TODO */
+#define SI_PRINT_COLOR_3BIT(color, bold, light) \
+	(siPrintColor3bit){SI_PRINT_COLOR_TYPE_3BIT, color, bold, light}
+
 /* Writes a NULL-terminated C-string into SI_STDOUT. Returns the amount of
  * written bytes. */
 isize si_print(cstring str);
@@ -3297,10 +3335,11 @@ rawptr si_realloc(siAllocator* alloc, rawptr ptr, usize oldSize, usize newSize) 
 SIDEF
 usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, cstring func, cstring message, ...) {
 	SI_STOPIF(condition, return 0);
+	siPrintColor3bit red = SI_PRINT_COLOR_3BIT(SI_ANSI_RED, true, false);
 	si_fprintf(
 		SI_STDERR,
-		"%CRAssertion \"%s\" at \"%s:%d\"%C: %CR%s%C%s",
-		conditionStr, file, line, func, (message != nil ? ": " : "\n")
+		"%CAssertion \"%s\" at \"%s:%d\"%C: %s%s",
+		&red, conditionStr, file, line, func, (message != nil ? ": " : "\n")
 	);
 
 	if (message != nil) {
@@ -6074,7 +6113,7 @@ isize si_fileSeek(siFile file, isize offset, siFileMoveMethod method) {
 	SetFilePointerEx(file.handle, win32Offset, &win32Offset, method);
 	return win32Offset.QuadPart;
 
-#elif defined(SI_SYSTEM_OSX)
+#elif SI_SYSTEM_IS_APPLE
 	return  lseek((int)file.handle, offset, method);
 
 #else
@@ -6165,7 +6204,8 @@ siDirectory si_dirOpen(siString path) {
 	SI_STOPIF(dir.handle == nil, { SI_FS_ERROR_DECLARE(); return (siDirectory){0}; });
 
 	/* NOTE(EimaMei): We skip '.' and '..'. */
-	{ (void)readdir(dir.handle); (void)readdir(dir.handle); }
+	SI_DISCARD(readdir(dir.handle)); 
+	SI_DISCARD(readdir(dir.handle));
 #endif
 
 	return dir;
@@ -6387,7 +6427,7 @@ b32 si_threadPrioritySet(siThread t, i32 priority) {
 		isize res = SetThreadPriority(t.id, priority);
 		SI_ASSERT_MSG(res != 0, "Something went wrong setting the thread priority.");
 		SI_UNUSED(res);
-	#elif defined(SI_SYSTEM_UNIX)
+	#elif SI_SYSTEM_IS_UNIX
 		usize error_code = pthread_setschedprio(t.id, priority);
 
 		cstring error_msg = nil;
@@ -6407,6 +6447,8 @@ b32 si_threadPrioritySet(siThread t, i32 priority) {
 		SI_UNUSED(t);
 		SI_UNUSED(priority);
 	#endif
+
+	return false;
 }
 #endif /* SI_IMPLEMENTATION_THREAD */
 
@@ -6802,10 +6844,6 @@ void si__printStrCpy(struct si__printfInfoStruct* info) {
 #define SI_SET_FMT_PTR(x, ptr) \
 	x = *ptr; ptr += 1
 
-#define SI_COLOR_CASE(info, code) \
-	(info)->str = SI_STR("\33[0;" code "m"); \
-	si__printStrCpy(info)
-
 #define SI_CHECK_AFTERPOINT_INT(info, afterPointIsSet, afterPoint) \
 	if (afterPointIsSet) { \
 		SI_STOPIF(afterPoint == 0, break); \
@@ -6837,6 +6875,7 @@ isize si_snprintfVa(char* buffer, usize capacity, cstring fmt, va_list va) {
 	char x;
 	cstring fmtPtr = fmt;
 	u32 base = 10;
+	b32 colorPresent = false;
 
 	info.capacity -= 1; /* NOTE(EimaMei): To ensure we have enough space for the NULL-terminator. */
 	while (info.index < info.capacity) {
@@ -6857,19 +6896,25 @@ GOTO_PRINT_SWITCH:
 		switch (x) {
 #ifndef SI_NO_SILI_PRINTF_STYLE
 			case 'C': {
-				SI_SET_FMT_PTR(x, fmtPtr);
-GOTO_COLOR_CASE_SWTICH:
-				switch (x) {
-					case 'R': { SI_COLOR_CASE(&info, "31"); break; }
-					case 'G': { SI_COLOR_CASE(&info, "32"); break; }
-					case 'Y': { SI_COLOR_CASE(&info, "33"); break; }
-					case 'B': { SI_COLOR_CASE(&info, "34"); break; }
-					case 'M': { SI_COLOR_CASE(&info, "35"); break; }
-					case 'C': { SI_COLOR_CASE(&info, "36"); break; }
-					case 'W': { SI_COLOR_CASE(&info, "37"); break; }
-					case '*': { x = (char)va_arg(va, i32); goto GOTO_COLOR_CASE_SWTICH; }
-					default:  { SI_COLOR_CASE(&info, "0");  fmtPtr -= 1; break; }
+				if (!colorPresent) {
+					siPrintColor3bit* x = va_arg(va, rawptr);
+					SI_ASSERT(x->type == SI_PRINT_COLOR_TYPE_3BIT);
+					colorPresent = true;
+
+					char base[] ="\33[\0;\0\0m";
+					base[2] = (!x->bold) ? '0' : '1';
+					base[4] = (!x->light) ? '3' : '9';
+					base[5] = '0' + x->color;
+
+					info.str = SI_STR(base);
+					si__printStrCpy(&info);
 				}
+				else {
+					colorPresent = false;
+					info.str = SI_STR("\33[0;0m");
+					si__printStrCpy(&info);
+				}
+
 				break;
 			}
 #endif
