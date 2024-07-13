@@ -1957,24 +1957,24 @@ siUtf8Char si_utf16Encode(const u16 character[2]);
 */
 
 /* Returns the lowercased version of the given character. */
-char si_charLower(char c);
+SIDEF char si_charLower(char c);
 /* Returns the uppercased version of the given character. */
-char si_charUpper(char c);
+SIDEF char si_charUpper(char c);
 
 /* Returns true  if the given character is a space. */
-b32 si_charIsSpace(char c);
+SIDEF b32 si_charIsSpace(char c);
 /* Returns true if the given character is from '0' to '9'. */
-b32 si_charIsDigit(char c);
+SIDEF b32 si_charIsDigit(char c);
 /* Returns true if the given character is a hex digit (between '0'..'9'; 'a'...'f'; 'A'...'F'). */
-b32 si_charIsHexDigit(char c);
+SIDEF b32 si_charIsHexDigit(char c);
 /* Returns true if the given character is in the English alphabet. */
-b32 si_charIsAlpha(char c);
+SIDEF b32 si_charIsAlpha(char c);
 /* Returns true if the given character is in the English alphabet OR is a number. */
-b32 si_charIsAlphanumeric(char c);
+SIDEF b32 si_charIsAlphanumeric(char c);
 /* Converts '0'...'9' to an actual integer ('3' -> 3). */
-i32 si_charDigitToInt(char c);
+SIDEF i32 si_charDigitToInt(char c);
 /* Converts a hex digit into an actual integer ('F' -> 15). */
-i32 si_charHexDigitToInt(char c);
+SIDEF i32 si_charHexDigitToInt(char c);
 
 #endif /* SI_NO_CHAR */
 
@@ -1988,13 +1988,13 @@ i32 si_charHexDigitToInt(char c);
 extern const char* SI_NUM_TO_CHAR_TABLE;
 
 /* TODO */
-SIDEF void si_stringUpper(siString str);
+SIDEF void si_stringUpper(siString string);
 /* TODO */
-SIDEF void si_stringLower(siString str);
+SIDEF void si_stringLower(siString string);
 /* TODO */
-SIDEF void si_stringTitle(siString str);
+SIDEF void si_stringTitle(siString string);
 /* TODO */
-SIDEF void si_stringCapitalize(siString str);
+SIDEF void si_stringCapitalize(siString string);
 
 /* Sets the boolean to use lowercase/uppercase characters when converting an
  * integer to a string. If 'upper' is set to true, 255 (base 16) gets turned to
@@ -2003,22 +2003,18 @@ void si_numChangeTable(b32 upper);
 
 /* Creates and returns an unsigned 64-bit integer from a string.
  * NOTE: The function doesn't check for any non-number characters. */
-u64 si_stringToUInt(siString str);
-/* Creates and returns an unsigned 64-bit integer from a string using a specified
- * base.
+u64 si_stringToUInt(siString string);
+/* TODO
  * NOTE(1): Results may not work for bases higher than 10.
  * NOTE(2): The function doesn't check for any non-number characters. */
-u64 si_stringToUIntEx(siString str, i32 base);
+u64 si_stringToUIntEx(siString string, b32* outRes);
 /* Creates and returns a signed 64-bit integer from a string.
  * NOTE: The function doesn't check for any non-number characters. */
-i64 si_stringToInt(siString str);
-/* Creates and returns a signed 64-bit integer from a string using a specified
- * base.
+i64 si_stringToInt(siString string);
+/* TODO
  * NOTE(1): Results may not work for bases higher than 10.
  * NOTE(2): The function doesn't check for any non-number characters. */
-i64 si_stringToIntEx(siString str, i32 base);
-/* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
-
+SIDEF i64 si_stringToIntEx(siString string, b32* outRes);
 /* Creates a string from the specified unsigned integer in base 10. The string
  * gets allocated in the specified allocator. */
 SIDEF siString si_stringFromUInt(u64 num, siAllocator* alloc);
@@ -2039,6 +2035,12 @@ SIDEF siString si_stringFromFloat(f64 num, siAllocator* alloc);
 /* Creates a string from a float, using the specified base and amount of decimals
  * after the decimals point. String gets allocated unless it's "inf" or "nan". */
 SIDEF siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator* alloc);
+/* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
+
+/* TODO */
+SIDEF siString si_stringFromBool(b32 boolean);
+/* TODO */
+SIDEF b32 si_stringToBool(siString string);
 
 #endif /* SI_NO_STRING */
 
@@ -4564,7 +4566,7 @@ const char* SI_NUM_TO_CHAR_TABLE = SI_NUM_TO_CHAR_TABLE_UPPER;
 inline
 void si_numChangeTable(b32 upper) {
 	static const char* choices[2] = {SI_NUM_TO_CHAR_TABLE_LOWER, SI_NUM_TO_CHAR_TABLE_UPPER};
-	SI_NUM_TO_CHAR_TABLE = choices[upper];
+	SI_NUM_TO_CHAR_TABLE = choices[upper & true];
 }
 inline
 siString si_stringFromUInt(u64 num, siAllocator* alloc) {
@@ -4590,20 +4592,60 @@ siString si_stringFromUIntEx(u64 num, i32 base, siAllocator* alloc) {
 	return res;
 }
 inline
-u64 si_stringToUInt(siString str) {
-	return si_stringToUIntEx(str, 10);
-}
-SIDEF
-u64 si_stringToUIntEx(siString string, i32 base) {
-	SI_ASSERT_NOT_NULL(string.data);
-
+u64 si_stringToUInt(siString string) {
+	SI_ASSERT(string.len <= 20);
 	u64 res = 0;
-
 	for_eachStr (x, string) {
-		res *= base;
+		res *= 10;
 		res += (*x - '0');
 	}
 
+	return res;
+}
+SIDEF
+u64 si_stringToUIntEx(siString string, b32* outRes) {
+	SI_ASSERT_NOT_NULL(outRes);
+
+	/* NOTE(EimaMei): No base specified, meaning it's base-10. */
+	if (string.data[0] != '0') {
+		*outRes = true;
+		return si_stringToUInt(string);
+	}
+
+	u64 res = 0;
+	i32 base;
+
+	char x = si_charUpper(string.data[1]);
+	u32 maxDigits;
+	switch (x) {
+		case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16; break;
+		case 'O': base =  8; string = si_stringSubToEnd(string, 2); maxDigits = 22; break;
+		case 'B': base =  2; string = si_stringSubToEnd(string, 2); maxDigits = 64; break;
+		default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22; break;
+	}
+	SI_STOPIF(string.len > maxDigits, *outRes = false; return res);
+
+
+	for_eachStr (x, string) {
+		res *= base;
+
+		u8 value = *x - '0';
+		if (value < 10) {
+			res += value;
+		}
+		else {
+			value = si_charUpper(value) - 7;
+			if (value < base) {
+				res += value;
+			}
+			else {
+				*outRes = false;
+				return res;
+			}
+		}
+	}
+
+	*outRes = true;
 	return res;
 }
 
@@ -4720,12 +4762,43 @@ siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator* al
 	return res;
 }
 
+
+inline
+siString si_stringFromBool(b32 boolean) {
+	static siString values[] = {SI_STR("false"), SI_STR("true")};
+	return values[boolean & true];
+}
+
+b32 si_stringToBool(siString string) {
+	SI_ASSERT_NOT_NULL(string.data);
+	SI_STOPIF(string.len == 0 || (string.len != 1 && string.len != 4 && string.len != 5), return UINT32_MAX);
+
+	if (string.len == 1) {
+		switch (si_charLower(string.data[0])) {
+			case '1': case 't': return true;
+			case '0': case 'f': return false;
+			default: return UINT32_MAX;
+		}
+	}
+
+	char str[5];
+	for_eachStr (x, string) {
+		str[x - string.data] = si_charLower(*x);
+	}
+
+	u32 val = SI_TO_U32(str);
+	if (val == SI_TO_U32("true") && string.len == 4) {
+		return true;
+	}
+	else if (val == SI_TO_U32("fals") && str[4] == 'e') {
+		return false;
+	}
+
+	return UINT32_MAX;
+}
+
 inline
 i64 si_stringToInt(siString string) {
-	return si_stringToIntEx(string, 10);
-}
-SIDEF
-i64 si_stringToIntEx(siString string, i32 base) {
 	SI_ASSERT_NOT_NULL(string.data);
 
 	switch (string.data[0]) {
@@ -4733,14 +4806,32 @@ i64 si_stringToIntEx(siString string, i32 base) {
 			string.data += 1;
 			string.len -= 1;
 
-			return -si_stringToUIntEx(string, base);
+			return -si_stringToUInt(string);
 		case '+':
 			string.data += 1;
 			string.len  -= 1;
 			break;
 	}
 
-	return si_stringToUIntEx(string, base);
+	return si_stringToUInt(string);
+}
+SIDEF
+i64 si_stringToIntEx(siString string, b32* outRes) {
+	SI_ASSERT_NOT_NULL(string.data);
+
+	switch (string.data[0]) {
+		case '-':
+			string.data += 1;
+			string.len -= 1;
+
+			return -si_stringToUIntEx(string, outRes);
+		case '+':
+			string.data += 1;
+			string.len  -= 1;
+			break;
+	}
+
+	return si_stringToUIntEx(string, outRes);
 }
 
 #endif
@@ -5046,50 +5137,44 @@ siUtf8Char si_utf16Encode(const u16 character[2]) {
 #if defined(SI_IMPLEMENTATION_CHAR) && !defined(SI_NO_CHAR)
 
 
-SIDEF
+inline
 char si_charLower(char c) {
-	if (c >= 'A' && c <= 'Z') {
-		return c + 32;
-	}
-	return c;
+	return c | SI_BIT(5);
 }
 
-
-SIDEF
+inline
 char si_charUpper(char c) {
-	if (c >= 'a' && c <= 'z') {
-		return c - 32;
-	}
-	return c;
+	return c & ~SI_BIT(5);
 }
 
-
-SIDEF
+inline
 b32 si_charIsSpace(char c) {
 	return (c == ' ' || (c >= '\t' && c <= '\r'));
 }
 
-SIDEF
+inline
 b32 si_charIsDigit(char c) {
 	return (c >= '0' && c <= '9');
 }
 
-SIDEF
+inline
 b32 si_charIsHexDigit(char c) {
-	return (si_charIsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+	c &= ~SI_BIT(5);
+	return (si_charIsDigit(c) || (c >= 'A' && c <= 'F'));
 }
 
-SIDEF
-b32  si_charIsAlpha(char c) {
-	return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+inline
+b32 si_charIsAlpha(char c) {
+	c &= ~SI_BIT(5);
+	return (c >= 'A' && c <= 'Z');
 }
 
-SIDEF
+inline
 b32 si_charIsAlphanumeric(char c) {
 	return si_charIsAlpha(c) || si_charIsDigit(c);
 }
 
-SIDEF
+inline
 i32 si_charDigitToInt(char c) {
 	SI_ASSERT_MSG(si_charIsDigit(c), "Character is not a digit.");
 	return (c - '0');
@@ -5099,10 +5184,8 @@ i32 si_charHexDigitToInt(char c) {
 	if (si_charIsDigit(c)) {
 		return si_charDigitToInt(c);
 	}
-	else if (c >= 'a' && c <= 'f') {
-		return c - 'a' + 10;
-	}
-	else if (c >= 'A' && c <= 'F') {
+	else {
+		c &= ~SI_BIT(5);
 		return c - 'A' + 10;
 	}
 
@@ -6204,7 +6287,7 @@ siDirectory si_dirOpen(siString path) {
 	SI_STOPIF(dir.handle == nil, { SI_FS_ERROR_DECLARE(); return (siDirectory){0}; });
 
 	/* NOTE(EimaMei): We skip '.' and '..'. */
-	SI_DISCARD(readdir(dir.handle)); 
+	SI_DISCARD(readdir(dir.handle));
 	SI_DISCARD(readdir(dir.handle));
 #endif
 
@@ -7223,16 +7306,10 @@ GOTO_SCIENTIFIC_NOTATION:
 				break;
 			}
 #ifndef SI_NO_SILI_PRINTF_STYLE
-			case 'B': { /* Boolean */
-				static char* values[] = {"false", "true"};
-				static size_t lengths[] = {countof_str("false"), countof_str("true")};
-
-				usize index = va_arg(va, b32) & 1;
-				info.str = SI_STR_LEN(values[index], lengths[index]);
-
+			case 'B':  /* Boolean */
+				info.str = si_stringFromBool(va_arg(va, b32));
 				si__printStrCpy(&info);
 				break;
-			}
 #endif
 			default: {
 				char str[2] = {'%', x};
