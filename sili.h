@@ -25,6 +25,7 @@ sili.h - v0.1.0 - a cross-platform standard library for modern C99 programming
 		- #define SI_NO_PRINT
 		- #define SI_NO_DLL
 		- #define SI_NO_MATH
+		- #define SI_NO_ARGV
 		- #define SI_NO_BENCHMARK
 	before the SI_IMPLEMENTATION macro, as well as before any other include of
 	`sili.h`.
@@ -1295,8 +1296,7 @@ SIDEF usize si_alignCeilEx(usize n, u32 alignment);
 SIDEF siAllocator si_allocatorMake(usize bytes);
 /* bytes - usize
  * Creates an allocator from the stack with N amounts of bytes. */
-#define si_allocatorMakeStack(bytes) si_allocatorMakeStackEx(bytes, si_salloc(bytes))
-SIDEF siAllocator si_allocatorMakeStackEx(usize bytes, rawptr res);
+#define si_allocatorMakeStack(bytes) (siAllocator){si_salloc(bytes), 0, bytes, true}
 /*  Creates a temporary allocator. */
 SIDEF siAllocator si_allocatorMakeTmp(rawptr pointer, usize capacity);
 /* TODO
@@ -1958,8 +1958,12 @@ siUtf8Char si_utf16Encode(const u16 character[2]);
 
 /* Returns the lowercased version of the given character. */
 SIDEF char si_charLower(char c);
+/* TODO */
+SIDEF char si_charLowerUnsafe(char c);
 /* Returns the uppercased version of the given character. */
 SIDEF char si_charUpper(char c);
+/* TODO */
+char si_charUpperUnsafe(char c);
 
 /* Returns true  if the given character is a space. */
 SIDEF b32 si_charIsSpace(char c);
@@ -2974,7 +2978,196 @@ i64 si_numRoundNearestMultipleI64(i64 num, i32 multiple);
 	)
 #endif
 
+#if !defined(SI_NO_ARGV)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siArgv               |
+	========================
+*/
+
+/* */
+SI_ENUM(u32, siOptionErrorType) {
+	/* No error was encountered. */
+	SI_OPTION_ERROR_NONE = 0,
+	/* Specified value doesn't reflect any valid option. */
+	SI_OPTION_ERROR_OPTION,
+	/* Specified option requires a value, however nothing was provided. */
+	SI_OPTION_ERROR_NO_VALUE,
+	/* Specified option requires a value, however nothing was provided. */
+	SI_OPTION_ERROR_INVALID_VALUE,
+	/* Specified value wasn't in the list of valid choices. */
+	SI_OPTION_ERROR_INVALID_CHOICE,
+	/* User did not use the required separator. */
+	SI_OPTION_ERROR_SEPARATOR,
+	/* User did not specify a required option. */
+	SI_OPTION_ERROR_REQUIRED
+};
+
+
+/* */
+SI_ENUM(i32, siOptionType) {
+	SI_OPTION_TYPE_STRING = 1,
+	SI_OPTION_TYPE_INT,
+	SI_OPTION_TYPE_FLOAT,
+	SI_OPTION_TYPE_BOOL,
+};
+
+/* */
+SI_ENUM(i32, siOptionConfig) {
+	SI_OPTION_CONFIG_REQUIRED = SI_BIT(0),
+	SI_OPTION_CONFIG_NO_SEPARATOR = SI_BIT(1),
+	SI_OPTION_CONFIG_POSITIONAL = SI_BIT(2),
+	SI_OPTION_CONFIG_FLAG = SI_BIT(3),
+};
+
+/* */
+typedef union siOptionValue {
+	siString string;
+	u64 integer;
+	f64 floatingPoint;
+	b32 boolean;
+} siOptionValue;
+
+
+/* */
+typedef struct {
+	/* */
+	siOptionType type;
+	b32 hasChoices;
+
+	/* */
+	siString name;
+	siUtf8Char nameShort;
+
+	/* */
+	siString description;
+	/* */
+	siOptionValue defaultValue;
+
+	union {
+		siBuffer list;
+		i64 rangeI[2];
+		f64 rangeF[2];
+	} choices;
+
+	/* */
+	siOptionConfig config;
+
+	b32 wasSet;
+	rawptr outPtr;
+} siOption;
+
+
+/* */
+typedef struct siOptionError {
+	siOptionErrorType type;
+	siOption* option;
+	siString value;
+} siOptionError;
+
+/* */
+typedef struct {
+	siOption* options;
+	usize len;
+	usize capacity;
+
+	siString executable;
+
+	siString prefix;
+	siString prefixShort;
+	siString separator;
+
+	siString description;
+
+	siOptionError error;
+} siOptionContext;
+
+
+/* */
+SIDEF siOptionContext si_argvMake(cstring prefix, siOption* options, usize len);
+/* */
+SIDEF b32 si_argvParse(siOptionContext* ctx, int argc, char** argv);
+/* */
+SIDEF void si_argvError(siOptionContext ctx);
+
+
+/* */
+SIDEF siOptionContext si_argvContextMake(cstring prefix, siOption* options, usize len);
+/* */
+SIDEF void si_argvContextSetSeparator(siOptionContext* ctx, cstring separator);
+
+
+/* */
+SIDEF siOption* si_argvOptionMakeStr(siOptionContext* ctx, cstring name,
+		siString* outPtr);
+/* */
+SIDEF siOption* si_argvOptionMakeInt(siOptionContext* ctx, cstring name, i64* outPtr);
+/* */
+SIDEF siOption* si_argvOptionMakeBool(siOptionContext* ctx, cstring name, b32* outPtr);
+/* */
+SIDEF siOption* si_argvOptionMakeEx(siOptionContext* ctx, siOptionType type,
+		cstring name, rawptr outPtr);
+/* */
+SIDEF siOption* si_argvFlagMake(siOptionContext* ctx, cstring name, b32* outPtr);
+
+/* */
+SIDEF void si_argvOptionSetDescription(siOption* option, cstring description);
+/* */
+SIDEF void si_argvOptionSetShortName(siOption* option, i32 codepoint);
+/* */
+SIDEF void si_argvOptionSetConfig(siOption* option, siOptionConfig config);
+/* */
+SIDEF void si_argvOptionSetChoices(siOption* option, siBuffer choices);
+/* smth about the function. */
+#define si_argvOptionSetDefault(/*siOption**/ option, /*TYPE*/ type, /*VALUE*/...) si__internArgvOptionSetDefault(option, sizeof(type), &(type){__VA_ARGS__})
+/* TODO */
+#define si_argvOptionSetRange(/*siOption**/ option, /*TYPE*/ type, /*VALUE*/ value1, \
+		/*VALUE*/ value2) si__internArgvOptionSetRange(option, sizeof(type), &(type){value1}, &(type){value2})
+
+#if 1
+SIDEF void si__internArgvOptionSetDefault(siOption* option, usize item_sizeof,
+		const rawptr ptr);
+SIDEF void si__internArgvOptionSetRange(siOption* option, usize item_sizeof,
+		const rawptr ptr1, const rawptr ptr2);
+#endif
+
+#endif /* SI_NO_ARGV */
+
 #if !defined(SI_NO_BENCHMARK)
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siBenchmark          |
+	========================
+*/
+
 
 /* timesToLoop - usize | function - NAME
  * Runs the function 'timesToLoop' times and prints how long it took to finish. */
@@ -3130,6 +3323,11 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time);
 	#define SI_IMPLEMENTATION_PRINT
 	#define SI_IMPLEMENTATION_DLL
 	#define SI_IMPLEMENTATION_MATH
+
+#ifndef SI_NO_PRINTF
+	#define SI_IMPLEMENTATION_ARGV
+#endif
+
 	#define SI_IMPLEMENTATION_BENCHMARK
 #endif
 
@@ -3161,18 +3359,6 @@ siAllocator si_allocatorMake(usize bytes) {
 	allocator.isStack = false;
 
 	SI_ASSERT_NOT_NULL(allocator.ptr);
-	return allocator;
-}
-inline
-siAllocator si_allocatorMakeStackEx(usize bytes, rawptr ptr) {
-	SI_ASSERT_NOT_NULL(ptr);
-
-	siAllocator allocator;
-	allocator.capacity = bytes;
-	allocator.offset = 0;
-	allocator.ptr = (siByte*)ptr;
-	allocator.isStack = true;
-
 	return allocator;
 }
 inline
@@ -4608,6 +4794,10 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 
 	/* NOTE(EimaMei): No base specified, meaning it's base-10. */
 	if (string.data[0] != '0') {
+		if (string.len > 20) {
+			*outRes = false;
+			return 0;
+		}
 		*outRes = true;
 		return si_stringToUInt(string);
 	}
@@ -4615,7 +4805,7 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 	u64 res = 0;
 	i32 base;
 
-	char x = si_charUpper(string.data[1]);
+	char x = si_charUpperUnsafe(string.data[1]);
 	u32 maxDigits;
 	switch (x) {
 		case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16; break;
@@ -4624,7 +4814,6 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 		default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22; break;
 	}
 	SI_STOPIF(string.len > maxDigits, *outRes = false; return res);
-
 
 	for_eachStr (x, string) {
 		res *= base;
@@ -4774,7 +4963,7 @@ b32 si_stringToBool(siString string) {
 	SI_STOPIF(string.len == 0 || (string.len != 1 && string.len != 4 && string.len != 5), return UINT32_MAX);
 
 	if (string.len == 1) {
-		switch (si_charLower(string.data[0])) {
+		switch (si_charLowerUnsafe(string.data[0])) {
 			case '1': case 't': return true;
 			case '0': case 'f': return false;
 			default: return UINT32_MAX;
@@ -4783,7 +4972,7 @@ b32 si_stringToBool(siString string) {
 
 	char str[5];
 	for_eachStr (x, string) {
-		str[x - string.data] = si_charLower(*x);
+		str[x - string.data] = si_charLowerUnsafe(*x);
 	}
 
 	u32 val = SI_TO_U32(str);
@@ -4893,16 +5082,16 @@ siUtf8Char si_utf8Encode(i32 codepoint) {
 	siUtf8Char result;
 
 	u32 len = (codepoint >= 0x80) + (codepoint >= 0x800) + (codepoint >= 0x10000);
-	char values[] = {
-		si_cast(char, ((0xFF80 >> len) & 0xFF) | (codepoint >> (6 * len))),
-		0
-	};
+	if (len == 0) {
+		result.codepoint[0] = (char)codepoint;
+		result.len = 1;
+		return result;
+	}
 
-	result.codepoint[0] = values[len == 0];
+	result.codepoint[0] = si_cast(char, ((0xFF80 >> len) & 0xFF) | (codepoint >> (6 * len)));
 	result.len = len + 1;
 
-	usize i;
-	for (i = 1; i < result.len; i += 1) {
+	for_range (i, 1, result.len) {
 		result.codepoint[i] = si_cast(char, 0x80 | ((codepoint >> (6 * (len - i))) & 0x3F));
 	}
 
@@ -5139,13 +5328,28 @@ siUtf8Char si_utf16Encode(const u16 character[2]) {
 
 inline
 char si_charLower(char c) {
+	if (c >= 'A' && c <= 'Z') {
+		return c | SI_BIT(5);
+	}
+	return c;
+}
+inline
+char si_charLowerUnsafe(char c) {
 	return c | SI_BIT(5);
 }
 
 inline
 char si_charUpper(char c) {
+	if (c >= 'a' && c <= 'z') {
+		return c & ~SI_BIT(5);
+	}
+	return c;
+}
+inline
+char si_charUpperUnsafe(char c) {
 	return c & ~SI_BIT(5);
 }
+
 
 inline
 b32 si_charIsSpace(char c) {
@@ -5159,14 +5363,12 @@ b32 si_charIsDigit(char c) {
 
 inline
 b32 si_charIsHexDigit(char c) {
-	c &= ~SI_BIT(5);
-	return (si_charIsDigit(c) || (c >= 'A' && c <= 'F'));
+	return (si_charIsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
 inline
 b32 si_charIsAlpha(char c) {
-	c &= ~SI_BIT(5);
-	return (c >= 'A' && c <= 'Z');
+	return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
 }
 
 inline
@@ -5184,8 +5386,10 @@ i32 si_charHexDigitToInt(char c) {
 	if (si_charIsDigit(c)) {
 		return si_charDigitToInt(c);
 	}
-	else {
-		c &= ~SI_BIT(5);
+	else if (c >= 'a' && c <= 'f') {
+		return c - 'a' + 10;
+	}
+	else if (c >= 'A' && c <= 'F') {
 		return c - 'A' + 10;
 	}
 
@@ -7494,7 +7698,469 @@ i64 si_numRoundNearestMultipleI64(i64 num, i32 multiple) {
 }
 
 
-#endif
+#endif /* SI_IMPLEMENTATION_MATH */
+
+#if defined(SI_IMPLEMENTATION_ARGV)
+
+force_inline
+b32 si__argvOptionSet(siOptionContext* ctx, siOption* option, siString substr) {
+	b32 res;
+
+	switch (option->type) {
+		case SI_OPTION_TYPE_STRING: {
+			siString* out = (siString*)option->outPtr;
+
+			if (!option->hasChoices) {
+				*out = substr;
+			}
+			else {
+				b32 found = false;
+
+				for_range (i, 0, option->choices.list.len) {
+					siString choice = si_cast(siString*, option->choices.list.data)[i];
+					if (si_stringEqual(substr, choice)) {
+						*out = choice;
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					ctx->error.type = SI_OPTION_ERROR_INVALID_CHOICE;
+					ctx->error.value = substr;
+					ctx->error.option = option;
+					return false;
+				}
+			}
+
+			return true;
+		}
+		case SI_OPTION_TYPE_INT: {
+			i64* out = (i64*)option->outPtr;
+			i64 value = si_stringToIntEx(substr, &res);
+
+			if (!option->hasChoices) {
+				*out = value;
+			}
+			else {
+				if (si_between(value, option->choices.rangeI[0], option->choices.rangeI[1])) {
+					*out = value;
+				}
+				else {
+					ctx->error.type = SI_OPTION_ERROR_INVALID_CHOICE;
+					ctx->error.value = substr;
+					ctx->error.option = option;
+					return false;
+				}
+			}
+			break;
+		}
+		case SI_OPTION_TYPE_BOOL: {
+			b32* out = (b32*)option->outPtr;
+			*out = si_stringToBool(substr);
+			res = (*out != UINT32_MAX);
+			break;
+		}
+
+		default: res = false;
+	}
+
+
+	if (!res) {
+		ctx->error.type = SI_OPTION_ERROR_INVALID_VALUE;
+		ctx->error.option = option;
+		ctx->error.value = substr;
+		return false;
+	}
+
+	return true;
+}
+
+force_inline
+void si__argvOptionDefaultSet(siOption* option) {
+	switch (option->type) {
+		case SI_OPTION_TYPE_STRING: {
+			siString* out = (siString*)option->outPtr;
+			*out = option->defaultValue.string;
+			break;
+		}
+		case SI_OPTION_TYPE_INT: {
+			u64* out = (u64*)option->outPtr;
+			*out = option->defaultValue.integer;
+			break;
+		}
+		case SI_OPTION_TYPE_BOOL: {
+			b32* out = (b32*)option->outPtr;
+			*out = option->defaultValue.boolean;
+			break;
+		}
+		case SI_OPTION_TYPE_FLOAT: {
+			b32* out = (b32*)option->outPtr;
+			*out = option->defaultValue.boolean;
+			break;
+		}
+		default: SI_PANIC();
+	}
+}
+
+force_inline
+siString si__argvType(siOptionType type) {
+	siString buf[] = {SI_STR("string"), SI_STR("integer"), SI_STR("float"), SI_STR("boolean")};
+	return buf[type - 1];
+}
+
+SIDEF
+siOptionContext si_argvMake(cstring prefix, siOption* options, usize len) {
+	SI_ASSERT_NOT_NULL(options);
+
+	siOptionContext context;
+	context.options = options;
+	context.len = 0;
+	context.capacity = len;
+	context.executable = SI_STR_LEN(nil, 0);
+	context.separator = SI_STR(" ");
+
+	context.prefix = SI_CSTR(prefix);
+	context.prefixShort = SI_STR("-");
+	SI_ASSERT(context.prefix.len != 0);
+
+	return context;
+}
+SIDEF
+b32 si_argvParse(siOptionContext* ctx, int argc, char** argv) {
+	SI_ASSERT_NOT_NULL(ctx);
+	SI_ASSERT_NOT_NULL(argv);
+
+	ctx->executable = SI_CSTR(argv[0]);
+
+	for_range (i, 1, argc) {
+		siString value = SI_CSTR(argv[i]);
+
+		b32 regularPrefix = true;
+		if (si_memcompareStr(value.data, ctx->prefix) != 0) {
+			if (si_memcompareStr(value.data, ctx->prefixShort) != 0) {
+				return false;
+			}
+			regularPrefix = false;
+			value = si_stringSubToEnd(value, ctx->prefixShort.len);
+		}
+		else {
+			value = si_stringSubToEnd(value, ctx->prefix.len);
+		}
+
+		siOption* option;
+		for_range (j, 0, ctx->len) {
+			option = &ctx->options[j];
+
+			if (regularPrefix) {
+				if (si_memcompareStr(value.data, option->name) == 0) {
+					option->wasSet = true;
+					value = si_stringSubToEnd(value, option->name.len);
+					break;
+				}
+			}
+			else {
+				siUtf8Char* shrt = &option->nameShort;
+				if (shrt->len != 0 && si_memcompare(value.data, shrt->codepoint, shrt->len) == 0) {
+					option->wasSet = true;
+					value = si_stringSubToEnd(value, shrt->len);
+					break;
+				}
+			}
+		}
+
+		if (!option->wasSet) {
+			ctx->error.type = SI_OPTION_ERROR_OPTION;
+			ctx->error.value = value;
+			ctx->error.option = nil;
+			return false;
+		}
+
+		if (option->config & SI_OPTION_CONFIG_FLAG) {
+			*(b32*)option->outPtr = true;
+			continue;
+		}
+
+		if ((option->config & SI_OPTION_CONFIG_REQUIRED) == 0) {
+			if (i + 1 >= argc || si_memcompareStr(argv[i + 1], ctx->prefix) == 0) {
+				si__argvOptionDefaultSet(option);
+				continue;
+			}
+		}
+
+
+		if (ctx->separator.data[0] == ' ' && ctx->separator.len == 1) {
+			if (i + 1 >= argc || si_memcompareStr(argv[i + 1], ctx->prefix) == 0) {
+				ctx->error.type = SI_OPTION_ERROR_NO_VALUE;
+				ctx->error.value = value;
+				ctx->error.option = option;
+				return false;
+			}
+
+			i += 1;
+			value = SI_CSTR(argv[i]);
+
+			b32 res = si__argvOptionSet(ctx, option, value);
+			SI_STOPIF(!res, return false);
+			continue;
+		}
+
+		if ((option->config & SI_OPTION_CONFIG_NO_SEPARATOR) == 0
+			&& si_memcompareStr(value.data, ctx->separator) != 0
+		) {
+			ctx->error.type = SI_OPTION_ERROR_SEPARATOR;
+			ctx->error.value = (value.len != 0) ? value : SI_STR(" ");
+			ctx->error.option = option;
+
+			return false;
+		}
+		value = si_stringSubToEnd(value, ctx->separator.len);
+
+		if (value.data[0] == '\0') {
+			ctx->error.type = SI_OPTION_ERROR_NO_VALUE;
+			ctx->error.value = value;
+			ctx->error.option = option;
+
+			return false;
+		}
+
+		b32 res = si__argvOptionSet(ctx, option, value);
+		SI_STOPIF(!res, return false);
+	}
+
+	for_range (i, 0, ctx->len) {
+		siOption* option = &ctx->options[i];
+		SI_STOPIF(option->wasSet, continue);
+
+		if (option->config & SI_OPTION_CONFIG_REQUIRED) {
+			ctx->error.type = SI_OPTION_ERROR_REQUIRED;
+			ctx->error.option = option;
+			ctx->error.value = (siString){0};
+			return false;
+		}
+
+		si__argvOptionDefaultSet(option);
+		option->wasSet = true;
+	}
+
+	return true;
+}
+SIDEF
+void si_argvError(siOptionContext ctx) {
+	siPrintColor3bit red = SI_PRINT_COLOR_3BIT(SI_ANSI_RED, true, false),
+					 bold = SI_PRINT_COLOR_3BIT(SI_ANSI_WHITE, true, true);
+	siOption* option = ctx.error.option;
+
+	switch (ctx.error.type) {
+		case SI_OPTION_ERROR_OPTION:
+			si_fprintf(SI_STDERR, "%S: Unknown option '%S'.\n", ctx.executable, ctx.error.value);
+			break;
+			si_fprintf(
+				SI_STDERR,
+				"%C%S%C: %Cerror%C: An unknown option '%S' was specified.\n",
+				&bold, ctx.executable, &red,
+				&bold, ctx.error.value
+			);
+			break;
+
+		case SI_OPTION_ERROR_INVALID_VALUE: {
+			siString type = si__argvType(option->type);
+			si_fprintf(
+				SI_STDERR,
+				"%C%S%C: %Cerror%C: An invalid %S '%S' was specified for the '%C%S%S%S<%S>%C' option.\n",
+				&bold, ctx.executable, &red,
+				type, ctx.error.value,
+				&bold, ctx.prefix, option->name, ctx.separator, type
+			);
+			break;
+		}
+
+		case SI_OPTION_ERROR_INVALID_CHOICE: {
+			if (option->type == SI_OPTION_TYPE_STRING) {
+				si_fprintf(
+					SI_STDERR,
+					"%C%S%C: %Cerror%C: An invalid choice '%S' was specified for the '%C%S%S%S[",
+					&bold, ctx.executable, &red,
+					ctx.error.value,
+					&bold, ctx.prefix, option->name, ctx.separator
+				);
+
+				siString* arr = si_cast(siString*, option->choices.list.data);
+				usize len = option->choices.list.len - 1;
+				for_range (i, 0, len) {
+					siString choice = arr[i];
+					si_fprintf(SI_STDERR, "%S|", choice);
+				}
+				si_fprintf(SI_STDERR, "%C%S]'%C option.\n", &bold, arr[len]);
+			}
+			else if (option->type == SI_OPTION_TYPE_INT) {
+				si_fprintf(
+					SI_STDERR,
+					"%C%S%C: %Cerror%C: An invalid value '%S' was specified for the '%C%S%S%S[%li-%li]'%C option.\n",
+					&bold, ctx.executable, &red,
+					ctx.error.value,
+					&bold, ctx.prefix, option->name, ctx.separator,
+					option->choices.rangeI[0], option->choices.rangeI[1]
+				);
+
+			}
+			break;
+		}
+		case SI_OPTION_ERROR_SEPARATOR:
+			si_fprintf(
+				SI_STDERR,
+				"%C%S%C: %Cerror%C: At the '%C%S%S%C' option an invalid separator ('%S') was specified (it should've been '%C%S%C').\n",
+				&bold, ctx.executable, &red,
+				&bold, ctx.prefix, option->name, ctx.error.value,
+				&bold, ctx.separator
+			);
+			break;
+
+		case SI_OPTION_ERROR_REQUIRED:
+			si_fprintf(
+				SI_STDERR,
+				"%C%S%C: %Cerror%C: The required option '%C%S%S%S<%S>%C' wasn't specified.\n",
+				&bold, ctx.executable, &red,
+				&bold, ctx.prefix, option->name, ctx.separator, si__argvType(option->type)
+			);
+			break;
+
+		default: si_fprint(SI_STDERR, "N/A error\n");
+	}
+}
+
+inline
+void si_argvContextSetSeparator(siOptionContext* ctx, cstring separator) {
+	SI_ASSERT_NOT_NULL(separator);
+	ctx->separator = SI_CSTR(separator);
+}
+
+inline
+siOption* si_argvOptionMakeStr(siOptionContext* ctx, cstring name, siString* outPtr) {
+	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_STRING, name, outPtr);
+}
+inline
+siOption* si_argvOptionMakeInt(siOptionContext* ctx, cstring name, i64* outPtr) {
+	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_INT, name, outPtr);
+}
+
+inline
+siOption* si_argvOptionMakeBool(siOptionContext* ctx, cstring name, b32* outPtr) {
+	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_BOOL, name, outPtr);
+}
+
+SIDEF
+siOption* si_argvOptionMakeEx(siOptionContext* ctx, siOptionType type, cstring name,
+		rawptr outPtr) {
+	SI_ASSERT_NOT_NULL(outPtr);
+	SI_ASSERT(ctx->len < ctx->capacity);
+
+	siOption* option = &ctx->options[ctx->len];
+	option->type = type;
+	option->name = SI_CSTR(name);
+	option->nameShort = (siUtf8Char){0};
+	option->description = (siString){0};
+	option->config = 0;
+	option->hasChoices = false;
+	option->wasSet = false;
+	option->outPtr = outPtr;
+
+	ctx->len += 1;
+	return option;
+}
+
+inline
+siOption* si_argvFlagMake(siOptionContext* ctx, cstring name, b32* outPtr) {
+	siOption* option = si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_BOOL, name, outPtr);
+	option->config = SI_OPTION_CONFIG_FLAG;
+	option->defaultValue.boolean = false;
+	return option;
+}
+
+inline
+void si_argvOptionSetDescription(siOption* option, cstring description) {
+	SI_ASSERT_NOT_NULL(option);
+	SI_ASSERT_NOT_NULL(description);
+
+	option->description = SI_CSTR(description);
+}
+
+inline
+void si_argvOptionSetShortName(siOption* option, i32 codepoint) {
+	SI_ASSERT_NOT_NULL(option);
+
+	option->nameShort = si_utf8Encode(codepoint);
+	SI_ASSERT(*option->nameShort.codepoint != SI_UNICODE_INVALID && option->name.len != 0);
+}
+
+inline
+void si_argvOptionSetConfig(siOption* option, siOptionConfig config) {
+	SI_ASSERT_NOT_NULL(option);
+	SI_ASSERT_MSG((option->config & SI_OPTION_CONFIG_FLAG) == 0, "You musn't set the config for a flag.");
+	SI_ASSERT_MSG(
+		(config & SI_OPTION_CONFIG_FLAG) == 0 || (config & ~SI_OPTION_CONFIG_FLAG) == 0,
+		"To make an option a flag, you can only set the config to 'SI_OPTION_CONFIG_FLAG'."
+	);
+
+	option->config = config;
+}
+
+inline
+void si_argvOptionSetChoices(siOption* option, siBuffer choices) {
+	SI_ASSERT_NOT_NULL(option);
+	SI_ASSERT_NOT_NULL(choices.data);
+	option->hasChoices = true;
+	option->choices.list = choices;
+}
+
+inline
+void si__internArgvOptionSetDefault(siOption* option, usize item_sizeof, const rawptr ptr) {
+	SI_ASSERT_NOT_NULL(option);
+	SI_ASSERT_NOT_NULL(ptr);
+
+	switch (option->type) {
+		case SI_OPTION_TYPE_STRING:
+			SI_ASSERT(item_sizeof == sizeof(siString));
+			option->defaultValue.string = *(siString*)ptr;
+			break;
+
+		case SI_OPTION_TYPE_INT:
+			si_memcopy(&option->defaultValue.integer, ptr, item_sizeof);
+			break;
+
+		case SI_OPTION_TYPE_FLOAT:
+			si_memcopy(&option->defaultValue.floatingPoint, ptr, item_sizeof);
+			break;
+
+		case SI_OPTION_TYPE_BOOL:
+			si_memcopy(&option->defaultValue.boolean, ptr, item_sizeof);
+			option->defaultValue.boolean &= true;
+			break;
+
+	}
+}
+
+
+inline
+void si__internArgvOptionSetRange(siOption* option, usize item_sizeof, const rawptr ptr1,
+		const rawptr ptr2) {
+	SI_ASSERT_NOT_NULL(option);
+	SI_ASSERT(option->type != SI_OPTION_TYPE_STRING && option->type != SI_OPTION_TYPE_BOOL);
+	option->hasChoices = true;
+
+	if (option->type == SI_OPTION_TYPE_INT) {
+		si_memcopy(&option->choices.rangeI[0], ptr1, item_sizeof);
+		si_memcopy(&option->choices.rangeI[1], ptr2, item_sizeof);
+	}
+	else {
+		si_memcopy(&option->choices.rangeF[0], ptr1, item_sizeof);
+		si_memcopy(&option->choices.rangeF[1], ptr2, item_sizeof);
+	}
+}
+
+
+
+#endif /* SI_IMPLEMENTATION_ARGV */
 
 #if defined(SI_IMPLEMENTATION_BENCHMARK) && !defined(SI_NO_BENCHMARK)
 
