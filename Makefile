@@ -56,7 +56,7 @@ dynamic:
 
 # Run the executable.
 run: $(EXE)
-	./$(EXE) --render="OpenGL" -l=50 -o
+	./$(EXE) --render="OpenGL" -l=50 filename.txt
 
 # Clean the 'build' folder.
 clean:
