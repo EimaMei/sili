@@ -1699,12 +1699,12 @@ typedef siBuffer siString;
  * Iterates through the provided string and creates a pointer to the current indexed
  * character via the given name. */
 #define for_eachStr(name, string) \
-	for (u8* name = string.data; name <= si_stringBack(string); name += 1)
+	for (u8* name = string.data; name < &(string).data[(string).len]; name += 1)
 /* name - NAME |  string- siString
  * Iterates through the provided string in reverse and creates a pointer to the
  * current indexed character via the given name. */
 #define for_eachRevStr(name, string) \
-	for (u8* name = si_stringBack(string); name >= string.data; name -= 1)
+	for (u8* name = &(string).data[(string).len] - 1; name >= string.data; name -= 1)
 
 
 /* string - cstring
@@ -1760,6 +1760,8 @@ SIDEF u8* si_stringBack(siString string);
 SIDEF isize si_stringFind(siString string, siString subStr);
 /* TODO */
 SIDEF isize si_stringFindByte(siString string, siByte byte);
+/* TODO */
+SIDEF isize si_stringFindUtf8(siString string, char character[4], isize* utf8AtIndex);
 /* TODO */
 SIDEF isize si_stringFindLast(siString string, siString subStr);
 /* TODO */
@@ -3030,6 +3032,7 @@ SI_ENUM(u32, siOptionErrorType) {
 SI_ENUM(i32, siOptionType) {
 	SI_OPTION_TYPE_STRING = 1,
 	SI_OPTION_TYPE_INT,
+	SI_OPTION_TYPE_UINT,
 	SI_OPTION_TYPE_FLOAT,
 	SI_OPTION_TYPE_BOOL,
 };
@@ -3049,12 +3052,14 @@ SI_ENUM(u32, __siInternOptionState) {
 	SI__INTERN_OPTION_IS_SET = SI_BIT(0),
 	SI__INTERN_OPTION_FLAG = SI_BIT(1),
 	SI__INTERN_OPTION_CHOICES = SI_BIT(2),
+	SI__INTERN_OPTION_HAS_DEFAULT = SI_BIT(3),
 };
 
 /* */
 typedef union siOptionValue {
 	siString string;
-	u64 integer;
+	u64 uinteger;
+	i64 integer;
 	f64 floatingPoint;
 	b32 boolean;
 } siOptionValue;
@@ -3111,7 +3116,12 @@ typedef struct {
 	siString prefixShort;
 	siString separator;
 
+	siString description;
 	siString usage;
+
+	u32 paddingFront;
+	u32 maxOptionLen;
+	usize maxColumnLen;
 
 	siOptionError error;
 } siOptionContext;
@@ -3136,6 +3146,8 @@ SIDEF void si_argvContextSetPrefixShort(siOptionContext* ctx, cstring prefixShor
 /* */
 SIDEF void si_argvContextSetSeparator(siOptionContext* ctx, cstring separator);
 /* */
+SIDEF void si_argvContextSetDescription(siOptionContext* ctx, cstring usage);
+/* */
 SIDEF void si_argvContextSetUsage(siOptionContext* ctx, cstring usage);
 
 /* */
@@ -3143,6 +3155,8 @@ SIDEF siOption* si_argvOptionMakeStr(siOptionContext* ctx, cstring name,
 		siString* outPtr);
 /* */
 SIDEF siOption* si_argvOptionMakeInt(siOptionContext* ctx, cstring name, i64* outPtr);
+/* */
+SIDEF siOption* si_argvOptionMakeUint(siOptionContext* ctx, cstring name, u64* outPtr);
 /* */
 SIDEF siOption* si_argvOptionMakeBool(siOptionContext* ctx, cstring name, b32* outPtr);
 /* */
@@ -4315,8 +4329,6 @@ u8* si_stringBack(siString string) {
 
 SIDEF
 isize si_stringFind(siString string, siString subStr) {
-	SI_STOPIF(subStr.len == 0, return -1);
-
 	usize counter = 0;
 	for_eachStr (letter, string) {
 		if (*letter != subStr.data[counter]) {
@@ -4345,11 +4357,31 @@ isize si_stringFindByte(siString string, siByte byte) {
 	return -1;
 }
 
+SIDEF
+isize si_stringFindUtf8(siString string, char character[4], isize* utf8AtIndex) {
+	usize i = 0;
+	isize utf8I = 0;
+	i32 codepoint = si_utf8Decode(character).codepoint;
+
+	while (i < string.len) {
+		siUtf32Char x = si_utf8Decode((char*)&string.data[i]);
+		if (x.codepoint == codepoint) {
+			*utf8AtIndex = utf8I;
+			return i;
+		}
+
+		i += x.len, utf8I += 1;
+	}
+
+	*utf8AtIndex = -1;
+	return -1;
+
+}
+
 
 SIDEF
 isize si_stringFindLast(siString string, siString subStr) {
 	SI_ASSERT_NOT_NULL(string.data);
-	SI_STOPIF(subStr.len == 0, return -1);
 
 	usize subStrEnd = subStr.len - 1;
 	usize counter = subStrEnd;
@@ -4502,7 +4534,7 @@ SIDEF
 void si_stringTrimRight(siString* string, siString cutSet) {
 	SI_ASSERT_NOT_NULL(string);
 
-	u8* posEnd = si_stringBack(*string);
+	u8* posEnd = &string->data[string->len];
 	while (posEnd > string->data && si_memchr(cutSet.data, *posEnd, cutSet.len)) {
 		posEnd -= 1;
 	}
@@ -4516,9 +4548,9 @@ void si_stringTrimLeft(siString* string, siString cutSet) {
 	SI_ASSERT_NOT_NULL(string);
 
 	u8* posStart = string->data;
-	u8* posEnd = si_stringBack(*string);
+	u8* posEnd = &string->data[string->len];
 
-	while (posStart <= posEnd && si_memchr(cutSet.data, *posStart, cutSet.len)) {
+	while (posStart < posEnd && si_memchr(cutSet.data, *posStart, cutSet.len)) {
 		posStart += 1;
 	}
 
@@ -4650,7 +4682,7 @@ void si_stringReverse(siString string) {
 	SI_STOPIF(string.len == 0, return);
 
 	u8* a = &string.data[0];
-	u8* b = si_stringBack(string);
+	u8* b = &string.data[string.len];
 
 	usize len = string.len / 2;
 	while (len) {
@@ -6490,7 +6522,7 @@ siDirectory si_dirOpen(siString path) {
 	dir.directoryLen = path.len;
 	si_memcopy(dir.buffer, path.data, path.len);
 
-	if (*si_stringBack(path) != SI_PATH_SEPARATOR) {
+	if (path.data[path.len - 1] != SI_PATH_SEPARATOR) {
 		dir.buffer[path.len] = SI_PATH_SEPARATOR;
 		path.len += 1;
 	}
@@ -7769,6 +7801,7 @@ b32 si__argvOptionSet(siOptionContext* ctx, siOption* option, siString substr) {
 			}
 			break;
 		}
+		case SI_OPTION_TYPE_UINT:
 		case SI_OPTION_TYPE_INT: {
 			i64* out = (i64*)option->outPtr + option->outLen;
 			i64 value = si_stringToIntEx(substr, &res);
@@ -7814,8 +7847,9 @@ void si__argvOptionDefaultSet(siOption* option) {
 			*out = option->defaultValue.string;
 			break;
 		}
+		case SI_OPTION_TYPE_UINT:
 		case SI_OPTION_TYPE_INT: {
-			u64* out = (u64*)option->outPtr;
+			i64* out = (i64*)option->outPtr;
 			*out = option->defaultValue.integer;
 			break;
 		}
@@ -7853,6 +7887,11 @@ siOptionContext si_argvMake(cstring prefix, siOption* options, usize len) {
 	context.executable = (siString){0};
 	context.separator = SI_STR(" ");
 	context.usage = (siString){0};
+	context.description = (siString){0};
+
+	context.paddingFront = 4;
+	context.maxOptionLen = 35;
+	context.maxColumnLen = 120;
 
 	context.prefix = SI_CSTR(prefix);
 	context.prefixShort = SI_STR("-");
@@ -7997,16 +8036,192 @@ b32 si_argvParse(siOptionContext* ctx, int argc, char** argv) {
 SIDEF
 void si_argvHelp(siOptionContext ctx) {
 	if (ctx.usage.data == nil) {
-		si_printf("Usage of '%S':\n", ctx.executable);
+		si_fprintf(
+			SI_STDERR,
+			"Usage: %S%S",
+			ctx.executable, (ctx.len) ? SI_STR(" [options]") : SI_STR("")
+		);
+
+		for_range (i, 0, ctx.len) {
+			siOption* option = &ctx.options[i];
+			SI_STOPIF((option->config & SI_OPTION_CONFIG_POSITIONAL) == 0, continue);
+
+			si_fprintf(
+				SI_STDERR,
+				(option->config & SI_OPTION_CONFIG_REQUIRED)
+					? " %S"
+					: " [%S]",
+				option->name
+			);
+		}
+
+		si_fprint(SI_STDERR, "\n");
 	}
 	else {
-		si_printf("%S\n", ctx.usage);
+		si_fprintf(SI_STDERR, "%S\n", ctx.usage);
 	}
+
+	if (ctx.description.len != 0) {
+		si_fprintf(SI_STDERR, "%S\n", ctx.description);
+	}
+
+	si_fprintf(SI_STDERR, "Options:\n", ctx.usage);
 
 	for_range (i, 0, ctx.len) {
 		siOption* option = &ctx.options[i];
 		siString type = si__argvType(option->type);
-		si_printf("\t%S%S%S%S\t%S\n", ctx.prefix, option->name, ctx.separator, type, option->description);
+		b32 noSeparator = (option->config & SI_OPTION_CONFIG_NO_SEPARATOR)
+			|| option->__state & SI__INTERN_OPTION_FLAG;
+		char argLetterStart, argLetterEnd;
+
+		char buf[SI_KILO(4)];
+		usize bufI = 0;
+
+		if (option->config & SI_OPTION_CONFIG_REQUIRED)  {
+			argLetterStart = '<';
+			argLetterEnd = '>';
+		}
+		else {
+			argLetterStart = '[';
+			argLetterEnd = ']';
+		}
+
+		bufI += si_snprintf(buf, sizeof(buf), "%*s", ctx.paddingFront, "");
+
+		if (option->nameShort.len != 0) {
+			bufI += si_snprintf(
+				&buf[bufI], sizeof(buf) - bufI,
+				"%S%.*s, ",
+				ctx.prefixShort, option->nameShort.len, option->nameShort.codepoint
+			) - 1;
+		}
+
+		bufI += si_snprintf(
+			&buf[bufI], sizeof(buf) - bufI,
+			"%S%S%S",
+			ctx.prefix, option->name, (!noSeparator) ? ctx.separator : SI_STR("")
+		) - 1;
+
+		if (option->__state & SI__INTERN_OPTION_CHOICES) {
+			switch (option->type) {
+				case SI_OPTION_TYPE_STRING: {
+					siString* arr = (siString*)option->choices.list.data;
+					usize len = option->choices.list.len - 1;
+
+					bufI += si_snprintf(&buf[bufI], sizeof(buf) - bufI, "%c", argLetterStart) - 1;
+					for_range (j, 0, len) {
+						bufI += si_snprintf(&buf[bufI], sizeof(buf) - bufI, "%S|", arr[j]) - 1;
+					}
+					bufI += si_snprintf(&buf[bufI], sizeof(buf) - bufI, "%S%c", arr[len], argLetterEnd) - 1;
+					break;
+				}
+				case SI_OPTION_TYPE_INT:
+					bufI += si_snprintf(
+						&buf[bufI], sizeof(buf) - bufI, "%c%li-%li%c",
+						argLetterStart,
+						option->choices.rangeI[0], option->choices.rangeI[1],
+						argLetterEnd
+					) - 1;
+					break;
+				case SI_OPTION_TYPE_UINT:
+					bufI += si_snprintf(
+						&buf[bufI], sizeof(buf) - bufI, "%c%lu-%lu%c",
+						argLetterStart,
+						(u64)option->choices.rangeI[0], (u64)option->choices.rangeI[1],
+						argLetterEnd
+					) - 1;
+					break;
+			}
+		}
+		else if (!noSeparator) {
+			bufI += si_snprintf(
+				&buf[bufI], sizeof(buf) - bufI, "%c%S%c",
+				argLetterStart, type, argLetterEnd
+			) - 1;
+		}
+
+
+		if (option->description.len != 0) {
+			if (bufI > ctx.maxOptionLen) {
+				bufI += si_snprintf(
+					&buf[bufI], sizeof(buf) - bufI,
+					"\n%*s%*s",
+					ctx.paddingFront, "", ctx.maxOptionLen - ctx.paddingFront - 1, ""
+				);
+			}
+			else {
+				bufI += si_snprintf(
+					&buf[bufI], sizeof(buf) - bufI,
+					"%*s",
+					ctx.maxOptionLen - bufI, ""
+				);
+			}
+
+			if (bufI + option->description.len <= ctx.maxColumnLen) {
+				bufI += si_snprintf(&buf[bufI], sizeof(buf) - bufI, "%S", option->description);
+			}
+			else {
+				siString desc = option->description;
+				usize startingLen = 0;
+				usize prevLen, prevUtf8Len;
+				usize limit = ctx.maxColumnLen - ctx.maxOptionLen;
+				isize res;
+back:
+				prevLen = 0;
+				prevUtf8Len = 0;
+				while (true) {
+					isize utf8Index;
+					res = si_stringFindUtf8(desc, " ", &utf8Index);
+					SI_STOPIF(res == -1, break);
+					SI_STOPIF(utf8Index + prevUtf8Len > limit, break);
+
+					prevLen += res + 1;
+					prevUtf8Len += utf8Index + 1;
+					desc = si_stringSubToEnd(desc, res + 1);
+				}
+
+				if (res == -1) {
+					desc = si_stringSubToEnd(option->description, startingLen);
+					bufI += si_snprintf(&buf[bufI], sizeof(buf) - bufI, "%S", desc);
+				}
+				else {
+					desc = si_stringSub(option->description, startingLen, prevLen);
+					startingLen += prevLen;
+
+					bufI += si_snprintf(
+						&buf[bufI],
+						sizeof(buf) - bufI, "%S\n%*s%*s", desc,
+						ctx.paddingFront, "", ctx.maxOptionLen - ctx.paddingFront - 1, ""
+					);
+
+					desc = si_stringSubToEnd(option->description, startingLen);
+					goto back;
+				}
+			}
+		}
+
+		if (option->__state & SI__INTERN_OPTION_HAS_DEFAULT) {
+			switch (option->type) {
+				case SI_OPTION_TYPE_STRING:
+					si_fprintf(SI_STDERR, "%.*s (Default: '%S')\n", bufI, buf, option->defaultValue.string);
+					break;
+				case SI_OPTION_TYPE_INT:
+					si_fprintf(SI_STDERR, "%.*s (Default: '%li')\n", bufI, buf, option->defaultValue.integer);
+					break;
+				case SI_OPTION_TYPE_UINT:
+					si_fprintf(SI_STDERR, "%.*s (Default: '%lu')\n", bufI, buf, option->defaultValue.integer);
+					break;
+				case SI_OPTION_TYPE_BOOL:
+					si_fprintf(SI_STDERR, "%.*s (Default: '%B')\n", bufI, buf, option->defaultValue.boolean);
+					break;
+				case SI_OPTION_TYPE_FLOAT:
+					si_fprintf(SI_STDERR, "%.*s (Default: '%f')\n", bufI, buf, option->defaultValue.floatingPoint);
+					break;
+			}
+		}
+		else {
+			si_fprintf(SI_STDERR, "%.*s\n", bufI, buf);
+		}
 	}
 }
 
@@ -8067,36 +8282,49 @@ void si_argvError(siOptionContext ctx) {
 			);
 			break;
 
-		case SI_OPTION_ERROR_INVALID_CHOICE:
-			if (option->type == SI_OPTION_TYPE_STRING) {
-				si_fprintf(
-					SI_STDERR,
-					"%C%S:%C %Cerror:%C Invalid choice %C'%S'%C was specified for the %C'%S%S%S[",
-					&bold, ctx.executable, &red,
-					&bold, ctx.error.value,
-					&bold, ctx.prefix, option->name, ctx.separator
-				);
+		case SI_OPTION_ERROR_INVALID_CHOICE: {
+			switch (option->type) {
+				case SI_OPTION_TYPE_STRING: {
+					si_fprintf(
+						SI_STDERR,
+						"%C%S:%C %Cerror:%C Invalid choice %C'%S'%C was specified for the %C'%S%S%S[",
+						&bold, ctx.executable, &red,
+						&bold, ctx.error.value,
+						&bold, ctx.prefix, option->name, ctx.separator
+					);
 
-				siString* arr = si_cast(siString*, option->choices.list.data);
-				usize len = option->choices.list.len - 1;
-				for_range (i, 0, len) {
-					siString choice = arr[i];
-					si_fprintf(SI_STDERR, "%S|", choice);
+					siString* arr = (siString*)option->choices.list.data;
+					usize len = option->choices.list.len - 1;
+					for_range (i, 0, len) {
+						siString choice = arr[i];
+						si_fprintf(SI_STDERR, "%S|", choice);
+					}
+					si_fprintf(SI_STDERR, "%C%S]'%C option.\n", &bold, arr[len]);
+					break;
 				}
-				si_fprintf(SI_STDERR, "%C%S]'%C option.\n", &bold, arr[len]);
-			}
-			else if (option->type == SI_OPTION_TYPE_INT) {
-				si_fprintf(
-					SI_STDERR,
-					"%C%S:%C %Cerror:%C Invalid choice %C'%S'%C was specified for the %C'%S%S%S[%li-%li]'%C option.\n",
-					&bold, ctx.executable, &red,
-					&bold, ctx.error.value,
-					&bold, ctx.prefix, option->name, ctx.separator,
-					option->choices.rangeI[0], option->choices.rangeI[1]
-				);
-
+				case SI_OPTION_TYPE_INT:
+					si_fprintf(
+						SI_STDERR,
+						"%C%S:%C %Cerror:%C Invalid choice %C'%S'%C was specified for the %C'%S%S%S[%li-%li]'%C option.\n",
+						&bold, ctx.executable, &red,
+						&bold, ctx.error.value,
+						&bold, ctx.prefix, option->name, ctx.separator,
+						option->choices.rangeI[0], option->choices.rangeI[1]
+					);
+					break;
+				case SI_OPTION_TYPE_UINT:
+					si_fprintf(
+						SI_STDERR,
+						"%C%S:%C %Cerror:%C Invalid choice %C'%S'%C was specified for the %C'%S%S%S[%lu-%lu]'%C option.\n",
+						&bold, ctx.executable, &red,
+						&bold, ctx.error.value,
+						&bold, ctx.prefix, option->name, ctx.separator,
+						(u64)option->choices.rangeI[0], (u64)option->choices.rangeI[1]
+					);
+					break;
 			}
 			break;
+		}
 
 		case SI_OPTION_ERROR_SEPARATOR:
 			si_fprintf(
@@ -8141,6 +8369,12 @@ void si_argvContextSetSeparator(siOptionContext* ctx, cstring separator) {
 	ctx->separator = SI_CSTR(separator);
 }
 inline
+void si_argvContextSetDescription(siOptionContext* ctx, cstring description) {
+	SI_ASSERT_NOT_NULL(ctx);
+	SI_ASSERT_NOT_NULL(description);
+	ctx->description = SI_CSTR(description);
+}
+inline
 void si_argvContextSetUsage(siOptionContext* ctx, cstring usage) {
 	SI_ASSERT_NOT_NULL(ctx);
 	SI_ASSERT_NOT_NULL(usage);
@@ -8156,7 +8390,10 @@ inline
 siOption* si_argvOptionMakeInt(siOptionContext* ctx, cstring name, i64* outPtr) {
 	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_INT, name, outPtr);
 }
-
+inline
+siOption* si_argvOptionMakeUint(siOptionContext* ctx, cstring name, u64* outPtr) {
+	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_UINT, name, outPtr);
+}
 inline
 siOption* si_argvOptionMakeBool(siOptionContext* ctx, cstring name, b32* outPtr) {
 	return si_argvOptionMakeEx(ctx, SI_OPTION_TYPE_BOOL, name, outPtr);
@@ -8253,6 +8490,7 @@ void si__internArgvOptionSetDefault(siOption* option, usize item_sizeof, const r
 			option->defaultValue.string = *(siString*)ptr;
 			break;
 
+		case SI_OPTION_TYPE_UINT:
 		case SI_OPTION_TYPE_INT:
 			si_memcopy(&option->defaultValue.integer, ptr, item_sizeof);
 			break;
@@ -8265,8 +8503,9 @@ void si__internArgvOptionSetDefault(siOption* option, usize item_sizeof, const r
 			si_memcopy(&option->defaultValue.boolean, ptr, item_sizeof);
 			option->defaultValue.boolean &= true;
 			break;
-
 	}
+
+	option->__state |= SI__INTERN_OPTION_HAS_DEFAULT;
 }
 
 inline
@@ -8276,7 +8515,7 @@ void si__internArgvOptionSetRange(siOption* option, usize item_sizeof, const raw
 	SI_ASSERT(option->type != SI_OPTION_TYPE_STRING && option->type != SI_OPTION_TYPE_BOOL);
 	option->__state |= SI__INTERN_OPTION_CHOICES;
 
-	if (option->type == SI_OPTION_TYPE_INT) {
+	if (option->type == SI_OPTION_TYPE_INT || option->type == SI_OPTION_TYPE_UINT) {
 		si_memcopy(&option->choices.rangeI[0], ptr1, item_sizeof);
 		si_memcopy(&option->choices.rangeI[1], ptr2, item_sizeof);
 	}
