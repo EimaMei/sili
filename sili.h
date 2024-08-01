@@ -144,6 +144,10 @@ WARNING
 
 */
 
+#if (_MSC_VER >= 1020) || ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))
+	#pragma once
+#endif
+
 #ifndef SI_INCLUDE_SI_H
 #define SI_INCLUDE_SI_H
 
@@ -156,8 +160,11 @@ extern "C" {
 	#define SI_VERSION_MINOR 1
 	#define SI_VERSION_PATCH 0
 #endif
-#define SI_VERSION(major, minor, patch) (major * 1000 + minor * 100 + patch)
 #define SI_VERSION_CURRENT SI_VERSION(SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_PATCH)
+
+/* major - UINT | minor - UINT | patch - UINT
+ * Combines major, minor, and patch version numbers into a single integer. */
+#define SI_VERSION(major, minor, patch) (major * 10000 + minor * 100 + patch)
 
 #ifndef SI_EXTERN
 	#if defined(__cplusplus)
@@ -236,18 +243,70 @@ extern "C" {
 	#define SI_COMPILER_STR "GCC"
 	#define SI_COMPILER_TYPEOF_SUPPORTS 1
 
+	#if defined(__GNUC_PATCHLEVEL__)
+		#define SI_COMPILER_VERSION	SI_VERSION(__GNUC__, __GNUC_MINOR__, __GNUC__PATCHLEVEL__)
+	#else
+		#define SI_COMPILER_VERSION	SI_VERSION(__GNUC__, __GNUC_MINOR__, 0)
+	#endif
+
 #elif defined(__clang__)
 	#define SI_COMPILER_CLANG 1
 	#define SI_COMPILER_STR "Clang"
 	#define SI_COMPILER_TYPEOF_SUPPORTS 1
 
+	#define SI_COMPILER_VERSION	SI_VERSION(__clang_major__, __clang_minor__, __clang_patchlevel__)
+
 #elif defined(_MSC_VER)
 	#define SI_COMPILER_MSVC 1
 	#define SI_COMPILER_STR "MSVC"
 
+	/* NOTE(EimaMei): what the actual hell, Microsoft?????????????????? */
+	#if _MSC_VER == 800
+		#define SSI_COMPILER_VERSION SI_VERSION(1, 0, 0)
+	#elif _MSC_VER == 900
+		#define SSI_COMPILER_VERSION SI_VERSION(3, 0, 0)
+
+	/* 4.0 to 12.0 */
+	#elif _MSC_VER < 1800
+		#define SI_COMPILER_VERSION SI_VERSION(_MSC_VER - 1000) / 100 + 4, (_MSC_VER % 200) / 10)
+
+	#elif _MSC_VER < 1910
+		#define SI_COMPILER_VERSION SI_VERSION(14, 0, 0)
+	#elif _MSC_VER == 1910
+		#define SI_COMPILER_VERSION SI_VERSION(15, 0, 0)
+	#elif _MSC_VER == 1911
+		#define SI_COMPILER_VERSION SI_VERSION(15, 3, 0)
+
+	/* 15.5 to 15.9 */
+	#elif _MSC_VER < 1920
+		#define SI_COMPILER_VERSION SI_VERSION(15, 5 + (_MSC_VER - 1912), 0)
+
+	/* 16.0 to 16.7 */
+	#elif _MSC_VER < 1928
+		#define SI_COMPILER_VERSION SI_VERSION(16, _MSC_VER - 1928, 0)
+	/* 16.8 */
+	#elif _MSC_FULL_VER == 192829333
+		#define SI_COMPILER_VERSION SI_VERSION(16, 8, 0)
+
+	/* 16.9 */
+	#elif _MSC_FULL_VER == 192829919
+		#define SI_COMPILER_VERSION SI_VERSION(16, 9, 0)
+
+	#elif _MSC_FULL_VER == 192930040
+		#define SI_COMPILER_VERSION SI_VERSION(16, 10, 0)
+	#elif _MSC_FULL_VER == 192930133
+		#define SI_COMPILER_VERSION SI_VERSION(16, 11, 0)
+
+	/* 17.0 to 17.2 */
+	#elif _MSC_VER <= 1930
+		#define SI_COMPILER_VERSION SI_VERSION(17, _MSC_VER - 1930, 0)
+	#endif
+
 #else
 	#define SI_COMPILER_UNKNOWN 1
 	#define SI_COMPILER_STR "Unknown"
+
+	#define SI_COMPILER_VERSION SI_VERSION(0, 0, 0)
 
 #endif
 
@@ -485,7 +544,7 @@ extern "C" {
 #if !defined(SI_NO_TYPE_DEFS)
 
 #if SI_SYSTEM_IS_WINDOWS && SI_COMPILER_MSVC
-	#if _MSC_VER < 1300
+	#if SI_COMPILER_VERSION < SI_COMPILER(7, 0, 0)
 		typedef unsigned char     u8;
 		typedef   signed char     i8;
 		typedef unsigned short   u16;
@@ -628,7 +687,7 @@ SI_STATIC_ASSERT(false == 0);
 
 
 #if SI_LANGUAGE_IS_C
-	#if SI_COMPILER_MSVC && _MSC_VER <= 1800
+	#if SI_COMPILER_MSVC && SI_COMPILER_VERSION <= SI_VERSION(11, 0, 0)
 		#define inline __inline
 	#elif !defined(__STDC_VERSION__)
 		#define inline __inline__
@@ -697,9 +756,9 @@ SI_STATIC_ASSERT(false == 0);
 
 
 #if (SI_LANGUAGE_IS_C && SI_STANDARD_VERSION < SI_STANDARD_C99) || SI_LANGUAGE_IS_CPP
-	#if SI_COMPILER_CLANG || (SI_COMPILER_GCC && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)))
+	#if SI_COMPILER_CLANG || (SI_COMPILER_GCC && SI_COMPILER_VERSION >= SI_VERSION(3, 1, 0))
 		#define restrict __restrict
-	#elif defined(_MSC_VER) && _MSC_VER >= 1400
+	#elif SI_COMPILER_MSVC && SI_COMPILER_VERSION >= SI_VERSION(8, 0, 0)
 		#define restrict __restrict
 	#else
 		#ifndef restrict
@@ -990,7 +1049,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 */
 #ifndef SI_DEBUG_TRAP
 	#if SI_COMPILER_MSVC
-	 	#if _MSC_VER < 1300
+	 	#if SI_COMPILER_VERSION < SI_VERSION(7, 0, 0)
 			#define SI_DEBUG_TRAP() __asm int 3
 		#else
 			#define SI_DEBUG_TRAP() __debugbreak()
@@ -8735,7 +8794,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
 
 /*
 ------------------------------------------------------------------------------
-Copyright (C) 2023 EimaMei
+Copyright (C) 2023-2024 EimaMei
 
 This software is provided 'as-is', without any express or implied warranty. In
 no event will the authors be held liable for any damages arising from the use of

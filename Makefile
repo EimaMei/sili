@@ -28,7 +28,7 @@ ifeq ($(DETECTED_OS),Windows)
 	DLL_EXT = .dll
 endif
 ifeq ($(DETECTED_OS),Darwin)
-	LIBS = -lpthread -ldl
+	LIBS = -lpthread -ldl -framework CoreAudio -framework AudioUnit
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif
@@ -39,7 +39,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/main2.c
+SRC = src/audio.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
