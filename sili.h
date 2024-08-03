@@ -2357,8 +2357,10 @@ SIDEF siBuffer si_fileReadAtBuf(siFile file, isize offset, usize len, siBuffer o
 SIDEF siBuffer si_fileReadUnsafe(siFile file, isize offset, usize len, rawptr outBuffer);
 
 /* TODO */
-SIDEF siString si_fileReadContents(siFile file, siAllocator* alloc);
-SIDEF siString si_fileReadContentsBuf(siFile file, siBuffer outBuffer);
+SIDEF siString si_fileReadContents(siString path, siAllocator* alloc);
+SIDEF siString si_fileReadContentsBuf(siString path, siBuffer outBuffer);
+SIDEF siString si_fileReadContentsHandle(siFile file, siAllocator* alloc);
+SIDEF siString si_fileReadContentsBufHandle(siFile file, siBuffer outBuffer);
 /* Reads the contents of the file, then splits every line and writes them all
  * into a 'siArray(siString)'. */
 SIDEF siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc);
@@ -2493,7 +2495,7 @@ typedef struct siThread {
  * thread.  If the function fails to create the thread, the returned thread's
  * 'id' member is set to 'nil', as well as 'isRunning'.*/
 #define si_threadMake(function, arg, runThread, outThread) \
-	si__internThreadMakeEx(siFunc(function), arg, 0, runThread, outThread)
+	si__internThreadMake(siFunc(function), arg, 0, runThread, outThread)
 #define si_threadMakeArr(function, arg, runThread, outThreads, len) \
 	for_range (i, 0, len) { \
 		si_threadMake(function, arg, runThread, &((outThreads)[i])); \
@@ -2503,7 +2505,7 @@ typedef struct siThread {
  * Creates a 'siThread' data strucutre with the given stack size and if specified,
  * immediately runs the thread. */
 #define si_threadMakeEx(function, arg, stackSize, runThread, outThread) \
-	si__internThreadMakeEx(siFunc(function), arg, stackSize, runThread, outThread)
+	si__internThreadMake(siFunc(function), arg, stackSize, runThread, outThread)
 #define si_threadMakeArrEx(function, arg, stackSize, runThread, outThreads, len) \
 	for_range (i, 0, len) { \
 		si_threadMakeEx(function, arg, stackSize, runThread, &outThreads[i]); \
@@ -2539,7 +2541,7 @@ b32 si_threadPrioritySet(siThread t, i32 priority);
 
 
 #if 1
-void si__internThreadMakeEx(siFunction function, siNullable rawptr arg, usize stackSize,
+b32 si__internThreadMake(siFunction function, siNullable rawptr arg, usize stackSize,
 		b32 runThread, siThread* outThread);
 #endif
 
@@ -5711,12 +5713,15 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 
 	#if !defined(SI_NO_FS_ERROR_PRINTS)
 		#define SI_FS_ERROR_LOG() \
-			si_fprintf( \
-				SI_STDERR, \
-				"%CRFile system error at \"%s\"%C: %s: %s (err number '%i')\n", \
-				SI_FS_ERROR.function, si_pathFsErrorName(SI_FS_ERROR.code), \
-				si_pathFsErrorStr(SI_FS_ERROR.code), SI_FS_ERROR.code \
-			)
+			do { \
+				siPrintColor3bit red = SI_PRINT_COLOR_3BIT(SI_ANSI_RED, true, false); \
+				si_fprintf( \
+					SI_STDERR, \
+					"%CFile system error at \"%s\"%C: %s: %s (err number '%i')\n", \
+					&red, SI_FS_ERROR.function, si_pathFsErrorName(SI_FS_ERROR.code), \
+					si_pathFsErrorStr(SI_FS_ERROR.code), SI_FS_ERROR.code \
+				); \
+			} while(0)
 	#else
 		#define SI_FS_ERROR_LOG() do {} while (0)
 	#endif
@@ -6394,7 +6399,24 @@ siBuffer si_fileReadUnsafe(siFile file, isize offset, usize len, rawptr outBuffe
 }
 
 inline
-siString si_fileReadContents(siFile file, siAllocator* alloc) {
+siString si_fileReadContents(siString path, siAllocator* alloc) {
+	siFile file = si_fileOpen(path);
+	siString res = si_fileReadContentsHandle(file, alloc);
+	si_fileClose(file);
+
+	return res;
+}
+inline
+siString si_fileReadContentsBuf(siString path, siBuffer outBuffer) {
+	siFile file = si_fileOpen(path);
+	siString res = si_fileReadContentsBufHandle(file, outBuffer);
+	si_fileClose(file);
+
+	return res;
+}
+
+SIDEF
+siString si_fileReadContentsHandle(siFile file, siAllocator* alloc) {
 	usize len = si_allocatorAvailable(*alloc);
 	len = si_min(len, file.size);
 
@@ -6404,9 +6426,9 @@ siString si_fileReadContents(siFile file, siAllocator* alloc) {
 
 	return res;
 }
-inline
-siString si_fileReadContentsBuf(siFile file, siBuffer outBuffer) {
-	SI_ASSERT(outBuffer.len != USIZE_MAX);
+SIDEF
+siString si_fileReadContentsBufHandle(siFile file, siBuffer outBuffer) {
+	SI_ASSERT(outBuffer.len != (usize)-1);
 
 	isize oldOffset = si_fileTell(file);
 	siString res = si_fileReadUnsafe(file, 0, si_min(outBuffer.len, file.size), outBuffer.data);
@@ -6417,7 +6439,7 @@ siString si_fileReadContentsBuf(siFile file, siBuffer outBuffer) {
 
 inline
 siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc) {
-	return si_stringSplit(si_fileReadContents(file, alloc), SI_STR("\n"), alloc);
+	return si_stringSplit(si_fileReadContentsHandle(file, alloc), SI_STR("\n"), alloc);
 }
 
 
@@ -6456,7 +6478,7 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 	SI_ASSERT_NOT_NULL(line.data);
 
 	siAllocator tmp = si_allocatorMakeAny(SI_KILO(8), file->size + line.len);
-	siString content = si_fileReadContents(*file, &tmp);
+	siString content = si_fileReadContentsHandle(*file, &tmp);
 
 	b32 isNeg = index < 0;
 	isize lineStart = 0;
@@ -6503,14 +6525,12 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 }
 
 
-SIDEF
+inline
 isize si_fileTell(siFile file) {
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
-	isize len = si_fileSeek(file, 0, SI_FILE_MOVE_CURRENT);
-	return len;
+	return si_fileSeek(file, 0, SI_FILE_MOVE_CURRENT);
 }
 
-SIDEF
+inline
 isize si_fileSeek(siFile file, isize offset, siFileMoveMethod method) {
 	SI_ASSERT_NOT_NULL((rawptr)file.handle);
 
@@ -6522,7 +6542,7 @@ isize si_fileSeek(siFile file, isize offset, siFileMoveMethod method) {
 	return win32Offset.QuadPart;
 
 #elif SI_SYSTEM_IS_APPLE
-	return  lseek((int)file.handle, offset, method);
+	return lseek((int)file.handle, offset, method);
 
 #else
 	return lseek64((int)file.handle, offset, method);
@@ -6722,7 +6742,7 @@ rawptr si__internThreadProc(rawptr arg) {
 
 
 SIDEF
-void si__internThreadMakeEx(siFunction function, siNullable rawptr arg, usize stackSize,
+b32 si__internThreadMake(siFunction function, siNullable rawptr arg, usize stackSize,
 		b32 runThread, siThread* outThread) {
 	SI_ASSERT_NOT_NULL(function);
 
@@ -6735,8 +6755,10 @@ void si__internThreadMakeEx(siFunction function, siNullable rawptr arg, usize st
 	t->isRunning = false;
 
 	if (runThread) {
-		si_threadRun(t);
+		return si_threadRun(t);
 	}
+
+	return true;
 }
 
 SIDEF
@@ -7761,10 +7783,10 @@ inline f64 si_roundF64(f64 x) { return (x >= 0.0f) ? si_floorF64(x + 0.5f) : si_
 inline f32 si_roundF32(f32 x) { return (x >= 0.0f) ? si_floorF32(x + 0.5f) : si_ceilF32(x - 0.5f); }
 
 inline f64 si_floorF64(f64 x) { return (x >= 0.0f) ? si_cast(f64, (i64)x) : si_cast(f64, (i64)(x - 0.9999999999999999f)); }
-inline f32 si_floorF32(f32 x) { return (x >= 0.0f) ? si_cast(f32, (i64)x) : si_cast(f32, (i64)(x - 0.9999999999999999f)); }
+inline f32 si_floorF32(f32 x) { return (x >= 0.0f) ? si_cast(f32, (i32)x) : si_cast(f32, (i32)(x - 0.9999999999999999f)); }
 
 inline f64 si_ceilF64(f64 x)  { return (x < 0) ? si_cast(f64, (i64)x) : si_cast(f64, (i64)x + 1); }
-inline f32 si_ceilF32(f32 x)  { return (x < 0) ? si_cast(f32, (i32)x) : si_cast(f32, (i64)x + 1); }
+inline f32 si_ceilF32(f32 x)  { return (x < 0) ? si_cast(f32, (i32)x) : si_cast(f32, (i32)x + 1); }
 
 
 SIDEF

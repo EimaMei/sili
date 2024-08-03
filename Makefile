@@ -33,7 +33,7 @@ ifeq ($(DETECTED_OS),Darwin)
 	DLL_EXT = .so
 endif
 ifeq ($(DETECTED_OS),Linux)
-	LIBS = -lpthread -ldl
+	LIBS = -lpthread -ldl -lasound
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif
@@ -64,7 +64,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h
+$(EXE): $(SRC) sili.h sigar.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
 
 # Check the assembly output.
