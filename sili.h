@@ -72,43 +72,42 @@ MACROS
 		#include "sili.h"
 	```
 
-	- SI_NO_ASSERTIONS_IN_HEADER - 'SI_ASSERT()' and its other variations do not
-	check for the assertion inside of the 'sili.h' file, meaning any given expression
-	from sili functions will evaluate to nothing and not crash the app if the
-	assertion equals false. May increase the performance of the program, but should
-	only be enabled for release builds, as any errors in the code will then not get
-	caught and will most likely crash the app somewhere else further down.
+	- SI_RELEASE_MODE - disables certain functionality that decrease performance
+	(such as logging, error reporting, assertions, etc). Defining "NDEBUG"
+	does the same thing.
 
-	- SI_NO_ASSERTIONS - same as 'SI_NO_ASSERTIONS' except all of the assertion
-	functions continue to be unusable outside of 'sili.h', disabling the functionality
-	entirely.
+	- SI_NO_ASSERTIONS_IN_HEADER - assertion functions inside the library will
+	not check for any conditions, passively allowing for both correct and wrong
+	states to function instead of crashing when a condition evaluates to false.
 
+	- SI_NO_ASSERTIONS - assertion functions that were defined in the sili header
+	will continue to not have their functionality, including outside its original
+	file.
 
-	- SI_NO_ALLOC_DEBUG_INFO - 'si_malloc()' and similar functions take
-	'__FILE__' and '__LINE__' arguments under the hood for debugging. For performance
-	reasons, you can disable this.
+	- SI_NO_ALLOC_DEBUG_INFO - allocation functions will not take '__FILE__' and
+	'__LINE__' as arguments under the hood. This gets turned on automatically
+	via 'SI_RELEASE_MODE'
 
-	- SI_RELEASE_MODE - same as defining both 'SI_NO_ASSERTIONS' and 'SI_NO_ALLOC_DEBUG_INFO'.
+	- SI_NO_ERROR_STRUCT - strips the 'siErrorInfo' structure's "time" and "function"
+	members, leaving only the error code member present. This gets turned on
+	automatically via 'SI_RELEASE_MODE'
 
-	- SI_NO_ERROR_STRUCT - by default 'siErrorInfo' that contains an i32 error code,
-	u64 time in UTC+0 and a cstring of the last function that edited the structure.
-	Defining this macro makes 'siErrorInfo' only contain an error code.
+	- SI_NO_INLINE_ASM - disables any usage of inline assembly in the header.
 
-	- SI_NO_INLINE_ASM - disables any usage of inline ASM in "sili.h".
+	- SI_ASM_USE_ATT_SYNTAX - makes 'si_asm()' utilize AT&T syntax instead of
+	Intel's for GNU C compiler derivatives. This has no affect on compilers that
+	don't have support for AT&T syntax.
 
-	- SI_ASM_USE_ATT_SYNTAX - makes 'si_asm()' understand AT&T syntax, as by default
-	Intel syntax is used.
+	- SI_NO_WINDOWS_H - disables the inclusion of the win32 API inside the header.
+	Note that sili will most likely not properly function without a user-implemented
+	replacement.
 
-	- SI_NO_WINDOWS_H - disables the inclusion of <windows.h> inside "sili.h."
-	Will cause 'undefined' compiler errors in some parts of the code without a
-	proper replacement.
-
-	- SI_NO_TYPEOF - disables the usage of '__typeof__' inside of the library.
-	NOTE: Might break certain features in the library.
+	- SI_NO_TYPEOF - disables the usage of the 'typeof' operator inside the header,
+	alongside undefining macros that utilize it.
 
 	- SI_DEFINE_CUSTOM_HASH_FUNCTION - undefines the base implementation of
-	'si__hashKey' inside this file, creating the option of defining a custom
-	implementation.
+	'si__hashKey' inside this file, allowing the user to define their own hash
+	key function.
 
 	- SI_NO_HASH_OVERWRITE - disables the ovewrite of a pre-existing entry's
 	value when using 'si_hashtableSet/WithHash'.
@@ -121,6 +120,9 @@ MACROS
 		2. The string versions of booleans (true/false) being printed via '%B'.
 		3. Printing 'siString' types via '%S'.
 		4. Having color in the terminal using '%C<letter>' specifiers.
+
+	- SI_NO_FS_ERROR_PRINTS - disables sili's automatic logging system for when
+	a file system error occurs. Automatically gets turned on via 'SI_RELEASE_MODE'.
 
 ===========================================================================
 CREDITS
@@ -310,6 +312,17 @@ extern "C" {
 
 #endif
 
+/* compiler - NAME | major - UINT | minor - UINT | patch - UINT
+ * A pre-processor condition to check if the current compiler version passes
+ * the minimum version. */
+#define SI_COMPILER_CHECK_MIN(compiler, major, minor, patch) \
+	(SI_COMPILER_ ## compiler && SI_COMPILER_VERSION >= SI_VERSION(major, minor, patch))
+/* compiler - NAME | major - UINT | minor - UINT | patch - UINT
+ * A pre-processor condition to check if the current compiler version is less than
+ * or is equal to the maximum version. */
+#define SI_COMPILER_CHECK_MAX(compiler, major, minor, patch) \
+	(SI_COMPILER_ ## compiler && SI_COMPILER_VERSION <= SI_VERSION(major, minor, patch))
+
 
 #if defined(__cplusplus)
 	#if defined(__OBJC__)
@@ -349,7 +362,8 @@ extern "C" {
 		#define SI_STANDARD_C99 199901l
 		#define SI_STANDARD_C11 201112L
 		#define SI_STANDARD_C17 201710L
-		#define SI_STANDARD_C23 202300L
+		#define SI_STANDARD_C23 202311L
+
 	#else
 		#define SI_STANDARD_VERSION __cplusplus
 
@@ -359,8 +373,22 @@ extern "C" {
 		#define SI_STANDARD_CPP17 201703L
 		#define SI_STANDARD_CPP20 202002L
 		#define SI_STANDARD_CPP23 202302L
+
 	#endif
 #endif
+
+/* language - NAME | standard - NAME
+ * A pre-processor condition to check if the current language's standard version
+ * passes the minimum version. */
+#define SI_STANDARD_CHECK_MIN(language, standard) \
+	(SI_LANGUAGE_IS_ ## language && SI_STANDARD_VERSION >= SI_STANDARD_ ## standard)
+
+/* language - NAME | standard - NAME
+ * A pre-processor condition to check if the current language's standard version
+ * is less than or is equal to the maximum version. */
+#define SI_STANDARD_CHECK_MAX(language, standard) \
+	(SI_LANGUAGE_IS_ ## language && SI_STANDARD_VERSION <= SI_STANDARD_ ## standard)
+
 
 #if defined(__i386__) || defined(__i386) || defined(i386) || defined(__IA32__) || defined(__X86__) || defined(_M_I386) || defined(_X86_) || defined(__THW_INTEL__) || defined(__I86__) || defined(__INTEL__) || defined(__386)
 	#define SI_ARCH_I386 1
@@ -456,56 +484,65 @@ extern "C" {
 
 
 #ifndef SI_STATIC_ASSERT_MSG
-	#if SI_LANGUAGE_IS_C && SI_STANDARD_VERSION >= SI_STANDARD_C11
+	#if SI_STANDARD_CHECK_MIN(C, C11)
+		/* condition - EXPRESSIONG | msg - cstring
+		 * Stops the program from being compiled if the condition isn't met with
+		 * an explanation as to why. */
 		#define SI_STATIC_ASSERT_MSG(condition, msg) _Static_assert(condition, msg)
-	#elif SI_LANGUAGE_IS_CPP && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
+
+	#elif SI_STANDARD_CHECK_MIN(CPP, CPP11)
+		/* condition - EXPRESSIONG | msg - cstring
+		 * Stops the program from being compiled if the condition isn't met with
+		 * an explanation as to why. */
 		#define SI_STATIC_ASSERT_MSG(condition, msg) static_assert(condition, msg)
+
 	#else
+		/* condition - EXPRESSIONG | msg - cstring
+		 * Stops the program from being compiled if the condition isn't met with
+		 * an explanation as to why. */
 		#define SI_STATIC_ASSERT_MSG(condition, msg) \
 			extern int (*__si_error_if_negative (void)) \
 			[(condition) ? 2 : -1]
+
 	#endif
 #endif
+/* condition - EXPRESSIONG
+* Stops the program from being compiled if the condition isn't met. */
 #define SI_STATIC_ASSERT(condition) SI_STATIC_ASSERT_MSG(condition, "")
 
 
-#if SI_SYSTEM_IS_WINDOWS
-	#ifndef _CRT_SECURE_NO_WARNINGS
-		#define _CRT_SECURE_NO_WARNINGS
-	#endif
-#endif
+#if !defined(SI_SYSTEM_IS_WINDOWS)
+	#undef _GNU_SOURCE
+	#undef _LARGEFILE64_SOURCE
+	#undef __USE_POSIX199506
 
-#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	#if !defined(_GNU_SOURCE)
-		#define _GNU_SOURCE
-	#endif
-	#if !defined(_LARGEFILE64_SOURCE)
-		#define _LARGEFILE64_SOURCE
-	#endif
-	#if !defined(__USE_POSIX199506)
-		#define __USE_POSIX199506 1
-	#endif
-#endif
+	#define _GNU_SOURCE
+	#define _LARGEFILE64_SOURCE
+	#define __USE_POSIX199506 1
 
-#if !SI_SYSTEM_IS_WINDOWS
-	#include <time.h>
-	#include <stdlib.h>
-	#include <memory.h>
-	#include <stdarg.h>
 	#include <stddef.h>
-	#include <errno.h>
+	#include <stdlib.h>
+	#include <stdarg.h>
+	#include <stdio.h>
+
 	#include <pthread.h>
 	#include <unistd.h>
 	#include <dirent.h>
 	#include <dlfcn.h>
 	#include <ftw.h>
 
+	#include <time.h>
+	#include <memory.h>
+	#include <errno.h>
+
 	#include <sys/stat.h>
 	#include <sys/fcntl.h>
 	#include <sys/time.h>
 
-	#include <stdio.h>
 #else
+	#undef _CRT_SECURE_NO_WARNINGS
+	#define _CRT_SECURE_NO_WARNINGS
+
 	#if !defined(SI_NO_WINDOWS_H)
 		#define NOMINMAX            1
 		#define WIN32_LEAN_AND_MEAN 1
@@ -533,12 +570,16 @@ extern "C" {
 #endif
 
 
-#if defined(SI_RELEASE_MODE)
+#if defined(SI_RELEASE_MODE) || defined(NDEBUG)
 	#undef SI_NO_ASSERTIONS
 	#undef SI_NO_ALLOC_DEBUG_INFO
+	#undef SI_NO_FS_ERROR_PRINTS
+	#undef SI_NO_ERROR_STRUCT
 
 	#define SI_NO_ASSERTIONS
 	#define SI_NO_ALLOC_DEBUG_INFO
+	#define SI_NO_FS_ERROR_PRINTS
+	#define SI_NO_ERROR_STRUCT
 #endif
 
 #if !defined(SI_NO_TYPE_DEFS)
@@ -577,7 +618,6 @@ extern "C" {
 	#define UINT64_MAX   _UI64_MAX
 #else
 	#include <stdint.h>
-	#include <stddef.h>
 
 	typedef uint8_t   u8;
 	typedef  int8_t   i8;
@@ -628,9 +668,6 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 	#ifndef USIZE_MAX
 		#define USIZE_MAX UINT64_MAX
 	#endif
-	#ifndef USIZE_MIN
-		#define USIZE_MIN 0
-	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT64_MAX
 	#endif
@@ -640,9 +677,6 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 #else
 	#ifndef USIZE_MAX
 		#define USIZE_MAX UINT32_MAX
-	#endif
-	#ifndef USIZE_MIN
-		#define USIZE_MIN 0
 	#endif
 	#ifndef ISIZE_MAX
 		#define ISIZE_MAX INT32_MAX
@@ -668,7 +702,7 @@ SI_STATIC_ASSERT(sizeof(f64) == 8);
 
 
 
-#if !SI_LANGUAGE_IS_CPP && SI_STANDARD_VERSION <= SI_STANDARD_C17
+#if SI_STANDARD_CHECK_MAX(C, C17)
 	#ifndef true
 		#define true (1)
 	#endif
@@ -686,8 +720,8 @@ SI_STATIC_ASSERT(true  == 1);
 SI_STATIC_ASSERT(false == 0);
 
 
-#if SI_LANGUAGE_IS_C
-	#if SI_COMPILER_MSVC && SI_COMPILER_VERSION <= SI_VERSION(11, 0, 0)
+#if SI_STANDARD_CHECK_MAX(C, C89)
+	#if SI_COMPILER_CHECK_MIN(MSVC, 11, 0, 0)
 		#define inline __inline
 	#elif !defined(__STDC_VERSION__)
 		#define inline __inline__
@@ -695,9 +729,9 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 #ifndef force_inline
-	#if SI_COMPILER_MSVC
+	#if SI_COMPILER_CHECK_MIN(MSVC, 6, 0, 0)
 		#define force_inline __forceinline
-	#elif SI_COMPILER_GCC || SI_COMPILER_CLANG
+	#elif SI_COMPILER_CHECK_MIN(GCC, 3, 1, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
 		#define force_inline static inline __attribute__((always_inline))
 	#else
 		#define force_inline static inline
@@ -743,30 +777,35 @@ SI_STATIC_ASSERT(false == 0);
 
 
 
-#if (SI_LANGUAGE_IS_CPP && SI_STANDARD_VERSION >= SI_STANDARD_CPP17) || (SI_LANGUAGE_IS_C && SI_STANDARD_VERSION > SI_STANDARD_C17)
+#if SI_STANDARD_CHECK_MIN(CPP, C17) || SI_STANDARD_CHECK_MIN(C, C23)
 	/* Specifies a fallthrough for the compiler. */
 	#define siFallthrough [[fallthrough]]
-#elif SI_COMPILER_GCC || SI_COMPILER_CLANG
+
+#elif SI_COMPILER_CHECK_MIN(GCC, 7, 0, 0) || SI_COMPILER_CHECK_MIN(CLANG, 3, 5, 0)
 	/* Specifies a fallthrough for the compiler. */
 	#define siFallthrough __attribute__((fallthrough))
+
 #else
 	/* Specifies a fallthrough for the compiler. */
 	#define siFallthrough do {} while (0)
+
 #endif
 
 
-#if (SI_LANGUAGE_IS_C && SI_STANDARD_VERSION < SI_STANDARD_C99) || SI_LANGUAGE_IS_CPP
-	#if SI_COMPILER_CLANG || (SI_COMPILER_GCC && SI_COMPILER_VERSION >= SI_VERSION(3, 1, 0))
-		#define restrict __restrict
-	#elif SI_COMPILER_MSVC && SI_COMPILER_VERSION >= SI_VERSION(8, 0, 0)
-		#define restrict __restrict
-	#else
-		#ifndef restrict
+#ifndef restrict
+	#if SI_LANGUAGE_IS_CPP || SI_STANDARD_CHECK_MAX(C, C89)
+		#if SI_COMPILER_CLANG || SI_COMPILER_CHECK_MIN(GCC, 3, 1, 0)
+			#define restrict __restrict
+
+		#elif SI_COMPILER_CHECK_MIN(MSVC, 8, 0, 0)
+			#define restrict __restrict
+
+		#else
 			#define restrict
+
 		#endif
 	#endif
 #endif
-
 
 #if !defined(rawptr)
 	/* A pointer type pointing to raw data. */
@@ -777,19 +816,6 @@ SI_STATIC_ASSERT(false == 0);
 	/* A const NULL-terminated C-string type. */
 	typedef const char* cstring;
 #endif
-
-	/* A struct containing information about an error that happened during an operation. */
-typedef struct siErrorInfo {
-	/* Error code from the operation. */
-	i32 code;
-
-#if !defined(SI_NO_ERROR_STRUCT)
-	/* The function where the error occurred. */
-	cstring function;
-	/* The time when the error happened (in UTC+0). */
-	i64 time;
-#endif
-} siErrorInfo;
 
 /*
 	========================
@@ -842,10 +868,78 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 
 /*
 	========================
+	| Unary operators      |
+	========================
+*/
+#if !defined(typeof) && !defined(SI_NO_TYPEOF)
+	#if SI_STANDARD_CHECK_MIN(C, C23)
+		#define SI_TYPEOF_USED 1
+
+	#elif SI_COMPILER_TYPEOF_SUPPORTS
+		/* ...VALUE - TYPE/EXPRESSION
+		* Gets the value's type and expresses it as a regular type. */
+		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
+
+		#define SI_TYPEOF_USED 1
+
+	#elif SI_STANDARD_CHECK_MIN(CPP, CPP11)
+		/* ...VALUE - TYPE/EXPRESSION
+		* Gets the value's type and expresses it as a regular type. */
+		#define typeof(.../* VALUE */) decltype(__VA_ARGS__)
+
+		#define SI_TYPEOF_USED 1
+
+	#endif
+#elif defined(typeof) && !defined(SI_NO_TYPEOF) && SI_COMPILER_TYPEOF_SUPPORTS
+	#define SI_TYPEOF_USED 1
+
+#endif
+
+#if !defined(countof)
+	/* value - ARRAY
+	* Gets the static length of the given value (must be an array). */
+	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
+
+#endif
+#if !defined(countof_str)
+	/* value - ARRAY
+	* Gets the static length of the given string while excluding the NULL terminator. */
+	#define countof_str(.../* value */) (countof(__VA_ARGS__) - 1)
+
+#endif
+SI_STATIC_ASSERT(countof("abcd") == 5);
+SI_STATIC_ASSERT(countof_str("abcd") == 4);
+SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
+
+#if !defined(offsetof)
+	#if SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
+		/* type - STRUCT TYPE | element - TYPE's member
+		* Returns the offset of the specified member. */
+		#define offsetof(type, element) __builtin_offsetof(type, element)
+	#else
+		/* type - STRUCT TYPE | element - TYPE's member
+		* Returns the offset of the specified member. */
+		#define offsetof(type, element) ((usize)&(((type*)nil)->element))
+	#endif
+#endif
+
+#ifndef si_offsetof
+	/* type - STRUCT TYPE | element - TYPE's member
+	* Returns the offset of the specified member. */
+	#define si_offsetof(type, element) ((usize)&(((type*)nil)->element))
+#endif
+
+#if (!defined(SI_LANGUAGE_IS_CPP) && !defined(alignof)) || SI_STANDARD_CHECK_MAX(CPP, CPP98)
+	/* type - TYPE
+	* Gets the alignment of a type. */
+	#define alignof(type) offsetof(struct { char c; type member; }, member)
+#endif
+
+/*
+	========================
 	| Casting              |
 	========================
 */
-
 /* type - TYPE | value - EXPRESSION
  * Casts a value to the type provided. */
 #define si_cast(type, value) ((type)((value)))
@@ -870,77 +964,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 /* ptr - rawptr
  * Converts the pointer's value into an u64. */
 #define SI_TO_U64(ptr) (*si_transmuteEx(u64*, (const rawptr)(ptr), const rawptr))
-
-
-/*
-	========================
-	| Unary operators      |
-	========================
-*/
-#if !defined(typeof) && !defined(SI_NO_TYPEOF)
-	#if defined(SI_LANGUAGE_C) && SI_STANDARD_VERSION >= SI_STANDARD_C17
-		#define SI_TYPEOF_USED 1
-
-	#elif SI_COMPILER_TYPEOF_SUPPORTS
-		/* ...VALUE - TYPE/EXPRESSION
-		* Gets the value's type and expresses it as a regular type. */
-		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
-		#define SI_TYPEOF_USED 1
-
-	#elif defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION >= SI_STANDARD_CPP11
-		/* ...VALUE - TYPE/EXPRESSION
-		* Gets the value's type and expresses it as a regular type. */
-		#define typeof(.../* VALUE */) decltype(__VA_ARGS__)
-		#define SI_TYPEOF_USED 1
-
-	#endif
-#elif defined(typeof) && !defined(SI_NO_TYPEOF) && SI_COMPILER_TYPEOF_SUPPORTS
-	#define SI_TYPEOF_USED 1
-#endif
-
-#if !defined(countof)
-	/* value - ARRAY
-	* Gets the static length of the given value (must be an array). */
-	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
-#endif
-#if !defined(countof_str)
-	/* value - ARRAY
-	* Gets the static length of the given string while excluding the NULL terminator. */
-	#define countof_str(.../* value */) (countof(__VA_ARGS__) - 1)
-#endif
-SI_STATIC_ASSERT(countof("abcd") == 5);
-SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
-SI_STATIC_ASSERT(countof_str("abcd") == 4);
-
-#if !defined(offsetof)
-	#if SI_COMPILER_GCC || SI_COMPILER_CLANG
-		/* type - STRUCT TYPE | element - TYPE's member
-		* Gets the offset of the provided member using '__builtin_offsetof'. */
-		#define offsetof(type, element)  __builtin_offsetof(type, element)
-	#else
-		/* type - STRUCT TYPE | element - TYPE's member
-		* Gets the offset of the provided member using 'si_offsetof'. */
-		#define offsetof(type, element) si_offsetof(type, element)
-	#endif
-#endif
-
-#if !defined(si_offsetof)
-	/* type - STRUCT TYPE | element - TYPE's member
-	* Gets the offset of the provided member. Doesn't work as a compile-time macro. */
-	#define si_offsetof(type, element) ((usize)&(((type*)nil)->element))
-#endif
-
-#if (!defined(SI_LANGUAGE_CPP) && !defined(alignof)) || (defined(SI_LANGUAGE_CPP) && SI_STANDARD_VERSION < SI_STANDARD_CPP11)
-	/* type - TYPE
-	* Gets the alignment of a type. */
-	#define alignof(type) offsetof(struct { char c; type member; }, member)
-#endif
-
-#if !defined(si_alignof)
-	/* type - TYPE
-	* Gets the alignment of a type. Doesn't work as a compile-time macro. */
-	#define si_alignof(type) si_offsetof(struct { char c; type member; }, member)
-#endif
 
 
 
@@ -1013,21 +1036,15 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 
 #endif
 
-#if SI_COMPILER_GCC || SI_COMPILER_CLANG
+#if SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
 	/* x - CONDITION
 	 * Denotes that this statement is more likely to be expected. */
 	#define SI_LIKELY(x)   (__builtin_expect(!!(x), 1))
 	/* x - CONDITION
 	 * Denotes that this statement is less likely to be expected. */
 	#define SI_UNLIKELY(x) (__builtin_expect(!!(x), 0))
-#elif SI_COMPILER_MSVC
+#else
 	/* x - CONDITION
-	 * Denotes that this statement is more likely to be expected. */
-	#define SI_LIKELY(x) (__assume(x), 1)
-	/* x - CONDITION
-	 * Denotes that this statement is less likely to be expected. */
-	#define SI_UNLIKELY(x) (__assume(x), 0)
-#else	/* x - CONDITION
 	 * Denotes that this statement is more likely to be expected. */
 	#define SI_LIKELY(x) (x)
 	/* x - CONDITION
@@ -1035,10 +1052,10 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	#define SI_UNLIKELY(x) (x)
 #endif
 
-#if (SI_STANDARD_VERSION < SI_STANDARD_C11 || !defined(__STDC_LIB_EXT1__)) && !defined(memcpy_s)
-/* dst - rawptr | dstsz - usize | src - rawptr | count - usize
- * A pre-C11 implementation of memcpy_s without 'errorno_t'. */
-#define memcpy_s(dst, dstsz, src, count) si_memcopy(dst, src, si_min(dstsz, count))
+#if SI_STANDARD_CHECK_MAX(C, C99) || (!defined(__STDC_LIB_EXT1__) && !defined(memcpy_s))
+	/* dst - rawptr | dstsz - usize | src - rawptr | count - usize
+	 * A pre-C11 implementation of memcpy_s without 'errorno_t'. */
+	#define memcpy_s(dst, dstsz, src, count) si_memcopy(dst, src, si_min(dstsz, count))
 #endif
 
 
@@ -1047,14 +1064,15 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	| SI_ASSERT            |
 	========================
 */
+
 #ifndef SI_DEBUG_TRAP
-	#if SI_COMPILER_MSVC
+	#if defined(SI_COMPILER_MSVC)
 	 	#if SI_COMPILER_VERSION < SI_VERSION(7, 0, 0)
 			#define SI_DEBUG_TRAP() __asm int 3
 		#else
 			#define SI_DEBUG_TRAP() __debugbreak()
 		#endif
-	#elif SI_COMPILER_GCC || SI_COMPILER_CLANG
+	#elif SI_COMPILER_CHECK_MIN(GCC, 4, 0, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
 		#define SI_DEBUG_TRAP() __builtin_trap()
 	#else
 		#define SI_DEBUG_TRAP() exit(1)
@@ -1264,6 +1282,40 @@ typedef struct { f32 x, y, z, w; } siVec4;
 /* src - rawptr | srcLen - usize | moveBy - isize
  * Moves the memory by the specified amount to the left. */
 #define si_ptrMoveLeft(src, srcLen, moveBy) si_memcopy((siByte*)(src) + (moveBy), src, srcLen)
+
+
+/* A struct containing information about an error that happened during an operation. */
+typedef struct siErrorInfo {
+	/* Error code from the operation. */
+	i32 error;
+
+#if !defined(SI_NO_ERROR_STRUCT)
+	/* The function where the error occurred. */
+	cstring function;
+	/* The time when the error happened (in UTC+0). */
+	i64 time;
+#endif
+} siErrorInfo;
+
+
+#if !defined(SI_NO_ERROR_STRUCT)
+	/* variable - VARIABLE | errorCode - i32
+	 * Sets the error code, function name and time for the error variable. */
+	#define SI_ERROR_DECLARE(variable, errorCode) \
+		do { \
+			(variable).error = errorCode; \
+			(variable).function = __func__; \
+			(variable).time = si_timeNowUTC(); \
+		} while (0)
+
+#else
+	/* variable - VARIABLE | errorCode - i32
+	 * Sets the error code for the error variable. */
+	#define SI_ERROR_DECLARE(variable, errorCode) \
+		do { (variable).error = errorCode; SI_ERROR_LOG } while(0)
+
+#endif
+
 
 /*
 *
@@ -2436,7 +2488,7 @@ SIDEF b32 si_dirPollEntry(siDirectory dir, siDirectoryEntry* entry);
 SIDEF b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath);
 
 
-#endif
+#endif /* SI_NO_IO */
 
 #if !defined(SI_NO_THREAD)
 /*
@@ -2490,27 +2542,15 @@ typedef struct siThread {
 /* TODO(EimaMei): Add mutexes and other threading stuff. */
 
 
-/* function - NAME | arg - siNullable rawptr | runThread - b32 | outThread - siThread*
- * Creates a 'siThread' data strucutre and if specified, immediately runs the
+/* Creates a 'siThread' data strucutre and if specified, immediately runs the
  * thread.  If the function fails to create the thread, the returned thread's
  * 'id' member is set to 'nil', as well as 'isRunning'.*/
-#define si_threadMake(function, arg, runThread, outThread) \
-	si__internThreadMake(siFunc(function), arg, 0, runThread, outThread)
-#define si_threadMakeArr(function, arg, runThread, outThreads, len) \
-	for_range (i, 0, len) { \
-		si_threadMake(function, arg, runThread, &((outThreads)[i])); \
-	} do {} while (0)
-
-/* function - NAME | arg - siNullable rawptr | stackSize - usize | runThread - b32
- * Creates a 'siThread' data strucutre with the given stack size and if specified,
+SIDEF b32 si_threadMake(siFunction function, rawptr siNullable arg, b32 runThread,
+		siThread* outThread);
+/* Creates a 'siThread' data strucutre with the given stack size and if specified,
  * immediately runs the thread. */
-#define si_threadMakeEx(function, arg, stackSize, runThread, outThread) \
-	si__internThreadMake(siFunc(function), arg, stackSize, runThread, outThread)
-#define si_threadMakeArrEx(function, arg, stackSize, runThread, outThreads, len) \
-	for_range (i, 0, len) { \
-		si_threadMakeEx(function, arg, stackSize, runThread, &outThreads[i]); \
-	} do {} while (0)
-
+SIDEF b32 si_threadMakeEx(siFunction function, rawptr siNullable arg, usize stackSize,
+		b32 runThread, siThread* outThread);
 
 /* thread - siThread | type - TYPE
  * Casts 'thread.returnValue' correctly to match the given type instead of it being
@@ -2522,13 +2562,6 @@ b32 si_threadRun(siThread* t);
 /* Starts the thread while hanging the parent thread until the specified thread
  * is finished. */
 b32 si_threadJoin(siThread* t);
-/* Starts the threads while hanging the parent thread until the specified thread
- * is finished. */
-#define si_threadJoinArr(threads, len) \
-	for_range (i, 0, len) { \
-		si_threadJoin(&threads[i]); \
-	} do {} while (0)
-
 
 /* Stops the thread mid-execution.
  * NOTE: Only works on Unix. */
@@ -2539,13 +2572,7 @@ b32 si_threadDestroy(siThread* t);
 /* Sets the priority of the thread. */
 b32 si_threadPrioritySet(siThread t, i32 priority);
 
-
-#if 1
-b32 si__internThreadMake(siFunction function, siNullable rawptr arg, usize stackSize,
-		b32 runThread, siThread* outThread);
-#endif
-
-#endif
+#endif /* SI_NO_THREAD */
 
 #if !defined(SI_NO_TIME)
 /*
@@ -2569,11 +2596,11 @@ b32 si__internThreadMake(siFunction function, siNullable rawptr arg, usize stack
 */
 
 /* How many clocks of 'si_clock()' are equivalent to a second (1s = 1e+9 ns). */
-#define SI_CLOCKS_PER_SECOND (1000000000)
+#define SI_CLOCKS_S (1000000000)
 /* How many clocks of 'si_clock()' are equivalent to a milisecond (1ms = 1e+6 ns). */
-#define SI_CLOCKS_PER_MILISECOND (1000000)
-/* How many clocks of 'si_clock()' are equivalent to a milisecond (1µs = 1e+3 ns). */
-#define SI_CLOCKS_PER_MICROSECOND (1000)
+#define SI_CLOCKS_MS (1000000)
+/* How many clocks of 'si_clock()' are equivalent to a microsecond (1µs = 1e+3 ns). */
+#define SI_CLOCKS_US (1000)
 
 /* An unsigned 64-bit integer type, notifying that it's used for time stamps. */
 typedef u64 siTimeStamp;
@@ -2582,32 +2609,33 @@ typedef i64 siUtcTime;
 /* A signed 64-bit integer type, notifying that it's used for local time. */
 typedef i64 siLocalTime;
 
-/* Executes the 'RDTSC' asm instruction and returns the value in nano seconds.
- * NOTE: Only natively works for x86-64, i386, ARM64 and PPC CPUs. On other CPUs
+/* Executes an 'RDTSC' equivalent asm instruction and returns the value in nanoseconds.
+ * NOTE: Only natively works for AMD64, i386, ARM64 and PPC CPUs. On other CPUs
  * the function relies on OS functions like 'gettimeofday'. */
-siTimeStamp si_RDTSC(void);
+SIDEF siTimeStamp si_RDTSC(void);
 /* Returns the number of seconds since 1970-01-01 UTC */
-siUtcTime si_timeNowUTC(void);
+SIDEF siUtcTime si_timeNowUTC(void);
 /* Returns the number of seconds since 1970-01-01 local time.*/
-siLocalTime si_timeNowLocal(void);
+SIDEF siLocalTime si_timeNowLocal(void);
 
 /* Returns the current clock. */
-u64 si_clock(void);
+SIDEF u64 si_clock(void);
 
 /* Starts the timestamp. */
-siTimeStamp si_timeStampStart(void);
-/* Prints the time since the start. */
+SIDEF siTimeStamp si_timeStampStart(void);
+/* time - siTimeStamp
+ * Prints the time since the start. */
 #define si_timeStampPrintSince(time) si_timeStampPrintSinceEx(time, __FILE__, __LINE__)
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
-void si_sleep(usize miliseconds);
+SIDEF void si_sleep(u32 miliseconds);
 
 
 #if 1
 	void si_timeStampPrintSinceEx(siTimeStamp t, cstring filename, i32 line);
 #endif
 
-#endif
+#endif /* SI_NO_TIME */
 
 #if !defined(SI_NO_BIT)
 /*
@@ -2630,10 +2658,9 @@ void si_sleep(usize miliseconds);
 	========================
 */
 
+/* TODO(EimaMei): Remove this later and rework the functions that utilize it. */
 SI_ENUM(usize, siBitType) {
-	/* 0b00000000. */
 	SI_BIT_ZERO,
-	/* 0b00000001. */
 	SI_BIT_ONE
 };
 
@@ -2696,7 +2723,7 @@ usize si_numCountBitsU32(u32 num);
 /* Returns how many 1 bits are in a 64-bit number. */
 usize si_numCountBitsU64(u64 num);
 
-#if SI_LANGUAGE_C && SI_STANDARD_VERSION >= SI_STANDARD_C11
+#if SI_STANDARD_CHECK_MIN(C, C11)
 	#define si_numCountBits(num) \
 		_Generic((num), \
 			u8  : si_numCountBitsU8(num), \
@@ -2764,17 +2791,17 @@ SIDEF usize si_numLenI64Ex(i64 num, u32 base);
 
 
 #if 1 /* NOTE(EimaMei): The actual header definition for the macros. No reason to use these in practice. */
-usize si_numLeadingBitEx(u64 num, usize sizeof_num, siBitType bit);
-usize si_numTrailingBitEx(u64 num, usize number_sizeof, siBitType bit);
+	usize si_numLeadingBitEx(u64 num, usize sizeof_num, siBitType bit);
+	usize si_numTrailingBitEx(u64 num, usize number_sizeof, siBitType bit);
 
-u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
-u64 siNumRotateRightEx(u64 num, usize num_sizeof, usize n);
-u64 siNumReverseBitsEx(u64 num, usize num_sizeof);
+	u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
+	u64 siNumRotateRightEx(u64 num, usize num_sizeof, usize n);
+	u64 siNumReverseBitsEx(u64 num, usize num_sizeof);
 
-siArray(u8) si_numToBytesEx(siAllocator* alloc, u64 num, usize num_sizeof);
+	siArray(u8) si_numToBytesEx(siAllocator* alloc, u64 num, usize num_sizeof);
 #endif
 
-#endif
+#endif /* SI_NO_BIT */
 
 #if !defined(SI_NO_CPU)
 /*
@@ -3376,7 +3403,7 @@ extern const siBenchmarkLimit siBenchLimit[];
 
 const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time);
 
-#endif
+#endif /* SI_NO_BENCHMARK */
 
 /*
 *
@@ -3484,10 +3511,10 @@ void si_allocatorFree(siAllocator* alloc) {
 
 	if (!alloc->isStack) {
 		free(alloc->ptr);
-		*alloc = (siAllocator){0};
+		si_memset(alloc, 0, sizeof(*alloc));
 	}
 	else {
-		*alloc = (siAllocator){0};
+		si_memset(alloc, 0, sizeof(*alloc));
 		alloc->isStack = true;
 	}
 }
@@ -3647,20 +3674,20 @@ usize si_assertEx(b32 condition, cstring conditionStr, cstring file, i32 line, c
 	return 1;
 }
 
-SIDEF
+inline
 siUtcTime si_timeNowUTC(void) {
 	time_t rawtime;
 	time(&rawtime);
 
 	return rawtime;
 }
-SIDEF
+inline
 siLocalTime si_timeNowLocal(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft);
-
 	return (i64)ft.dwHighDateTime | ((i64)ft.dwLowDateTime << 32);
+
 #else
 	struct timeval tv;
 	i32 res = gettimeofday(&tv, nil);
@@ -3670,8 +3697,10 @@ siLocalTime si_timeNowLocal(void) {
 #endif
 }
 
-SIDEF
-void si_sleep(usize miliseconds) {
+inline
+void si_sleep(u32 miliseconds) {
+	SI_STOPIF(miliseconds == 0, return);
+
 #if SI_SYSTEM_IS_WINDOWS
 	Sleep((u32)miliseconds);
 #else
@@ -3684,16 +3713,18 @@ void si_sleep(usize miliseconds) {
 }
 
 
-SIDEF
+inline
 siTimeStamp si_RDTSC(void) {
 	/* NOTE(EimaMei): Shoutout to gb.h for the i386 and PPC code! (Link: https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
 #if !defined(SI_NO_INLINE_ASM)
-	#if SI_COMPILER_MSVC
+	#if SI_COMPILER_CHECK_MIN(MSVC, 9, 0, 0)
 		return __rdtsc();
+
 	#elif SI_ARCH_I386
 		u64 res;
 		si_asm (".byte 0x0f, 0x31", : "=A" (res));
 		return res;
+
 	#elif SI_ARCH_AMD64
 		u64 res;
 		si_asm(
@@ -3703,6 +3734,7 @@ siTimeStamp si_RDTSC(void) {
 			SI_ASM_OUTPUT("=a"(res))
 		);
 		return res;
+
 	#elif SI_ARCH_IS_PPC
 		u32 high, low, tmp;
 		si_asm (
@@ -3715,40 +3747,46 @@ siTimeStamp si_RDTSC(void) {
 			SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
 		);
 		return ((u64)high << 32) | low;
+
 	#elif SI_ARCH_ARM64
 		u64 res;
 		si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
 		return res;
+
 	#elif SI_SYSTEM_IS_WINDOWS
 		LARGE_INTEGER count;
 		QueryPerformanceCounter(&count);
 		return count.QuadPart;
+
 	#else
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		return tv.tv_sec * 1000000 + tv.tv_usec;
+
 	#endif
 #else
 	#if SI_SYSTEM_IS_WINDOWS
 		LARGE_INTEGER count;
 		QueryPerformanceCounter(&count);
 		return count.QuadPart;
+
 	#else
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		return tv.tv_sec * 1000000 + tv.tv_usec;
+
 	#endif
 #endif /* SI_NO_INLINE_ASM */
 }
 
 
-SIDEF
+inline
 u64 si_clock(void) {
 	return si_RDTSC() / si_cpuClockSpeed() * 1000;
 }
 
 
-SIDEF
+inline
 siTimeStamp si_timeStampStart(void) {
 	return si_RDTSC();
 }
@@ -3982,9 +4020,9 @@ siOptionalRet(usize) si__internArrayFind(rawptr array, usize start, usize end,
 	SI_ASSERT_MSG(value.typeSize <= si_arrayTypeSize(array), "The given value's sizeof is too large compared to the elements' in the array.");
 	SI_ASSERT_MSG(start < end, "Value 'start' is larger than 'end'");
 
-	for_range (i, start, end) {
+    for_range (i, start, end) {
 		siByte* dst = si_arrayGetPtr(array, i);
-		if (memcmp(dst, value.ptr, value.typeSize) == 0) {
+		if (si_memcompare(dst, value.ptr, value.typeSize) == 0) {
 			return si_optionalMakeEx(usize, i);
 		}
 	}
@@ -4002,7 +4040,7 @@ siOptionalRet(usize) si__internArrayRFind(rawptr array, usize start, usize end,
 	usize i;
 	for (i = start; i < end - 1; i--) {
 		siByte* dst = si_arrayGetPtr(array, i);
-		if (memcmp(dst, value.ptr, value.typeSize) == 0) {
+		if (si_memcompare(dst, value.ptr, value.typeSize) == 0) {
 			return si_optionalMakeEx(usize, i);
 		}
 	}
@@ -4231,7 +4269,7 @@ b32 si_arrayEqual(siArray(void) left, siArray(void) right) {
 	for_range (i, 0, lHeader->len) {
 		siByte* dst = si_arrayGetPtr(left, i);
 		siByte* src = si_arrayGetPtr(right, i);
-		if (memcmp(dst, src, lHeader->typeSize) != 0) {
+		if (si_memcompare(dst, src, lHeader->typeSize) != 0) {
 			return false;
 		}
 	}
@@ -5700,41 +5738,26 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 	}
 	return nil;
 }
-#if !defined(SI_NO_ERROR_STRUCT)
-	#define SI_FS_ERROR_DECLARE_EX(err) \
-		{ \
-			SI_FS_ERROR.code = err; \
-			SI_FS_ERROR.function = __func__; \
-			SI_FS_ERROR.time = si_timeNowUTC(); \
-			SI_FS_ERROR_LOG(); \
-		}
-	#define SI_FS_ERROR_DECLARE() \
-		SI_FS_ERROR_DECLARE_EX(si__internfileGetOSError())
 
-	#if !defined(SI_NO_FS_ERROR_PRINTS)
+#define SI_FS_ERROR_DECLARE_EX(err) \
+	SI_ERROR_DECLARE(SI_FS_ERROR, err); SI_FS_ERROR_LOG()
+
+#define SI_FS_ERROR_DECLARE() \
+	SI_ERROR_DECLARE(SI_FS_ERROR, si__internfileGetOSError()); SI_FS_ERROR_LOG()
+
+#if !defined(SI_NO_FS_ERROR_PRINTS)
+	#if !defined(SI_NO_ERROR_STRUCT)
 		#define SI_FS_ERROR_LOG() \
 			do { \
 				siPrintColor3bit red = SI_PRINT_COLOR_3BIT(SI_ANSI_RED, true, false); \
 				si_fprintf( \
 					SI_STDERR, \
 					"%CFile system error at \"%s\"%C: %s: %s (err number '%i')\n", \
-					&red, SI_FS_ERROR.function, si_pathFsErrorName(SI_FS_ERROR.code), \
-					si_pathFsErrorStr(SI_FS_ERROR.code), SI_FS_ERROR.code \
+					&red, SI_FS_ERROR.function, si_pathFsErrorName(SI_FS_ERROR.error), \
+					si_pathFsErrorStr(SI_FS_ERROR.error), SI_FS_ERROR.error \
 				); \
 			} while(0)
 	#else
-		#define SI_FS_ERROR_LOG() do {} while (0)
-	#endif
-#else
-	#define SI_FS_ERROR_DECLARE_EX(err) \
-		{ \
-			SI_FS_ERROR.code = err; \
-			SI_FS_ERROR_LOG(); \
-		}
-	#define SI_FS_ERROR_DECLARE() \
-		SI_FS_ERROR_DECLARE_EX(si__internfileGetOSError())
-
-	#if !defined(SI_NO_FS_ERROR_PRINTS)
 		#define SI_FS_ERROR_LOG() \
 			si_fprintf( \
 				SI_STDERR, \
@@ -5742,10 +5765,13 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 				si_pathFsErrorName(SI_FS_ERROR.code), si_pathFsErrorStr(SI_FS_ERROR.code), \
 				SI_FS_ERROR \
 			)
-	#else
-		#define SI_FS_ERROR_LOG() do {} while (0)
+
 	#endif
+#else
+	#define SI_FS_ERROR_LOG() do {} while (0)
+
 #endif
+
 siIntern inline
 siFileSystemError si__internfileGetOSError(void) {
 #if SI_SYSTEM_IS_WINDOWS
@@ -6742,7 +6768,13 @@ rawptr si__internThreadProc(rawptr arg) {
 
 
 SIDEF
-b32 si__internThreadMake(siFunction function, siNullable rawptr arg, usize stackSize,
+b32 si_threadMake(siFunction function, rawptr siNullable arg, b32 runThread,
+		siThread* outThread) {
+	return si_threadMakeEx(function, arg, 0, runThread, outThread);
+}
+
+SIDEF
+b32 si_threadMakeEx(siFunction function, rawptr siNullable arg, usize stackSize,
 		b32 runThread, siThread* outThread) {
 	SI_ASSERT_NOT_NULL(function);
 
@@ -6814,13 +6846,11 @@ b32 si_threadCancel(siThread* t) {
 	SI_ASSERT(t->initialized);
 
 	#if SI_SYSTEM_IS_WINDOWS
-#ifndef SI_RELEASE_MODE
 		si_fprintf(
 			SI_STDERR,
 			"%CRsi_threadCancel: This feature on Windows is not supported as of sili v%u.%u.%u.%C",
 			SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_MINOR
 		);
-#endif
 		return false;
 	#else
 		int res = pthread_cancel(t->id);
@@ -7008,18 +7038,43 @@ u64 si_bytesToNumArr(siByte* array, usize len) {
 
 inline
 u16 si_swap16(u16 x) {
+#if SI_COMPILER_CHECK_MIN(GCC, 4, 8, 0) || SI_COMPILER_CHECK_MIN(CLANG, 3, 2, 0)
+	return (u16)__builtin_bswap16(x);
+
+#elif SI_COMPILER_CHECK_MIN(MSVC, 8, 0, 0)
+	return _byteswap_ushort(x);
+
+#else
 	return si_cast(u16, ((x >> 8) & 0xFFu) | ((x & 0xFFu) << 8));
+
+#endif
 }
 inline
 u32 si_swap32(u32 x) {
+#if SI_COMPILER_CHECK_MIN(GCC, 4, 3, 0) || SI_COMPILER_CLANG
+	return __builtin_bswap32(x);
+
+#elif SI_COMPILER_CHECK_MIN(MSVC, 8, 0, 0)
+	return _byteswap_ulong(x);
+
+#else
 	return si_cast(
 		u32,
 		((x & 0xFF000000u) >> 24)  | ((x & 0x00FF0000u) >>  8) |
 		((x & 0x0000FF00u) <<  8)  | ((x & 0x000000FFu) << 24)
 	);
+
+#endif
 }
 inline
 u64 si_swap64(u64 x) {
+#if SI_COMPILER_CHECK_MIN(GCC, 4, 3, 0) || SI_COMPILER_CLANG
+	return __builtin_bswap64(x);
+
+#elif SI_COMPILER_CHECK_MIN(MSVC, 8, 0, 0)
+	return _byteswap_uint64(x);
+
+#else
    return si_cast(
 		u64,
 		((x & 0xFF00000000000000ull) >> 56) | ((x & 0x00FF000000000000ull) >> 40) |
@@ -7027,6 +7082,8 @@ u64 si_swap64(u64 x) {
 		((x & 0x00000000FF000000ull) <<  8) | ((x & 0x0000000000FF0000ull) << 24) |
 		((x & 0x000000000000FF00ull) << 40) | ((x & 0x00000000000000FFull) << 56)
    );
+
+#endif
 }
 
 #if SI_ENDIAN_IS_LITTLE

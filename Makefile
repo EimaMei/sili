@@ -9,7 +9,7 @@ EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
 
 # NOTE(EimaMei): Original source is from 'https://github.com/ColleagueRiley/RGFW'
-ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc))
+ifneq (,$(filter $(CC),cl winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-mingw32-gcc x86_64-w64-mingw32-g++ /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe))
 	DETECTED_OS := Windows
 else
 	ifeq '$(findstring ;,$(PATH))' ';'
