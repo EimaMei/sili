@@ -1290,6 +1290,8 @@ typedef struct siErrorInfo {
 	i32 error;
 
 #if !defined(SI_NO_ERROR_STRUCT)
+	/* The line where the error was declared. Useful for debugging. */
+	i32 line;
 	/* The function where the error occurred. */
 	cstring function;
 	/* The time when the error happened (in UTC+0). */
@@ -1303,6 +1305,7 @@ typedef struct siErrorInfo {
 	 * Sets the error code, function name and time for the error variable. */
 	#define SI_ERROR_DECLARE(variable, errorCode) \
 		do { \
+			(variable).line = __LINE__; \
 			(variable).error = errorCode; \
 			(variable).function = __func__; \
 			(variable).time = si_timeNowUTC(); \
