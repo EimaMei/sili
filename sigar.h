@@ -135,13 +135,13 @@ extern "C" {
 #define SIGAR_DEFAULT_CHANNELS 2
 #endif
 
-/* The default period count. Higher number reduces  latency, but also increases 
+/* The default period count. Higher number reduces  latency, but also increases
  * the workload on the CPU. */
 #ifndef SIGAR_DEFAULT_PERIODS
 #define SIGAR_DEFAULT_PERIODS 2
 #endif
 
-/* The default frame count. Higher number reduces CPU workload, but also increases 
+/* The default frame count. Higher number reduces CPU workload, but also increases
  * latency. Latency formula (in ms): t = (1000 * <frameCount>) / <sample rate>.
  * A 512 frame count is good default choice for low-latency (~11 ms). */
 #ifndef SIGAR_DEFAULT_FRAME_COUNT
@@ -394,7 +394,7 @@ typedef struct siAudioDevice {
 	pthread_cond_t cond;
 
 	siAllocator alloc;
-	struct siAudio* unitHead;
+	struct siAudio* audioHead;
 	struct pollfd pfd[2];
 #endif
 } siAudioDevice;
@@ -468,19 +468,27 @@ SIDEF siAudioDevice sigar_deviceMake(siAudioDeviceType type);
  * ERROR:
  * - SIGAR_ERROR_DEVICE - a device based on the identifier wasn't found. */
 SIDEF siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier);
-/* Enables support for custom configurations for the device. Returns the pointer 
+/* Enables support for custom configurations for the device. Returns the pointer
  * to the configuration structure.
  * NOTE: Devices which were found via a config do not need to call this function. */
 SIDEF siAudioDeviceConfig* sigar_deviceConfigEnable(siAudioDevice* device);
 
-/* Starts the playback of the device. Must only be played if you wish to use a 
- * callback, not for playing 'siAudio' files. */
+/* Starts the playback of the device. */
 SIDEF void sigar_deviceStart(siAudioDevice* device);
 /* Pauses the running device. */
 SIDEF void sigar_devicePause(siAudioDevice* device);
 
 /* Closes the specified audio device and frees any allocated resources. */
 SIDEF void sigar_deviceClose(siAudioDevice* device);
+
+
+/* Returns the very first available element in the list of audio streams. If
+ * there are no available streams, 'nil' will be written instead. */
+SIDEF siAudio* sigar_devicePollAudioHead(const siAudioDevice* device);
+/* Writes the next available element in the list after the specified stream into
+ * the same out parameter, while also checking if current the stream can be looped,
+ * closed, etc. If there are no available streams, 'nil' will be written instead. */
+SIDEF void sigar_devicePollAudio(const siAudioDevice* device, siAudio** outAudio);
 
 
 /* Returns the available information about the specified device. */
@@ -517,6 +525,8 @@ SIDEF b32 sigar_audioPause(siAudio* audio);
 /* Stops and completely unitializes the given audio object. */
 SIDEF b32 sigar_audioClose(siAudio* audio);
 
+/* Returns the audio buffer that's offset by current timestamp. */
+SIDEF const siByte* sigar_audioCurrentBufferGet(const siAudio* audio);
 
 /* Returns the current playback position of the unit. */
 SIDEF f32 sigar_audioTell(siAudio audio);
@@ -866,14 +876,17 @@ void sigar__alsaDeviceWrite(siAudioDevice* device) {
 }
 
 SIDEF
-void sigar__alsaPauseDevice(siAudioDevice* device) {
-	snd_pcm_pause(device->id, true);
+void sigar__alsaDevicePause(siAudioDevice* device) {
+	snd_pcm_drain(device->id);
+	snd_pcm_prepare(device->id);
+
 	pthread_mutex_lock(&device->mutex);
 	while (device->state == SIGAR_PAUSED) {
 		pthread_cond_wait(&device->cond, &device->mutex);
 	}
 	pthread_mutex_unlock(&device->mutex);
-	snd_pcm_pause(device->id, false);
+
+	snd_pcm_start(device->id);
 }
 
 
@@ -1066,7 +1079,7 @@ data gets conveted into floats during playback. Native support *may* be added,
 especially for i32. */
 
 SIDEF
-void sigar_audioMixFrames(siAudio* audio, siByte* restrict output,
+void sigar_mixBuffers(siAudio* audio, siByte* restrict output,
 		const siByte* restrict input) {
 	siAudioDeviceConfig* config = &audio->device->config;
 	SI_ASSERT(audio->rate == config->rate);
@@ -1093,9 +1106,9 @@ void sigar_audioMixFrames(siAudio* audio, siByte* restrict output,
 		case SIGAR_FORMAT_I16:
 			switch (audio->format) {
 				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToInt16(audio, (i16*)output,  (u8*)input); return;
-				//case SIGAR_FORMAT_I16: sigar_mixInt16ToFloat32(audio, (f32*)output, (i16*)input); return;
 				//case SIGAR_FORMAT_I24: sigar_mixInt24ToFloat32(audio, (f32*)output,  (u8*)input); return;
 				//case SIGAR_FORMAT_I32: sigar_mixInt32ToFloat32(audio, (f32*)output, (i32*)input); return;
+				//case SIGAR_FORMAT_F32: sigar_mixFloat32ToInt16(audio, (i16*)output, (f32*)input); return;
 			} break;
 
 
@@ -1108,64 +1121,18 @@ void sigar_audioMixFrames(siAudio* audio, siByte* restrict output,
 }
 
 siIntern
-void sigar__threadOutputDefault(siAudioDevice* device) {
-	siAudioDeviceConfig* config = &device->config;
-	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0 : 0;
+void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output,
+		const siByte* input, usize length) {
 
-start:
-	while (device->state == SIGAR_RUNNING) {
-		siByte* frame = device->alloc.ptr;
-		si_memset(frame, silence, device->alloc.capacity);
+	siAudio* audio = sigar_devicePollAudioHead(device);
+	while (audio != nil) {
+		const siByte* audioBuffer = sigar_audioCurrentBufferGet(audio);
+		sigar_mixBuffers(audio, output, audioBuffer);
 
-		b32 res = sigar__alsaDeviceWait(device);
-		SI_STOPIF(!res, return);
-
-
-		siAudio* audio = device->unitHead;
-		while (audio != nil) {
-			if (audio->state == SIGAR_PAUSED) {
-				audio = audio->nextUnit;
-				continue;
-			}
-
-			usize remaining = audio->end - audio->__offset;
-			siByte* audioBuffer = (siByte*)&audio->buffer[audio->__offset];
-
-			usize frameSize = config->frameCount * audio->channels * sigar_formatSize(audio->format);
-			sigar_audioMixFrames(audio, frame, audioBuffer);
-
-			if (SI_UNLIKELY(remaining < frameSize)) {
-				audio->__offset = audio->start;
-
-				if (audio->loops != 0) {
-					if (audio->loops > 0) {
-						audio->loops -= 1;
-					}
-					audio = audio->nextUnit;
-					continue;
-				}
-
-				sigar_audioClose(audio);
-				if (device->numberOfSources) {
-					audio = audio->nextUnit;
-					continue;
-				}
-				else {
-					return ;
-				}
-			}
-
-			audio->__offset += frameSize;
-			audio = audio->nextUnit;
-		}
-
-		sigar__alsaDeviceWrite(device);
+		sigar_devicePollAudio(device, &audio);
 	}
 
-	if (device->state == SIGAR_PAUSED) {
-		sigar__alsaPauseDevice(device);
-		goto start;
-	}
+	SI_UNUSED(input); SI_UNUSED(length);
 }
 
 siIntern
@@ -1182,12 +1149,11 @@ start:
 		si_memset(frame, silence, device->alloc.capacity);
 
 		config->callback(device, frame, nil, device->alloc.capacity);
-
 		sigar__alsaDeviceWrite(device);
 	}
 
 	if (device->state == SIGAR_PAUSED) {
-		sigar__alsaPauseDevice(device);
+		sigar__alsaDevicePause(device);
 		goto start;
 	}
 }
@@ -1331,7 +1297,8 @@ SIDEF
 siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 	siAudioDevice device = {0};
 	device.config.type = type;
-	
+	device.config.callback = sigar__callbackOutputDefault;
+
 #if SI_SYSTEM_IS_APPLE
 	AudioObjectPropertyAddress properties = {
 		kAudioHardwarePropertyDefaultOutputDevice,
@@ -1370,6 +1337,7 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 SIDEF
 siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier) {
 	siAudioDevice device = {0};
+	device.config.callback = sigar__callbackOutputDefault;
 
 #if SI_SYSTEM_IS_APPLE
 
@@ -1575,19 +1543,15 @@ SIDEF
 void sigar_deviceStart(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SIGAR_ASSERT_DEVICE(device);
-	
+
 	if (device->state == SIGAR_CLOSED) {
-		SI_ASSERT_MSG(device->config.isSet, "'sigar_deviceStart' must be configured with the 'sigar_deviceConfigEnable' function");
-		SI_ASSERT_MSG(device->config.callback != nil, "A callback function must be set via 'config->callback = ...'.");
-
-
 		sigar__alsaDeviceInit(device);
 		device->state = SIGAR_RUNNING;
 
 		b32 res = si_threadMake(
 			siFunc(sigar__threadOutputCallback), device, true, &device->thread
 		);
-	
+
 		if (res == false) {
 			SI_ERROR_DECLARE(device->status, SIGAR_ERROR_THREAD);
 			return;
@@ -1615,7 +1579,7 @@ void sigar_deviceClose(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SI_STOPIF(device->status.error != SIGAR_SUCCESS, return);
 
-	device->unitHead = nil;
+	device->audioHead = nil;
 	device->state = SIGAR_CLOSED;
 
 #if SI_SYSTEM_IS_APPLE
@@ -1667,6 +1631,51 @@ void sigar_deviceClose(siAudioDevice* device) {
 	si_memset(device, 0, sizeof(*device));
 }
 
+inline
+siAudio* sigar_devicePollAudioHead(const siAudioDevice* device) {
+	siAudio* audio = device->audioHead;
+
+	while (audio && (audio)->state == SIGAR_PAUSED) {
+		audio = audio->nextUnit;
+	}
+
+	return audio;
+}
+
+#define sigar__audioSetNextValid(audio, out) \
+	do { \
+		audio = (audio)->nextUnit; \
+	} while (audio && (audio)->state == SIGAR_PAUSED); \
+	*(out) = audio
+
+void sigar_devicePollAudio(const siAudioDevice* device, siAudio** outAudio) {
+	SI_ASSERT_NOT_NULL(device);
+	SI_ASSERT_NOT_NULL(outAudio);
+
+	siAudio* audio = *outAudio;
+	const siAudioDeviceConfig* config = &device->config;
+
+	usize remaining = audio->end - audio->__offset;
+	usize length = config->frameCount * audio->channels * sigar_formatSize(audio->format);
+
+	if (SI_UNLIKELY(remaining < length)) {
+		audio->__offset = audio->start;
+
+		if (audio->loops != 0) {
+			SI_STOPIF(audio->loops > 0, audio->loops -= 1);
+			sigar__audioSetNextValid(audio, outAudio);
+			return;
+		}
+
+		sigar_audioClose(audio);
+		sigar__audioSetNextValid(audio, outAudio);
+		return;
+	}
+
+	audio->__offset += length;
+	sigar__audioSetNextValid(audio, outAudio);
+}
+#undef sigar__audioSetNextValid
 
 
 SIDEF
@@ -1813,45 +1822,41 @@ siAudioError sigar_audioPlay(siAudio* audio) {
 #elif SI_SYSTEM_IS_UNIX
 	siAudioDevice* device = audio->device;
 
-	if (device->unitHead != nil) {
+	if (device->audioHead != nil) {
 		device->numberOfSources += 1;
 
-		if (audio->state == SIGAR_CLOSED) {
-			siAudio* next = device->unitHead;
-			while (next->nextUnit != nil) {
-				next = next->nextUnit;
-			}
+		if (audio->state == SIGAR_PAUSED) {
 			audio->state = SIGAR_RUNNING;
-			audio->__offset = audio->start;
-
-			next->nextUnit = audio;
+			sigar_deviceStart(device);
+			return true;
 		}
-		else {
-			audio->state = SIGAR_RUNNING;
 
-			if (device->state == SIGAR_PAUSED) {
-				sigar_deviceStart(device);
-			}
+		siAudio* next = device->audioHead;
+		while (next->nextUnit != nil) {
+			next = next->nextUnit;
 		}
+
+		audio->state = SIGAR_RUNNING;
+		audio->__offset = audio->start;
+		next->nextUnit = audio;
+
 		return true;
 	}
+	/* NOTE(EimaMei): If the device was started through 'sigar_deviceStart'. */
+	else if (device->state == SIGAR_RUNNING) {
+		audio->__offset = audio->start;
+		audio->state = SIGAR_RUNNING;
 
-	sigar__alsaDeviceInit(device);
-
-	device->unitHead = audio;
-	device->state = SIGAR_RUNNING;
-	audio->__offset = audio->start;
-	audio->state = SIGAR_RUNNING;
-
-	b32 res = si_threadMake(
-		siFunc(sigar__threadOutputDefault), device, true, &device->thread
-	);
-	if (res == false) {
-		device->state = audio->state = 0;
-		return SIGAR_ERROR_THREAD;
+		device->audioHead = audio;
+		device->numberOfSources += 1;
 	}
 
+	audio->__offset = audio->start;
+	audio->state = SIGAR_RUNNING;
+	device->audioHead = audio;
 	device->numberOfSources += 1;
+
+	sigar_deviceStart(device);
 #endif
 
 	return audio->state;
@@ -1891,24 +1896,31 @@ b32 sigar_audioClose(siAudio* audio) {
 		audio->isClosed = !audio->isRunning;
 
 #elif SI_SYSTEM_IS_UNIX
-		siAudio* next = audio->device->unitHead;
+		siAudioDevice* device = audio->device;
+		siAudio* next = device->audioHead;
 		while (next != audio) {
 			next = next->nextUnit;
 		}
 
-		if (next == audio->device->unitHead) {
-			audio->device->unitHead = audio->nextUnit;
+		if (next == device->audioHead) {
+			device->audioHead = audio->nextUnit;
 		}
 		else {
 			next->nextUnit = audio->nextUnit;
 		}
-		/* NOTE(EimaMei): Doesn't decrement if the audio was already paused. */
-		audio->device->numberOfSources -= (audio->state == SIGAR_RUNNING);
+
+		/* NOTE(EimaMei): Doesn't decrement if the audio was paused before closure. */
+		device->numberOfSources -= (audio->state == SIGAR_RUNNING);
 		audio->state = SIGAR_CLOSED;
 #endif
 	}
 
 	return true;
+}
+
+inline
+const siByte* sigar_audioCurrentBufferGet(const siAudio* audio) {
+	return &audio->buffer[audio->__offset];
 }
 
 inline

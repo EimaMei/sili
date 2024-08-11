@@ -539,6 +539,9 @@ extern "C" {
 	#include <sys/fcntl.h>
 	#include <sys/time.h>
 
+	#undef _GNU_SOURCE
+	#undef _LARGEFILE64_SOURCE
+	#undef __USE_POSIX199506
 #else
 	#undef _CRT_SECURE_NO_WARNINGS
 	#define _CRT_SECURE_NO_WARNINGS
