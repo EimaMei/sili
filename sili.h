@@ -2834,7 +2834,7 @@ SIDEF usize si_numLenI64Ex(i64 num, u32 base);
 extern u32 SI_CPU_FREQ_MHZ;
 
 /* Returns the CPU's clock speed in mHz. The result of the function gets cached
- * to 'SI_CPU_FREQ_GHZ'. */
+ * to 'SI_CPU_FREQ_MHZ'. */
 u32 si_cpuClockSpeed(void);
 
 #endif /* SI_NO_CPU */

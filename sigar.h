@@ -969,9 +969,9 @@ void sigar_mixUInt8ToFloat32(siAudio* audio, f32* output, const u8* input) {
 	for_range (i, 0, config->frameCount) {
 		inPtr = &input[i * audio->channels];
 		for_range (j, 0, config->channels) {
-			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			outPtr = &output[i * config->channels + j];
 
+			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			f32 inValueFloat = inValue - 128;
 			inValueFloat *= (1.0f / (INT8_MAX + 1));
 
@@ -989,11 +989,12 @@ void sigar_mixInt16ToFloat32(siAudio* audio, f32* output, const i16* input) {
 	for_range (i, 0, config->frameCount) {
 		inPtr = &input[i * audio->channels];
 		for_range (j, 0, config->channels) {
-			i16 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			outPtr = &((f32*)output)[i * config->channels + j];
+			outPtr = &output[i * config->channels + j];
 
+			i16 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			f32 inValueFloat = inValue;
 			inValueFloat *= (1.0f / (INT16_MAX + 1));
+
 			sigar__mixTypes_f32f32(outPtr, inValueFloat);
 		}
 	}
@@ -1013,9 +1014,9 @@ void sigar_mixInt24ToFloat32(siAudio* audio, f32* output, const siByte* input) {
 
 			i32 inValueInt = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
 			SI_STOPIF(inValueInt & 0x800000, inValueInt |= ~0xFFFFFFu);
-
 			f32 inValue = (f32)inValueInt;
 			inValue *= (1.0f / 0x800000);
+
 			sigar__mixTypes_f32f32(outPtr, inValue);
 		}
 	}
@@ -1030,11 +1031,12 @@ void sigar_mixInt32ToFloat32(siAudio* audio, f32* output, const i32* input) {
 	for_range (i, 0, config->frameCount) {
 		inPtr = &input[i * audio->channels];
 		for_range (j, 0, config->channels) {
-			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			outPtr = &((f32*)output)[i * config->channels + j];
+			outPtr = &output[i * config->channels + j];
 
+			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			f32 inValueFloat = (f32)inValue;
 			inValueFloat *= (1.0f / (INT32_MAX + 1));
+
 			sigar__mixTypes_f32f32(outPtr, inValueFloat);
 		}
 	}
@@ -1049,12 +1051,116 @@ void sigar_mixUInt8ToInt16(siAudio* audio, i16* output, const u8* input) {
 	for_range (i, 0, config->frameCount) {
 		inPtr = &input[i * audio->channels];
 		for_range (j, 0, config->channels) {
-			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			outPtr = &output[i * config->channels + j];
 
+			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
 			i32 inValueI32 = inValue - 128;
 			inValueI32 *= 256;
+
 			sigar__mixTypes_i16i16(outPtr, (i16)inValueI32);
+		}
+	}
+}
+
+SIDEF
+void sigar_mixInt24ToInt16(siAudio* audio, i16* output, const siByte* input) {
+	siAudioDeviceConfig* config = &audio->device->config;
+	i16* outPtr;
+	const siByte* inPtr;
+
+	for_range (i, 0, config->frameCount) {
+		inPtr = &input[i * audio->channels * 3];
+		for_range (j, 0, config->channels) {
+			outPtr = &output[i * config->channels + j];
+			inPtr += sigar__fastMod(j, audio->channels) * 3;
+
+			i32 inValue = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
+			SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
+			inValue >>= 8;
+
+			sigar__mixTypes_i16i16(outPtr, (i16)inValue);
+		}
+	}
+}
+
+SIDEF
+void sigar_mixInt32ToInt16(siAudio* audio, i16* output, const i32* input) {
+	siAudioDeviceConfig* config = &audio->device->config;
+	i16* outPtr;
+	const i32* inPtr;
+
+	for_range (i, 0, config->frameCount) {
+		inPtr = &input[i * audio->channels];
+		for_range (j, 0, config->channels) {
+			outPtr = &output[i * config->channels + j];
+
+			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
+			inValue >>= 16;
+
+			sigar__mixTypes_i16i16(outPtr, (i16)inValue);
+		}
+	}
+}
+
+
+SIDEF
+void sigar_mixFloat32ToInt16(siAudio* audio, i16* output, const f32* input) {
+	siAudioDeviceConfig* config = &audio->device->config;
+	i16* outPtr;
+	const f32* inPtr;
+
+	for_range (i, 0, config->frameCount) {
+		inPtr = &input[i * audio->channels];
+		for_range (j, 0, config->channels) {
+			outPtr = &output[i * config->channels + j];
+
+			f32 inValueFloat = inPtr[sigar__fastMod(j, audio->channels)];
+			inValueFloat *= INT16_MAX;
+
+			sigar__mixTypes_i16i16(outPtr, (i16)inValueFloat);
+		}
+	}
+}
+
+SIDEF
+void sigar_mixInt16ToUInt8(siAudio* audio, u8* output, const i16* input) {
+	siAudioDeviceConfig* config = &audio->device->config;
+	u8* outPtr;
+	const i16* inPtr;
+
+	for_range (i, 0, config->frameCount) {
+		inPtr = &input[i * audio->channels];
+		for_range (j, 0, config->channels) {
+			outPtr = &output[i * config->channels + j];
+
+			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
+			inValue += INT16_MAX;
+			inValue /= UINT8_MAX + 1;
+			inValue -= 1;
+
+			sigar__mixTypes_u8u8(outPtr, (u8)inValue);
+		}
+	}
+}
+
+SIDEF
+void sigar_mixInt24ToUInt8(siAudio* audio, u8* output, const siByte* input) {
+	siAudioDeviceConfig* config = &audio->device->config;
+	u8* outPtr;
+	const siByte* inPtr;
+
+	for_range (i, 0, config->frameCount) {
+		inPtr = &input[i * audio->channels * 3];
+		for_range (j, 0, config->channels) {
+			outPtr = &output[i * config->channels + j];
+			inPtr += sigar__fastMod(j, audio->channels) * 3;
+
+			i32 inValue = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
+			SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
+			inValue += (1 << 23) - 1;
+			inValue /= UINT16_MAX + 1;
+
+			sigar__mixTypes_u8u8(outPtr, (u8)inValue);
 		}
 	}
 }
@@ -1105,17 +1211,18 @@ void sigar_mixBuffers(siAudio* audio, siByte* restrict output,
 
 		case SIGAR_FORMAT_I16:
 			switch (audio->format) {
-				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToInt16(audio, (i16*)output,  (u8*)input); return;
-				//case SIGAR_FORMAT_I24: sigar_mixInt24ToFloat32(audio, (f32*)output,  (u8*)input); return;
-				//case SIGAR_FORMAT_I32: sigar_mixInt32ToFloat32(audio, (f32*)output, (i32*)input); return;
-				//case SIGAR_FORMAT_F32: sigar_mixFloat32ToInt16(audio, (i16*)output, (f32*)input); return;
+				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToInt16(audio,   (i16*)output,  (u8*)input); return;
+				case SIGAR_FORMAT_I24: sigar_mixInt24ToInt16(audio,   (i16*)output,  (u8*)input); return;
+				case SIGAR_FORMAT_I32: sigar_mixInt32ToInt16(audio,   (i16*)output, (i32*)input); return;
+				case SIGAR_FORMAT_F32: sigar_mixFloat32ToInt16(audio, (i16*)output, (f32*)input); return;
 			} break;
-
-
 
 		case SIGAR_FORMAT_U8:
 			switch (audio->format) {
-				case SIGAR_FORMAT_I16: sigar__mixTypes(audio, u8, output, i16, input); return;
+				case SIGAR_FORMAT_I16: sigar_mixInt16ToUInt8(audio, (u8*)output, (i16*)input); return;
+				case SIGAR_FORMAT_I24: sigar_mixInt24ToUInt8(audio, (u8*)output,  (u8*)input); return;
+				//case SIGAR_FORMAT_I32: sigar_mixInt32ToUInt8(audio,   (i16*)output, (i32*)input); return;
+				//case SIGAR_FORMAT_F32: sigar_mixFloat32ToUInt8(audio, (i16*)output, (f32*)input); return;
 			} break;
 	}
 }
