@@ -42,6 +42,11 @@ MACROS
 		#include "sigar.h"
 	```
 
+	- SIGAR_NO_DEFAULT_MIXING - disables the default mixing done in sigar as well 
+	as undefines the implementation of 'sigar__callbackOutputDefault', which will 
+	result in a crash if a new implementation isn't made and the 'callback' setting 
+	in the device config isn't changed.
+
 ===========================================================================
 DOCUMENTATION
 	- Some functions might report audio specific errors, in which case a list of
@@ -121,7 +126,7 @@ extern "C" {
 
 
 /* The default sample format. Good for mixing. */
-#ifndef SIGAR_DEFAULT_SAMPLE_FORMAT
+#ifndef SIGAR_DEFAULT_FORMAT
 #define SIGAR_DEFAULT_FORMAT SIGAR_FORMAT_F32
 #endif
 
@@ -138,7 +143,7 @@ extern "C" {
 /* The default period count. Higher number reduces  latency, but also increases
  * the workload on the CPU. */
 #ifndef SIGAR_DEFAULT_PERIODS
-#define SIGAR_DEFAULT_PERIODS 2
+#define SIGAR_DEFAULT_PERIODS 3
 #endif
 
 /* The default frame count. Higher number reduces CPU workload, but also increases
@@ -181,7 +186,7 @@ SI_ENUM(i32, siAudioError) {
 };
 
 SI_ENUM(u32, siSampleFormat) {
-	SIGAR_FORMAT_U8,
+	SIGAR_FORMAT_U8 = 1,
 
 	SIGAR_FORMAT_I16,
 	SIGAR_FORMAT_I24,
@@ -300,8 +305,17 @@ SI_ENUM(u32, siAudioDeviceType) {
 
 SI_ENUM(u32, siAudioState) {
 	SIGAR_CLOSED = 0,
+
 	SIGAR_RUNNING,
-	SIGAR_PAUSED
+	SIGAR_PAUSED,
+
+	/* A special property only specific to 'siAudioDevice' that signals an exit
+	 * of the current playing thread, but doesn't disallocate the objects within
+	 * the device structure, meaning it can be played and started again without
+	 * the overhead of setting the same old parameters or rellocating the same
+	 * buffers. However, if you require to change the device settings, note that
+	 * a stopped device cannot utilize that functionality. */
+	SIGAR_STOPPED
 };
 
 /* */
@@ -318,10 +332,10 @@ typedef u32 siSampleRate;
 	- input: The buffer to read from during capture for recorded data. Is a null
 	pointer if playback mode is turned on.
 
-	- length: The total size of the audio frame in bytes. Equivalent of doing
-	'device->config.frameCount * device->config.channels * sigar_formatSize(device->config.format)' */
+	- length: The total size of one frame in bytes. Equivalent to:
+	'device->config.frameCount * device->config.channels' */
 typedef void SI_FUNC_PTR(siAudioCallback, (struct siAudioDevice* audio,
-	siByte* restrict output, const siByte* restrict input, usize length));
+	siByte* restrict output, const siByte* restrict input, usize frameSize));
 
 
 /* */
@@ -477,6 +491,9 @@ SIDEF siAudioDeviceConfig* sigar_deviceConfigEnable(siAudioDevice* device);
 SIDEF void sigar_deviceStart(siAudioDevice* device);
 /* Pauses the running device. */
 SIDEF void sigar_devicePause(siAudioDevice* device);
+/* Waits for the callback thread to finish with an option to force a wake-up, if 
+ * paused at all. */
+SIDEF void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause);
 
 /* Closes the specified audio device and frees any allocated resources. */
 SIDEF void sigar_deviceClose(siAudioDevice* device);
@@ -526,7 +543,7 @@ SIDEF b32 sigar_audioPause(siAudio* audio);
 SIDEF b32 sigar_audioClose(siAudio* audio);
 
 /* Returns the audio buffer that's offset by current timestamp. */
-SIDEF const siByte* sigar_audioCurrentBufferGet(const siAudio* audio);
+SIDEF siBuffer sigar_audioCurrentBufferGet(const siAudio* audio);
 
 /* Returns the current playback position of the unit. */
 SIDEF f32 sigar_audioTell(siAudio audio);
@@ -548,8 +565,67 @@ SIDEF void sigar_audioSetEnd(siAudio* audio, u32 miliseconds);
 SIDEF f32 sigar_audioGetDuration(siAudio audio);
 
 
+#if !defined(SIGAR_NO_DEFAULT_MIXING)
+
+/*
+ * NOTE: All mixing functions assume that the channel count and sample rate between
+ * the input and output buffers are the same.
+*/
+
+/* Mixes the input audio source with the output buffer. Converts the input format
+ * into the outpu's if needed. */
+void sigar_mixBuffers(siByte* restrict output, siSampleFormat formatOut,
+		const siByte* restrict input, siSampleFormat formatIn, usize len);
+/* Converts a mono stream to stereo. */
+void sigar_upmixBufferToStereo(siByte* restrict output, const siByte* restrict input,
+		usize frameCount, u32 sizePerChannel);
+
+/* Mixes an 8-bit unsigned integer source with an 8-bit unsigned integer destination. */
+SIDEF void sigar_mixUInt8ToUInt8(u8* restrict output, const u8* restrict input,
+		usize len);
+/* Mixes a 16-bit integer source with an 8-bit unsigned integer destination. */
+SIDEF void sigar_mixInt16ToUInt8(u8* output, const i16* input, usize len);
+/* Mixes a 24-bit integer source with an 8-bit unsigned integer destination. */
+SIDEF void sigar_mixInt24ToUInt8(u8* restrict output, const siByte* restrict input,
+		usize len);
+/* Mixes a 32-bit integer source with an 8-bit unsigned integer destination. */
+SIDEF void sigar_mixInt32ToUInt8(u8* output, const i32* input, usize len);
+/* Mixes a 32-bit float source with an 8-bit unsigned integer destination. */
+SIDEF void sigar_mixFloat32ToUInt8(u8* output, const f32* input, usize len);
+
+/* Mixes an 8-bit unsigned integer source with a 16-bit integer destination. */
+SIDEF void sigar_mixUInt8ToInt16(i16* output, const u8* input, usize len);
+/* Mixes a 16-bit integer source with a 16-bit integer destination. */
+SIDEF void sigar_mixInt16ToInt16(i16* restrict output, const i16* restrict input,
+		usize len);
+/* Mixes a 24-bit integer source with a 16-bit integer destination. */
+SIDEF void sigar_mixInt24ToInt16(i16* output, const siByte* input, usize len);
+/* Mixes a 32-bit integer source with a 16-bit integer destination. */
+SIDEF void sigar_mixInt32ToInt16(i16* output, const i32* input, usize len);
+/* Mixes a 32-bit float source with a 16-bit integer destination. */
+SIDEF void sigar_mixFloat32ToInt16(i16* output, const f32* input, usize len);
+
+
+/* Mixes an 8-bit unsigned integer source with a 32-bit float destination. */
+SIDEF void sigar_mixUInt8ToFloat32(f32* output, const u8* input, usize len);
+/* Mixes a 16-bit integer source with a 32-bit float destination. */
+SIDEF void sigar_mixInt16ToFloat32(f32* output, const i16* input, usize len);
+/* Mixes a 24-bit integer source with a 32-bit float destination. */
+SIDEF void sigar_mixInt24ToFloat32(f32* output, const siByte* input, usize len);
+/* Mixes a 32-bit integer source with a 32-bit float destination. */
+SIDEF void sigar_mixInt32ToFloat32(f32* output, const i32* input, usize len);
+/* Mixes a 32-bit float source with a 32-bit float destination. */
+SIDEF void sigar_mixFloat32ToFloat32(f32* restrict output, const f32* restrict input,
+		usize len);
+
+#endif /* !SIGAR_NO_DEFAULT_MIXING */
+
 
 #if defined(SIGAR_IMPLEMENTATION)
+
+siIntern
+void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output,
+		const siByte* input, usize frameCount);
 
 siIntern
 siSampleFormat sigar__formatPriority[] = {
@@ -712,26 +788,17 @@ siIntern snd_pcm_format_t sigar__alsaToFormat(siSampleFormat format);
 
 siIntern
 void sigar__alsaDeviceInit(siAudioDevice* device) {
+	SI_STOPIF(device->state == SIGAR_STOPPED, return);
+
 	siAudioDeviceConfig* config = &device->config;
 	snd_pcm_hw_params_t* params;
 	snd_pcm_hw_params_alloca(&params);
 
-
-	if (config->format == 0) {
-		config->format = SIGAR_DEFAULT_FORMAT;
-	}
-	if (config->rate == 0) {
-		config->rate = SIGAR_DEFAULT_SAMPLE_RATE;
-	}
-	if (config->channels == 0) {
-		config->channels = SIGAR_DEFAULT_CHANNELS;
-	}
-	if (config->periodCount == 0) {
-		config->periodCount = SIGAR_DEFAULT_PERIODS;
-	}
-	if (config->frameCount == 0) {
-		config->frameCount = SIGAR_DEFAULT_FRAME_COUNT;
-	}
+	SI_STOPIF(config->format == 0, config->format = SIGAR_DEFAULT_FORMAT);
+	SI_STOPIF(config->rate == 0, config->rate = SIGAR_DEFAULT_SAMPLE_RATE);
+	SI_STOPIF(config->channels == 0, config->channels = SIGAR_DEFAULT_CHANNELS);
+	SI_STOPIF(config->periodCount == 0, config->periodCount = SIGAR_DEFAULT_PERIODS);
+	SI_STOPIF(config->frameCount == 0, config->frameCount = SIGAR_DEFAULT_FRAME_COUNT);
 
 	i32 res = snd_pcm_hw_params_any(device->id, params);
 	SI_ASSERT(res >= 0);
@@ -791,22 +858,26 @@ void sigar__alsaDeviceInit(siAudioDevice* device) {
 	}
 
 	struct pollfd* pfds = device->pfd;
-	pfds[0].fd = eventfd(0, 0);
-	pfds[0].events = POLLIN;
-	pfds[0].revents = 0;
 	res = snd_pcm_poll_descriptors(device->id, &pfds[1], countof(device->pfd) - 1);
-
+	if (pfds[0].fd == 0) {
+		pfds[0].fd = eventfd(0, 0);
+		pfds[0].events = POLLIN;
+		pfds[0].revents = 0;
+	}
 	SI_ASSERT(pfds[0].fd != -1);
 	SI_ASSERT(res != 0);
 
 	if (device->alloc.ptr == nil) {
-		u32 frameTotalSize = config->frameCount * config->channels
-			* (u32)sigar_formatSize(config->format);
-		device->alloc = si_allocatorMake(frameTotalSize);
+		si_allocatorFree(&device->alloc);
 	}
 
-	pthread_mutex_init(&device->mutex, nil);
-	pthread_cond_init(&device->cond, nil);
+	usize frameTotalSize = config->frameCount * config->channels * sigar_formatSize(config->format);
+	device->alloc = si_allocatorMake(frameTotalSize);
+
+	if (!device->thread.initialized) {
+		pthread_mutex_init(&device->mutex, nil);
+		pthread_cond_init(&device->cond, nil);
+	}
 
 	res = snd_pcm_nonblock(device->id, 1);
 	SI_ASSERT(res == 0);
@@ -889,363 +960,11 @@ void sigar__alsaDevicePause(siAudioDevice* device) {
 	snd_pcm_start(device->id);
 }
 
-
-force_inline
-u32 sigar__fastMod(u32 input, u32 ceil) {
-    return (input >= ceil)
-		? input % ceil
-		: input;
-}
-
-/* NOTE(EimaMei): This macro requires the existence of a 'sigar__mixTypes_<typeOut><typeIn>'
- * function, where it should take a pointer of the current frame's channel and
- * a regular value with the input's type. */
-#define sigar__mixTypes(audio, typeOut, out, typeIn, in) \
-	do { \
-		siAudioDeviceConfig* config = &audio->device->config; \
-		typeOut* outPtr; \
-		const typeIn* inPtr; \
-		\
-		for_range (i, 0, config->frameCount) { \
-			inPtr = &si_cast(typeIn*, in)[i * audio->channels]; \
-			\
-			for_range (j, 0, config->channels) { \
-				typeIn inValue = inPtr[sigar__fastMod(j, audio->channels)]; \
-				outPtr = &si_cast(typeOut*, out)[i * config->channels + j]; \
-				\
-				sigar__mixTypes_ ## typeOut ## typeIn (outPtr, inValue); \
-			} \
-		} \
-	} while(0)
-
-force_inline
-void sigar__mixTypes_f32f32(f32* outPtr, f32 inValue) {
-	f32 outValue = *outPtr + inValue;
-
-	if (outValue > 1.0f) { outValue = 1.0f; }
-	else if (outValue < -1.0f) { outValue= -1.0f; }
-
-	*outPtr = outValue;
-}
-force_inline
-void sigar__mixTypes_i16i16(i16* outPtr, i16 inValue) {
-	i32 outValue = *outPtr + inValue;
-
-	if (outValue > INT16_MAX) { outValue = INT16_MAX; }
-	else if (outValue < INT16_MIN) { outValue = INT16_MIN; }
-
-	*outPtr = (i16)outValue;
-}
-force_inline
-void sigar__mixTypes_u8u8(u8* outPtr, u8 inValue) {
-	u32 outValue = *outPtr;
-	outValue += inValue - (outValue * inValue) / 256;
-
-	*outPtr = (u8)outValue;
-}
-
-force_inline
-void sigar__mixTypes_f32i32(f32* outPtr, i32 inValue) {
-	f32 inValueFloat = (f32)inValue;
-	inValueFloat *= (1.0f / (INT32_MAX + 1));
-	sigar__mixTypes_f32f32(outPtr, inValueFloat);
-}
-force_inline
-void sigar__mixTypes_u8i16(u8* outPtr, u16 inValue) {
-	i32 inValueI32 = inValue + (INT16_MAX + 1);
-	inValueI32 /= 256;
-	inValueI32 -= 1;
-
-	sigar__mixTypes_u8u8(outPtr, (u8)inValueI32);
-}
-
-
-SIDEF
-void sigar_mixUInt8ToFloat32(siAudio* audio, f32* output, const u8* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	f32* outPtr;
-	const u8* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			f32 inValueFloat = inValue - 128;
-			inValueFloat *= (1.0f / (INT8_MAX + 1));
-
-			sigar__mixTypes_f32f32(outPtr, inValueFloat);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt16ToFloat32(siAudio* audio, f32* output, const i16* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	f32* outPtr;
-	const i16* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			i16 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			f32 inValueFloat = inValue;
-			inValueFloat *= (1.0f / (INT16_MAX + 1));
-
-			sigar__mixTypes_f32f32(outPtr, inValueFloat);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt24ToFloat32(siAudio* audio, f32* output, const siByte* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	f32* outPtr;
-	const siByte* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels * 3];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-			inPtr += sigar__fastMod(j, audio->channels) * 3;
-
-			i32 inValueInt = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
-			SI_STOPIF(inValueInt & 0x800000, inValueInt |= ~0xFFFFFFu);
-			f32 inValue = (f32)inValueInt;
-			inValue *= (1.0f / 0x800000);
-
-			sigar__mixTypes_f32f32(outPtr, inValue);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt32ToFloat32(siAudio* audio, f32* output, const i32* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	f32* outPtr;
-	const i32* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			f32 inValueFloat = (f32)inValue;
-			inValueFloat *= (1.0f / (INT32_MAX + 1));
-
-			sigar__mixTypes_f32f32(outPtr, inValueFloat);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixUInt8ToInt16(siAudio* audio, i16* output, const u8* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	i16* outPtr;
-	const u8* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			u8 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			i32 inValueI32 = inValue - 128;
-			inValueI32 *= 256;
-
-			sigar__mixTypes_i16i16(outPtr, (i16)inValueI32);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt24ToInt16(siAudio* audio, i16* output, const siByte* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	i16* outPtr;
-	const siByte* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels * 3];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-			inPtr += sigar__fastMod(j, audio->channels) * 3;
-
-			i32 inValue = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
-			SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
-			inValue >>= 8;
-
-			sigar__mixTypes_i16i16(outPtr, (i16)inValue);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt32ToInt16(siAudio* audio, i16* output, const i32* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	i16* outPtr;
-	const i32* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			inValue >>= 16;
-
-			sigar__mixTypes_i16i16(outPtr, (i16)inValue);
-		}
-	}
-}
-
-
-SIDEF
-void sigar_mixFloat32ToInt16(siAudio* audio, i16* output, const f32* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	i16* outPtr;
-	const f32* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			f32 inValueFloat = inPtr[sigar__fastMod(j, audio->channels)];
-			inValueFloat *= INT16_MAX;
-
-			sigar__mixTypes_i16i16(outPtr, (i16)inValueFloat);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt16ToUInt8(siAudio* audio, u8* output, const i16* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	u8* outPtr;
-	const i16* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-
-			i32 inValue = inPtr[sigar__fastMod(j, audio->channels)];
-			inValue += INT16_MAX;
-			inValue /= UINT8_MAX + 1;
-			inValue -= 1;
-
-			sigar__mixTypes_u8u8(outPtr, (u8)inValue);
-		}
-	}
-}
-
-SIDEF
-void sigar_mixInt24ToUInt8(siAudio* audio, u8* output, const siByte* input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	u8* outPtr;
-	const siByte* inPtr;
-
-	for_range (i, 0, config->frameCount) {
-		inPtr = &input[i * audio->channels * 3];
-		for_range (j, 0, config->channels) {
-			outPtr = &output[i * config->channels + j];
-			inPtr += sigar__fastMod(j, audio->channels) * 3;
-
-			i32 inValue = (*(i32*)inPtr) & 0xFFFFFFu; /* NOTE(EimaMei): Dangerous code, oops. */
-			SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
-			inValue += (1 << 23) - 1;
-			inValue /= UINT16_MAX + 1;
-
-			sigar__mixTypes_u8u8(outPtr, (u8)inValue);
-		}
-	}
-}
-
-
-
-/* NOTE(EimaMei): List of format support for mixing.
-SIGAR_FORMAT_U8  +
-SIGAR_FORMAT_I16 +
-SIGAR_FORMAT_I24 +
-SIGAR_FORMAT_I32 +
-SIGAR_FORMAT_F32 +
-
-NOTE 1: sigar currently doesn't have support for playing non-native endian data.
-
-NOTE 2: sigar will most likely not support mixing multiple sources with different
-sample rates, at least for the time being.
-
-NOTE 3: If the audio format is an 24-bit/32-bit integer, sigar automatically
-requests a float format instead from the audio driver, and thus the i24/i32
-data gets conveted into floats during playback. Native support *may* be added,
-especially for i32. */
-
-SIDEF
-void sigar_mixBuffers(siAudio* audio, siByte* restrict output,
-		const siByte* restrict input) {
-	siAudioDeviceConfig* config = &audio->device->config;
-	SI_ASSERT(audio->rate == config->rate);
-	SI_ASSERT(sigar_formatIsNative(audio->format));
-
-	if (audio->format == config->format) {
-		switch (audio->format) {
-			case SIGAR_FORMAT_U8:    sigar__mixTypes(audio, u8, output, u8, input); return;
-			case SIGAR_FORMAT_F32: sigar__mixTypes(audio, f32, output, f32, input); return;
-			case SIGAR_FORMAT_I16: sigar__mixTypes(audio, i16, output, i16, input); return;
-			default: return;
-		}
-	}
-
-	switch (config->format) {
-		case SIGAR_FORMAT_F32:
-			switch (audio->format) {
-				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToFloat32(audio, (f32*)output,  (u8*)input); return;
-				case SIGAR_FORMAT_I16: sigar_mixInt16ToFloat32(audio, (f32*)output, (i16*)input); return;
-				case SIGAR_FORMAT_I24: sigar_mixInt24ToFloat32(audio, (f32*)output,  (u8*)input); return;
-				case SIGAR_FORMAT_I32: sigar_mixInt32ToFloat32(audio, (f32*)output, (i32*)input); return;
-			} break;
-
-		case SIGAR_FORMAT_I16:
-			switch (audio->format) {
-				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToInt16(audio,   (i16*)output,  (u8*)input); return;
-				case SIGAR_FORMAT_I24: sigar_mixInt24ToInt16(audio,   (i16*)output,  (u8*)input); return;
-				case SIGAR_FORMAT_I32: sigar_mixInt32ToInt16(audio,   (i16*)output, (i32*)input); return;
-				case SIGAR_FORMAT_F32: sigar_mixFloat32ToInt16(audio, (i16*)output, (f32*)input); return;
-			} break;
-
-		case SIGAR_FORMAT_U8:
-			switch (audio->format) {
-				case SIGAR_FORMAT_I16: sigar_mixInt16ToUInt8(audio, (u8*)output, (i16*)input); return;
-				case SIGAR_FORMAT_I24: sigar_mixInt24ToUInt8(audio, (u8*)output,  (u8*)input); return;
-				//case SIGAR_FORMAT_I32: sigar_mixInt32ToUInt8(audio,   (i16*)output, (i32*)input); return;
-				//case SIGAR_FORMAT_F32: sigar_mixFloat32ToUInt8(audio, (i16*)output, (f32*)input); return;
-			} break;
-	}
-}
-
-siIntern
-void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output,
-		const siByte* input, usize length) {
-
-	siAudio* audio = sigar_devicePollAudioHead(device);
-	while (audio != nil) {
-		const siByte* audioBuffer = sigar_audioCurrentBufferGet(audio);
-		sigar_mixBuffers(audio, output, audioBuffer);
-
-		sigar_devicePollAudio(device, &audio);
-	}
-
-	SI_UNUSED(input); SI_UNUSED(length);
-}
-
 siIntern
 void sigar__threadOutputCallback(siAudioDevice* device) {
 	siAudioDeviceConfig* config = &device->config;
 	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0x80 : 0;
+	usize frameSize = config->frameCount * config->channels;
 
 start:
 	while (device->state == SIGAR_RUNNING) {
@@ -1255,7 +974,7 @@ start:
 		siByte* frame = device->alloc.ptr;
 		si_memset(frame, silence, device->alloc.capacity);
 
-		config->callback(device, frame, nil, device->alloc.capacity);
+		config->callback(device, frame, nil, frameSize);
 		sigar__alsaDeviceWrite(device);
 	}
 
@@ -1651,7 +1370,14 @@ void sigar_deviceStart(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SIGAR_ASSERT_DEVICE(device);
 
-	if (device->state == SIGAR_CLOSED) {
+
+	if (device->state == SIGAR_PAUSED) {
+		pthread_mutex_lock(&device->mutex);
+		device->state = SIGAR_RUNNING;
+		pthread_cond_signal(&device->cond);
+		pthread_mutex_unlock(&device->mutex);
+	}
+	else if (device->state == SIGAR_CLOSED || device->state == SIGAR_STOPPED) {
 		sigar__alsaDeviceInit(device);
 		device->state = SIGAR_RUNNING;
 
@@ -1664,15 +1390,9 @@ void sigar_deviceStart(siAudioDevice* device) {
 			return;
 		}
 	}
-	else if (device->state == SIGAR_PAUSED) {
-		pthread_mutex_lock(&device->mutex);
-		device->state = SIGAR_RUNNING;
-		pthread_cond_signal(&device->cond);
-		pthread_mutex_unlock(&device->mutex);
-	}
 }
 
-SIDEF
+inline
 void sigar_devicePause(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SIGAR_ASSERT_DEVICE(device);
@@ -1681,10 +1401,35 @@ void sigar_devicePause(siAudioDevice* device) {
 		device->state = SIGAR_PAUSED;
 	}
 }
+void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause) {
+	SI_ASSERT_NOT_NULL(device);
+	SIGAR_ASSERT_DEVICE(device);
+	SI_STOPIF(device->state != SIGAR_RUNNING, return);
+
+
+	if (forceUnpause) {
+		/* NOTE(EimaMei): Force a wake-up from a poll. */
+		u64 t = 1;
+		write(device->pfd[0].fd, &t, sizeof(t));
+
+		/* NOTE(EimaMei): Force a wake-up from a possible pause. */
+		if (!device->numberOfSources) {
+			pthread_mutex_lock(&device->mutex);
+			if (device->state == SIGAR_PAUSED) {
+				device->state = SIGAR_RUNNING;
+			}
+			pthread_cond_signal(&device->cond);
+			pthread_mutex_unlock(&device->mutex);
+		}
+	}
+	si_threadJoin(&device->thread);
+}
+
+
 SIDEF
 void sigar_deviceClose(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
-	SI_STOPIF(device->status.error != SIGAR_SUCCESS, return);
+	SIGAR_ASSERT_DEVICE(device);
 
 	device->audioHead = nil;
 	device->state = SIGAR_CLOSED;
@@ -1701,25 +1446,15 @@ void sigar_deviceClose(siAudioDevice* device) {
 	);
 #else
 	if (device->thread.isRunning) {
-		{ /* NOTE(EimaMei): Force a wake-up from a poll. */
-			u64 t = 1;
-			write(device->pfd[0].fd, &t, sizeof(t));
-		}
+		sigar_deviceWait(device, true);
+	}
 
-		{ /* NOTE(EimaMei): Force a wake-up from a possible pause. */
-			if (!device->numberOfSources) {
-				pthread_mutex_lock(&device->mutex);
-				pthread_cond_signal(&device->cond);
-				pthread_mutex_unlock(&device->mutex);
-			}
-		}
-		si_threadJoin(&device->thread);
+	if (device->pfd[0].fd) {
 		close(device->pfd[0].fd);
 	}
 
 	if (device->alloc.ptr) {
 		si_allocatorFree(&device->alloc);
-		device->alloc.ptr = nil;
 	}
 
 	if (device->id) {
@@ -2004,16 +1739,15 @@ b32 sigar_audioClose(siAudio* audio) {
 
 #elif SI_SYSTEM_IS_UNIX
 		siAudioDevice* device = audio->device;
-		siAudio* next = device->audioHead;
-		while (next != audio) {
-			next = next->nextUnit;
-		}
-
-		if (next == device->audioHead) {
+		siAudio* audioHead = device->audioHead;
+		if (audioHead == audio) {
 			device->audioHead = audio->nextUnit;
 		}
 		else {
-			next->nextUnit = audio->nextUnit;
+			while (audioHead->nextUnit != audio) {
+				audioHead = audioHead->nextUnit;
+			}
+			audioHead->nextUnit = audioHead->nextUnit->nextUnit;
 		}
 
 		/* NOTE(EimaMei): Doesn't decrement if the audio was paused before closure. */
@@ -2026,8 +1760,8 @@ b32 sigar_audioClose(siAudio* audio) {
 }
 
 inline
-const siByte* sigar_audioCurrentBufferGet(const siAudio* audio) {
-	return &audio->buffer[audio->__offset];
+siBuffer sigar_audioCurrentBufferGet(const siAudio* audio) {
+	return (siBuffer){(siByte*)&audio->buffer[audio->__offset], audio->__offset - audio->end};
 }
 
 inline
@@ -2077,6 +1811,348 @@ f32 sigar_audioGetDuration(siAudio audio) {
 	usize time = audio.end - audio.start;
 	return (f32)time / (f32)audio.bytesPerSecond;
 }
+
+
+#if !defined(SIGAR_NO_DEFAULT_MIXING)
+
+typedef struct { u8 m[3]; } si__u8x3;
+
+force_inline
+void sigar__mixTypes_f32f32(f32* outPtr, f32 inValue) {
+	f32 outValue = *outPtr + inValue;
+
+	if (outValue > 1.0f) { outValue = 1.0f; }
+	else if (outValue < -1.0f) { outValue= -1.0f; }
+
+	*outPtr = outValue;
+}
+force_inline
+void sigar__mixTypes_i16i16(i16* outPtr, i16 inValue) {
+	i32 outValue = *outPtr + inValue;
+
+	if (outValue > INT16_MAX) { outValue = INT16_MAX; }
+	else if (outValue < INT16_MIN) { outValue = INT16_MIN; }
+
+	*outPtr = (i16)outValue;
+}
+force_inline
+void sigar__mixTypes_u8u8(u8* outPtr, u8 inValue) {
+	u32 outValue = *outPtr;
+	outValue += inValue - (outValue * inValue) / 256;
+
+	*outPtr = (u8)outValue;
+}
+
+
+SIDEF
+void sigar_upmixBufferToStereo(siByte* restrict output, const siByte* restrict input,
+		usize frameCount, u32 sizePerChannel) {
+
+	switch (sizePerChannel) {
+		case 1: {
+			for_range (i, 0, frameCount) {
+				output[i * 2 + 0] = input[i];
+				output[i * 2 + 1] = input[i];
+			}
+		} break;
+
+		case 2: {
+			u16* out = (u16*)output, *in = (u16*)input;
+			for_range (i, 0, frameCount) {
+				out[i * 2 + 0] = in[i];
+				out[i * 2 + 1] = in[i];
+			}
+		} break;
+
+		case 3: {
+			si__u8x3* out = (si__u8x3*)output, *in = (si__u8x3*)input;
+			for_range (i, 0, frameCount) {
+				out[i * 2 + 0] = in[i];
+				out[i * 2 + 1] = in[i];
+			}
+		} break;
+
+		case 4: {
+			u32* out = (u32*)output, *in = (u32*)input;
+			for_range (i, 0, frameCount) {
+				out[i * 2 + 0] = in[i];
+				out[i * 2 + 1] = in[i];
+			}
+		} break;
+		default: SI_PANIC();
+	}
+}
+
+SIDEF
+void sigar_mixBuffers(siByte* restrict output, siSampleFormat formatOut,
+		const siByte* restrict input, siSampleFormat formatIn, usize len) {
+	SI_ASSERT_NOT_NULL(output);
+	SI_ASSERT_NOT_NULL(input);
+	SI_ASSERT(sigar_formatIsNative(formatOut));
+	SI_ASSERT(sigar_formatIsNative(formatIn));
+
+	if (formatOut == formatIn) {
+		switch (formatOut) {
+			case SIGAR_FORMAT_U8:      sigar_mixUInt8ToUInt8((u8*)output,   (u8*)input, len); return;
+			case SIGAR_FORMAT_I16:     sigar_mixInt16ToInt16((i16*)output, (i16*)input, len); return;
+			case SIGAR_FORMAT_F32: sigar_mixFloat32ToFloat32((f32*)output, (f32*)input, len); return;
+			default: return;
+		}
+	}
+
+	switch (formatOut) {
+		case SIGAR_FORMAT_F32:
+			switch (formatIn) {
+				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToFloat32((f32*)output,  (u8*)input, len); return;
+				case SIGAR_FORMAT_I16: sigar_mixInt16ToFloat32((f32*)output, (i16*)input, len); return;
+				case SIGAR_FORMAT_I24: sigar_mixInt24ToFloat32((f32*)output,  (u8*)input, len); return;
+				case SIGAR_FORMAT_I32: sigar_mixInt32ToFloat32((f32*)output, (i32*)input, len); return;
+			} break;
+
+		case SIGAR_FORMAT_I16:
+			switch (formatIn) {
+				case SIGAR_FORMAT_U8:  sigar_mixUInt8ToInt16((i16*)output,   (u8*)input, len); return;
+				case SIGAR_FORMAT_I24: sigar_mixInt24ToInt16((i16*)output,   (u8*)input, len); return;
+				case SIGAR_FORMAT_I32: sigar_mixInt32ToInt16((i16*)output,   (i32*)input, len); return;
+				case SIGAR_FORMAT_F32: sigar_mixFloat32ToInt16((i16*)output, (f32*)input, len); return;
+			} break;
+
+		case SIGAR_FORMAT_U8:
+			switch (formatIn) {
+				case SIGAR_FORMAT_I16: sigar_mixInt16ToUInt8((u8*)output, (i16*)input, len); return;
+				case SIGAR_FORMAT_I24: sigar_mixInt24ToUInt8((u8*)output,  (u8*)input, len); return;
+				case SIGAR_FORMAT_I32: sigar_mixInt32ToUInt8((u8*)output, (i32*)input, len); return;
+				case SIGAR_FORMAT_F32: sigar_mixFloat32ToUInt8((u8*)output, (f32*)input, len); return;
+			} break;
+	}
+}
+
+
+
+SIDEF
+void sigar_mixUInt8ToUInt8(u8* restrict output, const u8* restrict input, usize len) {
+	for_range (i, 0, len) {
+		sigar__mixTypes_u8u8(&output[i], input[i]);
+	}
+}
+
+SIDEF
+void sigar_mixInt16ToUInt8(u8* output, const i16* input, usize len) {
+	for_range (i, 0, len) {
+		i32 inValue = input[i];
+		inValue += INT16_MAX;
+		inValue /= UINT8_MAX + 1;
+		inValue -= 1;
+
+		sigar__mixTypes_u8u8(&output[i], (u8)inValue);
+	}
+}
+
+SIDEF
+void sigar_mixInt24ToUInt8(u8* restrict output, const siByte* restrict input,
+		usize len) {
+	const si__u8x3* inPtr = (si__u8x3*)input;
+
+	usize i;
+	for (i = 0; i < len; i += 1) {
+		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
+		SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
+		inValue += (1 << 23) - 1;
+		inValue /= UINT16_MAX + 1;
+
+		sigar__mixTypes_u8u8(&output[i], (u8)inValue);
+	}
+
+	i32 inValue = 0;
+	si_memcopy(&inValue, &inPtr[i], 3);
+	inValue = (inValue ^ 0x800000) - 0x800000;
+	inValue += (1 << 23) - 1;
+	inValue /= UINT16_MAX + 1;
+
+	sigar__mixTypes_u8u8(&output[i], (u8)inValue);
+
+}
+
+SIDEF
+void sigar_mixInt32ToUInt8(u8* output, const i32* input, usize len) {
+	for_range (i, 0, len) {
+		i32 inValue = input[i] + (INT32_MAX - 1);
+		inValue /= UINT16_MAX + 1;
+		inValue /= UINT8_MAX + 1;
+
+		sigar__mixTypes_u8u8(&output[i], (u8)inValue);
+	}
+}
+
+SIDEF
+void sigar_mixFloat32ToUInt8(u8* output, const f32* input, usize len) {
+	for_range (i, 0, len) {
+		f32 inValue = input[i] * 127 + 128;
+		sigar__mixTypes_u8u8(&output[i], (u8)inValue);
+	}
+}
+
+
+SIDEF
+void sigar_mixUInt8ToInt16(i16* output, const u8* input, usize len) {
+	for_range (i, 0, len) {
+		i32 inValueI32 = (i32)input[i] - 128;
+		inValueI32 *= 256;
+
+		sigar__mixTypes_i16i16(&output[i], (i16)inValueI32);
+	}
+}
+
+SIDEF
+void sigar_mixInt16ToInt16(i16* restrict output, const i16* restrict input, usize len) {
+	for_range (i, 0, len) {
+		sigar__mixTypes_i16i16(&output[i], input[i]);
+	}
+}
+
+SIDEF
+void sigar_mixInt24ToInt16(i16* output, const siByte* input, usize len) {
+	si__u8x3* inPtr = (si__u8x3*)input;
+
+	usize i;
+	for (i = 0; i < len - 1; i += 1) {
+		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
+		inValue = (inValue ^ 0x800000) - 0x800000;
+		inValue >>= 8;
+
+		sigar__mixTypes_i16i16(&output[i], (i16)inValue);
+	}
+
+	i32 inValue = 0;
+	si_memcopy(&inValue, &inPtr[i], 3);
+	inValue = (inValue ^ 0x800000) - 0x800000;
+	inValue >>= 8;
+
+	sigar__mixTypes_i16i16(&output[i], (u8)inValue);
+}
+
+SIDEF
+void sigar_mixInt32ToInt16(i16* output, const i32* input, usize len) {
+	for_range (i, 0, len) {
+		i32 inValue = input[i] >> 16;
+		sigar__mixTypes_i16i16(&output[i], (i16)inValue);
+	}
+}
+
+SIDEF
+void sigar_mixFloat32ToInt16(i16* output, const f32* input, usize len) {
+	for_range (i, 0, len) {
+		f32 inValue = input[i];
+		inValue *= INT16_MAX;
+		sigar__mixTypes_i16i16(&output[i], (i16)inValue);
+	}
+}
+
+
+SIDEF
+void sigar_mixUInt8ToFloat32(f32* output, const u8* input, usize len) {
+	for_range (i, 0, len) {
+		f32 inValue = input[i] - 128;
+		inValue /= INT8_MAX + 1;
+
+		sigar__mixTypes_f32f32(&output[i], inValue);
+	}
+}
+
+SIDEF
+void sigar_mixInt16ToFloat32(f32* output, const i16* input, usize len) {
+	for_range (i, 0, len) {
+		f32 inValue = input[i];
+		inValue /= INT16_MAX + 1;
+
+		sigar__mixTypes_f32f32(&output[i], inValue);
+	}
+}
+
+SIDEF
+void sigar_mixInt24ToFloat32(f32* output, const siByte* input, usize len) {
+	si__u8x3* inPtr = (si__u8x3*)input;
+
+	usize i;
+	for (i = 0; i < len - 1; i += 1) {
+		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
+		inValue = (inValue ^ 0x800000) - 0x800000;
+
+		f32 inValueFloat = (f32)inValue;
+		inValueFloat /= 0x800000;
+
+		sigar__mixTypes_f32f32(&output[i], inValueFloat);
+	}
+
+	i32 inValue = 0;
+	si_memcopy(&inValue, &inPtr[i], 3);
+	inValue = (inValue ^ 0x800000) - 0x800000;
+	inValue >>= 8;
+
+	f32 inValueFloat = (f32)inValue;
+	inValueFloat /= 0x800000;
+
+	sigar__mixTypes_f32f32(&output[i], inValueFloat);
+}
+
+SIDEF
+void sigar_mixInt32ToFloat32(f32* output, const i32* input, usize len) {
+	for_range (i, 0, len) {
+		f32 inValue = (f32)input[i];
+		inValue /= (INT32_MAX + 1);
+
+		sigar__mixTypes_f32f32(&output[i], inValue);
+	}
+}
+
+SIDEF
+void sigar_mixFloat32ToFloat32(f32* restrict output, const f32* restrict input,
+		usize len) {
+	for_range (i, 0, len) {
+		sigar__mixTypes_f32f32(&output[i], input[i]);
+	}
+}
+
+
+siIntern
+void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output,
+		const siByte* input, usize frameCount) {
+	siAudioDeviceConfig* config = &device->config;
+
+	siAudio* audio = sigar_devicePollAudioHead(device);
+	if (audio == nil) {
+		/* NOTE(EimaMei): There are no more audio sources left, leave. For more
+		 * information about 'SIGAR_STOPPED', check its documentation. */
+		device->state = SIGAR_STOPPED;
+		return ;
+	}
+
+	while (audio != nil) {
+		siBuffer buffer = sigar_audioCurrentBufferGet(audio);
+		u8 mixed[SI_KILO(8)];
+
+		if (audio->channels < config->channels) {
+			SI_ASSERT(audio->channels == 1);
+			SI_ASSERT(frameCount <= SI_KILO(8));
+
+			sigar_upmixBufferToStereo(
+				mixed, buffer.data, config->frameCount,
+				(u32)sigar_formatSize(audio->format)
+			);
+			buffer.data = mixed;
+		}
+
+		SI_ASSERT(audio->rate == config->rate); /* NOTE(EimaMei): No sample rate resampling. */
+		sigar_mixBuffers(output, config->format, buffer.data, audio->format, frameCount);
+
+		sigar_devicePollAudio(device, &audio);
+	}
+
+	SI_UNUSED(input);
+}
+
+#endif /* !SIGAR_NO_DEFAULT_MIXING */
+
 
 #if SI_SYSTEM_IS_APPLE
 	#undef SIGAR__COREAUDIO_AUDIO_OBJECT_PROPERTY_ELEMENT
