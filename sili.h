@@ -451,23 +451,49 @@ extern "C" {
 	#define SI_ARCH "Unknown"
 #endif
 
-/* Support for non little and big endian environments is not officially supported. */
-#if 'ABCD' == 0x41424344UL
-	#define SI_ENDIAN_IS_LITTLE 1
-	#define SI_ENDIAN_STR "Little-endian"
+#if !defined(SI_ENDIAN_STR) && (!defined(SI_ENDIAN_IS_LITTLE) || !defined(SI_ENDIAN_IS_BIG))
+	#if SI_COMPILER_CHECK_MIN(GCC, 4, 6, 0) || SI_COMPILER_CHECK_MIN(CLANG, 3, 0, 0)
+		#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+			#define SI_ENDIAN_IS_LITTLE 1
+			#define SI_ENDIAN_STR "Little-endian"
 
-#elif 'ABCD' == 0x44434241UL
-	#define SI_ENDIAN_IS_BIG 1
-	#define SI_ENDIAN_STR "Big-endian"
+		#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+			#define SI_ENDIAN_IS_BIG 1
+			#define SI_ENDIAN_STR "Big-endian"
 
-#elif 'ABCD' == 0x42414443UL
-	#define SI_ENDIAN_IS_PDP 1
-	#define SI_ENDIAN_STR "PDP-endian"
+		#else
+			#define SI_ENDIAN_UNKNOWN 1
+			#define SI_ENDIAN_STR "Unknown"
 
-#else
-	#define SI_ENDIAN_UNKNOWN 1
-	#define SI_ENDIAN_STR "Unknown"
+		#endif
 
+	#else
+		/* NOTE(EimaMei): A "portable"(?) way of checking endianness at compile
+		 * time.
+		 *
+		 * Rationale: In the C89 specification, it states that multi-chars are
+		 * legal but left up for implementation. This results in most compilers
+		 * just appending the characters since that's cheap and fast, but at
+		 * the same time makes it not portable between platforms, which is why
+		 * GCC complains about it.
+		 *
+		 * Due to this, it's more or less somewhat safe to assume that if a
+		 * multi-char is made in a certain way, then you can also assume the endian
+		 * at compile-time too! */
+		#if 'ABCD' == 0x41424344UL
+			#define SI_ENDIAN_IS_LITTLE 1
+			#define SI_ENDIAN_STR "Little-endian"
+
+		#elif 'ABCD' == 0x44434241UL
+			#define SI_ENDIAN_IS_BIG 1
+			#define SI_ENDIAN_STR "Big-endian"
+
+		#else
+			#define SI_ENDIAN_UNKNOWN 1
+			#define SI_ENDIAN_STR "Unknown"
+
+		#endif
+	#endif
 #endif
 
 #if !defined(SI_ARCH_IS_64BIT) && !defined(SI_ARCH_IS_32BIT)
@@ -1662,7 +1688,11 @@ typedef struct siBuffer {
 //#define SI_STR_LEN(string, len) SI_BUF_LEN(u8, string, len)
 /* TODO
  * TODO */
-#define SI_BUF_LEN(type, buffer, length) (siBuffer){(u8*)buffer, length, sizeof(type), nil}
+#define SI_BUF_LEN(type, buffer, length) SI_BUF_ALL(type, buffer, length, nil)
+/* TODO
+ * TODO */
+#define SI_BUF_ALL(type, buffer, length, alloc) \
+	(siBuffer){(u8*)buffer, length, sizeof(type), alloc}
 
 
 /* type - TYPE | name - NAME | array - siArray(TYPE)
@@ -1826,7 +1856,7 @@ typedef siBuffer siString;
 #define SI_STR(string) SI_STR_LEN(string, countof_str(string))
 /* string - STR | len - usize
  * Creates a sili-string literal on the stack from a length-specified C-string. */
-#define SI_STR_LEN(string, len) SI_BUF_LEN(u8, (u8*)string, len)
+#define SI_STR_LEN(string, len) SI_BUF_LEN(u8, string, len)
 /* string - STR
  * Creates a sili-string on the stack from a NULL-terminated C-string. */
 #define SI_CSTR(string) SI_STR_LEN(string, si_cstrLen(string))
@@ -2257,13 +2287,10 @@ typedef struct siFile {
 		rawptr handle;
 	#else
 		/* OS-specific handle of the file. */
-		i64 handle;
+		isize handle;
 	#endif
 	/* Size of the read file. */
 	usize size;
-	/* Filename of the file. */
-	/* Last time it was written at. */
-	u64 lastWriteTime;
 } siFile;
 
 SI_ENUM(i32, siFilePermissions) {
@@ -2386,6 +2413,11 @@ SIDEF siString si_pathGetTmp(void);
 SIDEF siFilePermissions si_pathPermissions(siString path);
 
 /* TODO */
+SIDEF siString si_pathReadContents(siString path, siAllocator* alloc);
+/* TODO */
+SIDEF siString si_pathReadContentsBuf(siString path, siBuffer outBuffer);
+
+/* TODO */
 SIDEF b32 si_pathIsAbsolute(siString path);
 /* */
 SIDEF b32 si_pathIsRelative(siString path);
@@ -2425,10 +2457,9 @@ SIDEF siBuffer si_fileReadAtBuf(siFile file, isize offset, usize len, siBuffer o
 SIDEF siBuffer si_fileReadUnsafe(siFile file, isize offset, usize len, rawptr outBuffer);
 
 /* TODO */
-SIDEF siString si_fileReadContents(siString path, siAllocator* alloc);
-SIDEF siString si_fileReadContentsBuf(siString path, siBuffer outBuffer);
-SIDEF siString si_fileReadContentsHandle(siFile file, siAllocator* alloc);
-SIDEF siString si_fileReadContentsBufHandle(siFile file, siBuffer outBuffer);
+SIDEF siString si_fileReadContents(siFile file, siAllocator* alloc);
+SIDEF siString si_fileReadContentsBuf(siFile file, siBuffer outBuffer);
+
 /* Reads the contents of the file, then splits every line and writes them all
  * into a 'siArray(siString)'. */
 SIDEF siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc);
@@ -2454,6 +2485,8 @@ b32 si_fileSeekBack(siFile file);
 /* Truncates the file to the specified size. Returns 'true' if the operation went
  * through. */
 b32 si_fileTruncate(siFile* file, usize size);
+/* TODO */
+SIDEF u64 si_fileLastWriteTime(siFile file);
 
 /* Closes the file. */
 void si_fileClose(siFile file);
@@ -4985,10 +5018,10 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 	}
 	SI_STOPIF(string.len > maxDigits, *outRes = false; return res);
 
-	for_eachStr (x, string) {
+	for_eachStr (letter, string) {
 		res *= base;
 
-		char value = *x - '0';
+		char value = si_cast(char, *letter - '0');
 		if (value < 10) {
 			res += value;
 		}
@@ -5124,7 +5157,9 @@ siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator* al
 
 inline
 siString si_stringFromBool(b32 boolean) {
-	static siString values[] = {SI_STR("false"), SI_STR("true")};
+	static siString values[] = {
+		{(u8*)"false", countof_str("false"), 0, nil}, {(u8*)"true", countof_str("true"), 0, nil}
+	};
 	return values[boolean & true];
 }
 
@@ -5376,7 +5411,7 @@ end:
 	}
 
 	si_printf("Test: %s (%i,%i): %i \n", string.len, offsetUTF8, offsetUTF16 * 2);
-	return SI_BUF_LEN(u16, res, offsetUTF16 * 2);
+	return SI_BUF_ALL(u16, res, offsetUTF16 * 2, alloc);
 }
 
 inline
@@ -5772,7 +5807,7 @@ cstring si_pathFsErrorStr(siFileSystemError err) {
 
 #endif
 
-siIntern inline
+siIntern
 siFileSystemError si__internfileGetOSError(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	switch (GetLastError()) {
@@ -6116,26 +6151,29 @@ siString si_pathGetFullName(siString path, siAllocator* alloc) {
 	siAllocator stack = si_allocatorMake(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
-		siUtf16String buf = si_mallocArray(stack, u16, MAX_PATH);
-		GetFullPathNameW(widePath, MAX_PATH, buf, nil);
-		SI_STATIC_ASSERT_MSG(1 == 0, "Fix all of 'si_utf8ToUtf16Str'");
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, &stack);
+		siUtf16String outWide;
 
-		usize len;
-		cstring utf8Res = si_utf16ToUtf8Str(stack, buf, &len);
+		outWide.data = (u8*)si_mallocArray(&stack, u16, MAX_PATH);
+		outWide.len = GetFullPathNameW(
+			(u16*)pathWide.data, MAX_PATH, (u16*)outWide.data, nil
+		);
+		SI_STOPIF(outWide.len == 0, SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0));
 
-		return si_stringMakeLen(alloc, utf8Res, len);
+		return si_utf16ToUtf8Str(outWide, alloc);
+
 	#else
 		/* NOTE(EimaMei): Technically on Linux you have no issue creating paths
-		 * that go over the highest 'PATH_MAX' value (that being 4kb) except most
-		 * software doesn't take account this, so they either fail or crash.
+		 * that go over the highest 'PATH_MAX' value (that being 4KB) except most
+		 * software doesn't take this into account, so they either fail or crash.
 		 * What a trolleybus moment! */
-		char actualPath[4096];
+		char actualPath[SI_KILO(4)];
 
 		realpath(si_stringCloneToCstr(path, &stack), actualPath);
 		SI_STOPIF(actualPath == nil, { SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0); });
 
 		return si_stringMakeCstr(actualPath, alloc);
+
 	#endif
 }
 
@@ -6171,9 +6209,8 @@ u64 si_pathLastWriteTime(siString path) {
 	FILETIME lastWriteTime = {0};
 	WIN32_FILE_ATTRIBUTE_DATA data = {0};
 
-	siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
-	siUtf16String wideFilename = si_utf8ToUtf16Str(stack, filename, nil);
-	if (GetFileAttributesExW(wideFilename, GetFileExInfoStandard, &data)) {
+	siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, &stack);
+	if (GetFileAttributesExW((u16*)pathWide.data, GetFileExInfoStandard, &data)) {
 		lastWriteTime = data.ftLastWriteTime;
 	}
 
@@ -6188,19 +6225,21 @@ u64 si_pathLastWriteTime(siString path) {
 #endif
 }
 
-inline
+SIDEF
 siString si_pathGetTmp(void) {
 #if SI_SYSTEM_IS_WINDOWS
-	static char tmp[SI_MAX_PATH_LEN];
-	u16 wideTmp[SI_KILO(1)];
-	GetTempPathW(SI_KILO(1), wideTmp);
+	static char buffer[SI_MAX_PATH_LEN];
 
-	siAllocator tmpAlloc = si_allocatorMakeTmp(tmp, sizeof(tmp));
-	si_utf16ToUtf8Str(&tmpAlloc, wideTmp, nil);
+	u16 bufferWide[SI_KILO(1)];
+	u32 len = GetTempPathW(countof(bufferWide), bufferWide);
+	SI_STOPIF(len == 0, SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0));
 
-	return tmp;
+	siAllocator tmpAlloc = si_allocatorMakeTmp(buffer, sizeof(buffer));
+	return si_utf16ToUtf8Str(SI_BUF_LEN(u16, bufferWide, len), &tmpAlloc);
+
 #else
 	return SI_STR("/tmp");
+
 #endif
 }
 
@@ -6213,14 +6252,23 @@ siFilePermissions si_pathPermissions(siString path) {
 #if SI_SYSTEM_IS_WINDOWS
 	ACCESS_MASK mask;
 	{
-		siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
-		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
-
-		SECURITY_INFORMATION info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, &stack);
+		SECURITY_INFORMATION info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
+			| DACL_SECURITY_INFORMATION;
 		SECURITY_DESCRIPTOR* desc = (SECURITY_DESCRIPTOR*)si_allocatorCurPtr(stack);
-		GetFileSecurityW(widePath, info, desc, (DWORD)si_allocatorAvailable(stack), nil);
+
+		usize length = si_allocatorAvailable(stack);
+		if (length < UINT32_MAX) {
+			length = UINT32_MAX;
+		}
+
+		b32 res = GetFileSecurityW(
+			(u16*)pathWide.data, info, desc, (DWORD)length, nil
+		);
+		SI_STOPIF(res == 0, SI_FS_ERROR_DECLARE(); return 0);
 
 		GetEffectiveRightsFromAclA(desc->Dacl, desc->Owner, &mask);
+		SI_STOPIF(res != 0, SI_FS_ERROR_DECLARE(); return 0);
 	}
 
 	siFilePermissions perms = SI_FS_PERM_GROUP_EXEC | SI_FS_PERM_OTHERS_EXEC | SI_FS_PERM_OWNER_EXEC;
@@ -6239,6 +6287,23 @@ siFilePermissions si_pathPermissions(siString path) {
 	return (res == 0) ? fs.st_mode : -1;
 
 #endif
+}
+
+inline
+siString si_pathReadContents(siString path, siAllocator* alloc) {
+	siFile file = si_fileOpen(path);
+	siString res = si_fileReadContents(file, alloc);
+	si_fileClose(file);
+
+	return res;
+}
+inline
+siString si_pathReadContentsBuf(siString path, siBuffer outBuffer) {
+	siFile file = si_fileOpen(path);
+	siString res = si_fileReadContentsBuf(file, outBuffer);
+	si_fileClose(file);
+
+	return res;
 }
 
 static b32 SI_STD_FILE_SET = false;
@@ -6320,9 +6385,9 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 
 	rawptr handle;
 	{
-		siUtf16String widePath = si_utf8ToUtf16Str(stack, path, nil);
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, &stack);
 		handle = CreateFileW(
-			widePath,
+			(u16*)pathWide.data,
 			access, FILE_SHARE_READ | FILE_SHARE_DELETE, nil,
 			disposition, FILE_ATTRIBUTE_NORMAL, nil
 		);
@@ -6337,7 +6402,7 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 			return (siFile){0};
 		}
 	}
-	res.lastWriteTime = si_pathLastWriteTime(path); // TODO(EimaMei): Optimize out
+
 #else
 	i32 flags;
 	switch (mode) {
@@ -6407,7 +6472,11 @@ siBuffer si_fileRead(siFile file, usize len, siAllocator* alloc) {
 inline
 siBuffer si_fileReadAt(siFile file, isize offset, usize len, siAllocator* alloc) {
 	len = si_min(len, si_allocatorAvailable(*alloc));
-	return si_fileReadUnsafe(file, offset, len, si_malloc(alloc, len));
+
+	siBuffer res = si_fileReadUnsafe(file, offset, len, si_malloc(alloc, len));
+	res.alloc = alloc;
+
+	return res;
 }
 
 inline
@@ -6429,45 +6498,30 @@ siBuffer si_fileReadUnsafe(siFile file, isize offset, usize len, rawptr outBuffe
 #if SI_SYSTEM_IS_WINDOWS
 	DWORD bytesRead;
 	b32 res = ReadFile(file.handle, outBuffer, (DWORD)len, &bytesRead, NULL);
-	SI_STOPIF(!res, { SI_FS_ERROR_DECLARE(); return -1; });
+	SI_STOPIF(!res, SI_FS_ERROR_DECLARE(); return SI_STR_LEN(nil, 0));
 #else
 	isize bytesRead = pread((int)file.handle, outBuffer, len, offset);
 	SI_STOPIF(bytesRead == -1, { SI_FS_ERROR_DECLARE(); return SI_BUF_LEN(outBuffer, -1); });
 #endif
 
-	return SI_BUF_LEN(outBuffer, bytesRead);
-}
-
-inline
-siString si_fileReadContents(siString path, siAllocator* alloc) {
-	siFile file = si_fileOpen(path);
-	siString res = si_fileReadContentsHandle(file, alloc);
-	si_fileClose(file);
-
-	return res;
-}
-inline
-siString si_fileReadContentsBuf(siString path, siBuffer outBuffer) {
-	siFile file = si_fileOpen(path);
-	siString res = si_fileReadContentsBufHandle(file, outBuffer);
-	si_fileClose(file);
-
-	return res;
+	return SI_STR_LEN(outBuffer, bytesRead);
 }
 
 SIDEF
-siString si_fileReadContentsHandle(siFile file, siAllocator* alloc) {
+siString si_fileReadContents(siFile file, siAllocator* alloc) {
 	usize len = si_allocatorAvailable(*alloc);
 	len = si_min(len, file.size);
 
 	isize oldOffset = si_fileTell(file);
 	siString res = si_fileReadUnsafe(file, 0, len, si_malloc(alloc, len));
+	res.alloc = alloc;
+
 	si_fileSeek(file, oldOffset, SI_FILE_MOVE_BEGIN);
 
 	return res;
 }
 SIDEF
-siString si_fileReadContentsBufHandle(siFile file, siBuffer outBuffer) {
+siString si_fileReadContentsBuf(siFile file, siBuffer outBuffer) {
 	SI_ASSERT(outBuffer.len != (usize)-1);
 
 	isize oldOffset = si_fileTell(file);
@@ -6479,7 +6533,7 @@ siString si_fileReadContentsBufHandle(siFile file, siBuffer outBuffer) {
 
 inline
 siArray(siString) si_fileReadlines(siFile file, siAllocator* alloc) {
-	return si_stringSplit(si_fileReadContentsHandle(file, alloc), SI_STR("\n"), alloc);
+	return si_stringSplit(si_fileReadContents(file, alloc), SI_STR("\n"), alloc);
 }
 
 
@@ -6496,10 +6550,15 @@ isize si_fileWriteAt(siFile* file, siBuffer content, isize offset) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	si_fileSeek(*file, offset, SI_FILE_MOVE_BEGIN);
-	DWORD bytesWritten;
-	b32 res = WriteFile(file->handle, content, (DWORD)contentLen, &bytesWritten, NULL);
 
-	SI_STOPIF(res == false, { SI_FS_ERROR_DECLARE(); return -1; });
+	DWORD bytesWritten;
+	DWORD length = (content.len <= UINT32_MAX)
+		? (DWORD)content.len
+		: UINT32_MAX;
+	b32 res = WriteFile(file->handle, content.data, length, &bytesWritten, NULL);
+
+	SI_STOPIF(res == false, SI_FS_ERROR_DECLARE(); return -1);
+
 #else
 	isize curOffset = si_fileSeek(*file, 0, SI_FILE_MOVE_CURRENT);
 	isize bytesWritten = (curOffset == offset)
@@ -6518,7 +6577,7 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 	SI_ASSERT_NOT_NULL(line.data);
 
 	siAllocator tmp = si_allocatorMakeAny(SI_KILO(8), file->size + line.len);
-	siString content = si_fileReadContentsHandle(*file, &tmp);
+	siString content = si_fileReadContents(*file, &tmp);
 
 	b32 isNeg = index < 0;
 	isize lineStart = 0;
@@ -6638,6 +6697,7 @@ siDirectory si_dirOpen(siString path) {
 	SI_ASSERT(path.len - 1 <= SI_MAX_PATH_LEN);
 
 	siDirectory dir;
+	dir.handle = nil;
 	dir.directoryLen = path.len;
 	si_memcopy(dir.buffer, path.data, path.len);
 
@@ -6647,33 +6707,32 @@ siDirectory si_dirOpen(siString path) {
 	}
 
 #if SI_SYSTEM_IS_WINDOWS
-	siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
-	usize len;
-	siUtf16String widePath = si_utf8ToUtf16Str(stack, path, &len);
-	SI_ASSERT_MSG(len + 4 <= SI_MAX_PATH_LEN, "Path is larger than 260 bytes.");
+	siUtf16String pathWide = si_utf8ToUtf16Str(SI_STR_LEN(dir.buffer, path.len), &stack);
 
-	// NOTE(EimaMei): Reason why this works is because 'appendText' is right
-	// after 'widePath' in memory.
-	u16* appendText = si_mallocArray(stack, u16, 2);
-	appendText[-1] = '\\';
-	appendText[0] = '*';
-	appendText[1] = '\0';
+	u16* dataWide = (u16*)pathWide.data;
+	dataWide[pathWide.len + 0] = '*';
+	dataWide[pathWide.len + 1] = '\0';
 
 	WIN32_FIND_DATAW tmp;
-	dir.handle = FindFirstFileW(widePath, &tmp);
-	SI_ASSERT(handle != INVALID_HANDLE_VALUE); // TODO(EimaMei): Turėtų būti SI_STOPIF
+	HANDLE handle = FindFirstFileW(dataWide, &tmp);
+	SI_STOPIF(handle == INVALID_HANDLE_VALUE, SI_FS_ERROR_DECLARE(); return dir); // TODO(EimaMei): Turėtų būti SI_STOPIF
+
+	dir.handle = handle;
 	FindNextFileW(handle, &tmp);
+
 #else
 	/* NOTE(EimaMei): We do this because opendir only takes NULL-terminated C-strings. */
 	dir.buffer[path.len] = '\0';
 
 	dir.handle = opendir(dir.buffer);
-	SI_STOPIF(dir.handle == nil, { SI_FS_ERROR_DECLARE(); return (siDirectory){0}; });
+	SI_STOPIF(dir.handle == nil, SI_FS_ERROR_DECLARE(); return dir);
 
 	/* NOTE(EimaMei): We skip '.' and '..'. */
 	SI_DISCARD(readdir(dir.handle));
 	SI_DISCARD(readdir(dir.handle));
+
 #endif
 
 	return dir;
@@ -6690,35 +6749,44 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	SI_ASSERT_NOT_NULL(dir.handle);
 
 #if SI_SYSTEM_IS_WINDOWS
-	siAllocator* stack = si_allocatorMakeStack(SI_KILO(1));
 	WIN32_FIND_DATAW file;
 	if (FindNextFileW(dir.handle, &file) == 0) {
 		CloseHandle(dir.handle);
 		return false;
 	}
 
-	usize len;
-	siUtf8String utf8Text = si_utf16ToUtf8Str(stack, file.cFileName, &len);
-	entry->len = len + dir.pathLen * fullPath;
+	usize len = wcslen(file.cFileName) * sizeof(wchar_t);
 
-	si_memcopy(entry->path, dir.path, dir.pathLen * fullPath);
-	si_memcopy(entry->path + dir.pathLen * fullPath, utf8Text, entry->len + 1);
-	entry->baseName = entry->path + dir.pathLen * fullPath;
-
-	if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-		entry->type = SI_IO_TYPE_DIR;
-	}
-	else if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-		entry->type = SI_IO_TYPE_LINK;
+	siAllocator tmpAlloc;
+	if (fullPath) {
+		tmpAlloc = si_allocatorMakeTmp(
+			&dir.buffer[dir.directoryLen], sizeof(dir.buffer) - dir.directoryLen
+		);
+		entry->path.len = len + dir.directoryLen;
 	}
 	else {
+		tmpAlloc = si_allocatorMakeTmp(dir.buffer, sizeof(dir.buffer));
+		entry->path.len = len;
+	}
+	SI_ASSERT(entry->path.len <= SI_MAX_PATH_LEN);
+
+	entry->path.data = (u8*)dir.buffer;
+	si_utf16ToUtf8Str(SI_BUF_LEN(u16, file.cFileName, len), &tmpAlloc);
+
+
+	if ((file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == 0) {
 		entry->type = SI_IO_TYPE_FILE;
 	}
+	else if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+		entry->type = SI_IO_TYPE_DIR;
+	}
+	else {
+		entry->type = SI_IO_TYPE_LINK;
+	}
 
-	return true;
 #else
-	/* NOTE(EimaMei): Sudie, C++ palaikyme! Galbūt tapsi naudojama, kai bent jau
-	 * tūrėsi paskirtus masyvo inicijavimus. */
+	/* NOTE(EimaMei): Sudie, C++ palaikyme! Galbūt busi sugražintas, kai bent jau
+	 * ta kalba pagaliau tūrės paskirtus masyvo inicijavimus. */
 	static u8 IO_types[] = {
 		[DT_REG]  = SI_IO_TYPE_FILE,
 		[DT_DIR]  = SI_IO_TYPE_DIR,
@@ -6752,8 +6820,9 @@ b32 si_dirPollEntryEx(siDirectory dir, siDirectoryEntry* entry, b32 fullPath) {
 	si_memcopy(buffer, dirEntry->d_name, len);
 	entry->path.data = (siByte*)buffer;
 
-	return true;
 #endif
+
+	return true;
 }
 
 #endif /* SI_IO_IMPLEMENTATION */
@@ -7232,7 +7301,7 @@ inline
 isize si_fprintfVa(siFile* file, cstring fmt, va_list va) {
 	char buffer[SI_KILO(8)];
 	isize count = si_snprintfVa(buffer, sizeof(buffer), fmt, va) - 1;
-	count = si_fileWrite(file, SI_BUF_LEN(buffer, count));
+	count = si_fileWrite(file, SI_STR_LEN(buffer, count));
 	return count;
 }
 
@@ -7405,7 +7474,7 @@ GOTO_PRINT_SWITCH:
 					char base[] ="\33[\0;\0\0m";
 					base[2] = (!x->bold) ? '0' : '1';
 					base[4] = (!x->light) ? '3' : '9';
-					base[5] = '0' + x->color;
+					base[5] = si_cast(char, '0' + x->color);
 
 					info.str = SI_STR(base);
 					si__printStrCpy(&info);
@@ -8323,7 +8392,7 @@ back:
 				prevUtf8Len = 0;
 				while (true) {
 					isize utf8Index;
-					res = si_stringFindUtf8(desc, " ", &utf8Index);
+					res = si_stringFindUtf8(desc, (u8*)" ", &utf8Index);
 					SI_STOPIF(res == -1, break);
 					SI_STOPIF(utf8Index + prevUtf8Len > limit, break);
 
@@ -8600,7 +8669,6 @@ void si_argvOptionSetShortName(siOption* option, i32 codepoint) {
 
 	option->nameShort = si_utf8Encode(codepoint);
 	option->codepoint = codepoint;
-	SI_ASSERT(*option->nameShort.codepoint != SI_UNICODE_INVALID && option->name.len != 0);
 }
 
 inline
