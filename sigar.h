@@ -29,8 +29,12 @@ SUPPORTED & PLANNED BACKENDS
 		3. JACK (-)
 		4. Pipewire (-)
 
-	- Support for Android (AAudio/OpenSL), Web Audio, sndio, OSS and custom backends
-	might be considered.
+	- Support for other platforms will be considers, such as:
+		1. Web (Emscripten)
+		2. Android (AAudio/OpenSL)
+		3. BSD platforms (sndio, OSS)
+		4. Ability to have a custom backend
+		5. Random consoles (xaudio2 for Windows and X360)
 
 ===========================================================================
 MACROS
@@ -42,9 +46,9 @@ MACROS
 		#include "sigar.h"
 	```
 
-	- SIGAR_NO_DEFAULT_MIXING - disables the default mixing done in sigar as well 
-	as undefines the implementation of 'sigar__callbackOutputDefault', which will 
-	result in a crash if a new implementation isn't made and the 'callback' setting 
+	- SIGAR_NO_DEFAULT_MIXING - disables the default mixing done in sigar as well
+	as undefines the implementation of 'sigar__callbackOutputDefault', which will
+	result in a crash if a new implementation isn't made and the 'callback' setting
 	in the device config isn't changed.
 
 ===========================================================================
@@ -491,7 +495,7 @@ SIDEF siAudioDeviceConfig* sigar_deviceConfigEnable(siAudioDevice* device);
 SIDEF void sigar_deviceStart(siAudioDevice* device);
 /* Pauses the running device. */
 SIDEF void sigar_devicePause(siAudioDevice* device);
-/* Waits for the callback thread to finish with an option to force a wake-up, if 
+/* Waits for the callback thread to finish with an option to force a wake-up, if
  * paused at all. */
 SIDEF void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause);
 

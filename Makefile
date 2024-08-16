@@ -1,4 +1,4 @@
-CC = clang
+CC = w64gcc
 AR = ar
 OUTPUT = build
 
