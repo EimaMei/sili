@@ -3,7 +3,7 @@ AR = ar
 OUTPUT = build
 
 NAME = sili
-FLAGS = -std=c99 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+FLAGS = -std=c11 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
 EXTRA_FLAGS =
 EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
@@ -23,7 +23,7 @@ else
 endif
 
 ifeq ($(DETECTED_OS),Windows)
-	LIBS = -lkernel32
+	LIBS = -lkernel32 -lole32
 	EXE = $(OUTPUT)/test.exe
 	DLL_EXT = .dll
 endif

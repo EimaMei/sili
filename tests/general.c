@@ -44,13 +44,11 @@ int main(void) {
 		isize m = si_transmuteEx(isize, USIZE_MAX, usize);
 		TEST_EQ_I64(m, (isize)-1);
 
-		u32 value;
-		if (SI_LIKELY(SI_HOST_IS_LITTLE_ENDIAN)) {
-			value = 0x44434241;
-		}
-		else {
-			value = 0x41424344;
-		}
+#if SI_ENDIAN_IS_LITTLE
+		u32 value = 0x44434241;
+#else
+		u32 value = 0x41424344;
+#endif
 
 		cstring str = "ABCD";
 		TEST_EQ_U64(SI_TO_U32(str), value);
@@ -154,7 +152,7 @@ int main(void) {
 		siAllocator allocator = si_allocatorMake(SI_KILO(1));
 		randomStruct* alloc1 = si_mallocItem(&allocator, randomStruct);
 		randomStruct* alloc2 = si_mallocArray(&allocator, randomStruct, 3);
-		*alloc1 = (randomStruct){USIZE_MIN, INT8_MAX, FLOAT32_MIN};
+		*alloc1 = (randomStruct){USIZE_MAX, INT8_MAX, FLOAT32_MIN};
 
 		randomStruct* alloc3 = si_mallocCopy(&allocator, *alloc1);
 		TEST_EQ_H64(alloc1->one, alloc3->one);
@@ -197,18 +195,28 @@ int main(void) {
 	si_print("Test 4 has been completed.\n");
 
 	{
-		siOptional(u64) opt = si_optionalMake(19920216ULL);
-		TEST_EQ_U64(opt->hasValue, 1);
-		TEST_EQ_U64(opt->value, 19920216ULL);
+		siOption(u64) opt = SI_OPT(u64, 19920216ULL);
+		TEST_EQ_U64(opt.hasValue, 1);
+		TEST_EQ_U64(opt.data.value, 19920216ULL);
 
-		si_optionalReset(opt);
-		TEST_EQ_U64(opt->value, 0);
-		TEST_EQ_U64(opt->hasValue, false);
-
-		opt = SI_OPTIONAL_NULL;
+		siError tmp = {0};
+		tmp.code = 40;
+		opt = SI_OPT_ERR(u64, tmp);
+		TEST_EQ_I64(opt.data.error.code, 40);
 
 		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
 		TEST_EQ_U64(res, UINT64_MAX);
+
+		#if SI_STANDARD_CHECK_MIN(C, C11)
+			opt = SI_OPT(u64, 19920216ULL);
+			TEST_EQ_U64(opt.hasValue, 1);
+			TEST_EQ_U64(opt.value, 19920216ULL);
+
+			tmp.code = 40;
+			opt = SI_OPT_ERR(u64, tmp);
+			TEST_EQ_I64(opt.error.code, 40);
+
+		#endif
 	}
 	si_print("Test 5 has been completed.\n");
 

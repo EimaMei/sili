@@ -155,24 +155,35 @@ void example3(void)	{
 	}
 
 	{
+		u64 lastWriteTime, curWriteTime;
+		siString file_path = SI_STR("randomSiFile.silitxt");
+
+		siFile file_handle = si_fileCreate(file_path);
+
+		lastWriteTime = si_fileLastWriteTime(file_handle);
+		si_printf("Last write time: %lu\n", lastWriteTime);
+
+		si_sleep(1000);
+		si_fileWrite(&file_handle, SI_STR("random garbage"));
+
+		curWriteTime = si_pathLastWriteTime(file_path);
+		si_printf(
+			"Has the file been changed?: %B (%lu difference)\n",
+			lastWriteTime != curWriteTime,
+			curWriteTime - lastWriteTime
+		);
+
+		si_fileClose(file_handle);
+	}
+
+	{
 		siString str_hard = SI_STR("hardLink"),
 				 str_soft = SI_STR("softLink"),
 				 str_file = SI_STR("randomSiFile.silitxt");
-		siFile file = si_fileCreate(str_file);
 
-		u64 lastWriteTime = file.lastWriteTime;
-		u64 curWriteTime = si_pathLastWriteTime(str_file);
-
-		si_sleep(1000);
-		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
-
-		si_fileWrite(&file, SI_STR("random garbage"));
-		curWriteTime = si_pathLastWriteTime(str_file);
-		si_printf("Has the file been changed?: %B\n", lastWriteTime != curWriteTime);
 
 		si_pathCreateHardLink(str_file, str_hard);
 		si_pathCreateSoftLink(str_file, str_soft);
-		si_fileClose(file);
 
 		si_pathRemove(str_file);
 		si_pathRemove(str_hard);

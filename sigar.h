@@ -126,6 +126,16 @@ extern "C" {
 
 	#include <poll.h>
 	#include <sys/eventfd.h>
+
+#elif SI_SYSTEM_IS_WINDOWS
+	#define COBJMACROS
+	#include <mmdeviceapi.h>
+	#include <audioclient.h>
+
+	#if SI_COMPILER_MSVC
+		#pragma comment(lib, "ole32")
+	#endif
+
 #endif
 
 
@@ -346,6 +356,7 @@ typedef void SI_FUNC_PTR(siAudioCallback, (struct siAudioDevice* audio,
 typedef union {
 	char alsa[256];
 	char coreaudio[256];
+	u16 waspai[64];
 } siAudioDeviceID;
 
 /* */
@@ -392,28 +403,33 @@ typedef struct siAudioDeviceConfig {
 /* Struct representing an audio device. */
 typedef struct siAudioDevice {
 	/* Current error status of the device. */
-	siErrorInfo status;
+	siError error;
 	/* */
 	siAudioDeviceConfig config;
 
 	/* */
 	siAudioState state;
 
-#if SI_SYSTEM_IS_APPLE
-	/* Apple-specific audio object. */
-	AudioObjectID id;
-#elif SI_SYSTEM_IS_UNIX
-	u32 numberOfSources;
-	/* Alsa specific audio object. */
-	snd_pcm_t* id;
-
-	siThread thread;
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-
 	siAllocator alloc;
 	struct siAudio* audioHead;
-	struct pollfd pfd[2];
+	u32 numberOfSources;
+	siThread thread;
+
+#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	#if SI_SYSTEM_IS_APPLE
+		AudioObjectID id;
+	#elif SI_SYSTEM_IS_UNIX
+		snd_pcm_t* id;
+	#endif
+
+		pthread_mutex_t mutex;
+		pthread_cond_t cond;
+
+		struct pollfd pfd[2];
+
+#elif SI_SYSTEM_IS_WINDOWS
+	IMMDevice* id;
+
 #endif
 } siAudioDevice;
 
@@ -430,10 +446,8 @@ typedef struct siAudio {
 #if SI_SYSTEM_IS_APPLE
 	/* Apple-specific audio object identifier for the audio unit. */
 	AudioUnit id;
-#elif SI_SYSTEM_IS_UNIX
-	/* */
-	struct siAudio* nextUnit;
 #endif
+	struct siAudio* nextUnit;
 
 	/* == Audio Settings == */
 	/* */
@@ -516,12 +530,11 @@ SIDEF void sigar_devicePollAudio(const siAudioDevice* device, siAudio** outAudio
 SIDEF siAudioDeviceInfo sigar_deviceGetInfo(siAudioDevice device);
 
 /* Returns the total number of available audio devices. */
-SIDEF usize sigar_deviceGetAmount(void);
+SIDEF isize sigar_deviceGetAmount(void);
 /* Retrieves information about all available output devices and fills the given
  * array with it up to the specified length. Returns the amount found.
  * NOTE: The first element is guaranteed to be the default audio device. */
 SIDEF usize sigar_deviceGetInfoAll(siAudioDeviceInfo* outDevices, usize length);
-
 
 /* */
 SIDEF siString sigar_audioErrorToStr(siAudioError error);
@@ -698,13 +711,14 @@ const usize SIGAR_FORMAT_SIZE_MAP[] = {
 #if !defined(SI_NO_ERROR_STRUCT)
 	#define SIGAR_ASSERT_DEVICE(device) \
 		SI_ASSERT_FMT( \
-			(device)->status.error == SIGAR_SUCCESS, "'%S' error from the '%s' function.", \
-			sigar_audioErrorToStr((device)->status.error), (device)->status.function \
+			(device)->error.code == SIGAR_SUCCESS, "'%s' error from '%s:%i'.", \
+			sigar_audioErrorToStr((device)->error.code), (device)->error.filename, \
+			(device)->error.line \
 		)
 #else
 	#define SIGAR_ASSERT_DEVICE(device) \
 		SI_ASSERT_FMT( \
-			(device)->status.error == SIGAR_SUCCESS, "'%S' error from a prior function.", \
+			(device)->error.code == SIGAR_SUCCESS, "'%S' error from a prior function.", \
 			sigar_audioErrorToStr((device)->status.error)
 		)
 #endif
@@ -1118,6 +1132,49 @@ b32 sigar__alsaFillDeviceInfoName(cstring name, siAudioDeviceInfo* device) {
 	return res;
 }
 
+#elif SI_SYSTEM_IS_WINDOWS
+
+const GUID SI_CLSID_MMDeviceEnumerator = {0xBCDE0395, 0xE52F, 0x467C, {0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E}};
+const GUID SI_IID_IMMDeviceEnumerator = {0xA95664D2, 0x9614, 0x4F35, {0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6}};
+const GUID SI_IID_IAudioClient = {0x1CB9AD4C, 0xDBFA, 0x4C32, {0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2}};
+siIntern
+void sigar__wasapiCOMInitalize(void) {
+	static b32 COM_initialized = false;
+
+	if (!COM_initialized) {
+		CoInitializeEx(NULL, 0);
+		COM_initialized = true;
+	}
+}
+
+siIntern
+b32 sigar__wasapiFillDeviceInfo(IMMDevice* id, siAudioDeviceInfo* device) {
+
+	u16* deviceID;
+	{
+		i32 res = IMMDevice_GetId(id, &deviceID);
+		SI_STOPIF(res != 0, return false);
+	}
+	si_memcopy(device->identifier.waspai, deviceID, (wcslen(deviceID) + 1) * sizeof(u16));
+	CoTaskMemFree(deviceID);
+
+	IPropertyStore *pPropertyStore = NULL;
+	HRESULT hr = IMMDevice_OpenPropertyStore(id, STGM_READ, &pPropertyStore);
+	if (hr == S_OK) {
+		si_printf("okay!\n");
+	}
+
+	IAudioClient* client;
+    WAVEFORMATEX* format;
+	{
+		i32 res = IMMDevice_Activate(id, &SI_IID_IAudioClient, CLSCTX_ALL, nil, (void**)&client);
+		SI_STOPIF(res != 0, return false);
+
+		res = IAudioClient_GetMixFormat(client, &format);
+		SI_STOPIF(res != 0, return false);
+
+	}
+}
 
 
 #endif
@@ -1147,7 +1204,7 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 	SI_ASSERT(res == 0);
 
 #elif SI_SYSTEM_IS_UNIX
-	i32 defaultFound = SIGAR_ERROR_DEVICE;
+	b32 found = false;
 	for_range (i, 0, countof(sigar__alsaDefaultDevices)) {
 		i32 res = snd_pcm_open(
 			&device.id, sigar__alsaDefaultDevices[i],
@@ -1155,12 +1212,33 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 		);
 
 		if (res == 0) {
-			defaultFound = SIGAR_SUCCESS;
+			found = true;
 			break;
 		}
 	}
-	SI_ERROR_DECLARE(device.status, defaultFound);
+	SI_ERROR_CHECK(!found, outError, SIGAR_ERROR_DEVICE, device);
+
+#elif SI_SYSTEM_IS_WINDOWS
+	siError* outError = &device.error;
+	IMMDeviceEnumerator* enumerator;
+	{
+		i32 res = CoCreateInstance(
+			&SI_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &SI_IID_IMMDeviceEnumerator,
+			(void**)&enumerator
+		);
+		SI_ERROR_CHECK(res != 0, outError, SIGAR_ERROR, device);
+	}
+
+	i32 res = IMMDeviceEnumerator_GetDefaultAudioEndpoint(
+		enumerator, eRender, eConsole, &device.id
+	);
+	SI_ERROR_CHECK(res != 0, outError, SIGAR_ERROR_DEVICE, device);
+
+
+	IMMDeviceEnumerator_Release(enumerator);
+
 #endif
+	device.state = SIGAR_SUCCESS;
 
 	return device;
 }
@@ -1171,7 +1249,8 @@ siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier) {
 
 #if SI_SYSTEM_IS_APPLE
 
-#else
+
+#elif SI_SYSTEM_IS_UNIX
 	SI_ASSERT_NOT_NULL(identifier.alsa);
 
 	i32 res = snd_pcm_open(&device.id, identifier.alsa, SND_PCM_STREAM_PLAYBACK, 0);
@@ -1192,7 +1271,7 @@ siAudioDeviceConfig* sigar_deviceConfigEnable(siAudioDevice* device) {
 
 
 SIDEF
-usize sigar_deviceGetAmount(void) {
+isize sigar_deviceGetAmount(void) {
 #if SI_SYSTEM_IS_APPLE
 	AudioObjectPropertyAddress properties = {
 		kAudioHardwarePropertyDevices,
@@ -1202,7 +1281,8 @@ usize sigar_deviceGetAmount(void) {
 	u32 size;
 	AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &properties, 0, nil, &size);
 	return size / sizeof(AudioObjectID);
-#else
+
+#elif SI_SYSTEM_IS_UNIX
 	usize len = 0;
 	snd_pcm_t* id;
 	i32 res;
@@ -1248,6 +1328,37 @@ usize sigar_deviceGetAmount(void) {
 	snd_device_name_free_hint((void**)ppDeviceHints);
 
 	return len;
+
+#elif SI_SYSTEM_IS_WINDOWS
+	sigar__wasapiCOMInitalize();
+
+	IMMDeviceEnumerator* enumerator;
+	{
+		i32 res = CoCreateInstance(
+			&SI_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &SI_IID_IMMDeviceEnumerator,
+			(void**)&enumerator
+		);
+		SI_STOPIF(res != 0, return -1);
+	}
+	IMMDeviceCollection* collection;
+	{
+		i32 res = IMMDeviceEnumerator_EnumAudioEndpoints(
+			enumerator, eRender, DEVICE_STATE_ACTIVE, &collection
+		);
+		SI_STOPIF(res != 0, return -1);
+	}
+
+	u32 count;
+	{
+		i32 res = IMMDeviceCollection_GetCount(collection, &count);
+		SI_STOPIF(res != 0, return -1);
+	}
+
+	IMMDeviceCollection_Release(collection);
+	IMMDeviceEnumerator_Release(enumerator);
+
+	return count;
+
 #endif
 }
 
@@ -1255,10 +1366,17 @@ SIDEF
 siAudioDeviceInfo sigar_deviceGetInfo(siAudioDevice device) {
 	SIGAR_ASSERT_DEVICE(&device);
 
+#if SI_SYSTEM_IS_APPLE
+
+
+#elif SI_SYSTEM_IS_UNIX
+
 	siAudioDeviceInfo info = {0};
 	sigar__alsaFillDeviceInfoID(device.id, &info);
 
 	return info;
+
+#endif
 }
 SIDEF
 usize sigar_deviceGetInfoAll(siAudioDeviceInfo* outDevices, usize length) {
@@ -1266,6 +1384,7 @@ usize sigar_deviceGetInfoAll(siAudioDeviceInfo* outDevices, usize length) {
 	SI_STOPIF(length == 0, return 0);
 
 #if SI_SYSTEM_IS_APPLE
+
 
 #elif SI_SYSTEM_IS_UNIX
 	/* NOTE(EimaMei): Since Linux has no good way of checking the default output
@@ -1302,6 +1421,60 @@ usize sigar_deviceGetInfoAll(siAudioDeviceInfo* outDevices, usize length) {
 	snd_device_name_free_hint((void**)ppDeviceHints);
 
 	return i;
+
+#elif SI_SYSTEM_IS_WINDOWS
+	return 0;
+	IMMDeviceEnumerator* enumerator;
+	{
+		i32 res = CoCreateInstance(
+			&SI_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &SI_IID_IMMDeviceEnumerator,
+			(void**)&enumerator
+		);
+		SI_STOPIF(res != 0, return 0);
+	}
+	IMMDeviceCollection* collection;
+	{
+		i32 res = IMMDeviceEnumerator_EnumAudioEndpoints(
+			enumerator, eRender, DEVICE_STATE_ACTIVE, &collection
+		);
+		SI_STOPIF(res != 0, return 0);
+	}
+
+	{
+		u32 count;
+		i32 res = IMMDeviceCollection_GetCount(collection, &count);
+		SI_STOPIF(res != 0, return 0);
+
+		length = si_min(count, length);
+	}
+	usize elementCount = 0;
+	{
+		IMMDevice* device = nil;
+		i32 res = IMMDeviceEnumerator_GetDefaultAudioEndpoint(
+			enumerator, eRender, eConsole, &device);
+
+		if (res == 0) {
+			elementCount = sigar__wasapiFillDeviceInfo(device, &outDevices[0]);
+			IMMDevice_Release(device);
+		}
+	}
+
+	SI_PANIC();
+	for_range (i, 1, length) {
+		IMMDevice* dev;
+		{
+			i32 res = IMMDeviceCollection_Item(collection, i, &dev);
+			//SI_ERROR_CHECK(res != 0,, SIGAR_ERROR, 0);
+		}
+
+		IMMDevice_Release(dev);
+	}
+
+	IMMDeviceCollection_Release(collection);
+	IMMDeviceEnumerator_Release(enumerator);
+
+	return length;
+
 #endif
 }
 
@@ -1374,7 +1547,7 @@ void sigar_deviceStart(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SIGAR_ASSERT_DEVICE(device);
 
-
+#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	if (device->state == SIGAR_PAUSED) {
 		pthread_mutex_lock(&device->mutex);
 		device->state = SIGAR_RUNNING;
@@ -1394,6 +1567,25 @@ void sigar_deviceStart(siAudioDevice* device) {
 			return;
 		}
 	}
+#elif SI_SYSTEM_IS_WINDOWS
+#if 0
+	siError* outError = &device->status;
+	if (device->state == SIGAR_PAUSED) {
+	}
+	else if (device->state == SIGAR_CLOSED || device->state == SIGAR_STOPPED) {
+		IAudioClient* client;
+		i32 res = IMMDevice_Activate(device->id, &SI_IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&client);
+		SI_ERROR_CHECK(res != 0, outError, SIGAR_ERROR, 0);
+	}
+	IAudioClient_Release(client);
+
+	WAVEFORMATEX *wf;
+	IAudioClient_GetMixFormat(client, &wf);
+	CoTaskMemFree(wf);
+	}
+#endif
+
+#endif
 }
 
 inline
@@ -1411,6 +1603,7 @@ void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause) {
 	SI_STOPIF(device->state != SIGAR_RUNNING, return);
 
 
+#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	if (forceUnpause) {
 		/* NOTE(EimaMei): Force a wake-up from a poll. */
 		u64 t = 1;
@@ -1426,6 +1619,8 @@ void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause) {
 			pthread_mutex_unlock(&device->mutex);
 		}
 	}
+
+#endif
 	si_threadJoin(&device->thread);
 }
 
@@ -1448,7 +1643,8 @@ void sigar_deviceClose(siAudioDevice* device) {
 		device->id, &properties,
 		sigar__callbackDeviceUnplugged, audio
 	);
-#else
+
+#elif SI_SYSTEM_IS_UNIX
 	if (device->thread.isRunning) {
 		sigar_deviceWait(device, true);
 	}
@@ -1602,8 +1798,8 @@ siAudio sigar_audioMakeEx(siAudioDevice* device, rawptr buffer, usize length,
 
 	res = AudioUnitInitialize(unit);
 	SI_ASSERT(res == 0);
-#else
 
+#elif SI_SYSTEM_IS_UNIX
 	siAudioDeviceConfig* config = &device->config;
 	if (!config->isSet) {
 		if (sigar_formatIsPrefered(format, config->format)) {
@@ -1617,7 +1813,6 @@ siAudio sigar_audioMakeEx(siAudioDevice* device, rawptr buffer, usize length,
 		}
 	}
 
-	audio.nextUnit = nil;
 #endif
 
 	audio.buffer = buffer;
@@ -1635,6 +1830,7 @@ siAudio sigar_audioMakeEx(siAudioDevice* device, rawptr buffer, usize length,
 	audio.bytesPerSecond = rate * channels * (u32)sigar_formatSize(format);
 	audio.state = SIGAR_CLOSED;
 	audio.__offset = 0;
+	audio.nextUnit = nil;
 
 	return audio;
 }
@@ -1665,7 +1861,9 @@ siAudioError sigar_audioPlay(siAudio* audio) {
 		audio->isRunning = (res == 0);
 		audio->isClosed = !audio->isRunning;
 	}
-#elif SI_SYSTEM_IS_UNIX
+
+#endif
+
 	siAudioDevice* device = audio->device;
 
 	if (device->audioHead != nil) {
@@ -1703,7 +1901,6 @@ siAudioError sigar_audioPlay(siAudio* audio) {
 	device->numberOfSources += 1;
 
 	sigar_deviceStart(device);
-#endif
 
 	return audio->state;
 }
@@ -1765,7 +1962,7 @@ b32 sigar_audioClose(siAudio* audio) {
 
 inline
 siBuffer sigar_audioCurrentBufferGet(const siAudio* audio) {
-	return (siBuffer){(siByte*)&audio->buffer[audio->__offset], audio->__offset - audio->end};
+	return SI_STR_LEN(&audio->buffer[audio->__offset], audio->__offset - audio->end);
 }
 
 inline
@@ -2103,7 +2300,7 @@ SIDEF
 void sigar_mixInt32ToFloat32(f32* output, const i32* input, usize len) {
 	for_range (i, 0, len) {
 		f32 inValue = (f32)input[i];
-		inValue /= (INT32_MAX + 1);
+		inValue /= ((u32)INT32_MAX + 1);
 
 		sigar__mixTypes_f32f32(&output[i], inValue);
 	}
