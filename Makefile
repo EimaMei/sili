@@ -3,7 +3,19 @@ AR = ar
 OUTPUT = build
 
 NAME = sili
-FLAGS = -std=c11 -Wall -Wextra -Wpedantic -Wconversion -Wno-float-conversion -Wno-sign-conversion
+FLAGS = -std=c2x -Wall -Wextra -Wpedantic \
+	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
+	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
+	-Wvla -Wcast-align -Wcast-align=strict \
+	\
+	-Wno-missing-braces  -Wno-missing-field-initializers -Wswitch-enum -Wcast-align -Wstrict-overflow=5 \
+	-Wstrict-prototypes -Winline -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
+	-Wold-style-definition \
+	\
+	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
+	\
+	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
+
 EXTRA_FLAGS =
 EXTRA_LIBS =
 INCLUDE = -I"." -I"include"

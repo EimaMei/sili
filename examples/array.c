@@ -10,12 +10,12 @@ void example1(siAllocator* heap) {
 	si_allocatorReset(heap);
 	si_printf("==============\n\n==============\nExample 1:\n");
 
-	siArray(i32) array = si_arrayMake(heap, (i32[]){3, 234, 2, 4, 294, 234, 23});
+	siArrayType(i32) array = si_arrayMake(heap, i32, 3, 234, 2, 4, 294, 234, 23);
 
 	si_print("All of the elements in 'array': "); print_arrI(array);
 
-	siOptional(usize) find_pos = si_arrayFind(array, i32, 234);
-	siOptional(usize) rfind_pos = si_arrayRFind(array, i32, 234);
+	isize find_pos = si_arrayFind(array, i32, 234);
+	isize rfind_pos = si_arrayRFind(array, i32, 234);
 	si_printf(
 		"The 1st number '234' is at 'array[%zu]', while the 2nd one is at 'array[%zu]'\n",
 		find_pos->value, rfind_pos->value

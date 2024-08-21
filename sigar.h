@@ -161,8 +161,7 @@ extern "C" {
 #endif
 
 /* The default frame count. Higher number reduces CPU workload, but also increases
- * latency. Latency formula (in ms): t = (1000 * <frameCount>) / <sample rate>.
- * A 512 frame count is good default choice for low-latency (~11 ms). */
+ * latency. Latency formula (in ms): t = (1000 * <frameSize * frameCount>) / <sample rate>. */
 #ifndef SIGAR_DEFAULT_FRAME_COUNT
 #define SIGAR_DEFAULT_FRAME_COUNT 1024
 #endif
@@ -187,16 +186,33 @@ SI_ENUM(i32, siAudioError) {
 	 * assume no errors were encountered. */
 	SIGAR_SUCCESS = true,
 
-	/* A returned '0' musn't be trusted as things being correct, so treat it as
-	 * an error (most likely a structure is fully zeroed out). */
+	/* A returned '0' musn't be trusted as things being correct nor incorrect,
+	 * so treat it as an error and not as a confirmation for a good state. */
 	SIGAR_UNKNOWN = 0,
-	/* Generic error. */
-	SIGAR_ERROR = -1,
 
-	SIGAR_ERROR_DEVICE = -2,
-    SIGAR_ERROR_FORMAT = -3,
-	SIGAR_ERROR_THREAD = -4,
-	SIGAR_ERROR_POLL = -5,
+	/* Generic errors. */
+	SIGAR_ERROR = -1,
+	SIGAR_ERROR_INVALID      = -2,
+	SIGAR_ERROR_DOESNT_EXIST = -3,
+
+	/* Generic audio errors. */
+	SIGAR_ERROR_NO_DEVICE       = -4,
+    SIGAR_ERROR_NO_FORMAT       = -5,
+	SIGAR_ERROR_NO_RATE         = -6,
+	SIGAR_ERROR_NO_CHANNELS     = -7,
+	SIGAR_ERROR_NO_PERIODS      = -8,
+	SIGAR_ERROR_NO_FRAME_COUNT  = -9,
+
+	/* OS-specific errors. */
+	SIGAR_ERROR_THREAD  = -10,
+	SIGAR_ERROR_POLL    = -11,
+	SIGAR_ERROR_PIPE    = -12,
+	SIGAR_ERROR_LIMIT   = -13,
+	SIGAR_ERROR_NO_MEM  = -14,
+
+	/* Specific audio errors. */
+	SIGAR_ERROR_DEVICE_NOT_STARTED = -15,
+	SIGAR_ERROR_DEVICE_NOT_STOPPED = -16,
 };
 
 SI_ENUM(u32, siSampleFormat) {
@@ -308,6 +324,7 @@ SI_ENUM(u32, siAudioDeviceAccess) {
 	SIGAR_DEVICE_ACCESS_END = SIGAR_DEVICE_ACCESS_NONINTERLEAVED
 };
 
+
 SI_ENUM(u32, siAudioDeviceType) {
 	/* TODO(EimaMei): Implement */
 	SIGAR_DEVICE_TYPE_PLAYBACK = SI_BIT(0),
@@ -393,6 +410,8 @@ typedef struct siAudioDeviceConfig {
 	u32 periodCount;
 	/*  */
 	u32 frameCount;
+	/* */
+	b32 exclusiveMode;
 
 	/* Function callback that gets called every frame during playback. */
 	siAudioCallback callback;
@@ -410,9 +429,8 @@ typedef struct siAudioDevice {
 	/* */
 	siAudioState state;
 
-	siAllocator alloc;
-	struct siAudio* audioHead;
 	u32 numberOfSources;
+	struct siAudio* audioHead;
 	siThread thread;
 
 #if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
@@ -422,13 +440,19 @@ typedef struct siAudioDevice {
 		snd_pcm_t* id;
 	#endif
 
-		pthread_mutex_t mutex;
-		pthread_cond_t cond;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 
-		struct pollfd pfd[2];
+	struct pollfd pfd[2];
+	siAllocator alloc;
 
 #elif SI_SYSTEM_IS_WINDOWS
 	IMMDevice* id;
+	IAudioClient* client;
+	IAudioRenderClient* service;
+	rawptr wakeup;
+	u32 total;
+	u32 frames;
 
 #endif
 } siAudioDevice;
@@ -489,16 +513,33 @@ typedef struct siAudio {
 } siAudio;
 
 
+const usize SIGAR_FORMAT_SIZE_MAP[] = {
+	[SIGAR_FORMAT_U8] = 1,
+
+	[SIGAR_FORMAT_I16] = 2,
+	[SIGAR_FORMAT_I24] = 3,
+	[SIGAR_FORMAT_I32] = 4,
+	[SIGAR_FORMAT_F32] = 4,
+
+	[SIGAR_FORMAT_I16 + 4] = 2,
+	[SIGAR_FORMAT_I24 + 4] = 3,
+	[SIGAR_FORMAT_I32 + 4] = 4,
+	[SIGAR_FORMAT_F32 + 4] = 4,
+};
+
+#define sigar_formatSize(format) SIGAR_FORMAT_SIZE_MAP[format]
+#define sigar_formatIsNative(format) si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32)
+
 
 
 
 /* Finds and returns the default audio device of the specified type.
  * ERRORS:
- * - SIGAR_ERROR_DEVICE - a default device wasn't found. */
+ * - SIGAR_ERROR_NO_DEVICE - a default device wasn't found. */
 SIDEF siAudioDevice sigar_deviceMake(siAudioDeviceType type);
 /* Finds and returns the specified audio device.
  * ERROR:
- * - SIGAR_ERROR_DEVICE - a device based on the identifier wasn't found. */
+ * - SIGAR_ERROR_NO_DEVICE - a device based on the identifier wasn't found. */
 SIDEF siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier);
 /* Enables support for custom configurations for the device. Returns the pointer
  * to the configuration structure.
@@ -506,7 +547,7 @@ SIDEF siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier);
 SIDEF siAudioDeviceConfig* sigar_deviceConfigEnable(siAudioDevice* device);
 
 /* Starts the playback of the device. */
-SIDEF void sigar_deviceStart(siAudioDevice* device);
+SIDEF b32 sigar_deviceStart(siAudioDevice* device);
 /* Pauses the running device. */
 SIDEF void sigar_devicePause(siAudioDevice* device);
 /* Waits for the callback thread to finish with an option to force a wake-up, if
@@ -523,7 +564,7 @@ SIDEF siAudio* sigar_devicePollAudioHead(const siAudioDevice* device);
 /* Writes the next available element in the list after the specified stream into
  * the same out parameter, while also checking if current the stream can be looped,
  * closed, etc. If there are no available streams, 'nil' will be written instead. */
-SIDEF void sigar_devicePollAudio(const siAudioDevice* device, siAudio** outAudio);
+SIDEF void sigar_devicePollAudio(usize frameCount, siAudio** outAudio);
 
 
 /* Returns the available information about the specified device. */
@@ -591,10 +632,10 @@ SIDEF f32 sigar_audioGetDuration(siAudio audio);
 
 /* Mixes the input audio source with the output buffer. Converts the input format
  * into the outpu's if needed. */
-void sigar_mixBuffers(siByte* restrict output, siSampleFormat formatOut,
-		const siByte* restrict input, siSampleFormat formatIn, usize len);
+void sigar_mixBuffers(rawptr restrict output, siSampleFormat formatOut,
+		const rawptr restrict input, siSampleFormat formatIn, usize len);
 /* Converts a mono stream to stereo. */
-void sigar_upmixBufferToStereo(siByte* restrict output, const siByte* restrict input,
+void sigar_upmixBufferToStereo(rawptr restrict output, const rawptr restrict input,
 		usize frameCount, u32 sizePerChannel);
 
 /* Mixes an 8-bit unsigned integer source with an 8-bit unsigned integer destination. */
@@ -644,6 +685,14 @@ siIntern
 void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output,
 		const siByte* input, usize frameCount);
 
+
+siIntern void sigar__deviceInit(siAudioDevice* device);
+siIntern void sigar__deviceStart(siAudioDevice* device);
+force_inline siByte* sigar__deviceBufferGet(siAudioDevice* device);
+siIntern b32 sigar__deviceWait(siAudioDevice* device);
+siIntern void sigar__deviceWrite(siAudioDevice* device);
+siIntern void sigar__alsaDevicePause(siAudioDevice* device);
+
 siIntern
 siSampleFormat sigar__formatPriority[] = {
 	SIGAR_FORMAT_I16,
@@ -670,9 +719,58 @@ siSampleRate sigar__ratePriority[] = {
 	8000
 };
 
+#if !defined(SI_NO_ERROR_STRUCT)
+	#define SIGAR_ASSERT_DEVICE(device) \
+		SI_ASSERT_FMT( \
+			(device)->error.code == SIGAR_SUCCESS, "'%S' error from '%s:%i'.", \
+			sigar_audioErrorToStr((device)->error.code), (device)->error.filename, \
+			(device)->error.line \
+		)
+#else
+	#define SIGAR_ASSERT_DEVICE(device) \
+		SI_ASSERT_FMT( \
+			(device)->error.code == SIGAR_SUCCESS, "'%S' error from a prior function.", \
+			sigar_audioErrorToStr((device)->status.error)
+		)
+#endif
 
-SIDEF
-b32 sigar_formatIsPrefered(siSampleFormat format1, siSampleFormat format2) {
+#define SIGAR_ASSERT_FORMAT(format) \
+	SI_ASSERT_MSG( \
+		si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32 + 4), \
+		"An invalid sample format was provided." \
+	)
+
+siIntern
+siAudioError sigar__audioError(i64 value) {
+#if SI_SYSTEM_IS_WINDOWS
+	switch (value) {
+		case 0: return 0;
+		case EPIPE: return SIGAR_ERROR_PIPE;
+		case E_INVALIDARG: return SIGAR_ERROR_INVALID;
+		case EMFILE:
+		case ENFILE: return SIGAR_ERROR_LIMIT;
+		case E_NOTFOUND: return SIGAR_ERROR_DOESNT_EXIST;
+		case E_OUTOFMEMORY: return SIGAR_ERROR_NO_MEM;
+	}
+
+#else
+	switch (value) {
+		case 0: return 0;
+		case EPIPE: return SIGAR_ERROR_PIPE;
+		case EINVAL: return SIGAR_ERROR_INVALID;
+		case EMFILE:
+		case ENFILE: return SIGAR_ERROR_LIMIT;
+		case ENODEV: return SIGAR_ERROR_DOESNT_EXIST;
+		case ENOMEM: return SIGAR_ERROR_NO_MEM;
+	}
+
+#endif
+
+	return SIGAR_ERROR;
+}
+
+siIntern
+b32 sigar__formatIsPrefered(siSampleFormat format1, siSampleFormat format2) {
 	static const i32 priorityMap[] = {
 		[SIGAR_FORMAT_I16]     = 0,
 		[SIGAR_FORMAT_F32]     = 1,
@@ -690,47 +788,6 @@ b32 sigar_formatIsPrefered(siSampleFormat format1, siSampleFormat format2) {
 	/* NOTE(EimaMei): The lower the number is, the more preferred it is. */
 	return priorityMap[format1] < priorityMap[format2];
 }
-
-const usize SIGAR_FORMAT_SIZE_MAP[] = {
-	[SIGAR_FORMAT_U8] = 1,
-
-	[SIGAR_FORMAT_I16] = 2,
-	[SIGAR_FORMAT_I24] = 3,
-	[SIGAR_FORMAT_I32] = 4,
-	[SIGAR_FORMAT_F32] = 4,
-
-	[SIGAR_FORMAT_I16 + 4] = 2,
-	[SIGAR_FORMAT_I24 + 4] = 3,
-	[SIGAR_FORMAT_I32 + 4] = 4,
-	[SIGAR_FORMAT_F32 + 4] = 4,
-
-};
-#define sigar_formatSize(format) SIGAR_FORMAT_SIZE_MAP[format]
-#define sigar_formatIsNative(format) si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32)
-
-#if !defined(SI_NO_ERROR_STRUCT)
-	#define SIGAR_ASSERT_DEVICE(device) \
-		SI_ASSERT_FMT( \
-			(device)->error.code == SIGAR_SUCCESS, "'%s' error from '%s:%i'.", \
-			sigar_audioErrorToStr((device)->error.code), (device)->error.filename, \
-			(device)->error.line \
-		)
-#else
-	#define SIGAR_ASSERT_DEVICE(device) \
-		SI_ASSERT_FMT( \
-			(device)->error.code == SIGAR_SUCCESS, "'%S' error from a prior function.", \
-			sigar_audioErrorToStr((device)->status.error)
-		)
-#endif
-
-
-#define SIGAR_ASSERT_FORMAT(format) \
-	SI_ASSERT_MSG( \
-		si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32 + 4), \
-		"An invalid sample format was provided." \
-	)
-
-
 
 #if SI_SYSTEM_IS_APPLE
 
@@ -801,208 +858,6 @@ OSStatus sigar__callbackDeviceUnplugged(AudioObjectID inObjectID, UInt32 inNumbe
 }
 
 #elif SI_SYSTEM_IS_UNIX
-
-siIntern snd_pcm_format_t sigar__alsaToFormat(siSampleFormat format);
-
-siIntern
-void sigar__alsaDeviceInit(siAudioDevice* device) {
-	SI_STOPIF(device->state == SIGAR_STOPPED, return);
-
-	siAudioDeviceConfig* config = &device->config;
-	snd_pcm_hw_params_t* params;
-	snd_pcm_hw_params_alloca(&params);
-
-	SI_STOPIF(config->format == 0, config->format = SIGAR_DEFAULT_FORMAT);
-	SI_STOPIF(config->rate == 0, config->rate = SIGAR_DEFAULT_SAMPLE_RATE);
-	SI_STOPIF(config->channels == 0, config->channels = SIGAR_DEFAULT_CHANNELS);
-	SI_STOPIF(config->periodCount == 0, config->periodCount = SIGAR_DEFAULT_PERIODS);
-	SI_STOPIF(config->frameCount == 0, config->frameCount = SIGAR_DEFAULT_FRAME_COUNT);
-
-	i32 res = snd_pcm_hw_params_any(device->id, params);
-	SI_ASSERT(res >= 0);
-
-	res = snd_pcm_hw_params_set_access(device->id, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-	SI_ASSERT(res == 0);
-
-	res = snd_pcm_hw_params_set_format(device->id, params, sigar__alsaToFormat(config->format));
-	if (res != 0) {
-		for_range (i, 0, countof(sigar__formatPriority)) {
-			siSampleFormat format = sigar__formatPriority[i];
-			SI_STOPIF(sigar_formatSize(format) > sigar_formatSize(config->format), continue);
-
-			res = snd_pcm_hw_params_set_format(device->id, params, sigar__alsaToFormat(format));
-			SI_STOPIF(res == 0, config->format = format; break);
-		}
-		SI_ASSERT(res == 0);
-	}
-
-	res = snd_pcm_hw_params_set_channels(device->id, params, config->channels);
-	if (res != 0) {
-		res = snd_pcm_hw_params_set_channels(device->id, params, 2);
-		SI_ASSERT(res == 0);
-	}
-
-
-	res = snd_pcm_hw_params_set_rate_near(device->id, params, &config->rate, 0);
-	if (res != 0) {
-		for_range (i, 0, countof(sigar__formatPriority)) {
-			siSampleRate rate = sigar__ratePriority[i];
-			SI_STOPIF(rate > config->rate, continue);
-
-			res = snd_pcm_hw_params_set_rate(device->id, params, rate, 0);
-			SI_STOPIF(res == 0, config->rate = rate; break);
-		}
-		SI_ASSERT(res == 0);
-	}
-
-	res = snd_pcm_hw_params_set_period_size(device->id, params, config->frameCount, 0);
-	if (res != 0) {
-		res = snd_pcm_hw_params_set_period_size(device->id, params, 1024, 0);
-		SI_STOPIF(res == 0, config->frameCount = 0);
-	}
-
-	res = snd_pcm_hw_params_set_periods(device->id, params, config->periodCount, 0);
-	SI_ASSERT(res == 0);
-
-	res = snd_pcm_hw_params(device->id, params);
-	SI_ASSERT(res == 0);
-
-	if (config->frameCount == 0) {
-		unsigned long frames;
-		res = snd_pcm_hw_params_get_period_size(params, &frames, 0);
-		SI_ASSERT(res == 0);
-
-		config->frameCount = (u32)frames;
-	}
-
-	struct pollfd* pfds = device->pfd;
-	res = snd_pcm_poll_descriptors(device->id, &pfds[1], countof(device->pfd) - 1);
-	if (pfds[0].fd == 0) {
-		pfds[0].fd = eventfd(0, 0);
-		pfds[0].events = POLLIN;
-		pfds[0].revents = 0;
-	}
-	SI_ASSERT(pfds[0].fd != -1);
-	SI_ASSERT(res != 0);
-
-	if (device->alloc.ptr == nil) {
-		si_allocatorFree(&device->alloc);
-	}
-
-	usize frameTotalSize = config->frameCount * config->channels * sigar_formatSize(config->format);
-	device->alloc = si_allocatorMake(frameTotalSize);
-
-	if (!device->thread.initialized) {
-		pthread_mutex_init(&device->mutex, nil);
-		pthread_cond_init(&device->cond, nil);
-	}
-
-	res = snd_pcm_nonblock(device->id, 1);
-	SI_ASSERT(res == 0);
-
-	res = snd_pcm_prepare(device->id);
-	SI_ASSERT(res == 0);
-}
-
-siIntern
-b32 sigar__alsaDeviceWait(siAudioDevice* device) {
-	/* NOTE(EimaMei): Taken and reworked from miniaudio's 'ma_device_wait__alsa'. */
-	u16 revents;
-    while (true) {
-        i32 res = poll(device->pfd, countof(device->pfd), -1);
-		if (res < 0) {
-			SI_ERROR_DECLARE(device->status, SIGAR_ERROR_POLL);
-			return false;
-		}
-
-		/* NOTE(EimaMei): It's time to forcefully wake up the device. */
-		if (device->pfd[0].revents & POLLIN) {
-			u64 tmp;
-			read(device->pfd[0].fd, &tmp, sizeof(tmp));
-
-			return false;
-		}
-
-        res = snd_pcm_poll_descriptors_revents(
-			device->id, &device->pfd[1], countof(device->pfd) - 1, &revents
-		);
-		if (res < 0) {
-			SI_ERROR_DECLARE(device->status, SIGAR_ERROR);
-            return false;
-        }
-
-		if (revents & POLLERR) {
-            if (snd_pcm_state(device->id) != SND_PCM_STATE_XRUN) {
-				SI_ERROR_DECLARE(device->status, SIGAR_ERROR_POLL);
-				return false;
-			}
-		}
-
-		if (revents & POLLOUT)
-			return true;
-	}
-}
-
-siIntern
-void sigar__alsaDeviceWrite(siAudioDevice* device) {
-	i64 status = snd_pcm_writei(device->id, device->alloc.ptr, device->config.frameCount);
-
-	if (status < 0) {
-		if (status == -EAGAIN) {
-			si_sleep(1);
-			return ;
-		}
-		else if (status == -EPIPE) {
-			snd_pcm_prepare(device->id);
-		}
-		status = snd_pcm_recover(device->id, (int)status, false);
-		if (status < 0) {
-			SI_ERROR_DECLARE(device->status, SIGAR_ERROR);
-			device->state = SIGAR_CLOSED;
-			return ;
-		}
-	}
-}
-
-SIDEF
-void sigar__alsaDevicePause(siAudioDevice* device) {
-	snd_pcm_drain(device->id);
-	snd_pcm_prepare(device->id);
-
-	pthread_mutex_lock(&device->mutex);
-	while (device->state == SIGAR_PAUSED) {
-		pthread_cond_wait(&device->cond, &device->mutex);
-	}
-	pthread_mutex_unlock(&device->mutex);
-
-	snd_pcm_start(device->id);
-}
-
-siIntern
-void sigar__threadOutputCallback(siAudioDevice* device) {
-	siAudioDeviceConfig* config = &device->config;
-	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0x80 : 0;
-	usize frameSize = config->frameCount * config->channels;
-
-start:
-	while (device->state == SIGAR_RUNNING) {
-		b32 res = sigar__alsaDeviceWait(device);
-		SI_STOPIF(!res, return);
-
-		siByte* frame = device->alloc.ptr;
-		si_memset(frame, silence, device->alloc.capacity);
-
-		config->callback(device, frame, nil, frameSize);
-		sigar__alsaDeviceWrite(device);
-	}
-
-	if (device->state == SIGAR_PAUSED) {
-		sigar__alsaDevicePause(device);
-		goto start;
-	}
-}
-
-
 
 siIntern
 snd_pcm_format_t sigar__alsaToFormat(siSampleFormat format) {
@@ -1137,6 +992,8 @@ b32 sigar__alsaFillDeviceInfoName(cstring name, siAudioDeviceInfo* device) {
 const GUID SI_CLSID_MMDeviceEnumerator = {0xBCDE0395, 0xE52F, 0x467C, {0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E}};
 const GUID SI_IID_IMMDeviceEnumerator = {0xA95664D2, 0x9614, 0x4F35, {0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6}};
 const GUID SI_IID_IAudioClient = {0x1CB9AD4C, 0xDBFA, 0x4C32, {0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2}};
+const GUID SI_IID_IAudioRenderClient = {0xF294ACFC, 0x3146, 0x4483, {0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2}};
+
 siIntern
 void sigar__wasapiCOMInitalize(void) {
 	static b32 COM_initialized = false;
@@ -1176,15 +1033,319 @@ b32 sigar__wasapiFillDeviceInfo(IMMDevice* id, siAudioDeviceInfo* device) {
 	}
 }
 
+#endif
+
+siIntern
+void sigar__threadOutputCallback(siAudioDevice* device) {
+	siAudioDeviceConfig* config = &device->config;
+	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0x80 : 0;
+	usize frameSize = config->frameCount * config->channels;
+
+start:
+	while (device->state == SIGAR_RUNNING) {
+		b32 res = sigar__deviceWait(device);
+		SI_STOPIF(!res, return);
+
+		siByte* frame = sigar__deviceBufferGet(device);
+		//si_memset(frame, silence, device->alloc.capacity);
+		si_memset(frame, silence, device->total * 2 * 4);
+
+		config->callback(device, frame, nil, device->total);
+		sigar__deviceWrite(device);
+	}
+
+	if (device->state == SIGAR_PAUSED) {
+		sigar__alsaDevicePause(device);
+		goto start;
+	}
+}
+
+
+siIntern
+void sigar__deviceInit(siAudioDevice* device) {
+	SI_STOPIF(device->state == SIGAR_STOPPED, return);
+
+	siAudioDeviceConfig* config = &device->config;
+	SI_STOPIF(config->format == 0, config->format = SIGAR_DEFAULT_FORMAT);
+	SI_STOPIF(config->rate == 0, config->rate = SIGAR_DEFAULT_SAMPLE_RATE);
+	SI_STOPIF(config->channels == 0, config->channels = SIGAR_DEFAULT_CHANNELS);
+	SI_STOPIF(config->periodCount == 0, config->periodCount = SIGAR_DEFAULT_PERIODS);
+	SI_STOPIF(config->frameCount == 0, config->frameCount = SIGAR_DEFAULT_FRAME_COUNT);
+
+#if SI_SYSTEM_IS_UNIX
+	snd_pcm_hw_params_t* params;
+	snd_pcm_hw_params_alloca(&params);
+
+	i32 res = snd_pcm_hw_params_any(device->id, params);
+	SI_ERROR_CHECK(res < 0, &device->error, sigar__audioError(-res), );
+
+	res = snd_pcm_hw_params_set_access(device->id, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+	SI_ERROR_CHECK(res != 0, &device->error, sigar__audioError(-res), );
+
+	res = snd_pcm_hw_params_set_format(device->id, params, sigar__alsaToFormat(config->format));
+	if (res != 0) {
+		for_range (i, 0, countof(sigar__formatPriority)) {
+			siSampleFormat format = sigar__formatPriority[i];
+			SI_STOPIF(sigar_formatSize(format) > sigar_formatSize(config->format), continue);
+
+			res = snd_pcm_hw_params_set_format(device->id, params, sigar__alsaToFormat(format));
+			if (res == 0) {
+				config->format = format;
+				break;
+			}
+		}
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_NO_FORMAT, );
+	}
+
+	res = snd_pcm_hw_params_set_channels(device->id, params, config->channels);
+	if (res != 0) {
+		res = snd_pcm_hw_params_set_channels(device->id, params, SIGAR_DEFAULT_CHANNELS);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_NO_CHANNELS, );
+	}
+
+
+	res = snd_pcm_hw_params_set_rate_near(device->id, params, &config->rate, 0);
+	if (res != 0) {
+		for_range (i, 0, countof(sigar__ratePriority)) {
+			siSampleRate rate = sigar__ratePriority[i];
+			SI_STOPIF(rate > config->rate, continue);
+
+			res = snd_pcm_hw_params_set_rate(device->id, params, rate, 0);
+			if (res == 0) {
+				config->rate = rate;
+				break;
+			}
+		}
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_NO_RATE, );
+	}
+
+	res = snd_pcm_hw_params_set_period_size(device->id, params, config->frameCount, 0);
+	if (res != 0) {
+		res = snd_pcm_hw_params_set_period_size(device->id, params, SIGAR_DEFAULT_FRAME_COUNT, 0);
+		SI_STOPIF(res == 0, config->frameCount = 0);
+	}
+
+	res = snd_pcm_hw_params_set_periods(device->id, params, config->periodCount, 0);
+	if (res != 0) {
+		res = snd_pcm_hw_params_set_period_size(device->id, params, SIGAR_DEFAULT_PERIODS, 0);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_NO_PERIODS, );
+	}
+
+	res = snd_pcm_hw_params(device->id, params);
+	SI_ERROR_CHECK(res != 0, &device->error, sigar__audioError(-res), );
+
+	if (config->frameCount == 0) {
+		unsigned long frames;
+		res = snd_pcm_hw_params_get_period_size(params, &frames, 0);
+		SI_ASSERT(res == 0);
+
+		config->frameCount = (u32)frames;
+	}
+
+	struct pollfd* pfds = device->pfd;
+	res = snd_pcm_poll_descriptors(device->id, &pfds[1], countof(device->pfd) - 1);
+	SI_ERROR_CHECK(res <= 0, &device->error, SIGAR_ERROR, );
+
+	if (pfds[0].fd == 0) {
+		pfds[0].fd = eventfd(0, 0);
+		pfds[0].events = POLLIN;
+		pfds[0].revents = 0;
+		SI_ERROR_CHECK(pfds[0].fd == -1, &device->error, sigar__audioError(res), );
+	}
+
+	if (device->alloc.ptr == nil) {
+		si_allocatorFree(&device->alloc);
+	}
+
+	usize frameTotalSize = config->frameCount * config->channels * sigar_formatSize(config->format);
+	device->alloc = si_allocatorMake(frameTotalSize);
+
+	if (!device->thread.initialized) {
+		pthread_mutex_init(&device->mutex, nil);
+		pthread_cond_init(&device->cond, nil);
+	}
+
+#elif SI_SYSTEM_IS_WINDOWS
+	IAudioClient* client;
+	{
+		i32 res = IMMDevice_Activate(device->id, &SI_IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&client);
+		SI_ERROR_CHECK(res != 0, &device->error, sigar__audioError(res), );
+	}
+	device->client = client;
+
+	WAVEFORMATEX* format;
+	{
+		i32 res = IAudioClient_GetMixFormat(client, &format);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR, );
+	}
+
+	{
+		REFERENCE_TIME duration = 10000000 * config->frameCount / format->nSamplesPerSec;
+
+		i32 res = IAudioClient_Initialize(
+			client, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+			duration, 0, (void*)format, nil
+		);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR, );
+	}
+
+	{
+		i32 res = IAudioClient_GetService(client, &SI_IID_IAudioRenderClient, (void**)&device->service);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR, );
+
+		device->wakeup = CreateEventW(0, false, false, 0);
+		res = IAudioClient_SetEventHandle(client, device->wakeup);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR, );
+
+
+		IAudioClient_GetBufferSize(device->client, &device->frames);
+		//IAudioClient_GetBufferSize(client, &config->frameCount);
+
+	}
+
+	//CoTaskMemFree(format);
+#endif
+}
+
+siIntern
+void sigar__deviceStart(siAudioDevice* device) {
+#if SI_SYSTEM_IS_UNIX
+	i32 res = snd_pcm_nonblock(device->id, 1);
+	SI_ERROR_CHECK(res != 0, &device->error, sigar__audioError(-res), );
+
+	res = snd_pcm_prepare(device->id);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_DEVICE_NOT_STARTED, );
+
+#elif SI_SYSTEM_IS_WINDOWS
+	i32 res = IAudioClient_Start(device->client);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_DEVICE_NOT_STARTED, );
 
 #endif
 
+	device->state = SIGAR_RUNNING;
+}
+
+
+force_inline
+siByte* sigar__deviceBufferGet(siAudioDevice* device) {
+#if SI_SYSTEM_IS_UNIX
+	return device->alloc.ptr;
+
+#elif SI_SYSTEM_IS_WINDOWS
+	u32 padding;
+	IAudioClient_GetCurrentPadding(device->client, &padding);
+	device->total = device->frames - padding;
+	si_printf("Frames: %i %i = %i\n", device->frames, padding, device->total);
+
+	siByte* buffer;
+	i32 res = IAudioRenderClient_GetBuffer(device->service, device->total, &buffer);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR, nil);
+
+	return buffer;
+
+#endif
+}
+
+siIntern
+b32 sigar__deviceWait(siAudioDevice* device) {
+#if SI_SYSTEM_IS_UNIX
+	/* NOTE(EimaMei): Taken and reworked from miniaudio's 'ma_device_wait__alsa'. */
+	u16 revents;
+    while (true) {
+        i32 res = poll(device->pfd, countof(device->pfd), -1);
+		SI_ERROR_CHECK(res < 0, &device->error, SIGAR_ERROR_POLL, false);
+
+		/* NOTE(EimaMei): It's time to forcefully wake up the device. */
+		if (device->pfd[0].revents & POLLIN) {
+			u64 tmp;
+			read(device->pfd[0].fd, &tmp, sizeof(tmp));
+
+			return false;
+		}
+
+        res = snd_pcm_poll_descriptors_revents(
+			device->id, &device->pfd[1], countof(device->pfd) - 1, &revents
+		);
+		SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_POLL, false);
+
+		if (revents & POLLERR && snd_pcm_state(device->id) != SND_PCM_STATE_XRUN) {
+			SI_ERROR(&device->error, SIGAR_ERROR_POLL);
+			return false;
+		}
+
+		if (revents & POLLOUT)
+			return true;
+	}
+#elif SI_SYSTEM_IS_WINDOWS
+	u64 begin = si_clock();
+	u32 res = WaitForSingleObject(device->wakeup, INFINITE);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_POLL, false);
+	u64 end = si_clock();
+	si_printf("Time: %i\n", (end - begin) / SI_CLOCKS_MS);
+
+	return true;
+
+#endif
+
+}
+
+siIntern
+void sigar__deviceWrite(siAudioDevice* device) {
+#if SI_SYSTEM_IS_UNIX
+	i64 res = snd_pcm_writei(device->id, device->alloc.ptr, device->config.frameCount);
+
+	if (res < 0) {
+		if (res == -EAGAIN) {
+			si_sleep(1);
+			return ;
+		}
+		else if (res == -EPIPE) {
+			snd_pcm_prepare(device->id);
+		}
+
+		res = snd_pcm_recover(device->id, (int)res, false);
+		if (res < 0) {
+			SI_ERROR(&device->error, si__fileGetOSError());
+			device->state = SIGAR_CLOSED;
+			return ;
+		}
+	}
+
+#elif SI_SYSTEM_IS_WINDOWS
+	HRESULT res = IAudioRenderClient_ReleaseBuffer(device->service, device->total, 0);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR,);
+
+
+#endif
+}
+
+siIntern
+void sigar__alsaDevicePause(siAudioDevice* device) {
+#if SI_SYSTEM_IS_UNIX
+	i32 res = snd_pcm_drain(device->id);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_DEVICE_NOT_STOPPED, );
+
+	snd_pcm_prepare(device->id);
+
+	pthread_mutex_lock(&device->mutex);
+	while (device->state == SIGAR_PAUSED) {
+		pthread_cond_wait(&device->cond, &device->mutex);
+	}
+	pthread_mutex_unlock(&device->mutex);
+
+	res = snd_pcm_start(device->id);
+	SI_ERROR_CHECK(res != 0, &device->error, SIGAR_ERROR_DEVICE_NOT_STARTED, );
+
+#endif
+
+}
 
 SIDEF
 siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 	siAudioDevice device = {0};
 	device.config.type = type;
 	device.config.callback = sigar__callbackOutputDefault;
+	device.error.code = SIGAR_SUCCESS;
 
 #if SI_SYSTEM_IS_APPLE
 	AudioObjectPropertyAddress properties = {
@@ -1204,7 +1365,6 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 	SI_ASSERT(res == 0);
 
 #elif SI_SYSTEM_IS_UNIX
-	b32 found = false;
 	for_range (i, 0, countof(sigar__alsaDefaultDevices)) {
 		i32 res = snd_pcm_open(
 			&device.id, sigar__alsaDefaultDevices[i],
@@ -1212,11 +1372,11 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 		);
 
 		if (res == 0) {
-			found = true;
-			break;
+			return device;
 		}
 	}
-	SI_ERROR_CHECK(!found, outError, SIGAR_ERROR_DEVICE, device);
+	/* NOTE(EimaMei): If this part is reached, no default device was found. */
+	SI_ERROR(&device.error, SIGAR_ERROR_NO_DEVICE);
 
 #elif SI_SYSTEM_IS_WINDOWS
 	siError* outError = &device.error;
@@ -1232,13 +1392,13 @@ siAudioDevice sigar_deviceMake(siAudioDeviceType type) {
 	i32 res = IMMDeviceEnumerator_GetDefaultAudioEndpoint(
 		enumerator, eRender, eConsole, &device.id
 	);
-	SI_ERROR_CHECK(res != 0, outError, SIGAR_ERROR_DEVICE, device);
-
-
+	SI_ERROR_CHECK(
+		res != 0, outError,
+		(res == E_NOTFOUND) ? SIGAR_ERROR_NO_DEVICE : sigar__audioError(res), device
+	);
 	IMMDeviceEnumerator_Release(enumerator);
 
 #endif
-	device.state = SIGAR_SUCCESS;
 
 	return device;
 }
@@ -1254,7 +1414,7 @@ siAudioDevice sigar_deviceMakeID(siAudioDeviceID identifier) {
 	SI_ASSERT_NOT_NULL(identifier.alsa);
 
 	i32 res = snd_pcm_open(&device.id, identifier.alsa, SND_PCM_STREAM_PLAYBACK, 0);
-	SI_ERROR_DECLARE(device.status, (res == 0) ? SIGAR_SUCCESS : SIGAR_ERROR_DEVICE);
+	SI_ERROR_CHECK(res == 0, &device.error, SIGAR_ERROR_NO_DEVICE, device);
 
 #endif
 
@@ -1484,8 +1644,8 @@ siString sigar_audioErrorToStr(siAudioError error) {
 		case SIGAR_UNKNOWN: return SI_STR("SIGAR_UNKNOWN");
 		case SIGAR_SUCCESS: return SI_STR("SIGAR_SUCCESS");
 		case SIGAR_ERROR: return SI_STR("SIGAR_ERROR");
-		case SIGAR_ERROR_FORMAT: return SI_STR("SIGAR_ERROR_FORMAT");
-		case SIGAR_ERROR_DEVICE: return SI_STR("SIGAR_ERROR_DEVICE");
+		case SIGAR_ERROR_NO_FORMAT: return SI_STR("SIGAR_ERROR_NO_FORMAT");
+		case SIGAR_ERROR_NO_DEVICE: return SI_STR("SIGAR_ERROR_NO_DEVICE");
 		case SIGAR_ERROR_THREAD: return SI_STR("SIGAR_ERROR_THREAD");
 		case SIGAR_ERROR_POLL: return SI_STR("SIGAR_ERROR_POLL");
 	}
@@ -1543,49 +1703,32 @@ siString sigar_deviceAccessToStr(siAudioDeviceAccess access) {
 
 
 SIDEF
-void sigar_deviceStart(siAudioDevice* device) {
+b32 sigar_deviceStart(siAudioDevice* device) {
 	SI_ASSERT_NOT_NULL(device);
 	SIGAR_ASSERT_DEVICE(device);
 
-#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	if (device->state == SIGAR_PAUSED) {
+#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 		pthread_mutex_lock(&device->mutex);
 		device->state = SIGAR_RUNNING;
 		pthread_cond_signal(&device->cond);
 		pthread_mutex_unlock(&device->mutex);
+#endif
 	}
 	else if (device->state == SIGAR_CLOSED || device->state == SIGAR_STOPPED) {
-		sigar__alsaDeviceInit(device);
-		device->state = SIGAR_RUNNING;
+		sigar__deviceInit(device);
+		SI_STOPIF(device->error.code != SIGAR_SUCCESS, return false);
+
+		sigar__deviceStart(device);
+		SI_STOPIF(device->error.code != SIGAR_SUCCESS, return false);
 
 		b32 res = si_threadMake(
 			siFunc(sigar__threadOutputCallback), device, true, &device->thread
 		);
+		SI_ERROR_CHECK(res == 0, &device->error, SIGAR_ERROR_THREAD, false);
+	}
 
-		if (res == false) {
-			SI_ERROR_DECLARE(device->status, SIGAR_ERROR_THREAD);
-			return;
-		}
-	}
-#elif SI_SYSTEM_IS_WINDOWS
-#if 0
-	siError* outError = &device->status;
-	if (device->state == SIGAR_PAUSED) {
-	}
-	else if (device->state == SIGAR_CLOSED || device->state == SIGAR_STOPPED) {
-		IAudioClient* client;
-		i32 res = IMMDevice_Activate(device->id, &SI_IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&client);
-		SI_ERROR_CHECK(res != 0, outError, SIGAR_ERROR, 0);
-	}
-	IAudioClient_Release(client);
-
-	WAVEFORMATEX *wf;
-	IAudioClient_GetMixFormat(client, &wf);
-	CoTaskMemFree(wf);
-	}
-#endif
-
-#endif
+	return true;
 }
 
 inline
@@ -1621,7 +1764,8 @@ void sigar_deviceWait(siAudioDevice* device, b32 forceUnpause) {
 	}
 
 #endif
-	si_threadJoin(&device->thread);
+	b32 res = si_threadJoin(&device->thread);
+	SI_ERROR_CHECK(res == false, &device->error, SIGAR_ERROR_THREAD,);
 }
 
 
@@ -1690,15 +1834,13 @@ siAudio* sigar_devicePollAudioHead(const siAudioDevice* device) {
 	} while (audio && (audio)->state == SIGAR_PAUSED); \
 	*(out) = audio
 
-void sigar_devicePollAudio(const siAudioDevice* device, siAudio** outAudio) {
-	SI_ASSERT_NOT_NULL(device);
+void sigar_devicePollAudio(usize frameCount, siAudio** outAudio) {
 	SI_ASSERT_NOT_NULL(outAudio);
 
 	siAudio* audio = *outAudio;
-	const siAudioDeviceConfig* config = &device->config;
 
 	usize remaining = audio->end - audio->__offset;
-	usize length = config->frameCount * audio->channels * sigar_formatSize(audio->format);
+	usize length = frameCount * audio->channels * sigar_formatSize(audio->format);
 
 	if (SI_UNLIKELY(remaining < length)) {
 		audio->__offset = audio->start;
@@ -1802,7 +1944,7 @@ siAudio sigar_audioMakeEx(siAudioDevice* device, rawptr buffer, usize length,
 #elif SI_SYSTEM_IS_UNIX
 	siAudioDeviceConfig* config = &device->config;
 	if (!config->isSet) {
-		if (sigar_formatIsPrefered(format, config->format)) {
+		if (sigar__formatIsPrefered(format, config->format)) {
 			config->format = sigar__alsaCheckFormat(format);
 		}
 		if (channels > config->channels) {
@@ -1938,7 +2080,7 @@ b32 sigar_audioClose(siAudio* audio) {
 		audio->isRunning = !(status == 0);
 		audio->isClosed = !audio->isRunning;
 
-#elif SI_SYSTEM_IS_UNIX
+#else
 		siAudioDevice* device = audio->device;
 		siAudio* audioHead = device->audioHead;
 		if (audioHead == audio) {
@@ -2046,14 +2188,15 @@ void sigar__mixTypes_u8u8(u8* outPtr, u8 inValue) {
 
 
 SIDEF
-void sigar_upmixBufferToStereo(siByte* restrict output, const siByte* restrict input,
+void sigar_upmixBufferToStereo(rawptr restrict output, const rawptr restrict input,
 		usize frameCount, u32 sizePerChannel) {
 
 	switch (sizePerChannel) {
 		case 1: {
+			u8* out = (u8*)output, *in = (u8*)input;
 			for_range (i, 0, frameCount) {
-				output[i * 2 + 0] = input[i];
-				output[i * 2 + 1] = input[i];
+				out[i * 2 + 0] = in[i];
+				out[i * 2 + 1] = in[i];
 			}
 		} break;
 
@@ -2085,8 +2228,8 @@ void sigar_upmixBufferToStereo(siByte* restrict output, const siByte* restrict i
 }
 
 SIDEF
-void sigar_mixBuffers(siByte* restrict output, siSampleFormat formatOut,
-		const siByte* restrict input, siSampleFormat formatIn, usize len) {
+void sigar_mixBuffers(rawptr restrict output, siSampleFormat formatOut,
+		const rawptr restrict input, siSampleFormat formatIn, usize len) {
 	SI_ASSERT_NOT_NULL(output);
 	SI_ASSERT_NOT_NULL(input);
 	SI_ASSERT(sigar_formatIsNative(formatOut));
@@ -2154,24 +2297,15 @@ void sigar_mixInt24ToUInt8(u8* restrict output, const siByte* restrict input,
 		usize len) {
 	const si__u8x3* inPtr = (si__u8x3*)input;
 
-	usize i;
-	for (i = 0; i < len; i += 1) {
-		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
-		SI_STOPIF(inValue & 0x800000, inValue |= ~0xFFFFFFu);
+	for_range (i, 0, len) {
+		i32 inValue = 0;
+		si_memcopy(&inValue, &inPtr[i], 3);
+		inValue = (inValue ^ 0x800000) - 0x800000;
 		inValue += (1 << 23) - 1;
 		inValue /= UINT16_MAX + 1;
 
 		sigar__mixTypes_u8u8(&output[i], (u8)inValue);
 	}
-
-	i32 inValue = 0;
-	si_memcopy(&inValue, &inPtr[i], 3);
-	inValue = (inValue ^ 0x800000) - 0x800000;
-	inValue += (1 << 23) - 1;
-	inValue /= UINT16_MAX + 1;
-
-	sigar__mixTypes_u8u8(&output[i], (u8)inValue);
-
 }
 
 SIDEF
@@ -2215,21 +2349,14 @@ SIDEF
 void sigar_mixInt24ToInt16(i16* output, const siByte* input, usize len) {
 	si__u8x3* inPtr = (si__u8x3*)input;
 
-	usize i;
-	for (i = 0; i < len - 1; i += 1) {
-		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
+	for_range (i, 0, len) {
+		i32 inValue = 0;
+		si_memcopy(&inValue, &inPtr[i], 3);
 		inValue = (inValue ^ 0x800000) - 0x800000;
 		inValue >>= 8;
 
 		sigar__mixTypes_i16i16(&output[i], (i16)inValue);
 	}
-
-	i32 inValue = 0;
-	si_memcopy(&inValue, &inPtr[i], 3);
-	inValue = (inValue ^ 0x800000) - 0x800000;
-	inValue >>= 8;
-
-	sigar__mixTypes_i16i16(&output[i], (u8)inValue);
 }
 
 SIDEF
@@ -2274,9 +2401,9 @@ SIDEF
 void sigar_mixInt24ToFloat32(f32* output, const siByte* input, usize len) {
 	si__u8x3* inPtr = (si__u8x3*)input;
 
-	usize i;
-	for (i = 0; i < len - 1; i += 1) {
-		i32 inValue = *(i32*)&inPtr[i] & 0xFFFFFFu;
+	for_range (i, 0, len) {
+		i32 inValue = 0;
+		si_memcopy(&inValue, &inPtr[i], 3);
 		inValue = (inValue ^ 0x800000) - 0x800000;
 
 		f32 inValueFloat = (f32)inValue;
@@ -2284,16 +2411,6 @@ void sigar_mixInt24ToFloat32(f32* output, const siByte* input, usize len) {
 
 		sigar__mixTypes_f32f32(&output[i], inValueFloat);
 	}
-
-	i32 inValue = 0;
-	si_memcopy(&inValue, &inPtr[i], 3);
-	inValue = (inValue ^ 0x800000) - 0x800000;
-	inValue >>= 8;
-
-	f32 inValueFloat = (f32)inValue;
-	inValueFloat /= 0x800000;
-
-	sigar__mixTypes_f32f32(&output[i], inValueFloat);
 }
 
 SIDEF
@@ -2330,14 +2447,14 @@ void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output
 
 	while (audio != nil) {
 		siBuffer buffer = sigar_audioCurrentBufferGet(audio);
-		u8 mixed[SI_KILO(8)];
+		u8 mixed[SI_KILO(16)];
 
 		if (audio->channels < config->channels) {
 			SI_ASSERT(audio->channels == 1);
-			SI_ASSERT(frameCount <= SI_KILO(8));
+			SI_ASSERT(frameCount * 2 * sigar_formatSize(config->format) <= countof(mixed));
 
 			sigar_upmixBufferToStereo(
-				mixed, buffer.data, config->frameCount,
+				mixed, buffer.data, frameCount,
 				(u32)sigar_formatSize(audio->format)
 			);
 			buffer.data = mixed;
@@ -2346,7 +2463,7 @@ void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output
 		SI_ASSERT(audio->rate == config->rate); /* NOTE(EimaMei): No sample rate resampling. */
 		sigar_mixBuffers(output, config->format, buffer.data, audio->format, frameCount);
 
-		sigar_devicePollAudio(device, &audio);
+		sigar_devicePollAudio(frameCount, &audio);
 	}
 
 	SI_UNUSED(input);
