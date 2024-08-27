@@ -2,17 +2,8 @@
 #include <sili.h>
 
 
-typedef struct matrixData {
-	usize start;
-	usize end;
-	f32* a;
-	f32* b;
-	f32* result;
-} matrixData;
-
-
-i16 thread_test(b32* arg);
-void thread_matrix(matrixData* data);
+rawptr thread_test(rawptr arg);
+rawptr thread_matrix(rawptr arg);
 
 
 /* Example 1 shows off sili's threading functions and how they're meant to use
@@ -24,7 +15,7 @@ void example2(void);
 
 
 int main(void) {
-	example1();
+	//example1();
 	example2();
 }
 
@@ -65,20 +56,30 @@ void example1(void) {
  * the core count doesn't resolve in better performance. */
 #define THREAD_COUNT 4
 /* The higher the number, the longer it takes. */
-#define SIZE 400
+#define SIZE 128
 
 void matrix_singlethreaded(f32* a, f32* b, f32* result);
 void matrix_multithreaded(f32* a, f32* b, f32* result);
 
 
+typedef struct matrixData {
+	usize start;
+	usize end;
+	f32* a;
+	f32* b;
+	f32* result;
+} matrixData;
+
+
 void example2(void) {
-	siAllocator alloc = si_allocatorMake(4 * (SIZE * SIZE * sizeof(f32)));
+	siAllocatorData inData;
+	siAllocator alloc = si_allocatorMakeArena(4 * (SIZE * SIZE * sizeof(f32)), &inData);
 
 	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */
-	f32* A = si_mallocArray(&alloc, f32, SIZE * SIZE);
-	f32* B = si_mallocArray(&alloc, f32, SIZE * SIZE);
-	f32* res1 = si_mallocArray(&alloc, f32, SIZE * SIZE);
-	f32* res2 = si_mallocArray(&alloc, f32, SIZE * SIZE);
+	f32* A = si_allocArray(alloc, f32, SIZE * SIZE);
+	f32* B = si_allocArray(alloc, f32, SIZE * SIZE);
+	f32* res1 = si_allocArray(alloc, f32, SIZE * SIZE);
+	f32* res2 = si_allocArray(alloc, f32, SIZE * SIZE);
 
 
 	/* Fill out both matrix A and B with random data. */
@@ -90,7 +91,7 @@ void example2(void) {
 		}
 	}
 
-	si_benchmarkLoopsAvgCmp(1, matrix_singlethreaded(A, B, res1), matrix_multithreaded(A, B, res2));
+	si_benchmarkLoopsAvgCmp(1000, matrix_singlethreaded(A, B, res1), matrix_multithreaded(A, B, res2));
 
 	/* Check if both outputs are correct. */
 	for_range (i, 0, SIZE) {
@@ -100,7 +101,7 @@ void example2(void) {
 	}
 	si_printf("Results are correct.\n");
 
-	si_allocatorFree(&alloc);
+	si_freeAll(alloc);
 }
 
 void matrix_singlethreaded(f32* a, f32* b, f32* result) {
@@ -129,7 +130,9 @@ void matrix_multithreaded(f32* a, f32* b, f32* result) {
 
 		si_threadMake(thread_matrix, &threadData[i], true, &threads[i]);
 	}
-	si_threadJoinArr(threads, countof(threads));
+	for_range (i, 0, THREAD_COUNT) {
+		si_threadJoin(&threads[i]);
+	}
 
 	for_range (i, 0, countof(threads)) {
 		si_threadDestroy(&threads[i]);
@@ -140,8 +143,8 @@ void matrix_multithreaded(f32* a, f32* b, f32* result) {
 
 /* A thread can only return a maximum of 'sizeof(rawptr)' bytes, and take a
  * sizeof(rawptr) byte parameter. */
-i16 thread_test(b32* arg) {
-	b32 loop = *arg;
+rawptr thread_test(rawptr arg) {
+	b32 loop = *si_transmute(b32*, arg, rawptr);
 	i16 count = INT16_MIN;
 
 	if (loop) {
@@ -157,10 +160,12 @@ i16 thread_test(b32* arg) {
 		si_print("Exiting the thread now.\n");
 	}
 
-	return count;
+	return si_transmute(rawptr, count, i16);
 }
 
-void thread_matrix(matrixData* data) {
+rawptr thread_matrix(rawptr mData) {
+	matrixData* data = mData;
+
 	for_range (i, data->start, data->end) {
 		for_range (j, 0, SIZE) {
 			for_range (k, 0, SIZE) {
@@ -168,4 +173,6 @@ void thread_matrix(matrixData* data) {
 			}
 		}
 	}
+
+	return nil;
 }

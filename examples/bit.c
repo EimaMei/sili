@@ -78,7 +78,6 @@ int main(void) {
 		SI_BIT_MSB(adr), SI_BIT_LSB(adr)
 	);
 
-	si_printf("Bit 0 of '%#b': '%i'\n", 2, SI_NUM_BIT_GET(2, 0));
 	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
 
 	usize numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
@@ -102,13 +101,10 @@ int main(void) {
 
 	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
 
-	siArray(u8) array = si_numToBytes(&alloc, u32, 0xFF00EEAA);
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: '0x%02X'\n", i, array[i]);
-	}
+	siArray(u8) array = si_numToBytes(u32, 0xFF00EEAA, &alloc);
+	si_printf("array: %S, (len: %zd)\n", si_stringFromArray(array, "%#hhX"), array.len);
 
-	u32 newNum = (u32)si_bytesToNumSiArr(array);
+	u32 newNum = (u32)si_numFromBytes(array);
 	si_printf("Combining them all back, we get '%#X'\n", newNum);
 
 	adr = si_swap16(adr);

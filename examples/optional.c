@@ -13,46 +13,48 @@ SI_ENUM(usize, valueType) {
 	SI_TYPE_COUNT
 };
 
-typedef struct u128Struct {
+typedef struct {
 	u64 high, low;
 } u128Struct;
 
+typedef struct {
+	siString name;
+	b32 isAdmin;
+	u32 moneis;
+} userInfo;
 
+/* For additional siOptional(<TYPE>) types, you need to define them once beforehand. */
 si_optional_define(valueType);
-
 si_optional_define(u128Struct);
-
 si_optional_define(cstring);
+si_optional_define(userInfo);
 
 
-/* Example 1 shows off the very basics of 'siOption' and how it can be usually
- * used. */
+/* Shows off the basic usage of 'siOption' */
 void example1(void);
-/* Example 2 shows 'siOption' type's compatibility with a wide variety of C
- * types. */
+/* Shows siOption's compatibility with many types. */
 void example2(siAllocator* stack);
+/* Shows off the difference between 'siOption' and 'siResult'. */
+void example3(void);
 
 
 int main(void) {
-	siAllocator stack = si_allocatorMakeStack(0xFF);
+	siAllocator stack = si_allocatorMakeStack(256);
 
 	example1();
 	example2(&stack);
+	example3();
 
 	return 0;
 }
 
-
-
+/* Returns an optional object either with or without a value depending on the
+ * specified boolean. */
 siOption(cstring) create(b32 value);
-void createOptional(valueType type, rawptr out, siAllocator* alloc);
-
-void print_arrI(siArrayType(i32) array);
-
 
 void example1(void) {
 	/* Based on https://en.cppreference.com/w/cpp/utility/optional. */
-	si_printf("==============\n\n==============\nExample 5.0:\n");
+	si_print("==============\n\n==============\nExample 1:\n");
 
 	siOption(cstring) str = create(false);
 	si_printf(
@@ -63,23 +65,29 @@ void example1(void) {
 	str = create(true);
 	SI_ASSERT(str.hasValue);
 
+	/* C11 and onwards, you can access the returned data from an 'siOption' variable
+	 * via '.data' (or '.error' if it's an error). However, if you need to keep
+	 * your code C99 compliant, you can use '.data.value' for it to work on
+	 * multiple standards. */
 #if SI_STANDARD_CHECK_MAX(C, C99)
 	si_printf("create2(true) returned '%s'\n", str.data.value);
 
 #else
-	/* C11 and onwards you do not have to specify '.data' to access the value
-	 * or error if you do not care to keep your code C99 compliant. */
 	si_printf("create2(true) returned '%s'\n", str.value);
 
 #endif
 }
 
+/* Creates an optional object from the specified type and writes it into the
+ * given raw pointer.*/
+void createOptional(valueType type, rawptr out, siAllocator* alloc);
+
 void example2(siAllocator* alloc) {
-	si_printf("==============\n\n==============\nExample 5.1:\n");
+	si_print("==============\n\n==============\nExample 2:\n");
 
 	siOption(i32) opt_i32;
 	siOption(siString) opt_string;
-	siOption(siArrayType(i32)) opt_buffer;
+	siOption(siArray(i32)) opt_buffer;
 	siOption(u128Struct) opt_u128;
 	siOption(valueType) opt_type;
 	siOption(rawptr) opt_ptr;
@@ -93,21 +101,38 @@ void example2(siAllocator* alloc) {
 
 	si_printf("Element 1: '%X'\n", opt_i32.data.value);
 	si_printf("Element 2: '%S'\n", opt_string.data.value);
-
-	si_print("Element 3: "); print_arrI(opt_buffer.data.value);
-
-	u128Struct num = opt_u128.data.value;
-	si_printf("Element 4: '0x%016lX|%016lX'\n", num.high, num.low);
-
+	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i"));
+	si_printf("Element 4: '0x%016lX|%016lX'\n", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printf("Element 5: '%zd'\n", opt_type.data.value);
 	si_printf("Element 6: '%p'\n", opt_ptr.data.value);
 }
 
+#define INVALID_ID 1
+#define ACCESS_DENIED 2
+
+/* Returns user information from the given index. If the identification is over
+ * the total user count, 'INVALID_ID' is returned. If the user is an administrator,
+ * 'ACCESS_DENIED' is returned. */
+siResult(userInfo) get_name(u32 identification);
+
+void example3(void) {
+	si_print("==============\n\n==============\nExample 3:\n");
+
+	for_range (id, 0, 3) {
+		siResult(userInfo) res = get_name(id);
+
+		if (res.hasValue) {
+			si_printf("ID %u: %S moneis - %u cents\n", id, res.data.value.name, res.data.value.moneis);
+		}
+		else {
+			si_printf("Couldn't get info on ID %u: Error %u\n", id, res.data.error.code);
+		}
+	}
+}
+
 
 siOption(cstring) create(b32 value) {
-	return value
-		? SI_OPT(cstring, "Godzilla")
-		: SI_OPT_NIL(cstring);
+	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
 void createOptional(valueType type, rawptr out, siAllocator* alloc) {
@@ -123,7 +148,7 @@ void createOptional(valueType type, rawptr out, siAllocator* alloc) {
 		} break;
 
 		case TYPE_ARRAY: {
-			siOption(siArrayType(i32))* res = out;
+			siOption(siArray(i32))* res = out;
 			*res = SI_OPT(siBuffer, si_arrayMake(alloc, i32, 1, 2, 4, 6, 8));
 		} break;
 
@@ -138,26 +163,30 @@ void createOptional(valueType type, rawptr out, siAllocator* alloc) {
 		} break;
 
 		case TYPE_FUNC_PTR: {
+			typedef void (create_optional_type)(valueType, rawptr, siAllocator*);
+
 			siOption(rawptr)* res = out;
-			*res = SI_OPT(rawptr, (rawptr)createOptional);
+			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));
 		} break;
 
 		default: SI_PANIC();
 	}
 }
 
+siResult(userInfo) get_name(u32 identification) {
+	static userInfo database[] = {
+		{SI_STRC("Joe"), false, 4000 * 100},
+		{SI_STRC("Gitanas Nausėda"), true, UINT32_MAX}
+	};
 
-void print_arrI(siArrayType(i32) array) {
-	i32* data = (i32*)array.data;
-	usize len = 0;
-
-	char buf[SI_KILO(4)];
-	buf[0] = '{', len += 1;
-	for_range (i, 0, array.len - 1) {
-		len += si_snprintf(&buf[len], sizeof(buf) - len, "%i, ", data[i]) - 1;
+	if (identification >= countof(database)) {
+		return SI_OPT_ERR(userInfo, INVALID_ID);
 	}
-	si_snprintf(&buf[len], sizeof(buf) - len, "%i}\n", data[array.len - 1]);
+	else if (database[identification].isAdmin) {
+		return SI_OPT_ERR(userInfo, ACCESS_DENIED);
+	}
 
-	si_print(buf);
+	return SI_OPT(userInfo, database[identification]);
 }
+
 

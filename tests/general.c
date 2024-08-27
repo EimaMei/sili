@@ -24,6 +24,11 @@ typedef struct randomStruct {
 	TEST_EQ(arg1, arg2, "%f")
 #define TEST_EQ_CHAR(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%c")
+#define TEST_EQ_PTR(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%p")
+#define TEST_EQ_USIZE(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%zu")
+
 
 
 #define TEST_N_EQ_U64(arg1, arg2) \
@@ -36,12 +41,12 @@ int main(void) {
 		TEST_EQ_U64(SI_KILO(1), 1024);
 		TEST_EQ_U64(SI_MEGA(1), 1024 * 1024);
 		TEST_EQ_U64(SI_GIGA(1), 1024 * 1024 * 1024);
-		TEST_EQ_U64(SI_TERA(1), 1024 * 1024 * 1024 * 1024ull);
+		TEST_EQ_U64(SI_TERA(1), 1024 * 1024 * 1024 * 1024u);
 
 		TEST_EQ_U64(SI_BIT(63), 0x8000000000000000);
 		TEST_EQ_U64(nil, (void*)0);
 
-		isize m = si_transmuteEx(isize, USIZE_MAX, usize);
+		isize m = si_transmute(isize, USIZE_MAX, usize);
 		TEST_EQ_I64(m, (isize)-1);
 
 #if SI_ENDIAN_IS_LITTLE
@@ -56,14 +61,11 @@ int main(void) {
 		TEST_EQ_U64(si_offsetof(randomStruct, three), 12);
 		TEST_EQ_U64(si_alignof(randomStruct), 8);
 
-		char* buf1 = si_buf(char, 'Q', 'W', 'E', 'R', 'T', 'Y', '\0');
+		char* buf1 = "QWERTY";
 		char* buf2 = "AZERTY";
-		TEST_EQ_CHAR(buf1[0], 'Q');
-		TEST_EQ_CHAR(buf1[6], '\0');
-
 		si_swap(buf1, buf2);
 		TEST_EQ_U64(strcmp(buf2, "QWERTY"), 0);
-		TEST_EQ_U64(strcmp(buf1, "AZERTY"), strcmp(buf2, "QWERTY"));
+		TEST_EQ_U64(strcmp(buf1, "AZERTY"), 0);
 
 		i16 x = 0;
 		for_range (i, INT16_MIN, 0) {
@@ -95,16 +97,46 @@ int main(void) {
 		usize ceil = si_alignCeilEx(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
-		siAllocator alloc = si_allocatorMake(SI_MEGA(1));
-		TEST_N_EQ_U64(alloc.ptr, 0);
-		TEST_EQ_U64(alloc.offset, 0);
-		TEST_EQ_U64(alloc.capacity, SI_MEGA(1));
-		TEST_EQ_U64(alloc.isStack, false);
+		siAllocator alloc;
+		rawptr ptr;
+		usize avail;
+		siAllocatorData inData;
 
-		b32 res = si_allocatorResize(&alloc, SI_KILO(1));
-		TEST_EQ_U64(res, true);
-		TEST_EQ_U64(alloc.capacity, SI_KILO(1));
+		{
+			alloc = si_allocatorHeap();
+			TEST_EQ_PTR(alloc.proc, si_allocator_heap_proc);
+			TEST_EQ_PTR(alloc.userData, nil);
 
+			ptr = si_alloc(alloc, SI_KILO(1));
+			si_free(alloc, ptr);
+
+			avail = si_allocatorGetAvailable(alloc);
+			TEST_EQ_USIZE(avail, USIZE_MAX);
+		}
+
+		{
+			alloc = si_allocatorMakeArena(SI_MEGA(1), &inData);
+			TEST_EQ_PTR(alloc.proc, si_allocator_stack_proc);
+			TEST_EQ_PTR(alloc.userData, &inData);
+			TEST_EQ_USIZE(inData.offset, 0);
+			TEST_EQ_USIZE(inData.capacity, SI_MEGA(1));
+
+			ptr = si_alloc(alloc, SI_KILO(1));
+			TEST_EQ_USIZE(inData.offset, SI_KILO(1));
+			TEST_EQ_PTR(ptr, inData.ptr);
+
+			avail = si_allocatorGetAvailable(alloc);
+			TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
+
+			si_allocatorReset(alloc);
+			TEST_EQ_USIZE(inData.offset, 0);
+
+			si_freeAll(alloc);
+			TEST_EQ_PTR(inData.ptr, nil);
+			TEST_EQ_USIZE(inData.offset, 0);
+			TEST_EQ_USIZE(inData.capacity, 0);
+		}
+#if 0
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
 		TEST_EQ_H64(tmp.ptr, (siByte*)x);
@@ -117,54 +149,31 @@ int main(void) {
 		TEST_EQ_U64(alloc.offset, 444);
 		si_allocatorFree(&alloc);
 		TEST_EQ_H64(alloc.ptr, 0);
+#endif
+		{
+			siAllocator stack = si_allocatorMakeStack(32);
+			char* x = si_alloc(stack, 1);
+			*x = 'Q';
+		}
 
-		siAllocator stack = si_allocatorMakeStack(32);
-		TEST_EQ_U64(stack.isStack, true);
-		si_allocatorPush(&stack, 'Q');
-		si_allocatorPush(&stack, 'W');
-		TEST_EQ_CHAR(stack.ptr[0], 'Q');
-		TEST_EQ_CHAR(stack.ptr[1], 'W');
-		TEST_EQ_CHAR(si_allocatorCurPtr(stack), &stack.ptr[2]);
+		{
+			usize* ptr1 = si_sallocItem(usize);
+			*ptr1 = USIZE_MAX;
+			TEST_EQ_H64(*ptr1, USIZE_MAX);
 
-		usize oldAmount = stack.offset;
-		si_allocatorResetSub(&stack, 2);
-		TEST_EQ_U64(stack.offset, oldAmount - 2);
+			alloc = si_allocatorMakeArena(SI_KILO(1), &inData);
+			si_allocItem(alloc, randomStruct);
+			si_allocArray(alloc, randomStruct, 3);
 
-		usize amounts[] = {SI_KILO(2), SI_KILO(4), SI_KILO(8), SI_MEGA(1)};
-		b32 expectedResults[sizeof(amounts)] = {true, true, false, false};
-		for_range (i, 0, countof(amounts)) {
-			siAllocator alloc = si_allocatorMakeAny(SI_KILO(4),amounts[i]);
-			TEST_EQ_U64(alloc.isStack, expectedResults[i]);
+			TEST_EQ_U64(inData.offset, 4 * sizeof(randomStruct));
 
-			si_allocatorFree(&alloc);
-			TEST_EQ_H64(alloc.ptr, 0);
+			si_freeAll(alloc);
 		}
 	}
 	si_print("Test 2 has been completed.\n");
 
 	{
-		usize* ptr1 = si_sallocItem(usize);
-		*ptr1 = USIZE_MAX;
-		usize* ptr2 = si_sallocCopy(*ptr1);
-		TEST_EQ_H64(*ptr1, *ptr2);
-		TEST_EQ_H64(*ptr1, USIZE_MAX);
-
-		siAllocator allocator = si_allocatorMake(SI_KILO(1));
-		randomStruct* alloc1 = si_mallocItem(&allocator, randomStruct);
-		randomStruct* alloc2 = si_mallocArray(&allocator, randomStruct, 3);
-		*alloc1 = (randomStruct){USIZE_MAX, INT8_MAX, FLOAT32_MIN};
-
-		randomStruct* alloc3 = si_mallocCopy(&allocator, *alloc1);
-		TEST_EQ_H64(alloc1->one, alloc3->one);
-		TEST_EQ_H64(SI_TO_U64(&alloc1->two), SI_TO_U64(&alloc3->two));
-
-		si_allocatorFree(&allocator);
-		SI_UNUSED(alloc2);
-	}
-	si_print("Test 3 has been completed.\n");
-
-	{
-		siAny any = si_anyMakeType(i32, 23);
+		siAny any = SI_ANY(i32, 23);
 		TEST_EQ_I64(any.typeSize, sizeof((i32)23));
 
 		siPoint p1 = SI_POINT(50, 50),
@@ -221,5 +230,5 @@ int main(void) {
 	si_print("Test 5 has been completed.\n");
 
 
-	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
 }

@@ -3,7 +3,7 @@ AR = ar
 OUTPUT = build
 
 NAME = sili
-FLAGS = -std=c2x -Wall -Wextra -Wpedantic \
+FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -51,7 +51,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/audio.c
+SRC = examples/thread.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

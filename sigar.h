@@ -688,7 +688,7 @@ void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output
 
 siIntern void sigar__deviceInit(siAudioDevice* device);
 siIntern void sigar__deviceStart(siAudioDevice* device);
-force_inline siByte* sigar__deviceBufferGet(siAudioDevice* device);
+force_inline siByte* sigar__deviceBufferGet(siAudioDevice* device, usize* outLength);
 siIntern b32 sigar__deviceWait(siAudioDevice* device);
 siIntern void sigar__deviceWrite(siAudioDevice* device);
 siIntern void sigar__alsaDevicePause(siAudioDevice* device);
@@ -1039,18 +1039,18 @@ siIntern
 void sigar__threadOutputCallback(siAudioDevice* device) {
 	siAudioDeviceConfig* config = &device->config;
 	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0x80 : 0;
-	usize frameSize = config->frameCount * config->channels;
+	usize frameSize = sigar_formatSize(config->format) * config->channels;
 
 start:
 	while (device->state == SIGAR_RUNNING) {
 		b32 res = sigar__deviceWait(device);
 		SI_STOPIF(!res, return);
 
-		siByte* frame = sigar__deviceBufferGet(device);
-		//si_memset(frame, silence, device->alloc.capacity);
-		si_memset(frame, silence, device->total * 2 * 4);
+		usize length;
+		siByte* frame = sigar__deviceBufferGet(device, &length);
+		si_memset(frame, silence, length * frameSize);
 
-		config->callback(device, frame, nil, device->total);
+		config->callback(device, frame, nil, length);
 		sigar__deviceWrite(device);
 	}
 
@@ -1227,8 +1227,9 @@ void sigar__deviceStart(siAudioDevice* device) {
 
 
 force_inline
-siByte* sigar__deviceBufferGet(siAudioDevice* device) {
+siByte* sigar__deviceBufferGet(siAudioDevice* device, usize* outLength) {
 #if SI_SYSTEM_IS_UNIX
+	*outLength = device->config.frameCount;
 	return device->alloc.ptr;
 
 #elif SI_SYSTEM_IS_WINDOWS
@@ -2446,22 +2447,22 @@ void sigar__callbackOutputDefault(siAudioDevice* device, siByte* restrict output
 	}
 
 	while (audio != nil) {
+		/* TODO(EimaMei): Check if this causes the issue on Windows. */
 		siBuffer buffer = sigar_audioCurrentBufferGet(audio);
-		u8 mixed[SI_KILO(16)];
+		u8 mixed[SI_KILO(8)];
 
 		if (audio->channels < config->channels) {
 			SI_ASSERT(audio->channels == 1);
-			SI_ASSERT(frameCount * 2 * sigar_formatSize(config->format) <= countof(mixed));
+			SI_ASSERT(frameCount * sigar_formatSize(audio->format) * audio->channels <= countof(mixed));
 
 			sigar_upmixBufferToStereo(
-				mixed, buffer.data, frameCount,
-				(u32)sigar_formatSize(audio->format)
+				mixed, buffer.data, frameCount, (u32)sigar_formatSize(audio->format)
 			);
 			buffer.data = mixed;
 		}
 
 		SI_ASSERT(audio->rate == config->rate); /* NOTE(EimaMei): No sample rate resampling. */
-		sigar_mixBuffers(output, config->format, buffer.data, audio->format, frameCount);
+		sigar_mixBuffers(output, config->format, buffer.data, audio->format, frameCount * audio->channels);
 
 		sigar_devicePollAudio(frameCount, &audio);
 	}

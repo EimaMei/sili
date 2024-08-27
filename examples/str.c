@@ -2,132 +2,147 @@
 #include <sili.h>
 
 
-void example1(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\nExample 1:\n");
-
-	siString str = si_stringMake(heap, "Labas, Pasauli!");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringAppend(&str, " Lithuanian, more like Russian amirite.");
-	si_printf("str: \"%s\"\n", str);
-
-	char front = si_stringFront(str);
-	char back = si_stringBack(str);
-	usize length = si_stringLen(str);
-	si_printf("front: '%c', back: '%c', len: '%zd'\n", front, back, length);
-
-	si_stringSet(&str, "Different sentence");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringPush(&str, '.');
-	si_printf("str: \"%s\"\n", str);
-
-	siString str2 = si_stringCopy(heap, str);
-	b32 result = si_cstrEqual(str, str2);
-	si_printf("(\"%s\" == \"%s\") returns a '%B' boolean\n", str, str2, result);
-
-	isize pos = si_stringFind(str, "sentence");
-	si_printf("The word 'sentence' was found at position '%zd' (Starting with the letter '%c')\n", pos, str[pos]);
-
-	pos = si_stringFind(str, "random");
-	si_printf("However, the word 'random' was not found, thus 'pos' equals to %zd\n", pos);
-
-	si_stringReplace(&str, "Different", "Completely new");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringReplace(&str2, "Different", "The same");
-	si_printf("str2: \"%s\"\n", str2);
-
-	si_stringTrim(str, " sentence.");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringClear(str);
-	si_printf("Length of str: '%zd'\n", si_stringLen(str));
-
-	si_stringSet(&str2, "one.two.three.four.five");
-	si_printf("Current str2: \"%s\"\n", str2);
-
-	siArray(siString) list = si_stringSplit(str2, heap, ".");
-
-	for_range (i, 0, si_arrayLen(list)) {
-		si_printf("\tElement %zd: \"%s\"\n", i, list[i]);
-	}
-}
-
-void example2(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\n\n==============\nExample 2:\n");
-
-	siString str;
-	
-	{
-		siAllocator* stack = si_allocatorMake(32);
-		usize len;
-
-		char* num = si_i64ToCstr(stack, -342, &len);
-		str = si_stringMakeLen(heap, num, len);
-		si_printf("str: \"%s\"\n", str);
-	}
-
-	{
-		isize num = si_cstrToU64("9300");
-		si_printf("num: %zd\n\n", num);
-
-		char buf[1024];
-		usize len;
-		siAllocator alloc = si_allocatorMakeTmp(buf, sizeof(buf));
-		
-		char* str = si_f64ToCstr(&alloc, FLOAT32_MAX, &len);
-		si_printf("%.*s\n", len, str);
-	}
-
-	{
-		si_stringSet(&str, "/home");
-		si_printf("Original str: \"%s\"\n", str);
-
-		si_stringJoin(&str, "random.txt", "/");
-		si_printf("Joined str: \"%s\"\n", str);
-
-		si_cstrUpper(str);
-		si_printf("Upper str: \"%s\"\n", str);
-
-		si_stringSet(&str, "I'VE COME TO MAKE AN ANNOUNCEMENT");
-		si_printf("Original str: \"%s\"\n", str);
-
-		si_cstrLower(str);
-		si_printf("Lower str: \"%s\"\n", str);
-
-		si_cstrTitle(str);
-		si_printf("Titled str: \"%s\"\n", str);
-
-		si_cstrCapitalize(str);
-		si_printf("Capitalized str: \"%s\"\n", str);
-	}
-}
-
-void example3(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\n\n==============\nExample 3:\n");
-
-	siString str = si_stringMake(heap, "\t       dnuora gniliart        ");
-	si_printf("Before: '%s' (len: '%zd')\n", str, si_stringLen(str));
-
-	si_stringStrip(str);
-	si_printf("After: '%s' (len: '%zd')\n", str, si_stringLen(str));
-
-	si_stringReverse(str);
-	si_printf("'str' in reverse: '%s'\n", str);
-}
+/* Shows the primary functions for making, reading and manipulating string data. */
+void example1(siAllocator alloc);
+/* Shows the secondary functions for converting and manipulating strings. */
+void example2(siAllocator alloc);
 
 
 int main(void) {
-	siAllocator* heap = si_allocatorMake(SI_KILO(1));
+	siAllocatorData arenaData;
+	siAllocator alloc = si_allocatorMakeArena(SI_KILO(1), &arenaData);
 
-	example1(heap);
-	example2(heap);
-	example3(heap);
+	example1(alloc);
+	example2(alloc);
 
-	si_allocatorFree(heap);
-	return 0;
+	si_freeAll(alloc);
+}
+
+
+void example1(siAllocator alloc) {
+	si_printf("==============\nExample 1:\n");
+
+	si_print("Scope 1:\n");
+	{
+		siString strStatic = SI_STR("Hello, world!");
+		si_printf("\tstr: \"%S\" or \"%.*s\"\n", strStatic, strStatic.len, strStatic.data);
+
+		siString str = si_stringCopy(strStatic, &alloc);
+		si_printf("\t(str == strStatic) returns a '%B' boolean\n", si_stringEqual(str, strStatic));
+
+		b32 allocated = si_stringAppend(&str, SI_STR(" Labas, pasauli! Ciao, mondo!"));
+		si_printf("\tstr: \"%S\" (Was allocated: %B)\n", str, allocated);
+	}
+
+	si_print("Scope 2:\n");
+	{
+		siString str = si_stringMake("Dynamically allocated string", &alloc);
+		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+
+		i32 front = si_stringAtFront(str);
+		i32 back = si_stringAtBack(str);
+		si_printf("\tfront: '%c', back: '%c'\n", front, back);
+
+		b32 allocated = si_stringSet(&str, SI_STR("A different string"));
+		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zd', capacity: '%zd'\n", str, allocated, str.len, str.capacity);
+
+		allocated = si_stringPush(&str, '.');
+		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zd'\n", str, allocated, str.len);
+	}
+
+	si_print("Scope 3:\n");
+	{
+		siString str = si_stringMake(
+			"Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: "
+			"geriems vyrams geroj girioj gerą girą gera gert.",
+			&alloc
+		);
+		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		siString str_ger = SI_STR("ger");
+
+		isize posFirst = si_stringFind(str, str_ger),
+			  posLast = si_stringFindLast(str, str_ger);
+		usize occurences = si_stringFindCount(str, str_ger);
+
+		si_printf(
+			"\tThe substring '%S' was first found at index '%zd', last found at index '%zd', with '%zd' occurences in total.\n",
+			str_ger, posFirst, posLast, occurences
+		);
+
+		isize pos = si_stringFind(str, SI_STR("Žąsys"));
+		si_printf("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zd'\n", pos);
+	}
+
+	si_print("Scope 4:\n");
+	{
+		siString str = si_stringMake("smaug giganteus", &alloc);
+		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+
+		si_stringTrim(&str, SI_STR("s"));
+		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+
+		b32 allocated = si_stringInsert(&str, SI_STR("the "), countof_str("maug "));
+		si_printf("\tstr: '%S', allocated: '%B', len: '%zd', capacity: '%zd'\n", str, allocated, str.len, str.capacity);
+
+		si_stringErase(&str, 3, 6);
+		si_printf("\tstr: '%S', len: '%zd'\n", str, str.len);
+
+	}
+
+	si_print("Scope 5:\n");
+	{
+		siString str = si_stringMake("one.two.three.four.five", &alloc);
+		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+
+		siArray(siString) list = si_stringSplit(str, SI_STR("."), &alloc);
+
+		si_print("\tElements: ");
+		for_eachArr (siString, subStr, list) { si_printf("\"%S\" ", *subStr); }
+		si_print("\n");
+
+		si_stringClear(&str);
+		si_printf("\tLength of str: '%zd'\n", str.len);
+	}
+
+	si_print("Scope 6:\n");
+	{
+		siString str = si_stringMake("\t       dnuora gniliart        ", &alloc);
+		si_printf("Before: '%S' (len: '%zd')\n", str, str.len);
+
+		si_stringStrip(&str);
+		si_printf("After: '%S' (len: '%zd')\n", str, str.len);
+
+		si_stringReverse(str);
+		si_printf("'str' in reverse: '%S'\n", str);
+	}
+}
+
+void example2(siAllocator alloc) {
+	si_printf("==============\n\n==============\nExample 2:\n");
+	siBuffer arr = SI_BUF(siString, SI_STR("/home"), SI_STR("user"), SI_CSTR("Desktop"), SI_STR("RANDOM.txt"));
+
+	siString str = si_stringFromInt(-342, &alloc);
+	si_printf("str: \"%S\"\n", str);
+
+	i64 num = si_stringToInt(SI_STR("9300"));
+	si_printf("num: %zd\n", num);
+
+	str = si_stringFromFloat(FLOAT32_MAX, &alloc);
+	si_printf("str: %S\n", str);
+
+	str = si_stringJoin(arr, SI_STR("/"), &alloc);
+	si_printf("Joined str: \"%S\"\n", str);
+
+	si_stringUpper(str);
+	si_printf("Upper str: \"%S\"\n", str);
+
+	si_stringLower(str);
+	si_printf("Lower str: \"%S\"\n", str);
+
+	str = si_stringMake("something about a fox and it jumping", &alloc);
+	si_stringTitle(str);
+	si_printf("Titled str: \"%S\"\n", str);
+
+	si_stringCapitalize(str);
+	si_printf("Capitalized str: \"%S\"\n", str);
 }

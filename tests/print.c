@@ -11,7 +11,8 @@
 		\
 		if (expectedLen != len) { \
 			si_printf( \
-				"%CR" __FILE__ ":%i: Lengths are not the same:%C '%zu' vs '%zu'\n", \
+				"%C" __FILE__ ":%i:%C Lengths are not the same: '%zu' vs '%zu'\n", \
+				si_printColor3bitEx(siPrintColorAnsi_Red, true, 0), \
 				__LINE__, expectedLen, len, buffer \
 			); \
 		} \
@@ -24,16 +25,16 @@
 
 int main(void) {
 	/* From: https://en.cppreference.com/w/c/io/fprintf */
-	const char* s = "Hello";
+	const char* str = "Hello";
 	TEST_PRINT_REG("Strings:\n");
 	TEST_PRINT_REG(" padding:\n");
-	TEST_PRINT("\t[Hello]\n", "\t[%s]\n", s);
-	TEST_PRINT("\t[     Hello]\n", "\t[%10s]\n", s);
-	TEST_PRINT("\t[Hello     ]\n", "\t[%-10s]\n", s);
-	TEST_PRINT("\t[     Hello]\n", "\t[%*s]\n", 10, s);
+	TEST_PRINT("\t[Hello]\n", "\t[%s]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%10s]\n", str);
+	TEST_PRINT("\t[Hello     ]\n", "\t[%-10s]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%*s]\n", 10, str);
 	TEST_PRINT_REG(" truncating:\n");
-	TEST_PRINT("\tHell\n", "\t%.4s\n", s);
-	TEST_PRINT("\tHel\n", "\t%.*s\n", 3, s);
+	TEST_PRINT("\tHell\n", "\t%.4s\n", str);
+	TEST_PRINT("\tHel\n", "\t%.*s\n", 3, str);
 
 	TEST_PRINT("Characters:\tA %\n", "Characters:\t%c %%\n", 'A');
 
@@ -67,5 +68,38 @@ int main(void) {
 	TEST_PRINT("qwertyuiop\n", "%S\n", SI_STR("qwertyuiop"));
 #endif
 
-	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
+	si_print("================\nPrint colour tests:\nANSI/3-bit colour:\n");
+	for_range (id, siPrintColorAnsi_Black, (siPrintColorAnsi)(siPrintColorAnsi_White + 1)) {
+		siPrintColor clr = si_printColor3bit(id),
+					 bold = si_printColor3bitEx(id, true, false),
+					 light = si_printColor3bitEx(id, false, true),
+					 both = si_printColor3bitEx(id, true, true);
+		si_printf("\t%CColor %i:%C %CBold%C %CLight%C %CAll%C\n", clr, id, bold, light, both);
+	}
+
+	si_print("\n8-bit colour:\n\t");
+	for_range (i, 0, UINT8_MAX + 1) {
+		siPrintColor clr = si_printColor8bit((u8)i);
+		si_printf("%C% 3i%C ", clr, i);
+
+        if (i == 15 || (i > 15 && (i - 15) % 6 == 0)) {
+            si_printf("\n\t");
+        }
+	}
+	si_print("\n24-bit colour:\n\t");
+
+    for_range (column, 0, 77) {
+        i32 r = 255 - (column * 255 / 76);
+        i32 g = (column * 510 / 76);
+        i32 b = (column * 255 / 76);
+
+        if (g > 255) {
+            g = 510 - g;
+        }
+
+		si_printf("%C0%C", si_printColor24bit((u8)r, (u8)g, (u8)b));
+    }
+    printf("\n\n");
+
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, 0));
 }
