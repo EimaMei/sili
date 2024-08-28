@@ -115,7 +115,7 @@ void example2(void)	{
 		siResult(usize) error = si_pathCopy(str_random, str_random2);
 		si_printf(
 			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n",
-			si_pathExists(str_random2), (isize)si_optionalGetOrDefault(error, -1)
+			si_pathExists(str_random2), si_optionalGetOrDefault(error, 0)
 		);
 
 		siError res = si_pathMove(str_random, str_renamed);
@@ -240,7 +240,7 @@ void example4(void) {
 	usize count = 0;
 	while (si_directoryPollEntryEx(&dir, &entry, false)) {
 		si_printf(
-			"%zu: %S ('%zu' bytes, '%i' type)\n",
+			"%zu: %S ('%zu' bytes, type '%i')\n",
 			count, entry.path, entry.path.len, entry.type
 		);
 		count += 1;

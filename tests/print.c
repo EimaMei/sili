@@ -99,7 +99,7 @@ int main(void) {
 
 		si_printf("%C0%C", si_printColor24bit((u8)r, (u8)g, (u8)b));
     }
-    printf("\n\n");
+    si_printf("\n\n");
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, 0));
 }

@@ -15,7 +15,7 @@ void example2(void);
 
 
 int main(void) {
-	//example1();
+	example1();
 	example2();
 }
 
@@ -39,14 +39,6 @@ void example1(void) {
 
 	si_printf("thread_test(true) returned a '%i'.\n", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
-
-	#if !defined(SI_SYSTEM_WINDOWS) /* si_threadCancel is not supported on windows. Not good practice either way, so it's not recommended. */
-		si_threadRun(&thread);
-		si_sleep(1000);
-		si_threadCancel(&thread);
-
-		si_print("Function got killed a second later.\n");
-	#endif
 
 	si_threadDestroy(&thread);
 }

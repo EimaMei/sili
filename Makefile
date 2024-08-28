@@ -1,4 +1,4 @@
-CC = w64gcc
+CC = gcc
 AR = ar
 OUTPUT = build
 
@@ -51,7 +51,7 @@ ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/thread.c
+SRC = examples/file.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

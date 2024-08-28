@@ -581,6 +581,7 @@ extern "C" {
 		#define VC_EXTRALEAN        1
 		#include <windows.h>
 		#include <aclapi.h>
+		#include <shellapi.h>
 		#undef NOMINMAX
 		#undef WIN32_LEAN_AND_MEAN
 		#undef WIN32_MEAN_AND_LEAN
@@ -2372,13 +2373,23 @@ SI_ENUM(i32, siStdFile) {
 #define si_stderr si_fileGetStdFile(siStdFile_Error)
 
 SI_ENUM(i32, siFileError) {
-	siFileError_None = 0, /* No error has been encountered. */
-	siFileError_Invalid, /* Provided value is invalid. */
-	siFileError_InvalidFilename, /* Invalid filename. */
-	siFileError_Exists, /* File/directory already exists. */
-	siFileError_NotExists, /* File/directory doesn't exist. */
-	siFileError_Permission, /* User doesn't have permission to read/write. */
-	siFileError_TruncationFail /* Failed to truncate the file. */
+	/* An unspecified error occurred. */
+	siFileError_Generic = -1,
+	/* No error. */
+	siFileError_None = 0,
+
+	/* Invalid value. */
+	siFileError_Invalid,
+	/* Invalid file name. */
+	siFileError_InvalidFilename,
+	/* File/directory already exists. */
+	siFileError_Exists,
+	/* File/directory doesn't exist. */
+	siFileError_NotExists,
+	/* Insufficient permissions. */
+	siFileError_Permission,
+	/* Failed to truncate the file. */
+	siFileError_TruncationFail
 };
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -2640,9 +2651,6 @@ b32 si_threadRun(siThread* t);
  * is finished. */
 b32 si_threadJoin(siThread* t);
 
-/* Stops the thread mid-execution.
- * NOTE: Only works on Unix. */
-b32 si_threadCancel(siThread* t);
 /* Destroys the thread. */
 b32 si_threadDestroy(siThread* t);
 
@@ -4084,8 +4092,8 @@ usize si_cstrLen(cstring string) {
 
 #if !defined(SI_RELEASE_MODE)
 rawptr si__arrayGet(siBuffer* buffer, usize index, usize sizeof_type) {
-	SI_ASSERT(sizeof_type == buffer->typeSize);
-	SI_ASSERT(index < buffer->capacity);
+	SI_ASSERT_MSG(sizeof_type == buffer->typeSize, "Invalid type size.");
+	SI_ASSERT_MSG(index < buffer->capacity, "Invalid index.");
 	return (siByte*)buffer->data + sizeof_type * index;
 }
 #endif
@@ -4214,7 +4222,7 @@ b32 si_arrayEqual(siBuffer lhs, siBuffer rhs) {
 	SI_STOPIF(lhs.len != rhs.len, return false);
 	SI_STOPIF(lhs.data == rhs.data, return true);
 
-	return si_memcompare(lhs.data, rhs.data, si_min(usize, lhs.len, rhs.len));
+	return si_memcompare(lhs.data, rhs.data, si_min(usize, lhs.len, rhs.len)) == 0;
 }
 
 
@@ -5531,8 +5539,6 @@ siUtf8String si_utf16ToUtf8StrEx(u8* outBuffer, usize capacity, siUtf16String st
 		offsetUTF8 += 1;
 	}
 
-	si_printf("Test: %s (%i,%i): %i \n", str.len, offsetUTF16 * 2, offsetUTF8);
-
 	return SI_STR_LEN(res, offsetUTF8);
 }
 
@@ -5804,6 +5810,7 @@ void si__fileErrorLog(siError* error) {
 SIDEF
 siString si_pathFsErrorName(siFileError err) {
 	switch (err) {
+		case siFileError_Generic: return SI_STR("siFileError_Generic");
 		case siFileError_None: return SI_STR("siFileError_None");
 		case siFileError_Exists: return SI_STR("siFileError_Exists");
 		case siFileError_Invalid: return SI_STR("siFileError_Invalid");
@@ -5819,6 +5826,7 @@ siString si_pathFsErrorName(siFileError err) {
 SIDEF
 siString si_pathFsErrorDesc(siFileError err) {
 	switch (err) {
+		case siFileError_Generic: return SI_STR("An unspecified, platform-specific error occurred.");
 		case siFileError_None: return SI_STR("No error has been encountered.");
 		case siFileError_Exists: return SI_STR("File or directory already exists.");
 		case siFileError_Invalid: return SI_STR("Provided value is invalid.");
@@ -5868,14 +5876,15 @@ siFileError si__fileGetOSError(void) {
 SIDEF
 b32 si_pathExists(siString path) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String widePath = si_utf8ToUtf16StrEx(path, true, stack);
+		u16 stack[512];
+		siUtf16String widePath = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
 
 		return GetFileAttributesW((u16*)widePath.data) != INVALID_FILE_ATTRIBUTES;
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		struct stat tmp;
 		return (stat(si_stringCopyToCstr(path, stack), &tmp) == 0);
 
@@ -5886,16 +5895,18 @@ siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
 	SI_ASSERT(pathSrc.len <= SI_MAX_PATH_LEN);
 	SI_ASSERT(pathDst.len <= SI_MAX_PATH_LEN);
 
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String src = si_utf8ToUtf16StrEx(pathSrc, true, stack),
-					  dst = si_utf8ToUtf16StrEx(pathDst, true, stack);
+		u16 stack[512];
+		siUtf16String src = si_utf8ToUtf16StrEx(&stack[0], countof(stack), pathSrc, true),
+					  dst = si_utf8ToUtf16StrEx(&stack[src.len], countof(stack) - src.len, pathDst, true);
+		si_printf("sucws\n");
 
 		i32 size = CopyFileW((u16*)src.data, (u16*)dst.data, true);
-		siFileError_CHECK_OPT(size == 0, isize);
+		siFileError_CHECK_OPT(size == 0, usize);
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		cstring src = si_stringCopyToCstr(pathSrc, stack),
 				dst = si_stringCopyToCstr(pathDst, stack);
 
@@ -5914,7 +5925,6 @@ siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
 		#else
 			isize size = sendfile(fileDst, fileSrc, 0, &stat.st_size, NULL, 0);
 		#endif
-		si_printf("%i\n", size);
 		siFileError_CHECK_OPT(size == -1, usize);
 
 		close(fileSrc);
@@ -5963,16 +5973,17 @@ siError si_pathMove(siString pathSrc, siString pathDst) {
 	SI_ASSERT(pathDst.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String src = si_utf8ToUtf16StrEx(pathSrc, true, stack),
-					  dst = si_utf8ToUtf16StrEx(pathDst, true, stack);
+		u16 stack[512];
+		siUtf16String src = si_utf8ToUtf16StrEx(&stack[0], countof(stack), pathSrc, true),
+					  dst = si_utf8ToUtf16StrEx(&stack[src.len], countof(stack) - src.len, pathDst, true);
 
 		i32 res = MoveFileW((u16*)src.data, (u16*)dst.data);
 		siFileError_CHECK(res == 0, &error, error);
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		cstring src = si_stringCopyToCstr(pathSrc, stack),
 				dst = si_stringCopyToCstr(pathDst, stack);
 
@@ -6003,18 +6014,20 @@ siError si_pathCreateFolderEx(siString path, siFilePermissions perms) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
 
-		int res = CreateDirectoryW((u16*)pathWide.data, nil);
+		i32 res = CreateDirectoryW((u16*)pathWide.data, nil);
 		siFileError_CHECK(res == 0, &error, error);
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
+		cstring str = si_stringCopyToCstr(path, stack);
+
 		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
 		 * but still create the folder and set 'errno' to 0. What? */
-		cstring str = si_stringCopyToCstr(path, stack);
 		int res = mkdir(str, perms);
 		siFileError_CHECK(res != 0, &error, error);
 
@@ -6036,20 +6049,33 @@ siError si_pathRemove(siString path) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
 
-		u32 attrs = GetFileAttributesW((u16*)pathWide.data);
+		/* NOTE(EimaMei): Windows requires double zeros for SHFileOperation for some reason... */
+		u16* data = pathWide.data;
+		data[pathWide.len] = '\0';
+
+		u32 attrs = GetFileAttributesW(data);
 		siFileError_CHECK(attrs == INVALID_FILE_ATTRIBUTES, &error, error);
 
-		i32 res = (attrs & FILE_ATTRIBUTE_DIRECTORY)
-			? RemoveDirectoryW((u16*)pathWide.data)
-			: DeleteFileW((u16*)pathWide.data);
-		siFileError_CHECK(res == 0, &error, error);
+		if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+			SHFILEOPSTRUCTW operation = {
+				nil, FO_DELETE, data, nil, FOF_NO_UI, false, 0, nil
+			};
+
+			i32 res = SHFileOperationW(&operation);
+			siFileError_CHECK_EX(res != 0 || operation.fAnyOperationsAborted, &error, siFileError_Generic, error);
+		}
+		else {
+			i32 res = DeleteFileW(data);
+			siFileError_CHECK(res == 0, &error, error);
+		}
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		cstring pathCstr = si_stringCopyToCstr(path, stack);
 		int res = nftw(pathCstr, si__unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
 		siFileError_CHECK(res == -1, &error, error);
@@ -6065,16 +6091,17 @@ siError si_pathCreateHardLink(siString path, siString pathLink) {
 	SI_ASSERT(pathLink.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack),
-					  linkWide = si_utf8ToUtf16StrEx(pathLink, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(&stack[0], countof(stack), path, true),
+					  linkWide = si_utf8ToUtf16StrEx(&stack[pathWide.len], countof(stack) - pathWide.len, pathLink, true);
 
 		i32 res = CreateHardLinkW((u16*)linkWide.data, (u16*)pathWide.data, nil);
 		siFileError_CHECK(res == 0, &error, error);
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		int res = link(
 			si_stringCopyToCstr(path, stack),
 			si_stringCopyToCstr(pathLink, stack)
@@ -6092,11 +6119,11 @@ siError si_pathCreateSoftLink(siString path, siString pathLink) {
 	SI_ASSERT(pathLink.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack),
-					  linkWide = si_utf8ToUtf16StrEx(pathLink, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(&stack[0], countof(stack), path, true),
+					  linkWide = si_utf8ToUtf16StrEx(&stack[pathWide.len], countof(stack) - pathLink.len, pathLink, true);
 
 		u32 attrs = GetFileAttributesW((u16*)pathWide.data);
 		siFileError_CHECK(attrs == INVALID_FILE_ATTRIBUTES, &error, error);
@@ -6108,6 +6135,7 @@ siError si_pathCreateSoftLink(siString path, siString pathLink) {
 		siFileError_CHECK(res == 0, &error, error);
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		int res = symlink(
 			si_stringCopyToCstr(path, stack),
 			si_stringCopyToCstr(pathLink, stack)
@@ -6125,12 +6153,12 @@ siError si_pathEditPermissions(siString path, siFilePermissions newPerms) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
 
 	siError error = SI_ERROR_DEFAULT;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		/* TODO(EimaMei): Fix this. */
+		/* TODO(EimaMei): Implement this. */
 
 	#else
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 		int res = chmod(si_stringCopyToCstr(path, stack), (mode_t)newPerms);
 		siFileError_CHECK(res == -1, &error, error);
 
@@ -6188,27 +6216,32 @@ siString si_pathExtension(siString path) {
 SIDEF
 siResult(siString) si_pathGetFullName(siString path, siAllocator* alloc) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
+	char pathOut[SI_KILO(4)];
 
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
-		siUtf16String outWide;
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
 
-		outWide.data = si_allocArray(stack, u16, MAX_PATH);
-		outWide.len = GetFullPathNameW(
-			(u16*)pathWide.data, MAX_PATH, (u16*)outWide.data, nil
+		siUtf16String outWide;
+		outWide.typeSize = sizeof(u16);
+		outWide.data = &stack[pathWide.len];
+		outWide.capacity = outWide.len = GetFullPathNameW(
+			(u16*)pathWide.data, countof(stack) - (u32)pathWide.len, (u16*)outWide.data, nil
 		);
+
 		siFileError_CHECK_OPT(outWide.len == 0, siString);
 
-		return SI_OPT(siString, si_utf16ToUtf8Str(outWide, alloc));
+		siUtf8String res = si_utf16ToUtf8Str((u8*)pathOut, countof(pathOut), outWide);
+		si_printf("test\n");
+		return SI_OPT(siString, si_stringCopy(res, alloc));
 
 	#else
-		/* NOTE(EimaMei): Technically on Linux you have no issue creating paths
+		/* NOTE(EimaMei): Technically on Linux you have no issues creating paths
 		 * that go over the highest 'PATH_MAX' value (that being 4KB) except most
 		 * software doesn't take this into account, so they either fail or crash.
 		 * What a trolleybus moment! */
-		char pathOut[SI_KILO(4)];
+		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 		realpath(si_stringCopyToCstr(path, stack), pathOut);
 		siFileError_CHECK_OPT(pathOut == nil, siString);
@@ -6244,13 +6277,14 @@ b32 si_pathIsRelative(siString path) {
 SIDEF
 u64 si_pathLastWriteTime(siString path) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 #if SI_SYSTEM_IS_WINDOWS
 	FILETIME lastWriteTime = {0};
 	WIN32_FILE_ATTRIBUTE_DATA data = {0};
+	u16 stack[512];
 
-	siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
+	siUtf16String pathWide = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
+
 	if (GetFileAttributesExW((u16*)pathWide.data, GetFileExInfoStandard, &data)) {
 		lastWriteTime = data.ftLastWriteTime;
 	}
@@ -6258,9 +6292,12 @@ u64 si_pathLastWriteTime(siString path) {
 	ULARGE_INTEGER res;
 	res.LowPart = lastWriteTime.dwLowDateTime;
 	res.HighPart = lastWriteTime.dwHighDateTime;
-	return res.QuadPart;
+
+	/* NOTE(EimaMei): Windows time -> Unix time. */
+	return (res.QuadPart - 116444736000000000) / 10000000;
 
 #else
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 	struct stat fs;
 	int res = stat(si_stringCopyToCstr(path, stack), &fs);
 	return (res == 0) ? fs.st_mtime : 0;
@@ -6271,14 +6308,13 @@ u64 si_pathLastWriteTime(siString path) {
 SIDEF
 siString si_pathGetTmp(void) {
 #if SI_SYSTEM_IS_WINDOWS
-	static char buffer[SI_MAX_PATH_LEN];
+	static u8 buffer[SI_MAX_PATH_LEN];
+	u16 bufferWide[512];
 
-	u16 bufferWide[SI_KILO(1)];
 	u32 len = GetTempPathW(countof(bufferWide), bufferWide);
 	SI_ASSERT(len != 0); /* NOTE(EimaMei): This musn't fail. */
 
-	siAllocator tmpAlloc = si_allocatorMakeTmp(buffer, sizeof(buffer));
-	return si_utf16ToUtf8Str(SI_BUF_LEN(u16, bufferWide, len), &tmpAlloc);
+	return si_utf16ToUtf8Str(buffer, countof(buffer), SI_BUF_LEN(u16, bufferWide, len));
 
 #else
 	return SI_STR("/tmp");
@@ -6290,23 +6326,21 @@ siString si_pathGetTmp(void) {
 SIDEF
 siFilePermissions si_pathPermissions(siString path) {
 	SI_ASSERT(path.len <= SI_MAX_PATH_LEN);
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 #if SI_SYSTEM_IS_WINDOWS
 	ACCESS_MASK mask;
 	{
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16Str(stack, countof(stack), path);
+
 		SECURITY_INFORMATION info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
 			| DACL_SECURITY_INFORMATION;
-		SECURITY_DESCRIPTOR* desc = (SECURITY_DESCRIPTOR*)si_allocatorCurPtr(stack);
 
-		usize length = si_allocatorGetAvailable(stack);
-		if (length < UINT32_MAX) {
-			length = UINT32_MAX;
-		}
+		SECURITY_DESCRIPTOR* desc = si_transmute(SECURITY_DESCRIPTOR*, stack + pathWide.len, u16*);
+		u32 length = sizeof(stack) - (u32)pathWide.len * 2;
 
 		i32 res = GetFileSecurityW(
-			(u16*)pathWide.data, info, desc, (DWORD)length, nil
+			(u16*)pathWide.data, info, desc, length, nil
 		);
 		SI_STOPIF(res == 0, return 0);
 
@@ -6325,6 +6359,7 @@ siFilePermissions si_pathPermissions(siString path) {
 	return perms;
 
 #else
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 	struct stat fs;
 	int res = stat(si_stringCopyToCstr(path, stack), &fs);
 	return (res == 0) ? (siFilePermissions)fs.st_mode : -1;
@@ -6393,7 +6428,6 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 	SI_ASSERT((mode & ~siFileMode_All) == 0);
 
 	siFile res;
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 
 #if SI_SYSTEM_IS_WINDOWS
 	u32 access, disposition;
@@ -6429,7 +6463,8 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 
 	rawptr handle;
 	{
-		siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
+		u16 stack[512];
+		siUtf16String pathWide = si_utf8ToUtf16StrEx(stack, countof(stack), path, true);
 		handle = CreateFileW(
 			(u16*)pathWide.data,
 			access, FILE_SHARE_READ | FILE_SHARE_DELETE, nil,
@@ -6474,6 +6509,7 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 			SI_PANIC_MSG("Invalid file mode.");
 	}
 
+	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
 	cstring pathCstr = si_stringCopyToCstr(path, stack);
 	i64 handle = open(pathCstr, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	siFileError_CHECK(handle == -1, &res.error, res);
@@ -6632,7 +6668,8 @@ isize si_fileWriteAtLine(siFile* file, siString line, isize index) {
 	siAllocator alloc = (file->size + line.len <= SI_KILO(8))
 		? si_allocatorMakeStack(SI_KILO(8))
 		: si_allocatorHeap();
-	siString content = si_arrayMakeReserve(1, 0, file->size + file->handle, &alloc);
+
+	siString content = si_arrayMakeReserve(1, 0, file->size + line.len, &alloc);
 	{
 		siError err = si_fileReadContentsBuf(*file, &content);
 		SI_STOPIF(err.code != 0, return -1);
@@ -6751,21 +6788,20 @@ b32 si_fileTruncate(siFile* file, usize size) {
 
 SIDEF
 u64 si_fileLastWriteTime(siFile file) {
-
 #if SI_SYSTEM_IS_WINDOWS
-	//GetFileInformationByHandle
 	FILETIME lastWriteTime = {0};
-	WIN32_FILE_ATTRIBUTE_DATA data = {0};
+	BY_HANDLE_FILE_INFORMATION data = {0};
 
-	siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack);
-	if (GetFileAttributesExW((u16*)pathWide.data, GetFileExInfoStandard, &data)) {
+	if (GetFileInformationByHandle(file.handle, &data)) {
 		lastWriteTime = data.ftLastWriteTime;
 	}
 
 	ULARGE_INTEGER res;
 	res.LowPart = lastWriteTime.dwLowDateTime;
 	res.HighPart = lastWriteTime.dwHighDateTime;
-	return res.QuadPart;
+
+	/* NOTE(EimaMei): Windows time -> Unix time. */
+	return (res.QuadPart - 116444736000000000) / 10000000;
 
 #else
 	struct stat fs;
@@ -6795,18 +6831,17 @@ siDirectory si_directoryOpen(siString path) {
 	siDirectory dir;
 	dir.error = SI_ERROR_DEFAULT;
 	dir.handle = nil;
-	dir.directoryLen = path.len;
 	si_memcopyStr(dir.buffer, path);
 
 	if (si_stringAtBack(path) != SI_PATH_SEPARATOR) {
 		dir.buffer[path.len] = SI_PATH_SEPARATOR;
 		path.len += 1;
 	}
+	dir.directoryLen = path.len;
 
 #if SI_SYSTEM_IS_WINDOWS
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-
-	siUtf16String pathWide = si_utf8ToUtf16Str(SI_STR_LEN(dir.buffer, path.len), stack);
+	u16 stack[512];
+	siUtf16String pathWide = si_utf8ToUtf16Str(stack, countof(stack), SI_STR_LEN(dir.buffer, dir.directoryLen));
 
 	u16* dataWide = (u16*)pathWide.data;
 	dataWide[pathWide.len + 0] = '*';
@@ -6856,23 +6891,23 @@ b32 si_directoryPollEntryEx(siDirectory* dir, siDirectoryEntry* entry, b32 fullP
 		return false;
 	}
 
-	usize len = wcslen(file.cFileName) * sizeof(wchar_t);
+	usize utf16Len = wcslen(file.cFileName);
+	u8* outPtr;
+	usize capacity;
 
-	siAllocator tmpAlloc;
 	if (fullPath) {
-		tmpAlloc = si_allocatorMakeTmp(
-			&dir->buffer[dir->directoryLen], sizeof(dir->buffer) - dir->directoryLen
-		);
-		entry->path.len = len + dir->directoryLen;
+		outPtr = (u8*)&dir->buffer[dir->directoryLen];
+		capacity = sizeof(dir->buffer) - dir->directoryLen;
+		entry->path.len = dir->directoryLen;
 	}
 	else {
-		tmpAlloc = si_allocatorMakeTmp(dir->buffer, sizeof(dir->buffer));
-		entry->path.len = len;
+		outPtr = (u8*)dir->buffer;
+		capacity = sizeof(dir->buffer);
+		entry->path.len = 0;
 	}
-	SI_ASSERT(entry->path.len <= SI_MAX_PATH_LEN);
 
-	entry->path.data = (u8*)dir->buffer;
-	si_utf16ToUtf8Str(SI_BUF_LEN(u16, file.cFileName, len), &tmpAlloc);
+	siUtf8String res = si_utf16ToUtf8Str(outPtr, capacity, SI_BUF_LEN(u16, file.cFileName, utf16Len));
+	entry->path = SI_STR_LEN(dir->buffer, res.len);
 
 
 	if ((file.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == 0) {
@@ -7028,22 +7063,6 @@ b32 si_threadJoin(siThread* t) {
 	#endif
 
 	return res == 0;
-}
-SIDEF
-b32 si_threadCancel(siThread* t) {
-	SI_ASSERT_NOT_NULL(t);
-	SI_ASSERT_NOT_NULL((rawptr)t->id);
-	SI_ASSERT(t->initialized);
-
-	#if SI_SYSTEM_IS_WINDOWS
-		SI_PANIC_MSG("Unsupported on Windows.");
-		return false;
-	#else
-		int res = pthread_cancel(t->id);
-		t->isRunning = false;
-
-		return res == 0;
-	#endif
 }
 
 SIDEF
@@ -7951,7 +7970,7 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	PROC proc = GetProcAddress((HMODULE)dll, name);
-	return SI_FUNC_PTR_CHANGE_EX(*proc, PROC, siDllProc);
+	return si_transmute(siDllProc, *proc, PROC);
 
 #else
 	return (siDllProc)dlsym(dll, name);
