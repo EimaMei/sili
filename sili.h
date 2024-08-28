@@ -5016,12 +5016,12 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 	for_eachStr (letter, string) {
 		res *= base;
 
-		char value = si_cast(char, *letter - '0');
+		i32 value = *letter - '0';
 		if (value < 10) {
 			res += value;
 		}
 		else {
-			value = si_charUpper(value) - 7;
+			value = si_charUpper((char)value) - 7;
 			if (value < base) {
 				res += value;
 			}
@@ -5587,13 +5587,13 @@ char si_charLowerUnsafe(char c) {
 inline
 char si_charUpper(char c) {
 	if (c >= 'a' && c <= 'z') {
-		return c & ~SI_BIT(5);
+		return si_cast(char, c & ~SI_BIT(5));
 	}
 	return c;
 }
 inline
 char si_charUpperUnsafe(char c) {
-	return c & ~SI_BIT(5);
+	return si_cast(char, c & ~SI_BIT(5));
 }
 
 
@@ -6028,7 +6028,7 @@ siError si_pathCreateFolderEx(siString path, siFilePermissions perms) {
 
 		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
 		 * but still create the folder and set 'errno' to 0. What? */
-		int res = mkdir(str, perms);
+		int res = mkdir(str, (mode_t)perms);
 		siFileError_CHECK(res != 0, &error, error);
 
 	#endif
@@ -7819,7 +7819,7 @@ GOTO_SPECIFIER_U:
 			case 'A': case 'a':
 				vaValue.F64 = va_arg(va, f64);
 
-				char altForm[2] = {'0', x + ('X' - 'A')};
+				char altForm[2] = {'0', si_cast(char, x + ('X' - 'A'))};
 				info.str = SI_STR_LEN(altForm, sizeof(altForm));
 				si__printStrCpy(&info);
 
