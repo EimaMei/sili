@@ -71,7 +71,7 @@ jobs:
       uses: microsoft/setup-msbuild@v2
       if: matrix.compiler == 'msvc16'
 
-    - name: Add msvc
+    - name: Add MSVC
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Build app for release

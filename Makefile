@@ -122,7 +122,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h siapp.h
+$(EXE): $(SRC) sili.h sigar.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT) "$@"
 
 # Compiles and runs every example.
