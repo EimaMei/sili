@@ -1,9 +1,9 @@
-CC = clang
+CC = cl
 AR = ar
 OUTPUT = build
 
 NAME = sili
-FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -15,43 +15,40 @@ FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
 	\
 	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
+	-D _GNU_SOURCE -D _LARGEFILE64_SOURCE -D __USE_POSIX199506
+
+MSVC_FLAGS = /nologo /std:c11 /Wall /wd4668 /wd4820 /wd5045
 
 EXTRA_FLAGS =
 EXTRA_LIBS =
 INCLUDE = -I"." -I"include"
 
-# NOTE(EimaMei): Original source is from 'https://github.com/ColleagueRiley/RGFW'
-ifneq (,$(filter $(CC),cl winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-mingw32-gcc x86_64-w64-mingw32-g++ /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe))
-	DETECTED_OS := Windows
-else
-	ifeq '$(findstring ;,$(PATH))' ';'
-		DETECTED_OS := Windows
-	else
-		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-		DETECTED_OS := $(patsubst CYGWIN%,Cygwin,$(DETECTED_OS))
-		DETECTED_OS := $(patsubst MSYS%,MSYS,$(DETECTED_OS))
-		DETECTED_OS := $(patsubst MINGW%,MSYS,$(DETECTED_OS))
-	endif
-endif
 
-ifeq ($(DETECTED_OS),Windows)
-	LIBS = -lkernel32 -lole32
+DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
+ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-mingw32-gcc x86_64-w64-mingw32-g++))
+	FLAGS = $(GNU_FLAGS)
+	LIBS = -lkernel32 -lole32 -lopengl32
 	EXE = $(OUTPUT)/test.exe
 	DLL_EXT = .dll
-endif
-ifeq ($(DETECTED_OS),Darwin)
+else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe, cl.exe))
+	FLAGS = $(MSVC_FLAGS)
+# LIBS = 	-lkernel32 -lole32 -lopengl32
+	EXE = $(OUTPUT)/test.exe
+	DLL_EXT = .dll
+else ifeq ($(DETECTED_OS),Darwin)
+	FLAGS = $(GNU_FLAGS)
 	LIBS = -lpthread -ldl -framework CoreAudio -framework AudioUnit
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
-endif
-ifeq ($(DETECTED_OS),Linux)
-	LIBS = -lpthread -ldl -lasound
+else ifeq ($(DETECTED_OS),Linux)
+	FLAGS = $(GNU_FLAGS)
+	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm -lvulkan
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif
 
 # For testing
-SRC = examples/file.c
+SRC = examples/bit.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -76,7 +73,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h
+$(EXE): $(SRC) sili.h sigar.h siapp.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDE) $(LIBS) -o $@
 
 # Check the assembly output.

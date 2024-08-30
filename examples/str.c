@@ -27,7 +27,7 @@ void example1(siAllocator alloc) {
 		siString strStatic = SI_STR("Hello, world!");
 		si_printf("\tstr: \"%S\" or \"%.*s\"\n", strStatic, strStatic.len, strStatic.data);
 
-		siString str = si_stringCopy(strStatic, &alloc);
+		siString str = si_stringCopy(strStatic, alloc);
 		si_printf("\t(str == strStatic) returns a '%B' boolean\n", si_stringEqual(str, strStatic));
 
 		b32 allocated = si_stringAppend(&str, SI_STR(" Labas, pasauli! Ciao, mondo!"));
@@ -36,7 +36,7 @@ void example1(siAllocator alloc) {
 
 	si_print("Scope 2:\n");
 	{
-		siString str = si_stringMake("Dynamically allocated string", &alloc);
+		siString str = si_stringMake("Dynamically allocated string", alloc);
 		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
 
 		i32 front = si_stringAtFront(str);
@@ -55,7 +55,7 @@ void example1(siAllocator alloc) {
 		siString str = si_stringMake(
 			"Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: "
 			"geriems vyrams geroj girioj gerą girą gera gert.",
-			&alloc
+			alloc
 		);
 		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
 		siString str_ger = SI_STR("ger");
@@ -75,7 +75,7 @@ void example1(siAllocator alloc) {
 
 	si_print("Scope 4:\n");
 	{
-		siString str = si_stringMake("smaug giganteus", &alloc);
+		siString str = si_stringMake("smaug giganteus", alloc);
 		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
 
 		si_stringTrim(&str, SI_STR("s"));
@@ -91,10 +91,10 @@ void example1(siAllocator alloc) {
 
 	si_print("Scope 5:\n");
 	{
-		siString str = si_stringMake("one.two.three.four.five", &alloc);
+		siString str = si_stringMake("one.two.three.four.five", alloc);
 		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
 
-		siArray(siString) list = si_stringSplit(str, SI_STR("."), &alloc);
+		siArray(siString) list = si_stringSplit(str, SI_STR("."), alloc);
 
 		si_print("\tElements: ");
 		for_eachArr (siString, subStr, list) { si_printf("\"%S\" ", *subStr); }
@@ -106,7 +106,7 @@ void example1(siAllocator alloc) {
 
 	si_print("Scope 6:\n");
 	{
-		siString str = si_stringMake("\t       dnuora gniliart        ", &alloc);
+		siString str = si_stringMake("\t       dnuora gniliart        ", alloc);
 		si_printf("Before: '%S' (len: '%zd')\n", str, str.len);
 
 		si_stringStrip(&str);
@@ -121,16 +121,16 @@ void example2(siAllocator alloc) {
 	si_printf("==============\n\n==============\nExample 2:\n");
 	siBuffer arr = SI_BUF(siString, SI_STR("/home"), SI_STR("user"), SI_CSTR("Desktop"), SI_STR("RANDOM.txt"));
 
-	siString str = si_stringFromInt(-342, &alloc);
+	siString str = si_stringFromInt(-342, alloc);
 	si_printf("str: \"%S\"\n", str);
 
 	i64 num = si_stringToInt(SI_STR("9300"));
 	si_printf("num: %zd\n", num);
 
-	str = si_stringFromFloat(FLOAT32_MAX, &alloc);
+	str = si_stringFromFloat(FLOAT32_MAX, alloc);
 	si_printf("str: %S\n", str);
 
-	str = si_stringJoin(arr, SI_STR("/"), &alloc);
+	str = si_stringJoin(arr, SI_STR("/"), alloc);
 	si_printf("Joined str: \"%S\"\n", str);
 
 	si_stringUpper(str);
@@ -139,7 +139,7 @@ void example2(siAllocator alloc) {
 	si_stringLower(str);
 	si_printf("Lower str: \"%S\"\n", str);
 
-	str = si_stringMake("something about a fox and it jumping", &alloc);
+	str = si_stringMake("something about a fox and it jumping", alloc);
 	si_stringTitle(str);
 	si_printf("Titled str: \"%S\"\n", str);
 

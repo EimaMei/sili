@@ -20,3 +20,8 @@ Dockerfile
 *.mp3
 *.png
 ideas.txt
+*.obj
+
+# Later
+siapp.h
+sigl.h

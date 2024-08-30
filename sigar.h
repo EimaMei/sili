@@ -1,5 +1,5 @@
 /*
-sigar.h - v0.0.0 - a cross-platform audio library for playback and recording.
+sigar.h - v0.0.0 - a cross-platform library for audio playback and recording.
 ===========================================================================
 	- YOU MUST DEFINE 'SIGAR_IMPLEMENTATION' in EXACTLY _one_ C file that includes
 	this header, BEFORE the include like this:
@@ -38,13 +38,7 @@ SUPPORTED & PLANNED BACKENDS
 
 ===========================================================================
 MACROS
-	- For any of the macros to work, you must _always_ define it before including
-	the library. Example:
-	```c
-		#define SIGAR_IMPLEMENTATION
-		#define SIGAR_NO_ALSA
-		#include "sigar.h"
-	```
+	- Library-specific macros are defined like they are in sili.
 
 	- SIGAR_NO_DEFAULT_MIXING - disables the default mixing done in sigar as well
 	as undefines the implementation of 'sigar__callbackOutputDefault', which will
@@ -84,9 +78,9 @@ WARNING
 	using the library, those being:
 		1) Features may not work as expected
 		2) Functions may not be documented or only contain incomplete documentation
-		3) API breaking changes between releases.
+		3) API breaking changes between releases
 		4) Little to no security checks for malicious code attempting to explode
-		sections of the code.
+		sections of the code
 
 	- Sigar is also NOT responsible for anything if garbage data gets played, be
 	it through incorrect audio format inputs or wrong mixing done by the user
@@ -102,10 +96,10 @@ extern "C" {
 #endif
 
 #ifndef SI_INCLUDE_SI_H
-#include <sili.h>
+	#include <sili.h>
 #endif
 
-#if SI_COMPILER_CLANG || SI_COMPILER_CHECK_MIN(MSVC, 4, 2, 0) || SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0)
+#if SI_COMPILER_HAS_PRAGMA_ONCE
 	#pragma once
 #endif
 
@@ -365,8 +359,8 @@ typedef u32 siSampleRate;
 
 	- length: The total size of one frame in bytes. Equivalent to:
 	'device->config.frameCount * device->config.channels' */
-typedef void SI_FUNC_PTR(siAudioCallback, (struct siAudioDevice* audio,
-	siByte* restrict output, const siByte* restrict input, usize frameSize));
+typedef void (siAudioCallback)(struct siAudioDevice* audio,
+	siByte* restrict output, const siByte* restrict input, usize frameSize);
 
 
 /* */
@@ -414,7 +408,7 @@ typedef struct siAudioDeviceConfig {
 	b32 exclusiveMode;
 
 	/* Function callback that gets called every frame during playback. */
-	siAudioCallback callback;
+	siAudioCallback* callback;
 	/* */
 	rawptr callbackArg;
 } siAudioDeviceConfig;
@@ -444,7 +438,7 @@ typedef struct siAudioDevice {
 	pthread_cond_t cond;
 
 	struct pollfd pfd[2];
-	siAllocator alloc;
+	u8* buffer;
 
 #elif SI_SYSTEM_IS_WINDOWS
 	IMMDevice* id;
@@ -528,7 +522,7 @@ const usize SIGAR_FORMAT_SIZE_MAP[] = {
 };
 
 #define sigar_formatSize(format) SIGAR_FORMAT_SIZE_MAP[format]
-#define sigar_formatIsNative(format) si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32)
+#define sigar_formatIsNative(format) si_between(u32, format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32)
 
 
 
@@ -736,7 +730,7 @@ siSampleRate sigar__ratePriority[] = {
 
 #define SIGAR_ASSERT_FORMAT(format) \
 	SI_ASSERT_MSG( \
-		si_between(format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32 + 4), \
+		si_between(u32, format, SIGAR_FORMAT_U8, SIGAR_FORMAT_F32 + 4), \
 		"An invalid sample format was provided." \
 	)
 
@@ -1036,7 +1030,8 @@ b32 sigar__wasapiFillDeviceInfo(IMMDevice* id, siAudioDeviceInfo* device) {
 #endif
 
 siIntern
-void sigar__threadOutputCallback(siAudioDevice* device) {
+rawptr sigar__threadOutputCallback(rawptr pDevice) {
+	siAudioDevice* device = pDevice;
 	siAudioDeviceConfig* config = &device->config;
 	u8 silence = 0; //(config->format == SIGAR_FORMAT_U8) ? 0x80 : 0;
 	usize frameSize = sigar_formatSize(config->format) * config->channels;
@@ -1044,7 +1039,7 @@ void sigar__threadOutputCallback(siAudioDevice* device) {
 start:
 	while (device->state == SIGAR_RUNNING) {
 		b32 res = sigar__deviceWait(device);
-		SI_STOPIF(!res, return);
+		SI_STOPIF(!res, return nil);
 
 		usize length;
 		siByte* frame = sigar__deviceBufferGet(device, &length);
@@ -1058,6 +1053,8 @@ start:
 		sigar__alsaDevicePause(device);
 		goto start;
 	}
+
+	return nil;
 }
 
 
@@ -1153,12 +1150,12 @@ void sigar__deviceInit(siAudioDevice* device) {
 		SI_ERROR_CHECK(pfds[0].fd == -1, &device->error, sigar__audioError(res), );
 	}
 
-	if (device->alloc.ptr == nil) {
-		si_allocatorFree(&device->alloc);
+	if (device->buffer != nil) {
+		si_free(si_allocatorHeap(), device->buffer);
 	}
 
 	usize frameTotalSize = config->frameCount * config->channels * sigar_formatSize(config->format);
-	device->alloc = si_allocatorMake(frameTotalSize);
+	device->buffer = si_alloc(si_allocatorHeap(), frameTotalSize);
 
 	if (!device->thread.initialized) {
 		pthread_mutex_init(&device->mutex, nil);
@@ -1230,7 +1227,7 @@ force_inline
 siByte* sigar__deviceBufferGet(siAudioDevice* device, usize* outLength) {
 #if SI_SYSTEM_IS_UNIX
 	*outLength = device->config.frameCount;
-	return device->alloc.ptr;
+	return device->buffer;
 
 #elif SI_SYSTEM_IS_WINDOWS
 	u32 padding;
@@ -1293,7 +1290,7 @@ b32 sigar__deviceWait(siAudioDevice* device) {
 siIntern
 void sigar__deviceWrite(siAudioDevice* device) {
 #if SI_SYSTEM_IS_UNIX
-	i64 res = snd_pcm_writei(device->id, device->alloc.ptr, device->config.frameCount);
+	i64 res = snd_pcm_writei(device->id, device->buffer, device->config.frameCount);
 
 	if (res < 0) {
 		if (res == -EAGAIN) {
@@ -1724,7 +1721,7 @@ b32 sigar_deviceStart(siAudioDevice* device) {
 		SI_STOPIF(device->error.code != SIGAR_SUCCESS, return false);
 
 		b32 res = si_threadMake(
-			siFunc(sigar__threadOutputCallback), device, true, &device->thread
+			sigar__threadOutputCallback, device, true, &device->thread
 		);
 		SI_ERROR_CHECK(res == 0, &device->error, SIGAR_ERROR_THREAD, false);
 	}
@@ -1798,8 +1795,8 @@ void sigar_deviceClose(siAudioDevice* device) {
 		close(device->pfd[0].fd);
 	}
 
-	if (device->alloc.ptr) {
-		si_allocatorFree(&device->alloc);
+	if (device->buffer) {
+		si_free(si_allocatorHeap(), device->buffer);
 	}
 
 	if (device->id) {

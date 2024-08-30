@@ -1,6 +1,11 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
+#if SI_COMPILER_MSVC
+	#pragma warning(push)
+	#pragma warning(disable : 4127)
+#endif
+
 typedef struct randomStruct {
 	usize one;
 	char two;
@@ -9,9 +14,9 @@ typedef struct randomStruct {
 
 
 #define TEST_EQ(arg1, arg2, format) \
-	SI_ASSERT_FMT((arg1) == (arg2), format " | " format, arg1, arg2)
+	SI_ASSERT_FMT((arg1) == (arg2), format" | "format, arg1, arg2)
 #define TEST_N_EQ(arg1, arg2, format) \
-	SI_ASSERT_FMT((arg1) != (arg2), format " | " format, arg1, arg2)
+	SI_ASSERT_FMT((arg1) != (arg2), format" | "format, arg1, arg2)
 
 
 #define TEST_EQ_U64(arg1, arg2) \
@@ -58,8 +63,8 @@ int main(void) {
 		cstring str = "ABCD";
 		TEST_EQ_U64(SI_TO_U32(str), value);
 
-		TEST_EQ_U64(si_offsetof(randomStruct, three), 12);
-		TEST_EQ_U64(si_alignof(randomStruct), 8);
+		TEST_EQ_U64(si_offsetof(randomStruct, three), 4 + sizeof(usize));
+		TEST_EQ_U64(si_alignof(randomStruct), sizeof(usize));
 
 		char* buf1 = "QWERTY";
 		char* buf2 = "AZERTY";
@@ -165,7 +170,7 @@ int main(void) {
 			si_allocItem(alloc, randomStruct);
 			si_allocArray(alloc, randomStruct, 3);
 
-			TEST_EQ_U64(inData.offset, 4 * sizeof(randomStruct));
+			TEST_EQ_U64(inData.offset, si_alignCeil(sizeof(randomStruct)) + si_alignCeil(3 * sizeof(randomStruct)));
 
 			si_freeAll(alloc);
 		}
@@ -232,3 +237,9 @@ int main(void) {
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
 }
+
+
+#if SI_COMPILER_MSVC
+	#pragma warning(pop)
+#endif
+

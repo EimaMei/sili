@@ -68,22 +68,13 @@ int main(void) {
 		SI_ENDIAN_STR, SI_COMPILER_STR, SI_LANGUAGE_STR, standard()
 	);
 
+	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", sizeof(usize) * 8);
+
 	u16 adr = 0xFFFE;
-	si_printf(
-		"0xFFFE (%#b):\n\t"
-			"High bits: '%#b', low bits: '%#b'\n\t"
-			"MSB: '%#b', LSB: '%#b'\n",
-		adr,
-		SI_NUM_HIGH_BITS(adr), SI_NUM_LOW_BITS(adr),
-		SI_BIT_MSB(adr), SI_BIT_LSB(adr)
-	);
-
-	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
-
-	usize numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
+	u32 numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
 	si_printf(
 		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
-		numBits, SI_BYTE_TO_BIT(sizeof(adr)) - numBits
+		numBits, sizeof(adr) * 8 - numBits
 	);
 
 	u8 leadTrailNum = 248;
@@ -101,7 +92,7 @@ int main(void) {
 
 	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
 
-	siArray(u8) array = si_numToBytes(u32, 0xFF00EEAA, &alloc);
+	siArray(u8) array = si_numToBytes(u32, 0xFF00EEAA, alloc);
 	si_printf("array: %S, (len: %zd)\n", si_stringFromArray(array, "%#hhX"), array.len);
 
 	u32 newNum = (u32)si_numFromBytes(array);

@@ -44,21 +44,21 @@ void example1(siAllocator alloc) {
 		siFile newFile = si_fileCreate(file_random);
 		si_fileWrite(&newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else."));
 
-		siString content = si_fileReadContents(newFile, &alloc);
-		si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), &alloc);
+		siString content = si_fileReadContents(newFile, alloc);
+		si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), alloc);
 
 		si_printf(
 			"About 'random.txt':\n\t"
 				"Full path - '%S'\n\t"
 				"Size - '%zu' bytes\n\t"
 				"Content - '%S'\n\n",
-			si_optionalGetOrDefault(si_pathGetFullName(file_random, &stack), unknown),
+			si_optionalGetOrDefault(si_pathGetFullName(file_random, stack), unknown),
 			content.len, content
 		);
 
 		si_fileWriteAtLine(&newFile, SI_STR("and now we have a changed line"), 1);
 
-		siArray(siString) newFileLines = si_fileReadlines(newFile, &alloc);
+		siArray(siString) newFileLines = si_fileReadlines(newFile, alloc);
 		si_printf(
 			"Contents of '%S' ('%zd' lines in total):\n",
 			si_pathBaseName(file_random), newFileLines.len
@@ -77,11 +77,11 @@ void example1(siAllocator alloc) {
 			"About 'examples/file.c':\n\t"
 				"Full path - '%S'\n\t"
 				"Size - '%zu' bytes\n",
-			si_optionalGetOrDefault(si_pathGetFullName(file_examples_file, &stack), unknown),
+			si_optionalGetOrDefault(si_pathGetFullName(file_examples_file, stack), unknown),
 			file.size
 		);
 
-		siArray(siString) lines = si_fileReadlines(file, &alloc);
+		siArray(siString) lines = si_fileReadlines(file, alloc);
 		si_printf(
 			"Contents of '%S' ('%zd' lines in total):\n",
 			si_pathBaseName(file_examples_file), lines.len
@@ -140,7 +140,7 @@ void example2(void)	{
 
 	{
 		siString path = SI_STR("example.c");
-		siOption(siString) fullPath = si_pathGetFullName(path, &stack);
+		siOption(siString) fullPath = si_pathGetFullName(path, stack);
 		si_printf(
 			"Information about '%S':\n\t"
 				"Base name - '%S'\n\t"

@@ -17,7 +17,7 @@ int main(void) {
 		siArray(i32) arrayStatic = SI_BUF(i32, 1, 2, 4, 8, 16, 32);
 		si_printf("\tarray: \"%S\" or \"%S\"\n", si_arrayPrintInt(arrayStatic), si_stringFromArray(arrayStatic, "%i"));
 
-		siBuffer array = si_arrayCopy(arrayStatic, &alloc);
+		siBuffer array = si_arrayCopy(arrayStatic, alloc);
 		si_printf("\t(array == arrayStatic) returns a '%B' boolean\n", si_arrayEqual(arrayStatic, array));
 
 		b32 allocated = si_arrayAppend(&array, &(i32){64});
@@ -53,7 +53,7 @@ int main(void) {
 
 	si_print("Scope 3:\n");
 	{
-		siArray(i32) array = si_arrayMake(&alloc, i32, 1, 1, 2, 0, 6, 6, 6);
+		siArray(i32) array = si_arrayMake(alloc, i32, 1, 1, 2, 0, 6, 6, 6);
 		si_printf("\tarray: \"%S\"\n", si_arrayPrintInt(array));
 
 		si_arrayReplaceAll(array, &(i32){6}, &(i32){9});
@@ -72,7 +72,7 @@ int main(void) {
 	si_print("Scope 3:\n");
 	{
 
-		siArray(u32) array = si_arrayMake(&alloc, siColor, {255, 0, 0}, {128, 128, 128}, {96, 255, 186}, {23, 204, 2});
+		siArray(u32) array = si_arrayMake(alloc, siColor, {255, 0, 0}, {128, 128, 128}, {96, 255, 186}, {23, 204, 2});
 		si_printf("\tarray: \"%S\"\n", si_arrayPrintClr(array));
 
 		si_arrayReverse(array);

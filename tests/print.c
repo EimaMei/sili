@@ -1,5 +1,7 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
+#include <math.h>
+
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
@@ -16,12 +18,13 @@
 				__LINE__, expectedLen, len, buffer \
 			); \
 		} \
-		i32 res = strcmp(buffer, expectedStr); \
+		i32 res = si_memcompare(buffer, expectedStr, len); \
 		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%s'", res, buffer); \
 		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
 	} while(0)
 
 #define TEST_PRINT_REG(expectedStr) TEST_PRINT(expectedStr, expectedStr, 0)
+
 
 int main(void) {
 	/* From: https://en.cppreference.com/w/c/io/fprintf */
@@ -58,7 +61,12 @@ int main(void) {
 	TEST_PRINT("\tPadding:\t01.50 1.50  1.50\n", "\tPadding:\t%05.2f %.2f %5.2f\n", 1.5, 1.5, 1.5);
 	TEST_PRINT("\tScientific:\t1.500000E+00 1.500000e+00\n", "\tScientific:\t%E %e\n", 1.5, 1.5);
 	/* TEST_PRINT("\t0x1.8p+0 0X1.8P+0\n", "\tHexadecimal:\t%a %A\n", 1.5, 1.5); */
-	TEST_PRINT("\tSpecial values:\t0/0=nan 1/0=inf -1/0=-inf\n", "\tSpecial values:\t0/0=%g 1/0=%g -1/0=%g\n", 0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0);
+	{
+		const f64 nan = NAN;
+		const f64 inf = INFINITY;
+		const f64 n_inf = -INFINITY;
+		TEST_PRINT("\tSpecial values:\t0/0=nan 1/0=inf -1/0=-inf\n", "\tSpecial values:\t0/0=%g 1/0=%g -1/0=%g\n", nan, inf, n_inf);
+	}
 
 	TEST_PRINT_REG("Fixed-width types:\n");
 	TEST_PRINT("\tLargest 32-bit value is 4294967295 or 0xffffffff\n", "\tLargest 32-bit value is %u or %#x\n", UINT32_MAX, UINT32_MAX);

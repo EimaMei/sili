@@ -45,7 +45,7 @@ void function_regular(void) {
 }
 
 #if SI_ARCH_IS_X86
-	#include <immintrin.h>
+	#include <emmintrin.h>
 
 	void function_simd(void) {
 		*(__m128i*)res = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
@@ -60,4 +60,6 @@ void function_regular(void) {
 		int32x4_t result = vaddq_s32(vec_first, vec_second);
 		vst1q_s32(res, result);
 	}
+#else
+	#error why
 #endif

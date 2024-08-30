@@ -33,7 +33,7 @@ si_optional_define(userInfo);
 /* Shows off the basic usage of 'siOption' */
 void example1(void);
 /* Shows siOption's compatibility with many types. */
-void example2(siAllocator* stack);
+void example2(siAllocator stack);
 /* Shows off the difference between 'siOption' and 'siResult'. */
 void example3(void);
 
@@ -42,7 +42,7 @@ int main(void) {
 	siAllocator stack = si_allocatorMakeStack(256);
 
 	example1();
-	example2(&stack);
+	example2(stack);
 	example3();
 
 	return 0;
@@ -80,9 +80,9 @@ void example1(void) {
 
 /* Creates an optional object from the specified type and writes it into the
  * given raw pointer.*/
-void createOptional(valueType type, rawptr out, siAllocator* alloc);
+void createOptional(valueType type, rawptr out, siAllocator alloc);
 
-void example2(siAllocator* alloc) {
+void example2(siAllocator alloc) {
 	si_print("==============\n\n==============\nExample 2:\n");
 
 	siOption(i32) opt_i32;
@@ -135,7 +135,7 @@ siOption(cstring) create(b32 value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
-void createOptional(valueType type, rawptr out, siAllocator* alloc) {
+void createOptional(valueType type, rawptr out, siAllocator alloc) {
 	switch (type) {
 		case TYPE_I32: {
 			siOption(i32)* res = out;
