@@ -91,7 +91,7 @@ jobs:
     - name: Build Library (MSVC16 64-bit)
       run: |
         windres.exe --version
-        make static CC=cl
+        make static CC=cl AR=lib
         make dynamic CC=cl
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd

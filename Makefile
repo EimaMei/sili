@@ -20,7 +20,7 @@ GNU_FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 	-D _GNU_SOURCE -D _LARGEFILE64_SOURCE -D __USE_POSIX199506
 GNU_INCLUDES = -I"." -I"include"
 
-GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h
+GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
 GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a
 GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)"
 
@@ -30,11 +30,11 @@ GNU_CC_OUT = -o
 MSVC_FLAGS = /nologo /std:c11 /Wall /wd4668 /wd4820 /wd5045
 MSVC_INCLUDES = /I"." /I"include"
 
-MSVC_STATIC_FLAGS = /c /D SI_IMPLEMENTATION /Tc sili.h
+MSVC_STATIC_FLAGS = /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(NAME).o"
 MSVC_AR_FLAGS = /nologo /out:$(OUTPUT)/lib$(NAME).lib
 MSVC_DLL_FLAGS = /nologo /DLL /out:"$(OUTPUT)/lib$(NAME)$(DLL_EXT)" "$(OUTPUT)/$(NAME).o"
 
-MSVC_CC_OUT = /Fo
+MSVC_CC_OUT = /Fe
 
 
 DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
@@ -104,12 +104,12 @@ all: $(OUTPUT) $(EXE) run
 
 # 'make static'
 static:
-	$(CC) $(FLAGS) $(INCLUDES) $(STATIC_FLAGS) $(EXTRA_FLAGS) $(CC_OUT)"$(OUTPUT)/$(NAME).o"
+	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
 	$(AR) $(AR_FLAGS) $(OUTPUT)/$(NAME).o
 
 dynamic:
-	$(CC) $(FLAGS) $(INCLUDES) $(STATIC_FLAGS) $(EXTRA_FLAGS) $(CC_OUT)"$(OUTPUT)/$(NAME).o"
-	$(LINKER) $(LIBS) $(EXTRA_LIBS) $(DLL_FLAGS)
+	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
+	$(LINKER) $(LIBS) $(EXTRA_LIBS) $(EXTRA_FLAGS) $(DLL_FLAGS)
 
 
 # Run the executable.
@@ -123,7 +123,7 @@ clean:
 
 # Compile each time the main file or `sili.h` is changed.
 $(EXE): $(SRC) sili.h sigar.h siapp.h
-	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
+	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT) "$@"
 
 # Compiles and runs every example.
 compile_examples:

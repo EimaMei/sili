@@ -5,7 +5,7 @@ Sili
         <b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
     </div>
     <div>
-        <img src=".github/lonicat-neris.png" alt="Lonicat" width="150">
+        <img src=".github/cat.png" alt="Katė" width="150">
     </div>
 </div>
 
@@ -15,19 +15,19 @@ Sili
 
 <p align="center">
 Sili is a collection of cross-platform and single-header libraries for general
-programming in C99/C11. Many new fixes and exciting additions are made to the C 
-libraries for a more modern developer experience while still adhering to the main 
+programming in C99/C11. Many new fixes and exciting additions are made to the C
+libraries for a more modern developer experience while still adhering to the main
 principles and appeals of C: simplicity, performance and portability.
 </p>
 
 <p align="center">
-	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml"> 
+	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml">
 		<img src="https://github.com/EimaMei/sili-toolchain/actions/workflows/linux.yml/badge.svg">
 	</a>
-	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml"> 
+	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml">
 		<img src="https://github.com/EimaMei/sili-toolchain/actions/workflows/windows.yml/badge.svg">
 	</a>
-	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml"> 
+	<a href="https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml">
 		<img src="https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg">
 	</a>
 </p>
@@ -47,16 +47,16 @@ Examples of most (but definitely not all) sili's features are utilized in the
 ## `main` branch
 - Format: `v<main>.<minor>.<patch>`.
 - Descrpition: A `main` release guarantees that all of the `sili` libraries pass
-their respective tests and have their examples working as intended, as well as 
-compiled releases being available for all platforms.   
+their respective tests and have their examples working as intended, as well as
+compiled releases being available for all platforms.
 
 ## `dev` branch
 - Format: `v<main-branch-version>-dev-<commit-number>`.
 - Descrpition: A `dev` release is less likely to pass all of the tests and have
-working examples on every platform.  
+working examples on every platform.
 
 ## `experimental` branch
 - Format: `v<main-branch-version>-experimental-<commit-ID>`.
-- Descrpition: An `experimental` release is not meant for any stable use and is 
-reserved  for the most cutting-edge release of sili. Errors and warnings are to 
+- Descrpition: An `experimental` release is not meant for any stable use and is
+reserved  for the most cutting-edge release of sili. Errors and warnings are to
 be expected.
