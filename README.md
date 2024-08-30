@@ -1,10 +1,14 @@
 Sili
 ====
-<p align="right">
-<img src=".github/lonicat-neris.png" alt="Lonicat" width="150">
-</p>
-<b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
-</center>
+<div style="display: flex; align-items: right; justify-content: space-between;">
+    <div>
+        <b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
+    </div>
+    <div>
+        <img src=".github/lonicat-neris.png" alt="Lonicat" width="150">
+    </div>
+</div>
+
 
 ---
 

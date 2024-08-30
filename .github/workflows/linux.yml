@@ -77,7 +77,7 @@ jobs:
     - name: Build Library
       run: |
         make static CC=gcc
-        make dynamic CC=gcc
+        make dynamic CC=gcc EXTRA_FLAGS=-fPIC
       if: matrix.bits == 64
 
     - name: Generate Artifacts
