@@ -32,7 +32,7 @@ ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-min
 	DLL_EXT = .dll
 else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe, cl.exe))
 	FLAGS = $(MSVC_FLAGS)
-# LIBS = 	-lkernel32 -lole32 -lopengl32
+	LIBS =
 	EXE = $(OUTPUT)/test.exe
 	DLL_EXT = .dll
 else ifeq ($(DETECTED_OS),Darwin)
@@ -42,7 +42,7 @@ else ifeq ($(DETECTED_OS),Darwin)
 	DLL_EXT = .so
 else ifeq ($(DETECTED_OS),Linux)
 	FLAGS = $(GNU_FLAGS)
-	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm -lvulkan
+	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm
 	EXE = $(OUTPUT)/test
 	DLL_EXT = .so
 endif

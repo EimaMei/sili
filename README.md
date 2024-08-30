@@ -1,14 +1,13 @@
 Sili
 ====
-<center>
-<br>
-	<img src=".github/lonicat-neris.png" alt="Lonicat" width="150">
-<br>
+<p align="right">
+<img src=".github/lonicat-neris.png" alt="Lonicat" width="150">
+</p>
 <b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
+</center>
 
 ---
 
-</center>
 
 <p align="center">
 Sili is a collection of cross-platform and single-header libraries for general

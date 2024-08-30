@@ -80,19 +80,19 @@ jobs:
 
     - name: Tests
       run: |
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_tests
-        make CC=cl compile_tests
+        make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe
+        make compile_tests CC=cl
 
     - name: Examples
       run: |
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_examples
-        make CC=cl compile_tests
+        make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe
+        make compile_tests CC=cl
 
     - name: Build Library (MSVC16 64bit)
       run: |
         windres.exe --version
-        make CC=cl static
-        make CC=cl dynamic
+        make static CC=cl
+        make dynamic CC=cl
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |
@@ -104,8 +104,8 @@ jobs:
         ${{ matrix.ARCH }}-w64-mingw32-gcc.exe --version
         windres.exe --version
         dir C:\msys64\mingw64\bin
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe static
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe dynamic
+        make static CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe
+        make dynamic CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |
