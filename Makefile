@@ -1,4 +1,4 @@
-CC = cl
+CC = clang
 AR = ar
 OUTPUT = build
 

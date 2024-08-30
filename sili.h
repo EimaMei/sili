@@ -6832,7 +6832,7 @@ b32 si_threadPrioritySet(siThread t, i32 priority) {
 
 SIDEF
 u32 si_numCountBitsU8(u8 num) {
-	return (num * (u64)01001001001L & (u64)042104210421) % 017;
+	return si_cast(u32, ((u64)num * 01001001001L & 042104210421) % 017);
 }
 
 
@@ -6841,7 +6841,7 @@ u32 si_numCountBitsU32(u32 num) {
 	 num -= ((num >> 1) & 0x55555555);
 	 num = (num & 0x33333333) + ((num >> 2) & 0x33333333);
 	 num = (num + (num >> 4)) & 0x0F0F0F0F;
-	 return (num * 0x01010101) >> 24;
+	 return si_cast(u32, (num * 0x01010101) >> 24);
 }
 
 
@@ -6850,7 +6850,7 @@ u32 si_numCountBitsU64(u64 num) {
 	num = num - ((num >> 1) & 0x5555555555555555);
 	num = (num & 0x3333333333333333) + ((num >> 2) & 0x3333333333333333);
 	num = (num + (num >> 4)) & 0xF0F0F0F0F0F0F0F;
-	return (num * 0x101010101010101) >> 56;
+	return si_cast(u32, (num * 0x101010101010101) >> 56);
 }
 
 
@@ -7034,7 +7034,7 @@ u32 si_numLen(u64 num) {
 
 inline
 u32 si_numLenEx(u64 num, u32 base) {
-	usize count = 0;
+	u32 count = 0;
 	do {
 		count += 1;
 		num /= base;

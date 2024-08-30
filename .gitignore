@@ -18,7 +18,6 @@ lib/
 *.json
 Dockerfile
 *.mp3
-*.png
 ideas.txt
 *.obj
 

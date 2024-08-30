@@ -163,7 +163,7 @@ void createOptional(valueType type, rawptr out, siAllocator alloc) {
 		} break;
 
 		case TYPE_FUNC_PTR: {
-			typedef void (create_optional_type)(valueType, rawptr, siAllocator*);
+			typedef void (create_optional_type)(valueType, rawptr, siAllocator);
 
 			siOption(rawptr)* res = out;
 			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));

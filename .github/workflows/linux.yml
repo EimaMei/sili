@@ -68,16 +68,16 @@ jobs:
 
     - name: Tests
       run: |
-        make compile_tests
+        make compile_tests CC=gcc
 
     - name: Examples
       run: |
-        make compile_examples
+        make compile_examples CC=gcc
 
     - name: Build Library
       run: |
-        make static
-        make dynamic
+        make static CC=gcc
+        make dynamic CC=gcc
       if: matrix.bits == 64
 
     - name: Generate Artifacts
