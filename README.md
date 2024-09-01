@@ -1,10 +1,7 @@
 Sili
 ====
-<img src=".github/cat.png" alt="Katė" width="78" align="right">
 
-<b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
-
-<br />
+<b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“</i></b> - [katė](.github/cat.png)
 
 ---
 
@@ -26,6 +23,8 @@ principles and appeals of C: simplicity, performance and portability.
 		<img src="https://github.com/EimaMei/sili-toolchain/actions/workflows/macos.yml/badge.svg">
 	</a>
 </p>
+
+
 
 # Libraries
 |  Name                | Version | Description |
