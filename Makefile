@@ -4,7 +4,6 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-
 GNU_FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
@@ -84,7 +83,7 @@ else ifeq ($(DETECTED_OS),Linux)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm
+	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm -lvulkan
 	EXE = $(OUTPUT)/test
 	LINKER = $(CC)
 
@@ -97,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/bit.c
+SRC = src/hoi4/main.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -122,7 +121,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h
+$(EXE): $(SRC) sili.h sigar.h siapp.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT) "$@"
 
 # Compiles and runs every example.

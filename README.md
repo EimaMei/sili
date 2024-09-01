@@ -1,17 +1,12 @@
 Sili
 ====
-<div style="display: flex; align-items: right; justify-content: space-between;">
-    <div>
-        <b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
-    </div>
-    <div>
-        <img src=".github/cat.png" alt="Katė" width="150">
-    </div>
-</div>
+<img src=".github/cat.png" alt="Katė" width="78" align="right">
 
+<b><i>„Miau miau miau a miau'au miau a miau miau miau, ma miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau miau'll miau miau miau a miau.“ - katė</i></b>
+
+<br />
 
 ---
-
 
 <p align="center">
 Sili is a collection of cross-platform and single-header libraries for general

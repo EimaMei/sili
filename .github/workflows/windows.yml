@@ -86,7 +86,7 @@ jobs:
     - name: Examples
       run: |
         make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc
-        make compile_tests CC=cl
+        make compile_examples CC=cl
 
     - name: Build Library (MSVC16 64-bit)
       run: |

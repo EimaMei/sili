@@ -821,10 +821,14 @@ SI_STATIC_ASSERT(false == 0);
 /* x - UINT
  * Shortcut for (1 << x). */
 #define SI_BIT(x) (1ULL << (x))
-
 #if !defined(nil)
-	/* A nothing value, equivalent to NULL. */
-	#define nil ((void*)0)
+	#if SI_LANGUAGE_IS_CPP
+		/* A nothing value, equivalent to NULL. */
+		#define nil nullptr
+	#else
+		/* A nothing value, equivalent to NULL. */
+		#define nil ((void*)0)
+	#endif
 #endif
 
 SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
@@ -837,7 +841,7 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 
 /* type - TYPE | name - NAME
  * Defines the enum with the given integer type. */
-#define SI_ENUM(type, name) typedef type name; enum name
+#define SI_ENUM(type, name) typedef type name; enum
 /* ...x - ANYTHING
 * Silences the 'unused identifier' warning for the specified expression. */
 #define SI_UNUSED(.../* x */) (void)(__VA_ARGS__)
@@ -888,7 +892,6 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #endif
 SI_STATIC_ASSERT(countof("abcd") == 5);
 SI_STATIC_ASSERT(countof_str("abcd") == 4);
-SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
 
 #if !defined(offsetof)
 	#if SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
@@ -934,9 +937,25 @@ SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
 	 * Type prunes a value with the specified type ('typeof' is used to get value's type). */
 	#define si_transmuteType(type, value) si_transmute(type, value, typeof(value))
 #endif
-/* type - TYPE | value - EXPRESSION | valueType - TYPE
- * Type prunes a value with the specified type. */
-#define si_transmute(type, value, valueType) ((union { valueType in; type out; }){value}.out)
+
+#if SI_LANGUAGE_IS_C
+	/* type - TYPE | value - EXPRESSION | valueType - TYPE
+	 * Type prunes a value with the specified type. */
+	#define si_transmute(type, value, valueType) ((union { valueType in; type out; }){value}.out)
+#else
+	/* type - TYPE | value - EXPRESSION | valueType - TYPE
+	 * Type prunes a value with the specified type. */
+	#define si_transmute(type, value, valueType) si_anarchyTransmute<type, valueType>(value)
+extern "C++" {
+	template<typename type, typename valueType>
+	type si_anarchyTransmute(valueType value) {
+		SI_STATIC_ASSERT(sizeof(type) == sizeof(valueType));
+	    type out;
+		memcpy(&out, &value, sizeof(value));
+		return out;
+	}
+}
+#endif
 
 /* ptr - rawptr
  * Converts the pointer's value into an u8. */
@@ -1028,7 +1047,7 @@ SI_STATIC_ASSERT(countof((i32[]){1, 2, 3, 4, 5, 6, 7, 8}) == 8);
 	#endif
 #endif
 
-SIDEF noreturn void si_panic(cstring conditionStr, cstring file, i32 line,
+noreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
 		cstring func, cstring message, ...);
 
 #if defined(SI_NO_ASSERTIONS)
@@ -1325,7 +1344,7 @@ SIDEF siAllocator si_allocatorHeap(void);
 SIDEF siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData);
 /* TODO */
 #define si_allocatorMakeStack(capacity) \
-	si__allocatorMakeStack(capacity, si_sallocItem(siAllocatorData), si_salloc(capacity))
+	si__allocatorMakeStack(capacity, si_sallocItem(siAllocatorData), (siByte*)si_salloc(capacity))
 /* TODO */
 SIDEF siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inData);
 
@@ -1671,7 +1690,7 @@ si_optional_define(siBuffer);
 
 /* TODO
  * TODO */
-#define si_arrayGetPtr(array, index) (rawptr)((u8*)(array).data + (array).typeSize * (index))
+#define si_arrayGetPtr(array, index) (siByte*)((u8*)(array).data + (array).typeSize * (index))
 
 /* TODO
  * TODO */
@@ -1810,7 +1829,7 @@ si_optional_define(siString);
 #define SI_CSTR(string) SI_STR_LEN(string, si_cstrLen(string))
 /* string - cstring
  * Creates a compile-time constant sItring literal on the stack from a string literal. */
-#define SI_STRC(string) {string, countof_str(string), countof_str(string), 1, nil}
+#define SI_STRC(string) {(u8*)string, countof_str(string), countof_str(string), 1, nil}
 
 
 /* TODO
@@ -3349,6 +3368,7 @@ rawptr si_allocator_heap_proc(siAllocatorFunc func, rawptr userData) {
 
 		case siAllocatorFunc_GetAvailable: {
 			out = (rawptr)USIZE_MAX;
+			si_panic("des", "nas", 1, "cring", "sd");
 		} break;
 
 		default: SI_PANIC();
@@ -3359,7 +3379,7 @@ rawptr si_allocator_heap_proc(siAllocatorFunc func, rawptr userData) {
 }
 
 rawptr si_allocator_arena_proc(siAllocatorFunc func, rawptr userData) {
-	siAllocatorData* alloc = userData;
+	siAllocatorData* alloc = (siAllocatorData*)userData;
 	SI_ASSERT_MSG(alloc->ptr != nil, "You cannot use an already freed arena.");
 	rawptr out;
 
@@ -3419,7 +3439,7 @@ rawptr si_allocator_arena_proc(siAllocatorFunc func, rawptr userData) {
 }
 
 rawptr si_allocator_stack_proc(siAllocatorFunc func, rawptr userData) {
-	siAllocatorData* alloc = userData;
+	siAllocatorData* alloc = (siAllocatorData*)userData;
 	if (func.type == siAllocatorFunc_FreeAll && alloc->ptr) {
 		si_memset(alloc, 0, sizeof(*alloc));
 		return nil;
@@ -3443,7 +3463,7 @@ siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData) {
 	SI_ASSERT_NOT_NULL(inData);
 
 	capacity = si_alignCeil(capacity);
-	inData->ptr = si_malloc(capacity);
+	inData->ptr = si_mallocArray(siByte, capacity);
 	inData->offset = 0;
 	inData->capacity = capacity;
 
@@ -3471,7 +3491,7 @@ siAllocator si__allocatorMakeStack(usize capacity, siAllocatorData* inData, siBy
 SIDEF
 siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inData) {
 	SI_ASSERT_NOT_NULL(inData);
-	inData->ptr = ptr;
+	inData->ptr = (siByte*)ptr;
 	inData->offset = 0;
 	inData->capacity = capacity;
 
@@ -3539,7 +3559,7 @@ usize si_allocatorGetAvailable(siAllocator alloc) {
 
 
 
-SIDEF noreturn
+noreturn SIDEF
 void si_panic(cstring conditionStr, cstring file, i32 line, cstring func,
 		cstring message, ...) {
 	siPrintColor red = si_printColor3bitEx(siPrintColorAnsi_Red, true, false);
@@ -3759,7 +3779,7 @@ rawptr si_memchr(const void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
 #if !defined(SI_NO_CRT)
-	return memchr(data, value, size);
+	return (rawptr)memchr(data, value, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
 #endif
@@ -3805,8 +3825,6 @@ siBuffer si_arrayMakeEx(rawptr list, usize sizeofItem, usize count, siAllocator 
 inline
 siBuffer si_arrayMakeReserve(usize sizeofItem, usize length, usize capacity,
 		siAllocator alloc) {
-	SI_ASSERT(capacity != 0); /* TODO(EimaMei): Debug if having a size 0 array doesn't cause errors (see C-Plus). */
-
 	siBuffer array;
 	array.alloc = alloc;
 	array.typeSize = sizeofItem;
@@ -4018,11 +4036,11 @@ void si_arrayReplace(siBuffer array, rawptr restrict valueOld, rawptr restrict v
 
 SIDEF
 void si_arrayReverse(siBuffer array) {
-	siByte* a = array.data;
+	siByte* a = (siByte*)array.data;
 	siByte* b = si_arrayGetPtr(array, array.len - 1);
 
 	usize len = array.len / 2;
-	siByte* tmp = si_salloc(128);
+	siByte* tmp = (siByte*)si_salloc(128);
 	SI_ASSERT(array.typeSize <= 128);
 
 	while (len) {
@@ -4167,7 +4185,7 @@ i32 si_stringAtBack(siString string) {
 
 inline
 u8* si_stringBegin(siString string) {
-	return string.data;
+	return (u8*)string.data;
 }
 
 inline
@@ -4407,7 +4425,7 @@ b32 si_stringEnquote(siString* string) {
 	usize oldLen = string->len;
 	b32 allocated = si_stringMakeSpaceFor(string, 2);
 
-	u8* data = string->data;
+	u8* data = (u8*)string->data;
 	si_ptrMoveRight(data, oldLen, 1);
 	data[0] = '\"';
 	data[string->len - 1] = '\"';
@@ -4621,7 +4639,8 @@ void si_stringTitle(siString string) {
 inline
 void si_stringCapitalize(siString string) {
 	si_stringLower(string);
-	u8* data = string.data;
+
+	u8* data = (u8*)string.data;
 	data[0] = si_charUpper(data[0]);
 }
 
@@ -4857,6 +4876,7 @@ b32 si_stringToBool(siString string) {
 	}
 
 	u32 val = SI_TO_U32(str);
+
 	if (val == SI_TO_U32("true") && string.len == 4) {
 		return true;
 	}
@@ -4926,7 +4946,7 @@ go_back:
 
 	buffer[0] = '{', length += 1;
 	for_range (i, 0, array.len) {
-		siByte* base = si_arrayGetPtr(array, i);
+		siByte* base = (siByte*)si_arrayGetPtr(array, i);
 		for_range (j, 0, argCount) {
 			usize argSize = argSizes[j];
 
@@ -5035,7 +5055,9 @@ siUtf32Char si_utf8Decode(const u8* character) {
 		return SI_UTF32_REPLACEMENT_CHARACTER;
 	}
 
-	return (siUtf32Char){codepoint, si_cast(u32, next - character)};
+	siUtf32Char res;
+	res.codepoint = codepoint;
+	res.len = si_cast(u32, next - character);
 	#undef FAILURE
 }
 SIDEF
@@ -5082,7 +5104,7 @@ siUtf32Char si_utf8StrAt(siUtf8String string, usize charIndex) {
 	SI_ASSERT(charIndex < string.len);
 	SI_STOPIF(string.len == 0, return SI_UTF32_REPLACEMENT_CHARACTER);
 
-	siUtf32Char character = si_utf8Decode(string.data);
+	siUtf32Char character = si_utf8Decode((u8*)string.data);
 	usize offset = character.len;
 
 	while (charIndex) {
@@ -5099,7 +5121,7 @@ siString si_utf8StrAtUTF8(siUtf8String string, usize charIndex) {
 	SI_ASSERT(charIndex < string.len);
 	SI_STOPIF(string.len == 0, return SI_STR_LEN(nil, 0));
 
-	siUtf32Char character = si_utf8Decode(string.data);
+	siUtf32Char character = si_utf8Decode((u8*)string.data);
 	if (charIndex == 0) {
 		return SI_STR_LEN(string.data, character.len);
 
@@ -5397,7 +5419,7 @@ rawptr si_hashtableGet(siHashTable ht, rawptr key, usize keyLen) {
 	SI_ASSERT(keyLen != 0);
 	SI_STOPIF(ht.len == 0, return nil);
 
-	u64 hash = si__hashKey(key, keyLen);
+	u64 hash = si__hashKey((siByte*)key, keyLen);
 	return si_hashtableGetWithHash(ht, hash);
 }
 SIDEF
@@ -5423,7 +5445,7 @@ siHashEntry* si_hashtableSet(siHashTable* ht, const rawptr key, usize keyLen,
 	SI_ASSERT_NOT_NULL(key);
 	SI_ASSERT(keyLen != 0);
 
-	u64 hash = si__hashKey(key, keyLen);
+	u64 hash = si__hashKey((siByte*)key, keyLen);
 	return si_hashtableSetWithHash(ht, hash, valuePtr, outSuccess);
 }
 SIDEF
@@ -5629,7 +5651,7 @@ siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
 
 	#endif
 
-	return SI_OPT(usize, size);
+	return SI_OPT(usize, (usize)size);
 }
 SIDEF
 u32 si_pathItemsCopy(siString pathSrc, siString pathDst) {
@@ -6259,7 +6281,7 @@ siResult(siBuffer) si_fileReadAt(siFile file, isize offset, usize len, siAllocat
 	len = si_min(usize, si_allocatorGetAvailable(alloc), len);
 
 	siBuffer buffer = si_arrayMakeReserve(1, len, len, alloc);
-	siError err = si_fileReadUnsafe(file, offset, len, si_alloc(alloc, len));
+	siError err = si_fileReadUnsafe(file, offset, len, &buffer);
 
 	return (err.code == 0)
 		? SI_OPT(siBuffer, buffer)
@@ -6569,8 +6591,8 @@ siDirectory si_directoryOpen(siString path) {
 	siFileError_CHECK(dir.handle == nil, &dir.error, dir);
 
 	/* NOTE(EimaMei): We skip '.' and '..'. */
-	SI_DISCARD(readdir(dir.handle));
-	SI_DISCARD(readdir(dir.handle));
+	SI_DISCARD(readdir((DIR*)dir.handle));
+	SI_DISCARD(readdir((DIR*)dir.handle));
 
 #endif
 
@@ -6648,7 +6670,7 @@ b32 si_directoryPollEntryEx(siDirectory* dir, siDirectoryEntry* entry, b32 fullP
 			SI_ERROR_EX(&dir->error, code, si__fileErrorLog);
 		}
 
-		closedir(dir->handle);
+		closedir((DIR*)dir->handle);
 		return false;
 	}
 
@@ -7120,8 +7142,8 @@ SIDEF
 isize si_fprintfVa(siFile* file, cstring fmt, va_list va) {
 	char buffer[SI_KILO(8)];
 	isize count = si_snprintfVa(buffer, sizeof(buffer), fmt, va) - 1;
-	count = si_fileWrite(file, SI_STR_LEN(buffer, count));
-	return count;
+
+	return si_fileWrite(file, SI_STR_LEN(buffer, (usize)count));
 }
 
 SIDEF
@@ -7261,67 +7283,6 @@ isize si_snprintfVa(char* buffer, usize capacity, cstring fmt, va_list va) {
 
 GOTO_PRINT_SWITCH:
 		switch (x) {
-#ifndef SI_NO_SILI_PRINTF_STYLE
-			case 'C': {
-				if (!colorPresent) {
-					siPrintColor clr = va_arg(va, siPrintColor);
-					siAllocatorData inData;
-					colorPresent = true;
-
-					switch (clr.type) {
-						case siPrintColorType_3bit: {
-							SI_ASSERT(si_between(u8, clr.data.ansi.color, 0, 7));
-
-							char str[] ="\33[\0;\0\0m";
-							str[2] = (!clr.data.ansi.bold) ? '0' : '1';
-							str[4] = (!clr.data.ansi.light) ? '3' : '9';
-							str[5] = (char)('0' + clr.data.ansi.color);
-
-							info.str = SI_STR(str);
-							si__printStrCpy(&info);
-						} break;
-
-						case siPrintColorType_8bit: {
-							char str[32] = "\33[38;5;";
-							usize i = countof_str("\33[38;5;");
-							siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
-
-							siString valueStr = si_stringFromInt(clr.data.cube, tmp);
-								i += valueStr.len;
-							str[i] = 'm',
-								i += 1;
-
-							info.str = SI_STR_LEN(str, i);
-							si__printStrCpy(&info);
-						} break;
-
-						case siPrintColorType_24bit: {
-							char str[64] ="\33[38;2;";
-							usize i = countof_str("\33[38;2;");
-
-							static char buf[3] = {';', ';', 'm'};
-							for_range (j, 0, countof(clr.data.rgb)) {
-								siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
-								siString valueStr = si_stringFromInt(clr.data.rgb[j], tmp);
-									i += valueStr.len;
-								str[i] = buf[j],
-									i += 1;
-							}
-
-							info.str = SI_STR_LEN(str, i);
-							si__printStrCpy(&info);
-						} break;
-
-						default: SI_PANIC();
-					}
-				}
-				else {
-					colorPresent = false;
-					info.str = SI_STR("\33[0m");
-					si__printStrCpy(&info);
-				}
-			} break;
-#endif
 			case 'n': {
 				(void)va_arg(va, signed int*);
 				break;
@@ -7431,7 +7392,8 @@ GOTO_PADCALC_SWITCH:
 					fmtPtr += 1;
 				}
 
-				i64 count = si_stringToInt(SI_STR_LEN(start, fmtPtr - start));
+				usize len = fmtPtr - start;
+				i64 count = si_stringToInt(SI_STR_LEN(start, len));
 				SI_ASSERT(count <= INT32_MAX);
 
 				*ptrToVar = (i32)count;
@@ -7496,36 +7458,26 @@ GOTO_SPECIFIER_U:
 				}
 				si__printStrToBuf(&info);
 
-				break;
-			}
+			} break;
 
 			case 's': {
-				char* values[2] = {va_arg(va, char*), "(nil)"};
-				usize len[2] = {afterPoint * afterPointIsSet, countof_str("(nil)")};
+				vaValue.STR = va_arg(va, char*);
 
-				b32 valueIsNil = values[0] == nil;
-				info.str = SI_STR_LEN(values[valueIsNil], len[valueIsNil]);
-
-				if (info.str.len == 0) {
-					if (typeSize == 0) {
-						info.str.len = si_cstrLen(values[0]);
-					}
-					else {
-						SI_PANIC();
-					}
+				if (vaValue.STR == nil) {
+					info.str = SI_STR("(nil)");
+				}
+				else {
+					usize len = afterPointIsSet
+						? afterPoint
+						: si_cstrLen(vaValue.STR);
+					info.str = SI_STR_LEN(vaValue.STR, len);
 				}
 
 				si__printStrToBuf(&info);
-				break;
-			}
-#ifndef SI_NO_SILI_PRINTF_STYLE
-			case 'S': {
-				info.str = va_arg(va, siString);
-				si__printStrToBuf(&info);
-				break;
-			}
-#endif
-			case 'A': case 'a':
+			} break;
+
+
+			case 'A': case 'a': {
 				vaValue.F64 = va_arg(va, f64);
 
 				char altForm[2] = {'0', si_cast(char, x + ('X' - 'A'))};
@@ -7534,14 +7486,14 @@ GOTO_SPECIFIER_U:
 
 				info.str = si_stringFromFloatEx(vaValue.F64, 16, afterPoint, stack);
 				si__printStrToBuf(&info);
-				break;
+			} break;
 
-			case 'F': case 'f':
+			case 'F': case 'f': {
 				vaValue.F64 = va_arg(va, f64);
 
 				info.str = si_stringFromFloatEx(vaValue.F64, 10, afterPoint, stack);
 				si__printStrToBuf(&info);
-				break;
+			} break;
 
 			case 'E': case 'e': {
 				vaValue.F64 = va_arg(va, f64);
@@ -7575,8 +7527,8 @@ GOTO_SCIENTIFIC_NOTATION:
 
 				info.str = SI_STR_LEN(remainder, sizeof(remainder));
 				si__printStrCpy(&info);
-				break;
-			}
+			} break;
+
 			case 'G': case 'g': {
 				vaValue.F64  = va_arg(va, f64);
 
@@ -7611,8 +7563,8 @@ GOTO_SCIENTIFIC_NOTATION:
 
 				info.str = si_stringFromFloatEx(vaValue.F64, 10, (u32)newAfterPoint, stack);
 				si__printStrToBuf(&info);
-				break;
-			}
+			} break;
+
 			case 'p': {
 				info.str = SI_STR("0x");
 				si__printStrCpy(&info);
@@ -7620,13 +7572,79 @@ GOTO_SCIENTIFIC_NOTATION:
 				vaValue.USIZE = (usize)va_arg(va, rawptr);
 				info.str = si_stringFromUIntEx(vaValue.USIZE, 16, stack);
 				si__printStrCpy(&info);
-				break;
-			}
+			} break;
+
 #ifndef SI_NO_SILI_PRINTF_STYLE
-			case 'B':  /* Boolean */
+
+			case 'S': {
+				info.str = va_arg(va, siString);
+				si__printStrToBuf(&info);
+			} break;
+
+			case 'B': { /* Boolean */
 				info.str = si_stringFromBool(va_arg(va, b32));
 				si__printStrCpy(&info);
-				break;
+			} break;
+
+			case 'C': {
+				if (colorPresent) {
+					colorPresent = false;
+					info.str = SI_STR("\33[0m");
+					si__printStrCpy(&info);
+					break;
+				}
+
+				siPrintColor clr = va_arg(va, siPrintColor);
+				siAllocatorData inData;
+				colorPresent = true;
+
+				switch (clr.type) {
+					case siPrintColorType_3bit: {
+						SI_ASSERT(si_between(u8, clr.data.ansi.color, 0, 7));
+
+						char str[] ="\33[\0;\0\0m";
+						str[2] = (!clr.data.ansi.bold) ? '0' : '1';
+						str[4] = (!clr.data.ansi.light) ? '3' : '9';
+						str[5] = (char)('0' + clr.data.ansi.color);
+
+						info.str = SI_STR(str);
+						si__printStrCpy(&info);
+					} break;
+
+					case siPrintColorType_8bit: {
+						char str[32] = "\33[38;5;";
+						usize i = countof_str("\33[38;5;");
+						siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
+
+						siString valueStr = si_stringFromInt(clr.data.cube, tmp);
+							i += valueStr.len;
+						str[i] = 'm',
+							i += 1;
+
+						info.str = SI_STR_LEN(str, i);
+						si__printStrCpy(&info);
+					} break;
+
+					case siPrintColorType_24bit: {
+						char str[64] ="\33[38;2;";
+						usize i = countof_str("\33[38;2;");
+
+						static char buf[3] = {';', ';', 'm'};
+						for_range (j, 0, countof(clr.data.rgb)) {
+							siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
+							siString valueStr = si_stringFromInt(clr.data.rgb[j], tmp);
+								i += valueStr.len;
+							str[i] = buf[j],
+								i += 1;
+						}
+
+						info.str = SI_STR_LEN(str, i);
+						si__printStrCpy(&info);
+					} break;
+
+					default: SI_PANIC();
+				}
+			} break;
 #endif
 			default: {
 				char str[2] = {'%', x};
@@ -7825,7 +7843,7 @@ void si_benchmarkLoopsAvgPrint(siBenchmarkInfo info, usize range[2]) {
 	);
 
 	const siBenchmarkLimit* element = nil;
-	u64* array = info.cycles.data;
+	u64* array = (u64*)info.cycles.data;
 	f64 freq = (f64)si_cpuClockSpeed() / 1000;
 
 	isize pad_runs = si_numLen(range[1]);
@@ -7879,7 +7897,7 @@ void si_benchmarkLoopsAvgCmpPrint(siBenchmarkInfo info[2], usize range[2]) {
 		info[0].name, info[1].name
 	);
 	const siBenchmarkLimit* elements[2];
-	u64* arrays[2] = {info[0].cycles.data, info[1].cycles.data};
+	u64* arrays[2] = {(u64*)info[0].cycles.data, (u64*)info[1].cycles.data};
 	f64 freq = (f64)si_cpuClockSpeed() / 1000;
 
 	isize pad_runs = si_numLen(range[1]);
