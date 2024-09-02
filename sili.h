@@ -2143,29 +2143,45 @@ SIDEF siUtf8Char si_utf16Encode(const u16 character[2]);
 	========================
 */
 
+/* Maximum amount of allowed ASCII characters. */
+#define SI_ASCII_MAX 0x7F
+
 /* Returns the lowercased version of the given character. */
 SIDEF char si_charLower(char c);
-/* TODO */
-SIDEF char si_charLowerUnsafe(char c);
 /* Returns the uppercased version of the given character. */
 SIDEF char si_charUpper(char c);
-/* TODO */
-char si_charUpperUnsafe(char c);
 
-/* Returns true  if the given character is a space. */
+/* Checks if the specified character is lowercased. */
+SIDEF b32 si_charIsLower(char c);
+/* Checks if the specified character is uppercased. */
+SIDEF b32 si_charIsUpper(char c);
+/* Returns true if the given character is a space. */
 SIDEF b32 si_charIsSpace(char c);
 /* Returns true if the given character is from '0' to '9'. */
 SIDEF b32 si_charIsDigit(char c);
 /* Returns true if the given character is a hex digit (between '0'..'9'; 'a'...'f'; 'A'...'F'). */
-SIDEF b32 si_charIsHexDigit(char c);
-/* Returns true if the given character is in the English alphabet. */
+SIDEF b32 si_charIsHex(char c);
+/* Returns true if the given character is in the ASCII alphabet. */
 SIDEF b32 si_charIsAlpha(char c);
-/* Returns true if the given character is in the English alphabet OR is a number. */
+/* Returns true if the given character is in the ASCII alphabet OR is a number. */
 SIDEF b32 si_charIsAlphanumeric(char c);
+/* Checks if the specified character is a punctuation character. */
+SIDEF b32 si_charIsPunctuation(char c);
+/* Checks if the specified character is a control character. */
+SIDEF b32 si_charIsControl(char c);
+/* Checks if the specified character is printable. */
+SIDEF b32 si_charIsPrintable(char c);
+/* Checks if the specified character is graphical. */
+SIDEF b32 si_charIsGraphical(char c);
+/* Checks if the specified character is NOT alphanumeric as well as not an '@',
+ * '#' or '$' character. */
+SIDEF b32 si_charIsDelimiter(char c);
+
 /* Converts '0'...'9' to an actual integer ('3' -> 3). */
 SIDEF i32 si_charDigitToInt(char c);
 /* Converts a hex digit into an actual integer ('F' -> 15). */
-SIDEF i32 si_charHexDigitToInt(char c);
+SIDEF i32 si_charHexToInt(char c);
+
 
 #endif /* SI_NO_CHAR */
 
@@ -4714,7 +4730,7 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 	u64 res = 0;
 	i32 base;
 
-	char x = si_charUpperUnsafe(si_stringGet(string, 1));
+	char x = si_stringGet(string, 1) & ~SI_BIT(5);
 	u32 maxDigits;
 	switch (x) {
 		case '%':
@@ -4863,7 +4879,7 @@ b32 si_stringToBool(siString string) {
 	SI_STOPIF(string.len == 0 || (string.len != 1 && string.len != 4 && string.len != 5), return UINT32_MAX);
 
 	if (string.len == 1) {
-		switch (si_charLowerUnsafe(*(u8*)string.data)) {
+		switch (*(u8*)string.data | SI_BIT(5)) {
 			case '1': case 't': return true;
 			case '0': case 'f': return false;
 			default: return UINT32_MAX;
@@ -4872,7 +4888,7 @@ b32 si_stringToBool(siString string) {
 
 	char str[5];
 	for_range (i, 0, countof(str)) {
-		str[i] = si_charLowerUnsafe(si_stringGet(string, i));
+		str[i] = si_stringGet(string, i) | SI_BIT(5);
 	}
 
 	u32 val = SI_TO_U32(str);
@@ -5010,10 +5026,10 @@ i64 si_stringToIntEx(siString string, b32* outRes) {
 
 #if defined(SI_IMPLEMENTATION_UNICODE) && !defined(SI_NO_UNICODE)
 
+#define FAILURE 12
+
 SIDEF
 siUtf32Char si_utf8Decode(const u8* character) {
-	#define FAILURE 12
-
 	u32 state = 0, codepoint;
 	const u8* next = character;
 
@@ -5058,8 +5074,11 @@ siUtf32Char si_utf8Decode(const u8* character) {
 	siUtf32Char res;
 	res.codepoint = codepoint;
 	res.len = si_cast(u32, next - character);
-	#undef FAILURE
+
+	return res;
 }
+#undef FAILURE
+
 SIDEF
 siUtf8Char si_utf8Encode(i32 codepoint) {
 	siUtf8Char result;
@@ -5286,77 +5305,173 @@ siUtf8Char si_utf16Encode(const u16 character[2]) {
 
 #if defined(SI_IMPLEMENTATION_CHAR) && !defined(SI_NO_CHAR)
 
+#define SI__CTRL SI_BIT(0) /* Control characters. */
+#define SI__PUNC SI_BIT(1) /* Punctuation characters. */
+#define SI__NUME SI_BIT(2) /* Numeric digits. */
+#define SI__SPAC SI_BIT(3) /* Space characters. */
+#define SI__LETU SI_BIT(4) /* Uppercase letters. */
+#define SI__LETL SI_BIT(5) /* Lowercase letters. */
+#define SI__HEXA SI_BIT(6) /* Hexadecimal characters. */
+
+#define SI__LTXU (SI__LETU | SI__HEXA)
+#define SI__LTXL (SI__LETL | SI__HEXA)
+#define SI__CTRS (SI__CTRL | SI__SPAC)
+#define SI__NUMX (SI__NUME | SI__HEXA)
+
+const u8 characterTraits[SI_ASCII_MAX + 1] = {
+    SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL,
+	SI__CTRL,
+
+	SI__CTRS, SI__CTRS, SI__CTRS, SI__CTRS, SI__CTRS,
+
+	SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL,
+	SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL,
+	SI__CTRL, SI__CTRL,
+
+	SI__SPAC,
+
+	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
+	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
+
+	SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX,
+	SI__NUMX, SI__NUMX,
+
+	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
+
+	SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LETU, SI__LETU,
+	SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU,
+	SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU,
+	SI__LETU, SI__LETU,
+
+	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
+
+	SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LETL, SI__LETL,
+	SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL,
+	SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL,
+	SI__LETL, SI__LETL,
+
+	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
+	SI__CTRL
+};
 
 inline
 char si_charLower(char c) {
-	if (c >= 'A' && c <= 'Z') {
+	if (characterTraits[(u8)c] & SI__LETU) {
 		return c | SI_BIT(5);
 	}
 	return c;
 }
-inline
-char si_charLowerUnsafe(char c) {
-	return c | SI_BIT(5);
-}
 
 inline
 char si_charUpper(char c) {
-	if (c >= 'a' && c <= 'z') {
-		return si_cast(char, c & ~SI_BIT(5));
+	if (characterTraits[(u8)c] & SI__LETL) {
+		return c & ~SI_BIT(5);
 	}
 	return c;
 }
+
 inline
-char si_charUpperUnsafe(char c) {
-	return si_cast(char, c & ~SI_BIT(5));
+b32 si_charIsLower(char c) {
+	return (characterTraits[(u8)c] & SI__LETL) != 0;
 }
 
+inline
+b32 si_charIsUpper(char c) {
+	return (characterTraits[(u8)c] & SI__LETU) != 0;
+}
 
 inline
 b32 si_charIsSpace(char c) {
-	return (c == ' ' || (c >= '\t' && c <= '\r'));
+	return (characterTraits[(u8)c] & SI__SPAC) != 0;
 }
 
 inline
 b32 si_charIsDigit(char c) {
-	return (c >= '0' && c <= '9');
+	return (characterTraits[(u8)c] & SI__NUME) != 0;
 }
 
 inline
-b32 si_charIsHexDigit(char c) {
-	return (si_charIsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
+b32 si_charIsHex(char c) {
+	return (characterTraits[(u8)c] & SI__HEXA) != 0;
 }
 
 inline
 b32 si_charIsAlpha(char c) {
-	return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+	return (characterTraits[(u8)c] & (SI__LETL | SI__LETU)) != 0;
 }
 
 inline
 b32 si_charIsAlphanumeric(char c) {
-	return si_charIsAlpha(c) || si_charIsDigit(c);
+	return (characterTraits[(u8)c] & (SI__LETL | SI__LETU | SI__NUME)) != 0;
+}
+
+inline
+b32 si_charIsPunctuation(char c) {
+	return (characterTraits[(u8)c] & SI__PUNC) != 0;
+}
+
+inline
+b32 si_charIsControl(char c) {
+	return (characterTraits[(u8)c] & SI__CTRL) != 0;
+}
+
+inline
+b32 si_charIsPrintable(char c) {
+	return (characterTraits[(u8)c] & (SI__LETL | SI__LETU | SI__NUME | SI__PUNC | SI__SPAC)) != 0;
+}
+
+inline
+b32 si_charIsGraphical(char c) {
+	return (characterTraits[(u8)c] & (SI__LETL | SI__LETU | SI__NUME | SI__PUNC)) != 0;
+}
+
+
+inline
+b32 si_charIsDelimiter(char c) {
+	return !(si_charIsAlphanumeric(c) || c == '@' || c == '#' || c == '$');
 }
 
 inline
 i32 si_charDigitToInt(char c) {
-	SI_ASSERT_MSG(si_charIsDigit(c), "Character is not a digit.");
-	return (c - '0');
+	if (characterTraits[(u8)c] & SI__NUME) {
+		return (c - '0');
+	}
+
+	return -1;
 }
 SIDEF
-i32 si_charHexDigitToInt(char c) {
-	if (si_charIsDigit(c)) {
+i32 si_charHexToInt(char c) {
+	u8 trait = characterTraits[(u8)c];
+
+	if (trait & SI__NUME) {
 		return si_charDigitToInt(c);
 	}
-	else if (c >= 'a' && c <= 'f') {
+	else if ((trait & SI__LTXL) == SI__LTXL) {
 		return c - 'a' + 10;
 	}
-	else if (c >= 'A' && c <= 'F') {
+	else if ((trait & SI__LTXU) == SI__LTXU) {
 		return c - 'A' + 10;
 	}
 
 	return -1;
 }
-#endif
+
+#undef SI__CTRL
+#undef SI__PUNC
+#undef SI__NUME
+#undef SI__SPAC
+#undef SI__LETU
+#undef SI__LETL
+#undef SI__HEXA
+
+#undef SI__LTXU
+#undef SI__LTXL
+#undef SI__CTRS
+#undef SI__NUMX
+
+
+
+#endif /* SI_IMPLEMENTATION_CHAR */
 
 #if defined(SI_IMPLEMENTATION_HASHTABLE) && !defined(SI_NO_HASHTABLE)
 
@@ -7331,7 +7446,7 @@ GOTO_PRINT_SWITCH:
 				}
 				while (x != 'x' && x != 'b' && x != 'o' && x != 'X' && x != 'O');
 
-				char altForm[2] = {'0', si_charLowerUnsafe(x)};
+				char altForm[2] = {'0', x | SI_BIT(5)};
 #ifndef SI_NO_SILI_PRINTF_STYLE
 				info.str = SI_STR_LEN(altForm, sizeof(altForm));
 #else
