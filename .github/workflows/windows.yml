@@ -74,25 +74,21 @@ jobs:
     - name: Add MSVC
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Build app for release
-      run: |
-        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-
     - name: Tests
       run: |
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
         make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc
         make compile_tests CC=cl
 
     - name: Examples
       run: |
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
         make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc
         make compile_examples CC=cl
 
     - name: Build Library (MSVC16 64-bit)
       run: |
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
+        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
         windres.exe --version
         make static CC=cl AR=lib
         make dynamic CC=cl
