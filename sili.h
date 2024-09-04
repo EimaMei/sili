@@ -154,7 +154,7 @@ extern "C" {
 
 #ifndef SI_VERSION_MAJOR
 	#define SI_VERSION_MAJOR 0
-	#define SI_VERSION_MINOR 1
+	#define SI_VERSION_MINOR 2
 	#define SI_VERSION_PATCH 0
 #endif
 #define SI_VERSION_CURRENT SI_VERSION(SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_PATCH)
@@ -281,8 +281,7 @@ extern "C" {
 #define SI_COMPILER_CHECK_MAX(compiler, major, minor, patch) \
 	(SI_COMPILER_ ## compiler && SI_COMPILER_VERSION <= SI_VERSION(major, minor, patch))
 
-/* TODO
- * TODO */
+/* Checks if the currently-used compiler supports '#pragma once' functinoality. */
 #define SI_COMPILER_HAS_PRAGMA_ONCE (SI_COMPILER_CLANG || SI_COMPILER_MSVC || SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0))
 
 #if defined(__cplusplus)
@@ -779,8 +778,8 @@ SI_STATIC_ASSERT(false == 0);
 		}
 
 #else
+	/* TODO
 	 * TODO */
-
 	#define union_anonymous(memberName, ...) \
 		union { \
 			__VA_ARGS__ \
@@ -1094,30 +1093,6 @@ noreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
 
 /*
 	========================
-	| siAny                |
-	========================
-*/
-
-typedef struct siAny {
-	/* Pointer to the data. */
-	rawptr ptr;
-	/* Size of the data */
-	usize typeSize;
-} siAny;
-
-#if defined(SI_TYPEOF_USED)
-	/* TODO
-	 * TODO */
-	#define SI_ANY_TYPE(.../* VALUE */) SI_ANY(typeof(__VA_ARGS__), __VA_ARGS__)
-#endif
-/* type - TYPE | ...VALUE - EXPRESSION
- * Creates a 'siAny' object. Said object's pointer is just "&(<VALUE>)". */
-#define SI_ANY(type, .../* VALUE */) \
-	(siAny){si_transmute(rawptr, &(type){__VA_ARGS__}, type*), sizeof(type)}
-
-
-/*
-	========================
 	| Other                |
 	========================
 */
@@ -1295,11 +1270,11 @@ typedef struct siAllocatorFunc {
 	);
 } siAllocatorFunc;
 
-/* TODO
- * TODO */
+/* name - NAME
+ * Defines a valid allocator function prototype.*/
 #define SI_ALLOCATOR_PROC(name) rawptr name(siAllocatorFunc function, rawptr userData)
 
-/* TODO */
+/* Represent an allocator procedure. */
 typedef SI_ALLOCATOR_PROC(siAllocatorProc);
 
 typedef struct siAllocator {
@@ -1338,7 +1313,7 @@ SIDEF usize si_alignCeil(usize n);
 /* Aligns 'n' by 'alignment'. */
 SIDEF usize si_alignCeilEx(usize n, u32 alignment);
 
-/* TODO */
+/* Returns the heap allocator. Cannot be entirely freed or have its offset resetted. */
 SIDEF siAllocator si_allocatorHeap(void);
 /* TODO */
 SIDEF siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData);
@@ -1348,56 +1323,56 @@ SIDEF siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData)
 /* TODO */
 SIDEF siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inData);
 
-/* TODO */
+/* Allocates the specified amount of bytes of storage. */
 SIDEF rawptr si_alloc(siAllocator alloc, usize bytes);
-/* TODO */
+/* Reallocates the specified memory block from the given old size to the new. */
 SIDEF rawptr si_realloc(siAllocator alloc, rawptr ptr, usize sizeOld, usize sizeNew);
-/* TODO */
+/* Deallocates a previously allocated memory block from 'si_alloc'. */
 SIDEF void si_free(siAllocator alloc, rawptr ptr);
-/* TODO */
+/* Deallocates internal data within the specified allocator, if applicable. */
 SIDEF void si_freeAll(siAllocator alloc);
 
-/* */
+/* Sets the internal offset of the specified allocator, if applicable. */
 SIDEF void si_allocatorReset(siAllocator alloc);
-/* */
+/* Returns the available space left inside the specified allocator. */
 SIDEF usize si_allocatorGetAvailable(siAllocator alloc);
 
 
 /* allocator - siAllocator* | type - TYPE
- * Allocates 'sizeof(type)' bytes to the allocator and casts the value. */
+ * Allocates an exact amount of storage to fit the specified type. */
 #define si_allocItem(allocator, type) (type*)si_alloc(allocator, sizeof(type))
-/* allocator - siAllocator* | type - TYPE | count - usize
- * Allocates an array of 'sizeof(type)' bytes to the allocator and casts the value. */
+/* allocator - siAllocator | type - TYPE | count - usize
+ * Allocates an exact amount of storage to fit the specified array of types. */
 #define si_allocArray(allocator, type, count) (type*)si_alloc(allocator, sizeof(type) * (count))
 
 #ifndef si_malloc
 	/* bytes - usize
-	 * Allocates the memory into the heap. */
+	 * Heap allocates the specified amount of bytes of storage. */
 	#define si_malloc(bytes) si_alloc(si_allocatorHeap(), bytes)
-	/* TODO
-	 * TODO */
+	/* ptr - rawptr
+	 * Deallocates a previously allocated memory block from 'si_malloc'. */
 	#define si_mfree(ptr) si_free(si_allocatorHeap(), ptr)
 #endif
 
-/* TODO
- * TODO */
+/* type - TYPE
+ * Heap allocates an exact amount of storage to fit the specified type. */
 #define si_mallocItem(type) (type*)si_malloc(sizeof(type))
-/* TODO
- * TODO */
+/* type - TYPE | count - usize
+ * Heap allocates an exact amount of storage to fit the specified array of types. */
 #define si_mallocArray(type, count) (type*)si_malloc(sizeof(type) * (count))
 
 
 #ifndef si_salloc
 	/* bytes - usize
-	 * Allocates the memory into the stack. */
+	 * Stack allocates the specified amount of bytes of storage. */
 	#define si_salloc(bytes) si_cast(rawptr, (siByte[bytes]){0})
 #endif
 
-/* type - TYPE/EXPRESSION
- * Allocates 'sizeof(type)' bytes to the stack and casts the value. */
+/* type - TYPE
+ * Stack allocates an exact amount of storage to fit the specified type. */
 #define si_sallocItem(type) (type*)si_salloc(sizeof(type))
-/* type - TYPE/EXPRESSION | count - usize
- * Allocates an array of 'sizeof(type)' bytes to the stack and casts the value. */
+/* type - TYPE | count - usize
+ * Stack allocates an exact amount of storage to fit the specified array of types. */
 #define si_sallocArray(type, count) (type*)si_salloc(sizeof(type) * count)
 
 
@@ -1883,15 +1858,15 @@ SIDEF u8* si_stringEnd(siString string);
 SIDEF isize si_stringFind(siString string, siString subStr);
 /* TODO */
 SIDEF isize si_stringFindByte(siString string, siByte byte);
-/* TODO */
-SIDEF isize si_stringFindUtf8(siString string, const u8* character, isize* utf8AtIndex);
+/* Finds the first occurence of the given UTF8 charcter in the specified string.
+ * Returns the byte index position in the string, writes the character index
+ * into 'outCharIndex'. */
+SIDEF isize si_stringFindUtf8(siString string, const u8* character, isize* outUtf8Index);
 
 /* TODO */
 SIDEF isize si_stringFindLast(siString string, siString subStr);
 /* TODO */
 SIDEF isize si_stringFindLastByte(siString string, siByte byte);
-/* TODO */
-/* TODO(EimaMei): si_stringFindLastUtf8 */
 
 /* Returns the amount of occurences of a substring in the sili-string. */
 SIDEF usize si_stringFindCount(siString string, siString subStr);
@@ -1970,13 +1945,15 @@ SIDEF i32 si_memcompareStr(const void* dst, siString src);
 /* TODO */
 extern const char* SI_NUM_TO_CHAR_TABLE;
 
-/* TODO */
+/* Changes the letters' cases to uppercase. */
 SIDEF void si_stringUpper(siString string);
-/* TODO */
+/* Changes the letters' cases to lowercase. */
 SIDEF void si_stringLower(siString string);
-/* TODO */
+/* Changes each word's front letters' cases to uppercase, while everything else
+ * is set to lowercase. */
 SIDEF void si_stringTitle(siString string);
-/* TODO */
+/* Changes the first word's front letter's case to uppercase, while everything
+ * else is set to lowercase. */
 SIDEF void si_stringCapitalize(siString string);
 
 /* Sets the boolean to use lowercase/uppercase characters when converting an
@@ -1984,20 +1961,40 @@ SIDEF void si_stringCapitalize(siString string);
  * would result in "FF", otherwise "ff". By default this is set to true. */
 void si_numChangeTable(b32 upper);
 
-/* Creates and returns an unsigned 64-bit integer from a string.
- * NOTE: The function doesn't check for any non-number characters. */
-u64 si_stringToUInt(siString string);
-/* TODO
- * NOTE(1): Results may not work for bases higher than 10.
- * NOTE(2): The function doesn't check for any non-number characters. */
-u64 si_stringToUIntEx(siString string, b32* outRes);
-/* Creates and returns a signed 64-bit integer from a string.
- * NOTE: The function doesn't check for any non-number characters. */
-i64 si_stringToInt(siString string);
-/* TODO
- * NOTE(1): Results may not work for bases higher than 10.
- * NOTE(2): The function doesn't check for any non-number characters. */
-SIDEF i64 si_stringToIntEx(siString string, b32* outRes);
+/* Converts a string into a base 10 64-bit unsigned integer. The specified string
+ * must be 20 characters long or lower, no error reporting is done at all. */
+SIDEF u64 si_stringToUInt(siString string);
+/* Converts a string into a 64-bit unsigned integer with the conversion status
+ * being written to the specified out pointer. For the list of error codes, check
+ * the 'si_stringToUIntBase' function's documentation. */
+SIDEF u64 si_stringToUIntEx(siString string, i32* outRes);
+/* Converts a string into a specified base 64-bit unsigned integer with the conversion
+ * status being written to the specified out pointer. Setting the base to '-1'
+ * tells the function to find the base based on any indicators in the string,
+ * like prefixes (eg, '0b' being in the front).
+ *
+ * Possible 'outRes' values:
+ * '-2' - string size is bigger than the maximum 64-bit value for the base
+ * '-1' - string size is zero, '0'
+ * '<0...len - 1>' an invalid base character was encountered at that index.
+ * 'INT32_MAX' - succesful conversion. */
+SIDEF u64 si_stringToUIntBase(siString string, i32 base, i32* outRes);
+
+/* Converts a string into a base 10 64-bit signed integer. The specified string
+ * must be 20 characters long or lower, no error reporting is done at all. */
+SIDEF i64 si_stringToInt(siString string);
+/* Converts a string into a 64-bit signed integer with the conversion status
+ * being written to the specified out pointer. For the list of error codes, check
+ * the 'si_stringToUIntBase' function's documentation. */
+SIDEF i64 si_stringToIntEx(siString string, i32* outRes);
+/* Converts a string into a specified base 64-bit signed integer with the conversion
+ * status being written to the specified out pointer. Setting the base to '-1'
+ * tells the function to find the base based on any indicators in the string,
+ * like prefixes (eg, '0b' being in the front). For the list of error codes,
+ * check the 'si_stringToUIntBase' function's documentation. */
+SIDEF i64 si_stringToIntBase(siString string, i32 base, i32* outRes);
+
+
 /* Creates a string from the specified unsigned integer in base 10. The string
  * gets allocated in the specified allocator. */
 SIDEF siString si_stringFromUInt(u64 num, siAllocator alloc);
@@ -2020,9 +2017,11 @@ SIDEF siString si_stringFromFloat(f64 num, siAllocator alloc);
 SIDEF siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator alloc);
 /* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
 
-/* TODO */
+
+/* Converts a boolean into a string. */
 SIDEF siString si_stringFromBool(b32 boolean);
-/* TODO */
+/* Converts a string into a boolean. The function can return 'UINT32_MAX' to
+ * indicate that the specified string cannot be turned into a boolean. */
 SIDEF b32 si_stringToBool(siString string);
 
 
@@ -4242,7 +4241,10 @@ isize si_stringFindByte(siString string, siByte byte) {
 }
 
 SIDEF
-isize si_stringFindUtf8(siString string, const u8* character, isize* utf8AtIndex) {
+isize si_stringFindUtf8(siString string, const u8* character, isize* outCharIndex) {
+	SI_ASSERT_NOT_NULL(character);
+	SI_ASSERT_NOT_NULL(outCharIndex);
+
 	usize i = 0;
 	isize utf8I = 0;
 	i32 codepoint = si_utf8Decode(character).codepoint;
@@ -4250,7 +4252,7 @@ isize si_stringFindUtf8(siString string, const u8* character, isize* utf8AtIndex
 	while (i < string.len) {
 		siUtf32Char x = si_utf8Decode(&si_stringGet(string, i));
 		if (x.codepoint == codepoint) {
-			*utf8AtIndex = utf8I;
+			*outCharIndex = utf8I;
 			return i;
 		}
 
@@ -4258,7 +4260,7 @@ isize si_stringFindUtf8(siString string, const u8* character, isize* utf8AtIndex
 		i += x.len;
 	}
 
-	*utf8AtIndex = -1;
+	*outCharIndex = -1;
 	return -1;
 
 }
@@ -4296,7 +4298,6 @@ isize si_stringFindLastByte(siString string, siByte byte) {
 
 	return -1;
 }
-
 
 SIDEF
 usize si_stringFindCount(siString string, siString subStr) {
@@ -4640,14 +4641,19 @@ void si_stringLower(siString string) {
 }
 inline
 void si_stringTitle(siString string) {
-	b32 change = true;
+	u8* end = si_stringEnd(string);
+
 	for_eachStr (x, string) {
 		if (si_charIsSpace(*x)) {
-			change = true;
+			x += 1;
+			while (x < end && si_charIsSpace(*x)) { x += 1; }
+
+			if (x < end) {
+				*x = si_charUpper(*x);
+			}
 		}
-		else if (change) {
-			*x = si_charUpper(*x);
-			change = false;
+		else {
+			*x = si_charLower(*x);
 		}
 	}
 }
@@ -4656,8 +4662,11 @@ inline
 void si_stringCapitalize(siString string) {
 	si_stringLower(string);
 
-	u8* data = (u8*)string.data;
-	data[0] = si_charUpper(data[0]);
+	usize i = 0;
+	while (si_charIsSpace(si_stringGet(string, i))) { i += 1; }
+
+	u8* data = (u8*)string.data + i;
+	*data = si_charUpper(*data);
 }
 
 
@@ -4703,48 +4712,71 @@ siString si_stringFromUIntEx(u64 num, i32 base, siAllocator alloc) {
 SIDEF
 u64 si_stringToUInt(siString string) {
 	SI_ASSERT(string.len <= 20);
+
 	u64 res = 0;
-	for_eachStr (x, string) {
+	usize start = 0;
+
+	while (si_charIsSpace(si_stringGet(string, start))) {
+		start += 1;
+	}
+
+	for_range (i, start, string.len) {
+		SI_ASSERT(si_charIsDigit(si_stringGet(string, i)));
+
 		res *= 10;
-		res += (*x - '0');
+		res += (si_stringGet(string, i) - '0');
 	}
 
 	return res;
 }
+
+inline
+u64 si_stringToUIntEx(siString string, i32* outRes) {
+	return si_stringToUIntBase(string, -1, outRes);
+}
+
 SIDEF
-u64 si_stringToUIntEx(siString string, b32* outRes) {
+u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 	SI_ASSERT_NOT_NULL(outRes);
-	SI_STOPIF(string.len == 0, *outRes = false; return 0);
+	SI_STOPIF(string.len == 0, *outRes = -1; return 0);
+
+	i32 front = si_stringAtFront(string);
 
 	/* NOTE(EimaMei): No base specified, meaning it's base-10. */
-	i32 front = si_stringAtFront(string);
-	if (front != '0' && front != '%') {
-		if (string.len > 20) {
-			*outRes = false;
-			return 0;
-		}
-		*outRes = true;
+	if (front != '0' || base == 10) {
+		SI_STOPIF(string.len > 20, *outRes = -2; return 0);
+
+		*outRes = INT32_MAX;
 		return si_stringToUInt(string);
 	}
 
 	u64 res = 0;
-	i32 base;
-
-	char x = si_stringGet(string, 1) & ~SI_BIT(5);
 	u32 maxDigits;
-	switch (x) {
-		case '%':
-		case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16; break;
-		case 'O': base =  8; string = si_stringSubToEnd(string, 2); maxDigits = 22; break;
-		case 'B': base =  2; string = si_stringSubToEnd(string, 2); maxDigits = 64; break;
-		default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22; break;
-	}
-	SI_STOPIF(string.len > maxDigits, *outRes = false; return res);
+	usize start;
 
-	for_eachStr (letter, string) {
+	if (base > -1) {
+		switch (si_stringGet(string, 1)) {
+			case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16 + 2; start = 2; break;
+			case 'O': base =  8; string = si_stringSubToEnd(string, 2); maxDigits = 22 + 2; start = 2; break;
+			case 'B': base =  2; string = si_stringSubToEnd(string, 2); maxDigits = 64 + 2; start = 2; break;
+			default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22 + 1; start = 1; break;
+		}
+	}
+	else {
+		switch (base) {
+			case 16: maxDigits = 16; break;
+			case 8:  maxDigits = 22; break;
+			case 2:  maxDigits = 64; break;
+			default: SI_PANIC();
+		}
+		start = 0;
+	}
+	SI_STOPIF(string.len > maxDigits, *outRes = -2; return res);
+
+	for_range (i, start, string.len) {
 		res *= base;
 
-		i32 value = *letter - '0';
+		i32 value = si_stringGet(string, i) - '0';
 		if (value < 10) {
 			res += value;
 		}
@@ -4754,13 +4786,13 @@ u64 si_stringToUIntEx(siString string, b32* outRes) {
 				res += value;
 			}
 			else {
-				*outRes = false;
+				*outRes = (i32)i;
 				return res;
 			}
 		}
 	}
 
-	*outRes = true;
+	*outRes = INT32_MAX;
 	return res;
 }
 
@@ -4869,7 +4901,7 @@ siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator all
 
 inline
 siString si_stringFromBool(b32 boolean) {
-	static const siString values[] = { SI_STRC("false"), SI_STRC("true") };
+	static const siString values[] = {SI_STRC("false"), SI_STRC("true")};
 	return values[boolean & true];
 }
 
@@ -4879,7 +4911,7 @@ b32 si_stringToBool(siString string) {
 	SI_STOPIF(string.len == 0 || (string.len != 1 && string.len != 4 && string.len != 5), return UINT32_MAX);
 
 	if (string.len == 1) {
-		switch (*(u8*)string.data | SI_BIT(5)) {
+		switch (si_charLower(*(u8*)string.data)) {
 			case '1': case 't': return true;
 			case '0': case 'f': return false;
 			default: return UINT32_MAX;
@@ -4893,7 +4925,7 @@ b32 si_stringToBool(siString string) {
 
 	u32 val = SI_TO_U32(str);
 
-	if (val == SI_TO_U32("true") && string.len == 4) {
+	if (string.len == 4 && val == SI_TO_U32("true")) {
 		return true;
 	}
 	else if (val == SI_TO_U32("fals") && str[4] == 'e') {
@@ -4981,7 +5013,7 @@ go_back:
 	length += 1;
 
 	return SI_STR_LEN(buffer, length);
-#undef si__every_arg
+	#undef si__every_arg
 }
 
 
@@ -5003,8 +5035,14 @@ i64 si_stringToInt(siString string) {
 
 	return si_stringToUInt(string);
 }
-SIDEF
-i64 si_stringToIntEx(siString string, b32* outRes) {
+
+inline
+i64 si_stringToIntEx(siString string, i32* outRes) {
+	return si_stringToIntBase(string, -1, outRes);
+}
+
+inline
+i64 si_stringToIntBase(siString string, i32 base, i32* outRes) {
 	SI_ASSERT_NOT_NULL(string.data);
 
 	switch (*(u8*)string.data) {
@@ -5012,14 +5050,14 @@ i64 si_stringToIntEx(siString string, b32* outRes) {
 			string.data = (u8*)string.data + 1;
 			string.len -= 1;
 
-			return -(i64)si_stringToUIntEx(string, outRes);
+			return -(i64)si_stringToUIntBase(string, base, outRes);
 		case '+':
 			string.data = (u8*)string.data + 1;
 			string.len  -= 1;
 			break;
 	}
 
-	return si_stringToUIntEx(string, outRes);
+	return si_stringToUIntBase(string, base, outRes);
 }
 
 #endif
