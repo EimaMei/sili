@@ -20,6 +20,7 @@ sili.h - v0.1.0 - a general-purpose programming library to replace the C/C++ sta
 		- #define SI_NO_HASHTABLE
 		- #define SI_NO_IO
 		- #define SI_NO_THREAD
+		- #define IS_NO_TIME
 		- #define SI_NO_BIT
 		- #define SI_NO_CPU
 		- #define SI_NO_PRINT
@@ -546,9 +547,8 @@ extern "C" {
 		#undef VC_EXTRALEAN
 	#endif
 
+	#include <stdlib.h>
 	#include <malloc.h>
-	#include <intrin.h>
-	#include <time.h>
 #endif
 
 #if SI_SYSTEM_IS_APPLE
@@ -991,9 +991,9 @@ extern "C++" {
 	 * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
 	#define si_swap(a, b) do { \
 		char tmp[sizeof(a)]; \
-		si_memcopy(tmp, &a, sizeof(a)); \
-		si_memcopy(&a, &b, sizeof(a)); \
-		si_memcopy(&b, tmp, sizeof(b)); \
+		si_memcopy(tmp, &(a), sizeof(a)); \
+		si_memcopy_s(&(a), sizeof(a), &(b), sizeof(b)); \
+		si_memcopy_s(&(b), sizeof(b), tmp, sizeof(tmp)); \
 	} while (0)
 
 	/* countvar - NAME | start - INT | end - INT
@@ -1018,13 +1018,6 @@ extern "C++" {
 	 * Denotes that this statement is less likely to be expected. */
 	#define SI_UNLIKELY(x) (x)
 #endif
-
-#if SI_STANDARD_CHECK_MAX(C, C99) || (!defined(__STDC_LIB_EXT1__) && !defined(memcpy_s))
-	/* dst - rawptr | dstsz - usize | src - rawptr | count - usize
-	 * A pre-C11 implementation of memcpy_s without 'errorno_t'. */
-	#define memcpy_s(dst, dstsz, src, count) si_memcopy(dst, src, si_min(usize, dstsz, count))
-#endif
-
 
 /*
 	========================
@@ -1179,14 +1172,6 @@ typedef struct { f32 x, y, z, w; } siVec4;
 	#define SI_MAX_PATH_LEN 260
 #endif
 
-/* src - rawptr | srcLen - usize | moveBy - isize
- * Moves the memory by the specified amount to the right. */
-#define si_ptrMoveRight(src, srcLen, moveBy) si_memcopy((siByte*)(src) - (moveBy), src, srcLen)
-/* src - rawptr | srcLen - usize | moveBy - isize
- * Moves the memory by the specified amount to the left. */
-#define si_ptrMoveLeft(src, srcLen, moveBy) si_memcopy((siByte*)(src) + (moveBy), src, srcLen)
-
-
 /*
 *
 *
@@ -1286,6 +1271,7 @@ typedef struct siAllocatorData {
 	siByte* ptr;
 	usize offset;
 	usize capacity;
+	u32 alignment;
 } siAllocatorData;
 
 SI_ALLOCATOR_PROC(si_allocator_heap_proc);
@@ -1403,11 +1389,11 @@ SIDEF usize si_allocatorGetAvailable(siAllocator alloc);
 */
 
 /* Copies a sum amount of bytes from the provided source into the specified
- * destination. Both pointers musn't overlap. */
+ * destination. The memory blocks cannot overlap each other. */
 SIDEF rawptr si_memcopy(void* restrict dst, const void* restrict src, usize size);
 /* Copies a sum amount of bytes from the provided source into the specified
- * destination. Both pointers can overlap each other. */
-SIDEF rawptr si_memmove(void* dst, const void* src, isize size);
+ * destination. The memory blocks can overlap each other. */
+SIDEF rawptr si_memmove(void* restrict dst, const void* restrict src, usize size);
 /* Sets a give amount of bytes from the provided data source to the specified
  * value. */
 SIDEF rawptr si_memset(void* data, u8 value, usize size);
@@ -1423,6 +1409,22 @@ SIDEF rawptr si_memchr(const void* data, u8 value, usize size);
 
 /* Returns the length of a NULL-terminated C-string. */
 SIDEF usize si_cstrLen(cstring string);
+
+/* Copies the minimum of the given sizes from the source buffer into the destination.
+ * The memory blocks cannot overlap each other. Returns the amount of bytes that
+ * were copied. */
+SIDEF usize si_memcopy_s(void* restrict dst, usize sizeDst, const void* restrict src,
+		usize sizeSrc);
+/* Copies the minimum of the given sizes from the source buffer into the destination.
+ * The memory blocks can overlap each other. Returns the amount of bytes that
+ * were moved. */
+SIDEF usize si_memmove_s(void* restrict dst, usize sizeDst, const void* restrict src,
+		usize sizeSrc);
+
+/* Moves the specified memory block to the left by the given amount of bytes. */
+SIDEF rawptr si_memmoveLeft(void* src, usize size, isize moveBy);
+/* Moves the specified memory block to the right by the given amount of bytes. */
+SIDEF rawptr si_memmoveRight(void* src, usize size, isize moveBy);
 
 
 #endif /* SI_NO_MEMORY */
@@ -1532,6 +1534,14 @@ typedef struct siError {
 
 /* TODO */
 SIDEF void si_errorLogDefault(siError* error);
+
+
+/*
+	========================
+	|  siOptional          |
+	========================
+*/
+
 
 /* type - TYPE
  * Defines an optional type using the specified type. */
@@ -1940,6 +1950,12 @@ SIDEF rawptr si_memmoveStr(void* dst, siString src);
 /* TODO */
 SIDEF i32 si_memcompareStr(const void* dst, siString src);
 
+/* TODO */
+SIDEF usize si_memcopyStr_s(void* dst, usize dstSize, siString src);
+/* TODO */
+SIDEF usize si_memmoveStr_s(void* dst, usize dstSize, siString src);
+
+
 #endif
 
 /* TODO */
@@ -2272,9 +2288,9 @@ SI_ENUM(u32, siFileMode) {
 	siFileMode_Read = SI_BIT(0),
 	siFileMode_Write = SI_BIT(1),
 	siFileMode_Append = SI_BIT(2),
-	siFIleMode_Plus = SI_BIT(3),
+	siFileMode_Plus = SI_BIT(3),
 
-	siFileMode_All = siFileMode_Read | siFileMode_Write | siFileMode_Append | siFIleMode_Plus
+	siFileMode_All = siFileMode_Read | siFileMode_Write | siFileMode_Append | siFileMode_Plus
 };
 
 typedef struct siFile {
@@ -2336,8 +2352,11 @@ SI_ENUM(i32, siStdFile) {
 	siStdFile_Count
 };
 
+/* Returns the standard input file. */
 #define si_stdin  si_fileGetStdFile(siStdFile_Input)
+/* Returns the standard output file. */
 #define si_stdout si_fileGetStdFile(siStdFile_Output)
+/* Returns the standard error file. */
 #define si_stderr si_fileGetStdFile(siStdFile_Error)
 
 SI_ENUM(i32, siFileError) {
@@ -2377,53 +2396,58 @@ SIDEF siString si_pathFsErrorDesc(siFileError err);
 	========================
 */
 
-/* TODO */
+/* Checks if the specified path exists. */
 SIDEF b32 si_pathExists(siString path);
 /* TODO */
 SIDEF siResult(usize) si_pathCopy(siString pathSrc, siString pathDst);
-/* Copies every file and folder from 'pathSrc' to 'pathDst'. Returns the amount
- * of items that were copied. */
-SIDEF u32 si_pathItemsCopy(siString pathSrc, siString pathDst);
-/* TODO */
+/* Copies every file and folder from the specified source to the given destination.
+ * Returns the amount of files copied, otherwise an error if the function failed. */
+SIDEF siResult(u32) si_pathItemsCopy(siString pathSrc, siString pathDst);
+/* Moves the specified source path to the given detination. Returns an error if failed. */
 SIDEF siError si_pathMove(siString pathSrc, siString pathDst);
-/* TODO */
-SIDEF siError si_pathRename(siString nameOld, siString nameNew);
-/* TODO */
+/* Renames the specified path to the given new path. Returns an error if failed. */
+SIDEF siError si_pathRename(siString path, siString newPath);
+/* Creates a new folder at the specified path. Returns an error if failed. */
 SIDEF siError si_pathCreateFolder(siString path);
-/* TODO */
+/* Creates a new folder at the specified path with given permissions. Returns an
+ * error if failed.*/
 SIDEF siError si_pathCreateFolderEx(siString path, siFilePermissions perms);
-/* TODO */
+/* Removes the specified path, including the files and folders within in. Returns
+ * an error if failed. */
 SIDEF siError si_pathRemove(siString path);
-/* TODO */
+/* Creates a hard link of the specified path. Returns an error if failed. */
 SIDEF siError si_pathCreateHardLink(siString path, siString linkPath);
-/* TODO */
+/* Creates a soft link of the specified path. Returns an error if failed. */
 SIDEF siError si_pathCreateSoftLink(siString path, siString linkPath);
 /* TODO */
 SIDEF siError si_pathEditPermissions(siString path, siFilePermissions newPerms);
 
-/* TODO */
+/* Returns a string view of the specified path's base name. */
 SIDEF siString si_pathBaseName(siString path);
-/* TODO */
+/* Returns a string view of the specified path's extension. */
 SIDEF siString si_pathExtension(siString path);
-/* TODO */
+/* Returns a string view of the specified path's unrooted path. */
 SIDEF siString si_pathUnrooted(siString path);
-/* TODO */
+/* Finds the full, rooted path of the specified path and creates a string from
+ * it. Returns an error if finding the full path failed. */
 SIDEF siResult(siString) si_pathGetFullName(siString path, siAllocator alloc);
-/* TODO */
+/* Returns the specified path's last write time in UNIX time. Zero is returned
+ * if the time couldn't be found. */
 SIDEF u64 si_pathLastWriteTime(siString path);
-/* TODO */
+/* Returns a static string of the OS's default temporary path. */
 SIDEF siString si_pathGetTmp(void);
 /* TODO */
 SIDEF siFilePermissions si_pathPermissions(siString path);
 
-/* TODO */
+/* Returns a string containing the contents of the specified path. */
 SIDEF siString si_pathReadContents(siString path, siAllocator alloc);
-/* TODO */
+/* Writes the contents of the specified path to the out parameter. Returns an
+ * error, if failed. */
 SIDEF siError si_pathReadContentsBuf(siString path, siBuffer* outBuffer);
 
-/* TODO */
+/* Checks if the specified path is absolute. */
 SIDEF b32 si_pathIsAbsolute(siString path);
-/* */
+/* Checks if the specified path is relative. */
 SIDEF b32 si_pathIsRelative(siString path);
 
 /*
@@ -2648,6 +2672,38 @@ b32 si_threadPrioritySet(siThread t, i32 priority);
 	========================
 */
 
+typedef struct {
+	/* Years (1677-2262). */
+	i32 years;
+	/* Months (1-12). */
+	i32 months;
+	/* Days (1-31). */
+	i32 days;
+
+	/* Hours (0-23). */
+	i32 hours;
+	/* Minutes (0-59). */
+	i32 minutes;
+	/* Seconds (0-59). */
+	i32 seconds;
+	/* Nanoseconds (0-999999999)*/
+	i32 nanoseconds;
+} siTimeCalendar;
+
+
+/* An array of full month names. Used for 'si_timeToString'.  */
+extern siString* SI_NAMES_MONTHS_FULL;
+/* An array of short month names. Used for 'si_timeToString'.  */
+extern siString* SI_NAMES_MONTHS_SHRT;
+/* An array of full week day names. First element is "Sunday". Used for 'si_timeToString'.  */
+extern siString* SI_NAMES_DAYS_FULL;
+/* An array of short week day names. First element is "Sun". Used for 'si_timeToString'.  */
+extern siString* SI_NAMES_DAYS_SHRT;
+/* An array of AM/PM names. First two elements are the uppercased versions, the
+ * last two are lowercased. Used for 'si_timeToString'. */
+extern siString* SI_NAMES_AM_PM;
+
+
 /* How many clocks of 'si_clock()' are equivalent to a second (1s = 1e+9 ns). */
 #define SI_CLOCKS_S (1000000000)
 /* How many clocks of 'si_clock()' are equivalent to a milisecond (1ms = 1e+6 ns). */
@@ -2655,37 +2711,54 @@ b32 si_threadPrioritySet(siThread t, i32 priority);
 /* How many clocks of 'si_clock()' are equivalent to a microsecond (1µs = 1e+3 ns). */
 #define SI_CLOCKS_US (1000)
 
-/* An unsigned 64-bit integer type, notifying that it's used for time stamps. */
-typedef u64 siTimeStamp;
-/* A signed 64-bit integer type, notifying that it's used for UTC-0 time. */
-typedef i64 siUtcTime;
-/* A signed 64-bit integer type, notifying that it's used for local time. */
-typedef i64 siLocalTime;
+/* time - UINT
+ * Converts Windows time into sili's Unix time. */
+#define si_timeToUnix(time) (((time) - 116444736000000000) * 100)
 
-/* Executes an 'RDTSC' equivalent asm instruction and returns the value in nanoseconds.
+
+/* Reads the current value of the processor’s time-stamp counter.
  * NOTE: Only natively works for AMD64, i386, ARM64 and PPC CPUs. On other CPUs
  * the function relies on OS functions like 'gettimeofday'. */
-SIDEF siTimeStamp si_RDTSC(void);
-/* Returns the number of seconds since 1970-01-01 UTC */
-SIDEF siUtcTime si_timeNowUTC(void);
-/* Returns the number of seconds since 1970-01-01 local time.*/
-SIDEF siLocalTime si_timeNowLocal(void);
-
+SIDEF u64 si_RDTSC(void);
 /* Returns the current clock. */
 SIDEF u64 si_clock(void);
 
-/* Starts the timestamp. */
-SIDEF siTimeStamp si_timeStampStart(void);
-/* time - siTimeStamp
+/* Starts a timestamp. */
+SIDEF u64 si_timeStampStart(void);
+/* time - u64
  * Prints the time since the start. */
 #define si_timeStampPrintSince(time) si_timeStampPrintSinceEx(time, __FILE__, __LINE__)
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
 SIDEF void si_sleep(u32 miliseconds);
 
+/* Returns the number of seconds since 1970-01-01 UTC-0. */
+SIDEF i64 si_timeNowUTC(void);
+/* Returns the number of seconds since 1970-01-01 local time.*/
+SIDEF i64 si_timeNowLocal(void);
+
+/* Checks if the specified year is a leap year. */
+SIDEF b32 si_timeYearIsLeap(i32 year);
+/* Returns an integer from 0 to 6 (Sunday to Saturday) that represents a week day
+ * based on the specified date. */
+SIDEF i32 si_timeGetDayOfWeek(i32 year, i32 month, i32 day);
+
+/* Converts raw Unix time into human-readable time components. */
+SIDEF siTimeCalendar si_timeToCalendar(i64 time);
+
+/* Creates a string in the specified buffer from the format and returns the length
+ * of it.
+ * Specifiers:
+ * - 'yyyy'/'yy' - full year/the two last digits
+ * - 'M'/'MM' - month digit without/with padding, 'MMM'/'MMMM' - shortened/full month name,
+ * - 'd'/'dd' - day digit without/with padding, 'DDD'/'DDDD' - shortened/full day name,
+ * - 'h'/'hh' - hours without/with padding, 'm'/'mm' - minutes without/with padding,
+ * - 's'/'ss' - seconds without/with padding, 'n'/'nn' - nanoseconds without/with padding.
+ * - 'AP/ap' - uppercased/lowercased am/pm display. */
+SIDEF usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt);
 
 #if 1
-	void si_timeStampPrintSinceEx(siTimeStamp t, cstring filename, i32 line);
+	SIDEF void si_timeStampPrintSinceEx(u64 t, cstring filename, i32 line);
 #endif
 
 #endif /* SI_NO_TIME */
@@ -3245,7 +3318,7 @@ rawptr si__BenchmarkThread(rawptr arg);
 		si_benchmarkLoopsAvgCmpPrint(si_arr, (usize[]){start, end}); \
 	} while(0)
 
-typedef struct { siTimeStamp duration; cstring unit; } siBenchmarkLimit;
+typedef struct { u64 duration; cstring unit; } siBenchmarkLimit;
 
 #define SI_PERFORMANCE_MSG \
 	"====== BENCHMARK DATA ======\n" \
@@ -3273,7 +3346,7 @@ typedef struct { siTimeStamp duration; cstring unit; } siBenchmarkLimit;
 
 extern const siBenchmarkLimit siBenchLimit[];
 
-const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time);
+const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time);
 
 #endif /* SI_NO_BENCHMARK */
 
@@ -3322,16 +3395,17 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time);
 	#define SI_IMPLEMENTATION_HASHTABLE
 	#define SI_IMPLEMENTATION_IO
 	#define SI_IMPLEMENTATION_THREAD
+	#ifndef SI_NO_TIME
+		#define SI_IMPLEMENTATION_TIME
+	#endif
 	#define SI_IMPLEMENTATION_BIT
 	#define SI_IMPLEMENTATION_CPU
 	#define SI_IMPLEMENTATION_PRINT
 	#define SI_IMPLEMENTATION_DLL
 	#define SI_IMPLEMENTATION_MATH
-
-#ifndef SI_NO_PRINT
-	#define SI_IMPLEMENTATION_ARGV
-#endif
-
+	#ifndef SI_NO_PRINT
+		#define SI_IMPLEMENTATION_ARGV
+	#endif
 	#define SI_IMPLEMENTATION_BENCHMARK
 #endif
 
@@ -3383,7 +3457,6 @@ rawptr si_allocator_heap_proc(siAllocatorFunc func, rawptr userData) {
 
 		case siAllocatorFunc_GetAvailable: {
 			out = (rawptr)USIZE_MAX;
-			si_panic("des", "nas", 1, "cring", "sd");
 		} break;
 
 		default: SI_PANIC();
@@ -3400,7 +3473,7 @@ rawptr si_allocator_arena_proc(siAllocatorFunc func, rawptr userData) {
 
 	switch (func.type) {
 		case siAllocatorFunc_Alloc: {
-			usize bytes = si_alignCeil(func.data.alloc);
+			usize bytes = si_alignCeilEx(func.data.alloc, alloc->alignment);
 			out = &alloc->ptr[alloc->offset];
 
 			alloc->offset += bytes;
@@ -3481,6 +3554,7 @@ siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData) {
 	inData->ptr = si_mallocArray(siByte, capacity);
 	inData->offset = 0;
 	inData->capacity = capacity;
+	inData->alignment = SI_DEFAULT_MEMORY_ALIGNMENT;
 
 	siAllocator alloc;
 	alloc.proc = si_allocator_stack_proc;
@@ -3495,6 +3569,7 @@ siAllocator si__allocatorMakeStack(usize capacity, siAllocatorData* inData, siBy
 	inData->ptr = __stack;
 	inData->offset = 0;
 	inData->capacity = capacity;
+	inData->alignment = SI_DEFAULT_MEMORY_ALIGNMENT;
 
 	siAllocator alloc;
 	alloc.proc = si_allocator_stack_proc;
@@ -3509,6 +3584,7 @@ siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inD
 	inData->ptr = (siByte*)ptr;
 	inData->offset = 0;
 	inData->capacity = capacity;
+	inData->alignment = SI_DEFAULT_MEMORY_ALIGNMENT;
 
 	siAllocator alloc;
 	alloc.proc = si_allocator_stack_proc;
@@ -3597,136 +3673,6 @@ void si_panic(cstring conditionStr, cstring file, i32 line, cstring func,
 	SI_DEBUG_TRAP();
 }
 
-SIDEF
-siUtcTime si_timeNowUTC(void) {
-	time_t rawtime;
-	time(&rawtime);
-
-	return rawtime;
-}
-inline
-siLocalTime si_timeNowLocal(void) {
-#if SI_SYSTEM_IS_WINDOWS
-	FILETIME ft;
-	GetSystemTimeAsFileTime(&ft);
-	return (i64)ft.dwHighDateTime | ((i64)ft.dwLowDateTime << 32);
-
-#else
-	struct timeval tv;
-	int res = gettimeofday(&tv, nil);
-	SI_STOPIF(res == 1, return 0);
-
-	return tv.tv_sec;
-#endif
-}
-
-inline
-void si_sleep(u32 miliseconds) {
-	SI_STOPIF(miliseconds == 0, return);
-
-#if SI_SYSTEM_IS_WINDOWS
-	Sleep((u32)miliseconds);
-
-#elif _POSIX_C_SOURCE >= 199309L
-	struct timespec ts = {
-		(time_t)miliseconds / 1000,
-		si_cast(time_t, miliseconds % 1000) * 1000000
-	};
-	nanosleep(&ts, &ts);
-
-#endif
-}
-
-
-inline
-siTimeStamp si_RDTSC(void) {
-	/* NOTE(EimaMei): Shoutout to gb.h for the i386 and PPC code! (Link: https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
-#if !defined(SI_NO_INLINE_ASM)
-	#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
-		return __rdtsc();
-
-	#elif SI_ARCH_I386
-		u64 res;
-		si_asm (".byte 0x0f, 0x31", : "=A" (res));
-		return res;
-
-	#elif SI_ARCH_AMD64
-		u64 res;
-		si_asm(
-			"rdtsc"           SI_ASM_NL
-			"shl rdx, 0x20"   SI_ASM_NL
-			"or rax, rdx",
-			SI_ASM_OUTPUT("=a"(res))
-		);
-		return res;
-
-	#elif SI_ARCH_IS_PPC
-		u32 high, low, tmp;
-		si_asm (
-			"0:"            SI_ASM_NL
-			"mftbu %0"      SI_ASM_NL
-			"mftb %1"       SI_ASM_NL
-			"mftbu %2"      SI_ASM_NL
-			"cmpw %2, %0"   SI_ASM_NL
-			"bne 0b",
-			SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
-		);
-		return ((u64)high << 32) | low;
-
-	#elif SI_ARCH_ARM64
-		u64 res;
-		si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
-		return res;
-
-	#elif SI_SYSTEM_IS_WINDOWS
-		LARGE_INTEGER count;
-		QueryPerformanceCounter(&count);
-		return count.QuadPart;
-
-	#else
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		return tv.tv_sec * 1000000 + tv.tv_usec;
-
-	#endif
-#else
-	#if SI_SYSTEM_IS_WINDOWS
-		LARGE_INTEGER count;
-		QueryPerformanceCounter(&count);
-		return count.QuadPart;
-
-	#else
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		return tv.tv_sec * 1000000 + tv.tv_usec;
-
-	#endif
-#endif /* SI_NO_INLINE_ASM */
-}
-
-
-inline
-u64 si_clock(void) {
-	return si_RDTSC() / si_cpuClockSpeed() * 1000;
-}
-
-
-inline
-siTimeStamp si_timeStampStart(void) {
-	return si_RDTSC();
-}
-SIDEF
-void si_timeStampPrintSinceEx(siTimeStamp ts, cstring filename, i32 line) {
-	u64 end = si_RDTSC();
-	u64 diff = (end - ts) / si_cpuClockSpeed() * 1000;
-
-	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
-	si_printf(
-		"si_timeStampPrintSince: %s:%i: TIME: %.2f %s\n",
-		filename, line, (f32)diff / (f32)time->duration, time->unit
-	);
-}
-
 void si_errorLogDefault(siError* error) {
 	siPrintColor red = si_printColor3bitEx(siPrintColorAnsi_Red, true, false);
 	si_fprintf(
@@ -3753,7 +3699,7 @@ rawptr si_memcopy(void* restrict dst, const void* restrict src, usize size) {
 }
 
 SIDEF
-rawptr si_memmove(void* dst, const void* src, isize size) {
+rawptr si_memmove(void* restrict dst, const void* restrict src, usize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
@@ -3813,6 +3759,32 @@ usize si_cstrLen(cstring string) {
 
 }
 
+inline
+usize si_memcopy_s(void* restrict dst, usize sizeDst, const void* restrict src,
+		usize sizeSrc) {
+	usize length = si_min(usize, sizeDst, sizeSrc);
+	si_memcopy(dst, src, length);
+
+	return length;
+}
+
+inline
+usize si_memmove_s(void* restrict dst, usize sizeDst, const void* restrict src,
+		usize sizeSrc) {
+	usize length = si_min(usize, sizeDst, sizeSrc);
+	si_memmove(dst, src, length);
+
+	return length;
+}
+
+inline
+rawptr si_memmoveLeft(void* src, usize length, isize moveBy) {
+	return si_memmove((siByte*)src - moveBy, src, length);
+}
+inline
+rawptr si_memmoveRight(void* src, usize length, isize moveBy) {
+	return si_memmove((siByte*)src + moveBy, src, length);
+}
 
 #endif /* SI_IMPLEMENTATION_GENERAL */
 
@@ -4443,7 +4415,7 @@ b32 si_stringEnquote(siString* string) {
 	b32 allocated = si_stringMakeSpaceFor(string, 2);
 
 	u8* data = (u8*)string->data;
-	si_ptrMoveRight(data, oldLen, 1);
+	si_memmoveRight(data, oldLen, 1);
 	data[0] = '\"';
 	data[string->len - 1] = '\"';
 
@@ -4623,6 +4595,9 @@ inline rawptr si_memcopyStr(void* dst, siString src) { return si_memcopy(dst, sr
 inline rawptr si_memmoveStr(void* dst, siString src) { return si_memmove(dst, src.data, src.len); }
 inline i32 si_memcompareStr(const void* dst, siString src) { return si_memcompare(dst, src.data, src.len); }
 
+inline usize si_memcopyStr_s(void* dst, usize dstSize, siString src) { return si_memcopy_s(dst, dstSize, src.data, src.len); }
+inline usize si_memmoveStr_s(void* dst, usize dstSize, siString src) { return si_memmove_s(dst, dstSize, src.data, src.len); }
+
 #endif
 
 
@@ -4699,13 +4674,13 @@ siString si_stringFromUIntEx(u64 num, i32 base, siAllocator alloc) {
 
 	/* NOTE(EimaMei): We build the string from the back (not the front) so that
 	 * we wouldn't have to reverse the string after we make the string. */
-	u8* back = &si_stringGet(res, len - 1);
+	u8* back = si_stringEnd(res) - 1;
 
 	do {
 		*back = SI_NUM_TO_CHAR_TABLE[num % base];
 		num /= base;
 		back -= 1;
-	} while (num > 0);
+	} while (num != 0);
 
 	return res;
 }
@@ -5807,7 +5782,7 @@ siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
 	return SI_OPT(usize, (usize)size);
 }
 SIDEF
-u32 si_pathItemsCopy(siString pathSrc, siString pathDst) {
+siResult(u32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
 	SI_ASSERT(pathDst.len <= SI_MAX_PATH_LEN);
 
 	siDirectory dir = si_directoryOpen(pathSrc);
@@ -5827,8 +5802,12 @@ u32 si_pathItemsCopy(siString pathSrc, siString pathDst) {
 		si_memcopyStr(dstBuffer, path);
 
 		if (entry.type == SI_IO_TYPE_DIR) {
-			si_pathCreateFolder(dstStr);
-			itemsCopied += si_pathItemsCopy(entry.path, dstStr);
+			siError err = si_pathCreateFolder(dstStr);
+			SI_STOPIF(err.code != 0, return SI_OPT_ERR(u32, err));
+
+			siResult(u32) res = si_pathItemsCopy(entry.path, dstStr);
+			SI_STOPIF(!res.hasValue, return res);
+			itemsCopied += res.data.value;
 			continue;
 		}
 
@@ -5836,7 +5815,7 @@ u32 si_pathItemsCopy(siString pathSrc, siString pathDst) {
 		itemsCopied += 1;
 	}
 
-	return itemsCopied;
+	return SI_OPT(u32, itemsCopied);
 }
 
 SIDEF
@@ -5847,7 +5826,7 @@ siError si_pathMove(siString pathSrc, siString pathDst) {
 	siError error = SI_ERROR_DEFAULT;
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[512];
+		u16 stack[SI_KILO(1)];
 		siUtf16String src = si_utf8ToUtf16StrEx(&stack[0], countof(stack), pathSrc, true),
 					  dst = si_utf8ToUtf16StrEx(&stack[src.len], countof(stack) - src.len, pathDst, true);
 
@@ -5871,8 +5850,8 @@ siError si_pathMove(siString pathSrc, siString pathDst) {
 }
 
 inline
-siError si_pathRename(siString nameOld, siString nameNew) {
-	return si_pathMove(nameOld, nameNew);
+siError si_pathRename(siString path, siString newPath) {
+	return si_pathMove(path, newPath);
 }
 
 inline
@@ -6164,8 +6143,7 @@ u64 si_pathLastWriteTime(siString path) {
 	res.LowPart = lastWriteTime.dwLowDateTime;
 	res.HighPart = lastWriteTime.dwHighDateTime;
 
-	/* NOTE(EimaMei): Windows time -> Unix time. */
-	return (res.QuadPart - 116444736000000000) / 10000000;
+	return si_timeToUnix(res.QuadPart);
 
 #else
 	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
@@ -6269,6 +6247,7 @@ siFile* si_fileGetStdFile(siStdFile type) {
 			SET_STD_FILE(0, GetStdHandle(STD_INPUT_HANDLE));
 			SET_STD_FILE(1, GetStdHandle(STD_OUTPUT_HANDLE));
 			SET_STD_FILE(2, GetStdHandle(STD_ERROR_HANDLE));
+
 			if (IsValidCodePage(CP_UTF8)) {
 				SetConsoleOutputCP(CP_UTF8);
 			}
@@ -6286,12 +6265,12 @@ siFile* si_fileGetStdFile(siStdFile type) {
 
 inline
 siFile si_fileCreate(siString path) {
-	return si_fileOpenMode(path, siFileMode_Write | siFIleMode_Plus);
+	return si_fileOpenMode(path, siFileMode_Write | siFileMode_Plus);
 }
 
 inline
 siFile si_fileOpen(siString path) {
-	return si_fileOpenMode(path, siFileMode_Read | siFIleMode_Plus);
+	return si_fileOpenMode(path, siFileMode_Read | siFileMode_Plus);
 }
 SIDEF
 siFile si_fileOpenMode(siString path, siFileMode mode) {
@@ -6315,15 +6294,15 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 			access = GENERIC_WRITE;
 			disposition = OPEN_ALWAYS;
 			break;
-		case siFileMode_Read | siFIleMode_Plus:
+		case siFileMode_Read | siFileMode_Plus:
 			access = GENERIC_READ | GENERIC_WRITE;
 			disposition = OPEN_EXISTING;
 			break;
-		case siFileMode_Write | siFIleMode_Plus:
+		case siFileMode_Write | siFileMode_Plus:
 			access = GENERIC_READ | GENERIC_WRITE;
 			disposition = CREATE_ALWAYS;
 			break;
-		case siFileMode_Append | siFIleMode_Plus:
+		case siFileMode_Append | siFileMode_Plus:
 			access = GENERIC_READ | GENERIC_WRITE;
 			disposition = OPEN_ALWAYS;
 			break;
@@ -6366,13 +6345,13 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 		case siFileMode_Append:
 			flags = O_WRONLY | O_APPEND | O_CREAT;
 			break;
-		case siFileMode_Read | siFIleMode_Plus:
+		case siFileMode_Read | siFileMode_Plus:
 			flags = O_RDWR;
 			break;
-		case siFileMode_Write | siFIleMode_Plus:
+		case siFileMode_Write | siFileMode_Plus:
 			flags = O_RDWR | O_CREAT | O_TRUNC;
 			break;
-		case siFileMode_Append | siFIleMode_Plus:
+		case siFileMode_Append | siFileMode_Plus:
 			flags = O_RDWR | O_APPEND | O_CREAT;
 			break;
 		default:
@@ -6682,8 +6661,7 @@ u64 si_fileLastWriteTime(siFile file) {
 	res.HighPart = lastWriteTime.dwHighDateTime;
 	res.LowPart = lastWriteTime.dwLowDateTime;
 
-	/* NOTE(EimaMei): Windows time -> Unix time. */
-	return (res.QuadPart - 116444736000000000) / 10000000;
+	return si_timeToUnix(res.QuadPart);
 
 #else
 	struct stat fs;
@@ -7002,6 +6980,510 @@ b32 si_threadPrioritySet(siThread t, i32 priority) {
 }
 #endif /* SI_IMPLEMENTATION_THREAD */
 
+#if defined(SI_IMPLEMENTATION_TIME)
+
+siString si__timeMonthNames[] = {
+	SI_STRC("January"),
+	SI_STRC("February"),
+	SI_STRC("March"),
+	SI_STRC("April"),
+	SI_STRC("May"),
+	SI_STRC("June"),
+	SI_STRC("July"),
+	SI_STRC("August"),
+	SI_STRC("September"),
+	SI_STRC("October"),
+	SI_STRC("November"),
+	SI_STRC("December"),
+};
+
+siString si__timeMonthNamesShrt[] = {
+	SI_STRC("Jan"),
+	SI_STRC("Feb"),
+	SI_STRC("Mar"),
+	SI_STRC("Apr"),
+	SI_STRC("May"),
+	SI_STRC("Jun"),
+	SI_STRC("Jul"),
+	SI_STRC("Aug"),
+	SI_STRC("Sep"),
+	SI_STRC("Oct"),
+	SI_STRC("Nov"),
+	SI_STRC("Dec"),
+};
+
+siString si__timeWeekNames[] = {
+	SI_STRC("Sunday"),
+	SI_STRC("Monday"),
+	SI_STRC("Tuesday"),
+	SI_STRC("Wednesday"),
+	SI_STRC("Thursday"),
+	SI_STRC("Friday"),
+	SI_STRC("Saturday"),
+};
+
+siString si__timeWeekNamesShrt[] = {
+	SI_STRC("Sun"),
+	SI_STRC("Mon"),
+	SI_STRC("Tue"),
+	SI_STRC("Wed"),
+	SI_STRC("Thu"),
+	SI_STRC("Fri"),
+	SI_STRC("Sat"),
+};
+
+siString si__timeAM_PM_Names[] = {
+	SI_STRC("AM"), SI_STRC("PM"), SI_STRC("am"), SI_STRC("pm")
+};
+
+siString* SI_NAMES_MONTHS_FULL = si__timeMonthNames;
+siString* SI_NAMES_MONTHS_SHRT = si__timeMonthNamesShrt;
+siString* SI_NAMES_DAYS_FULL = si__timeWeekNames;
+siString* SI_NAMES_DAYS_SHRT = si__timeWeekNamesShrt;
+siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
+
+inline
+u64 si_RDTSC(void) {
+	/* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. (https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
+#if !defined(SI_NO_INLINE_ASM)
+	#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
+		return __rdtsc();
+
+	#elif SI_ARCH_I386
+		u64 res;
+		si_asm (".byte 0x0f, 0x31", : "=A" (res));
+		return res;
+
+	#elif SI_ARCH_AMD64
+		u64 res;
+		si_asm(
+			"rdtsc"           SI_ASM_NL
+			"shl rdx, 0x20"   SI_ASM_NL
+			"or rax, rdx",
+			SI_ASM_OUTPUT("=a"(res))
+		);
+		return res;
+
+	#elif SI_ARCH_IS_PPC
+		u32 high, low, tmp;
+		si_asm (
+			"0:"            SI_ASM_NL
+			"mftbu %0"      SI_ASM_NL
+			"mftb %1"       SI_ASM_NL
+			"mftbu %2"      SI_ASM_NL
+			"cmpw %2, %0"   SI_ASM_NL
+			"bne 0b",
+			SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
+		);
+		return ((u64)high << 32) | low;
+
+	#elif SI_ARCH_ARM64
+		u64 res;
+		si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
+		return res;
+
+	#elif SI_SYSTEM_IS_WINDOWS
+		LARGE_INTEGER count;
+		QueryPerformanceCounter(&count);
+		return count.QuadPart;
+
+	#else
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		return tv.tv_sec * 1000000 + tv.tv_usec;
+
+	#endif
+#else
+	#if SI_SYSTEM_IS_WINDOWS
+		LARGE_INTEGER count;
+		QueryPerformanceCounter(&count);
+		return count.QuadPart;
+
+	#else
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		return tv.tv_sec * 1000000 + tv.tv_usec;
+
+	#endif
+#endif /* SI_NO_INLINE_ASM */
+}
+
+inline
+u64 si_clock(void) {
+	return si_RDTSC() / si_cpuClockSpeed() * 1000;
+}
+
+inline
+u64 si_timeStampStart(void) {
+	return si_RDTSC();
+}
+
+SIDEF
+void si_timeStampPrintSinceEx(u64 ts, cstring filename, i32 line) {
+	u64 end = si_RDTSC();
+	u64 diff = (end - ts) / si_cpuClockSpeed() * 1000;
+
+	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
+	si_printf(
+		"si_timeStampPrintSince: %s:%i: TIME: %.2f %s\n",
+		filename, line, (f32)diff / (f32)time->duration, time->unit
+	);
+}
+
+
+inline
+void si_sleep(u32 miliseconds) {
+	SI_STOPIF(miliseconds == 0, return);
+
+#if SI_SYSTEM_IS_WINDOWS
+	Sleep((u32)miliseconds);
+
+#else
+	struct timespec ts = {
+		(time_t)miliseconds / 1000,
+		si_cast(time_t, miliseconds % 1000) * 1000000
+	};
+	nanosleep(&ts, &ts);
+
+#endif
+}
+
+
+SIDEF
+i64 si_timeNowUTC(void) {
+#if SI_SYSTEM_IS_WINDOWS
+	FILETIME time;
+	GetSystemTimePreciseAsFileTime(&time);
+
+	return si_timeToUnix((u64)time.dwHighDateTime << 32 | time.dwLowDateTime);
+
+#else
+    struct timespec spec;
+    i32 res = clock_gettime(CLOCK_REALTIME, &spec);
+
+	return (res == 0)
+		? spec.tv_sec * 1000000000u + spec.tv_nsec
+		: 0;
+
+#endif
+}
+
+inline
+i64 si_timeNowLocal(void) {
+#if SI_SYSTEM_IS_WINDOWS
+	FILETIME utc;
+	GetSystemTimePreciseAsFileTime(&utc);
+	FILETIME time;
+	b32 res = FileTimeToLocalFileTime(&utc, &time);
+
+	return (res)
+		? si_timeToUnix((u64)time.dwHighDateTime << 32 | time.dwLowDateTime)
+		: 0;
+
+#else
+	i64 timeNow = si_timeNowUTC();
+	if (timezone == 0) {
+		tzset();
+	}
+
+	return (timezone != 0)
+		? timeNow - timezone * 1000000000 + daylight * 3600000000000
+		: 0;
+
+#endif
+}
+
+inline
+b32 si_timeYearIsLeap(i32 year) {
+    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+}
+
+i32 si_timeGetDayOfWeek(i32 year, i32 month, i32 day) {
+	static i8 t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    if (month < 3 ) {
+        year -= 1;
+    }
+    return (year + year / 4 - year / 100 + year / 400 + t[month - 1] + day) % 7;
+}
+
+
+
+// Convert raw Unix time to human-readable components
+siTimeCalendar si_timeToCalendar(i64 time) {
+	siTimeCalendar calendar;
+
+	i32 daysSinceEpoch = si_cast(i32, time / 86400000000000);
+
+	{
+		const i32 DAYS_IN_400_YEARS = (400 * 365) + 97;
+		const i32 DAYS_IN_100_YEARS = (100 * 365) + 24;
+		const i32 DAYS_IN_4_YEARS   = (  4 * 365) + 1;
+
+		calendar.years = 1970;
+		calendar.years += 400 * (daysSinceEpoch / DAYS_IN_400_YEARS);
+		daysSinceEpoch %= DAYS_IN_400_YEARS;
+
+		calendar.years += 100 * (daysSinceEpoch / DAYS_IN_100_YEARS);
+		daysSinceEpoch %= DAYS_IN_100_YEARS;
+
+		calendar.years += 4 * (daysSinceEpoch / DAYS_IN_4_YEARS);
+		daysSinceEpoch %= DAYS_IN_4_YEARS;
+
+		calendar.years += daysSinceEpoch / 365;
+		daysSinceEpoch %= 365;
+	}
+
+	{
+		static const i8 daysInMonths[2][12] = {
+			{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+			{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+		};
+
+		b32 leap = si_timeYearIsLeap(calendar.years);
+		for (calendar.months = 0; calendar.months < (i32)countof(daysInMonths[0]); calendar.months += 1) {
+    	    i32 days = daysInMonths[leap][calendar.months];
+			SI_STOPIF(daysSinceEpoch < days, break);
+
+    	    daysSinceEpoch -= days;
+		}
+		calendar.months += 1;
+	}
+
+	{
+		i64 nanoseconds = time % 86400000000000;
+		calendar.days = daysSinceEpoch + 1;
+
+		calendar.hours = si_cast(i32, nanoseconds / (i64)3600000000000);
+    	nanoseconds %= (i64)3.6e+12;
+
+		calendar.minutes = si_cast(i32, nanoseconds / 60000000000);
+    	nanoseconds %= 60000000000;
+
+		calendar.seconds = si_cast(i32, nanoseconds / 1000000000);
+    	nanoseconds %= 1000000000;
+
+		calendar.nanoseconds = (i32)nanoseconds;
+	}
+
+	return calendar;
+}
+
+usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt) {
+	SI_ASSERT_NOT_NULL(buffer);
+
+	siAllocatorData aData;
+	siAllocator tmp = si_allocatorMakeTmp(buffer, capacity, &aData);
+	aData.alignment = 1;
+
+	b32 AMwasChecked = false;
+	i32 ogHour = calendar.hours;
+
+	for_eachStr (x, fmt) {
+		SI_STOPIF(aData.offset >= aData.capacity, break);
+
+		switch (*x) {
+			case 'y': {
+				u32 count = 1;
+				while (x[count] == 'y' && count != 4) { count += 1; }
+				x += count - 1;
+
+				(count != 2)
+					? si_stringFromUInt(calendar.years, tmp)
+					: si_stringFromUInt(calendar.years % 100, tmp);
+			} break;
+
+			case 'M': {
+				SI_ASSERT(si_between(i32, calendar.months, 0, 12));
+				u32 count = 1;
+				while (x[count] == 'M' && count != 4) { count += 1; }
+				x += count - 1;
+
+				switch (count) {
+					case 1:
+						si_stringFromUInt(calendar.months, tmp);
+						break;
+
+					case 2:
+						if (calendar.months < 10) {
+							aData.ptr[aData.offset] = '0';
+							aData.offset += 1;
+						}
+
+						si_stringFromUInt(calendar.months, tmp);
+						break;
+
+					case 3: {
+						siString* str = &SI_NAMES_MONTHS_SHRT[calendar.months - 1];
+						si_memcopyStr(&aData.ptr[aData.offset], *str);
+						aData.offset += str->len;
+					} break;
+
+					case 4: {
+						siString* str = &SI_NAMES_MONTHS_FULL[calendar.months - 1];
+						si_memcopyStr(&aData.ptr[aData.offset], *str);
+						aData.offset += str->len;
+					} break;
+				}
+			} break;
+
+			case 'd': {
+				u32 count = 1;
+				while (x[count] == 'd' && count != 4) { count += 1; }
+				x += count - 1;
+
+				switch (count) {
+					case 1:
+						si_stringFromUInt(calendar.days, tmp);
+						break;
+
+					case 2:
+						if (calendar.days < 10) {
+							aData.ptr[aData.offset] = '0';
+							aData.offset += 1;
+						}
+
+						si_stringFromUInt(calendar.days, tmp);
+						break;
+
+					case 3: {
+						i32 wd = si_timeGetDayOfWeek(calendar.years, calendar.months, calendar.days);
+						siString* str = &SI_NAMES_DAYS_SHRT[wd];
+						si_memcopyStr_s(&aData.ptr[aData.offset], aData.capacity - aData.offset, *str);
+						aData.offset += str->len;
+					} break;
+
+					case 4: {
+						i32 wd = si_timeGetDayOfWeek(calendar.years, calendar.months, calendar.days);
+						siString* str = &SI_NAMES_DAYS_FULL[wd];
+						si_memcopyStr_s(&aData.ptr[aData.offset], aData.capacity - aData.offset, *str);
+						aData.offset += str->len;
+					} break;
+				}
+			} break;
+
+			case 'h': {
+				if (!AMwasChecked) {
+					siString sub = si_stringSubToEnd(fmt, x - (u8*)fmt.data);
+					for_eachRevStr (y, sub) {
+						if (*y == 'p' || *y == 'P') {
+							if (y != sub.data && (y[-1] == 'a' || y[-1] == 'A')) {
+								if (calendar.hours != 12 && calendar.hours != 0) {
+									calendar.hours %= 12;
+								}
+								else if (calendar.hours == 0) {
+									calendar.hours = 12;
+								}
+								break;
+							}
+						}
+					}
+					AMwasChecked = true;
+				}
+
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 'h') {
+					x += 1;
+					if (calendar.hours < 10) {
+						aData.ptr[aData.offset] = '0';
+						aData.offset += 1;
+					}
+				}
+
+				si_stringFromUInt(calendar.hours, tmp);
+			} break;
+
+			case 'm': {
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 'm') {
+					x += 1;
+					if (calendar.minutes < 10) {
+						aData.ptr[aData.offset] = '0';
+						aData.offset += 1;
+					}
+				}
+
+				si_stringFromUInt(calendar.minutes, tmp);
+			} break;
+
+			case 's': {
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 's') {
+					x += 1;
+					if (calendar.seconds < 10) {
+						aData.ptr[aData.offset] = '0';
+						aData.offset += 1;
+					}
+				}
+
+				si_stringFromUInt(calendar.seconds, tmp);
+			} break;
+
+			case 'n': {
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 'n') {
+					x += 1;
+					if (calendar.nanoseconds < 10) {
+						aData.ptr[aData.offset] = '0';
+						aData.offset += 1;
+					}
+				}
+
+				si_stringFromUInt(calendar.nanoseconds, tmp);
+			} break;
+
+			case 'a': {
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 'p') {
+					x += 1;
+
+					siString* str = &SI_NAMES_AM_PM[2 + (ogHour >= 12)];
+					si_memcopyStr_s(&aData.ptr[aData.offset], aData.capacity - aData.offset, *str);
+					aData.offset += str->len;
+
+					if (!AMwasChecked) {
+						if (calendar.hours != 12 && calendar.hours != 0) {
+							calendar.hours %= 12;
+						}
+						else if (calendar.hours == 0) {
+							calendar.hours = 12;
+						}
+						AMwasChecked = true;
+					}
+					break;
+				}
+				siFallthrough;
+			}
+
+			case 'A': {
+				if (x != si_stringEnd(fmt) - 1 && x[1] == 'P') {
+					x += 1;
+
+					siString* str = &SI_NAMES_AM_PM[ogHour >= 12];
+					si_memcopyStr_s(&aData.ptr[aData.offset], aData.capacity - aData.offset, *str);
+					aData.offset += str->len;
+
+					if (!AMwasChecked) {
+						if (calendar.hours != 12 && calendar.hours != 0) {
+							calendar.hours %= 12;
+						}
+						else if (calendar.hours == 0) {
+							calendar.hours = 12;
+						}
+						AMwasChecked = true;
+					}
+					break;
+				}
+				siFallthrough;
+			}
+
+
+			default:
+				aData.ptr[aData.offset] = *x;
+				aData.offset += 1;
+				break;
+		}
+	}
+
+	return aData.offset;
+}
+
+#endif /* SI_IMPLEMENTATION_TIME */
+
 #if defined(SI_IMPLEMENTATION_BIT) && !defined(SI_NO_BIT)
 
 
@@ -7213,7 +7695,7 @@ u32 si_numLenEx(u64 num, u32 base) {
 	do {
 		count += 1;
 		num /= base;
-	} while (0 < num);
+	} while (num != 0);
 
 	return count;
 }
@@ -7621,7 +8103,7 @@ GOTO_SPECIFIER_U:
 				}
 				else {
 					usize len = afterPointIsSet
-						? afterPoint
+						? (usize)afterPoint
 						: si_cstrLen(vaValue.STR);
 					info.str = SI_STR_LEN(vaValue.STR, len);
 				}
@@ -8162,7 +8644,7 @@ const siBenchmarkLimit siBenchLimit[] = {
 	{0, nil}
 };
 
-const siBenchmarkLimit* si_benchmarkLimitLoop(siTimeStamp time) {
+const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	const siBenchmarkLimit* element = siBenchLimit;
 	const siBenchmarkLimit* end = &siBenchLimit[countof(siBenchLimit)];
 

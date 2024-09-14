@@ -4,7 +4,7 @@
 int main(void) {
 	SI_STATIC_ASSERT(SI_ASCII_MAX == 0x7F);
 
-	const static char expected_lower[0x80] = {
+	static const char expected_lower[0x80] = {
 	    '\0', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
 	    '\x08', '\x09', '\x0A', '\x0B', '\x0C', '\x0D', '\x0E', '\x0F',
 	    '\x10', '\x11', '\x12', '\x13', '\x14', '\x15', '\x16', '\x17',
@@ -17,7 +17,7 @@ int main(void) {
 	    'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '\x7F'
 	};
 
-	const static char expected_upper[0x80] = {
+	static const char expected_upper[0x80] = {
 	    '\0', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
 	    '\x08', '\x09', '\x0A', '\x0B', '\x0C', '\x0D', '\x0E', '\x0F',
 	    '\x10', '\x11', '\x12', '\x13', '\x14', '\x15', '\x16', '\x17',

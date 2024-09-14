@@ -74,24 +74,25 @@ jobs:
     - name: Add MSVC
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Tests
+    - name: Build app for release
       run: |
         set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+
+    - name: Tests
+      run: |
         make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc
-        make compile_tests CC=cl
+        make compile_tests CC=cl.exe
 
     - name: Examples
       run: |
-        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
         make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc
-        make compile_examples CC=cl
+        make compile_examples CC=cl.exe
 
     - name: Build Library (MSVC16 64-bit)
       run: |
-        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
         windres.exe --version
-        make static CC=cl AR=lib
-        make dynamic CC=cl
+        make static CC=cl.exe AR=lib
+        make dynamic CC=cl.exe
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |

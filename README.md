@@ -29,7 +29,7 @@ principles and appeals of C: simplicity, performance and portability.
 # Libraries
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
-|  [sili.h](sili.h)    | v0.1.0  | A general-purpose programming library to replace the C/C++ standard libraries.
+|  [sili.h](sili.h)    | v0.1.0  | A general-purpose programming library to replace the C standard libraries.
 |  [sigar.h](sigar.h)  | v0.0.0  | A cross-platform library for audio playback and recording.
 |  [siarg.h](siarg.h)  | v0.0.0  | An argument-parsing library for making CLIs.
 

@@ -66,11 +66,11 @@ int main(void) {
 		TEST_EQ_U64(si_offsetof(randomStruct, three), 4 + sizeof(usize));
 		TEST_EQ_U64(si_alignof(randomStruct), sizeof(usize));
 
-		char* buf1 = "QWERTY";
-		char* buf2 = "AZERTY";
+		int buf1 = 8;
+		int buf2 = 4;
 		si_swap(buf1, buf2);
-		TEST_EQ_U64(strcmp(buf2, "QWERTY"), 0);
-		TEST_EQ_U64(strcmp(buf1, "AZERTY"), 0);
+		TEST_EQ_U64(buf2, 8);
+		TEST_EQ_U64(buf1, 4);
 
 		i16 x = 0;
 		for_range (i, INT16_MIN, 0) {
@@ -80,7 +80,7 @@ int main(void) {
 
 		u64 src = 0x00FF00FF00FF00FF;
 		u32 dst;
-		memcpy_s(&dst, sizeof(dst), &src, sizeof(src));
+		si_memcopy_s(&dst, sizeof(dst), &src, sizeof(src));
 		TEST_EQ_H64(dst, 0x00FF00FF);
 
 		TEST_EQ_H64(0x44434241, si_swap32le(value));
@@ -88,12 +88,12 @@ int main(void) {
 		TEST_EQ_H64(0xFF, si_swap16(0xFF00));
 
 		u16 y[] = {0, UINT16_MAX};
-		si_ptrMoveRight(&y[1], 2, 2);
+		si_memmoveLeft(&y[1], 2, 2);
 		TEST_EQ_H64(y[0], 0xFFFF);
 
 		y[0] = 0x8080;
 		y[1] = 0;
-		si_ptrMoveLeft(&y[0], 2, 2);
+		si_memmoveRight(&y[0], 2, 2);
 		TEST_EQ_H64(y[1], 0x8080);
 	}
 	si_print("Test 1 has been completed.\n");
@@ -178,9 +178,6 @@ int main(void) {
 	si_print("Test 2 has been completed.\n");
 
 	{
-		siAny any = SI_ANY(i32, 23);
-		TEST_EQ_I64(any.typeSize, sizeof((i32)23));
-
 		siPoint p1 = SI_POINT(50, 50),
 				p2 = (siPoint){28, 28};
 		TEST_EQ_U64(si_pointCmp(p1, p2), 0);
