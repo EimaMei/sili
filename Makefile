@@ -1,4 +1,4 @@
-CC = gcc
+CC = clang
 AR = ar
 
 OUTPUT = build
@@ -96,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/main2.c
+SRC = src/hoi4/main.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -121,7 +121,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h
+$(EXE): $(SRC) sili.h sigar.h siapp.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
 
 # Compiles and runs every example.

@@ -124,7 +124,7 @@ void example2(siAllocator alloc) {
 	siString str = si_stringFromInt(-342, alloc);
 	si_printf("str: \"%S\"\n", str);
 
-	i64 num = si_stringToInt(SI_STR("9300"));
+	i64 num = si_stringToInt(SI_STR("  9300  "));
 	si_printf("num: %zd\n", num);
 
 	str = si_stringFromFloat(FLOAT32_MAX, alloc);

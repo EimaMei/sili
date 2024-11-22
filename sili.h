@@ -1162,7 +1162,7 @@ typedef struct { f32 x, y, z, w; } siVec4;
 #define SI_VEC4(x, y, z, w) ((siVec4){x, y, z, w})
 /* rect - siRect
  * Macro to define a 4D vector from a rectangle. */
-#define SI_VEC4_R(rect) SI_VEC4((rect).x, (rect).y, (rect).width, (rect).height)
+#define SI_VEC4_R(rect) SI_VEC4((f32)(rect).x, (f32)(rect).y, (f32)(rect).width, (f32)(rect).height)
 /* vec1 - siVec2 | vec2 - siVec2
  * Macro to define a 4D vector from two 2D vectors. */
 #define SI_VEC4_2V(vec1, vec2) SI_VEC4((vec1).x, (vec1).y, (vec2).x, (vec2).y)
@@ -1669,9 +1669,13 @@ si_optional_define(siBuffer);
 	/* TODO
 	 * TODO */
 	#define si_arrayGet(array, index, type) (*(type*)si__arrayGet(&(array), index, sizeof(type)))
-	inline rawptr si__arrayGet(siBuffer* buffer, usize index, usize sizeof_type);
-
+	inline rawptr si__arrayGet(const siBuffer* buffer, usize index, usize sizeof_type);
 #endif
+
+/* TODO
+ * TODO */
+#define si_arrayGetLast(array, type) si_arrayGet(array, (array).len - 1, type)
+
 
 /* TODO
  * TODO */
@@ -1702,7 +1706,7 @@ SIDEF siBuffer si_arrayMakeReserve(usize sizeofItem, usize length, usize capacit
 SIDEF siBuffer si_arrayCopy(siBuffer array, siAllocator alloc);
 
 /* */
-SIDEF void si_arrayFree(siBuffer* array);
+SIDEF void si_arrayFree(siBuffer array);
 
 
 /* TODO */
@@ -1830,6 +1834,8 @@ SIDEF siString si_stringMakeEx(cstring string, usize len, usize capacity,
 		siAllocator alloc);
 /* TODO */
 SIDEF siString si_stringMakeReserve(usize length, usize capacity, siAllocator alloc);
+/* TODO */
+SIDEF siString si_stringMakeFmt(siAllocator alloc, cstring fmt, ...);
 
 /* TODO */
 SIDEF siString si_stringCopy(siString from, siAllocator alloc);
@@ -1840,7 +1846,7 @@ SIDEF char* si_stringCloneToCstrEx(siString from, usize capacity, siAllocator al
 
 
 /* TODO */
-SIDEF void si_stringFree(siString* string);
+SIDEF void si_stringFree(siString string);
 
 
 /* Gets the character at a specified index in the sili-string. */
@@ -2040,6 +2046,15 @@ SIDEF siString si_stringFromBool(b32 boolean);
  * indicate that the specified string cannot be turned into a boolean. */
 SIDEF b32 si_stringToBool(siString string);
 
+/* Checks if the specified string's front is identical to the given prefix. */
+SIDEF b32 si_stringHasPrefix(siString string, siString prefix);
+/* Returns the amount of matching front characters between the specified strings. */
+SIDEF usize si_stringPrefixLen(siString string, siString prefix);
+
+/* Checks if the specified string's back is identical to the given suffix. */
+SIDEF b32 si_stringHasSuffix(siString string, siString suffix);
+/* Returns the amount of matching back characters between the specified strings. */
+SIDEF usize si_stringSuffixLen(siString string, siString suffix);
 
 /* TODO */
 SIDEF siString si_stringFromArray(siBuffer array, cstring fmt);
@@ -2725,9 +2740,8 @@ SIDEF u64 si_clock(void);
 
 /* Starts a timestamp. */
 SIDEF u64 si_timeStampStart(void);
-/* time - u64
- * Prints the time since the start. */
-#define si_timeStampPrintSince(time) si_timeStampPrintSinceEx(time, __FILE__, __LINE__)
+/* Prints the time since the start. */
+SIDEF void si_timeStampPrintSince(u64 t);
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
 SIDEF void si_sleep(u32 miliseconds);
@@ -3119,18 +3133,18 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, cstring name);
 #define si_between(type, x, lower, upper) SI_MATH_FUNC(type, between, x, lower, upper)
 
 /* TODO */
-#define si_sin(x) (sizeof(x) == 4 ? si_sinF32((f32)(x)) : si_sinF64((f64)(x)))
+#define si_sin(type, x) SI_MATH_FUNC(type, sin, x)
 /* TODO */
-#define si_cos(x) (sizeof(x) == 4 ? si_cosF32((f32)(x)) : si_cosF64((f64)(x)))
-
-/* Rounds 'x' to the nearest integer. */
-#define si_round(x) (sizeof(x) == 4 ? si_roundF32((f32)(x)) : si_roundF64((f64)(x)))
+#define si_cos(type, x) SI_MATH_FUNC(type, cos, x)
 
 /* Calculates the largest integer not greater than 'x'. */
-#define si_floor(x) (sizeof(x) == 4 ? si_floorF32((f32)(x)) : si_floorF64((f64)(x)))
+#define si_round(type, x) SI_MATH_FUNC(type, round, x)
+
+/* Calculates the largest integer not greater than 'x'. */
+#define si_floor(type, x) SI_MATH_FUNC(type, floor, x)
 
 /* Calculates the smallest integer not less than 'x'. */
-#define si_ceil(x) (sizeof(x) == 4 ? si_ceilF32((f32)(x)) : si_ceilF64((f64)(x)))
+#define si_ceil(type, x) SI_MATH_FUNC(type, ceil, x)
 
 /* Raises an unsigned base 10 by the power of the exponent, and returns the result
  * as a 64-bit unsigned int (meaning the exponent can only be from 0 to 19, otherwise
@@ -3186,21 +3200,21 @@ SIDEF u32 si_float64IsInf(f64 num);
 		def b32 si__##name##_f32(f32 a, f32 b, f32 c) body \
 		def b32 si__##name##_f64(f64 a, f64 b, f64 c) body
 
+	#define SI_MATH_FUNC_DECLARE_1X_FLOAT(name, def, ...) \
+		def f32   si__##name##_f32(f32 a) __VA_ARGS__ \
+		def f64   si__##name##_f64(f64 a) __VA_ARGS__
+
+
 	SI_MATH_FUNC_DECLARE_2X(min, SIDEF, ;)
 	SI_MATH_FUNC_DECLARE_2X(max, SIDEF, ;)
 	SI_MATH_FUNC_DECLARE_1X_SIGNED(abs, SIDEF, ;)
 	SI_MATH_FUNC_DECLARE_3X_B32(between, SIDEF, ;)
+	SI_MATH_FUNC_DECLARE_1X_FLOAT(floor, SIDEF, ;)
+	SI_MATH_FUNC_DECLARE_1X_FLOAT(ceil, SIDEF, ;)
+	SI_MATH_FUNC_DECLARE_1X_FLOAT(round, SIDEF, ;)
 
-	SIDEF f64 si_sinF64(f64 x);
-	SIDEF f32 si_sinF32(f32 x);
-	SIDEF f64 si_cosF64(f64 x);
-	SIDEF f32 si_cosF32(f32 x);
-	SIDEF f64 si_roundF64(f64 x);
-	SIDEF f32 si_roundF32(f32 x);
-	SIDEF f32 si_floorF32(f32 x);
-	SIDEF f64 si_floorF64(f64 x);
-	SIDEF f64 si_ceilF64(f64 x);
-	SIDEF f32 si_ceilF32(f32 x);
+	SI_MATH_FUNC_DECLARE_1X_FLOAT(sin, SIDEF, ;)
+	SI_MATH_FUNC_DECLARE_1X_FLOAT(cos, SIDEF, ;)
 
 #endif
 
@@ -3792,7 +3806,7 @@ rawptr si_memmoveRight(void* src, usize length, isize moveBy) {
 #if defined(SI_IMPLEMENTATION_ARRAY) && !defined(SI_NO_ARRAY)
 
 #if !defined(SI_RELEASE_MODE)
-rawptr si__arrayGet(siBuffer* buffer, usize index, usize sizeof_type) {
+rawptr si__arrayGet(const siBuffer* buffer, usize index, usize sizeof_type) {
 	SI_ASSERT_MSG(sizeof_type == buffer->typeSize, "Invalid type size.");
 	SI_ASSERT_MSG(index < buffer->capacity, "Invalid index.");
 	return (siByte*)buffer->data + sizeof_type * index;
@@ -3829,9 +3843,8 @@ siBuffer si_arrayCopy(siBuffer array, siAllocator alloc) {
 
 
 inline
-void si_arrayFree(siBuffer* array) {
-	si_free(array->alloc, array->data);
-	si_memset(array, 0, sizeof(*array));
+void si_arrayFree(siBuffer array) {
+	si_free(array.alloc, array.data);
 }
 
 
@@ -4118,6 +4131,18 @@ siString si_stringMakeReserve(usize length, usize capacity, siAllocator alloc) {
 	return si_arrayMakeReserve(sizeof(u8), length, capacity, alloc);
 }
 
+SIDEF
+siString si_stringMakeFmt(siAllocator alloc, cstring fmt, ...) {
+	SI_ASSERT(alloc.userData != nil);
+	siAllocatorData* data = alloc.userData;
+
+	va_list va;
+	va_start(va, fmt);
+	isize res = si_snprintfVa((char*)data->ptr + data->offset, data->capacity, fmt, va);
+	va_end(va);
+
+	return SI_STR_LEN(si_alloc(alloc, res), res);
+}
 
 inline
 siString si_stringCopy(siString from, siAllocator alloc) {
@@ -4140,7 +4165,7 @@ char* si_stringCloneToCstrEx(siString from, usize capacity, siAllocator alloc) {
 
 
 inline
-void si_stringFree(siString* string) {
+void si_stringFree(siString string) {
 	si_arrayFree(string);
 }
 
@@ -4524,7 +4549,7 @@ b32 si_stringReplace(siString* string, siString strOld, siString strNew, isize a
 	}
 	si_memcopyStr(&si_stringGet(res, i), si_stringSubToEnd(*string, lineStart));
 
-	si_stringFree(string);
+	si_stringFree(*string);
 	*string = res;
 	return true;
 }
@@ -4696,10 +4721,11 @@ u64 si_stringToUInt(siString string) {
 	}
 
 	for_range (i, start, string.len) {
-		SI_ASSERT(si_charIsDigit(si_stringGet(string, i)));
+		char x = si_stringGet(string, i);
+		SI_STOPIF(!si_charIsDigit(x), break);
 
 		res *= 10;
-		res += (si_stringGet(string, i) - '0');
+		res += (x - '0');
 	}
 
 	return res;
@@ -4748,6 +4774,11 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 	}
 	SI_STOPIF(string.len > maxDigits, *outRes = -2; return res);
 
+
+	while (si_charIsSpace(si_stringGet(string, start))) {
+		start += 1;
+	}
+
 	for_range (i, start, string.len) {
 		res *= base;
 
@@ -4755,7 +4786,7 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 		if (value < 10) {
 			res += value;
 		}
-		else {
+		else if (value != (' ' - '0')) {
 			value = si_charUpper((char)value) - 7;
 			if (value < base) {
 				res += value;
@@ -4764,6 +4795,16 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 				*outRes = (i32)i;
 				return res;
 			}
+		}
+		else {
+			usize oldI = i;
+			while ((usize)i < string.len && si_charIsSpace(si_stringGet(string, start))) {
+				i += 1;
+			}
+			SI_STOPIF((usize)i >= string.len, break);
+
+			*outRes = (i32)oldI;
+			return res;
 		}
 	}
 
@@ -4826,7 +4867,7 @@ siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator all
 	isize baseLen = 0;
 	f64 numWhole = (afterPoint != 0)
 		? num
-		: si_round(num);
+		: si_round(f64, num);
 	do {
 		numWhole /= base;
 		baseLen += 1;
@@ -4858,7 +4899,7 @@ siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator all
 	*ptr = '.';
 	ptr += 1;
 
-	f64 numFractional = num - si_floor(num);
+	f64 numFractional = num - si_floor(f64, num);
 	while (afterPoint) {
 		numFractional *= base;
 
@@ -4909,6 +4950,49 @@ b32 si_stringToBool(siString string) {
 
 	return UINT32_MAX;
 }
+
+inline
+b32 si_stringHasPrefix(siString string, siString prefix) {
+	return string.len >= prefix.len && (si_memcompareStr(string.data, prefix) == 0);
+}
+
+SIDEF
+usize si_stringPrefixLen(siString string, siString prefix) {
+	SI_STOPIF(prefix.len > string.len, return 0);
+
+	usize count = 0;
+	for_eachStr (x, string) {
+		if (*x == si_stringGet(prefix, count)) {
+			count += 1;
+			continue;
+		}
+		break;
+	}
+
+	return count;
+}
+
+inline
+b32 si_stringHasSuffix(siString string, siString suffix) {
+	return string.len >= suffix.len
+		&& (si_memcompareStr((u8*)string.data + (string.len - suffix.len), suffix) == 0);
+}
+SIDEF
+usize si_stringSuffixLen(siString string, siString suffix) {
+	SI_STOPIF(suffix.len > string.len, return 0);
+
+	usize count = string.len - 1;
+	for_eachRevStr (x, string) {
+		if (*x == si_stringGet(suffix, count)) {
+			count -= 1;
+			continue;
+		}
+		break;
+	}
+
+	return string.len - count + 1;
+}
+
 
 SIDEF
 siString si_stringFromArray(siBuffer array, cstring fmt) {
@@ -7118,15 +7202,15 @@ u64 si_timeStampStart(void) {
 	return si_RDTSC();
 }
 
-SIDEF
-void si_timeStampPrintSinceEx(u64 ts, cstring filename, i32 line) {
+inline
+void si_timeStampPrintSince(u64 ts) {
 	u64 end = si_RDTSC();
 	u64 diff = (end - ts) / si_cpuClockSpeed() * 1000;
 
 	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
 	si_printf(
-		"si_timeStampPrintSince: %s:%i: TIME: %.2f %s\n",
-		filename, line, (f32)diff / (f32)time->duration, time->unit
+		"si_timeStampPrintSince: TIME: %.2f %s\n",
+		(f32)diff / (f32)time->duration, time->unit
 	);
 }
 
@@ -8343,13 +8427,13 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
 
 #if defined(SI_IMPLEMENTATION_MATH) && !defined(SI_NO_MATH)
 
-SI_MATH_FUNC_DECLARE_2X(min, inline, { return (a < b) ? a : b; })
-SI_MATH_FUNC_DECLARE_2X(max, inline, { return (a > b) ? a : b; })
-SI_MATH_FUNC_DECLARE_1X_SIGNED(abs, inline, { return a < 0 ? -a : a; })
-SI_MATH_FUNC_DECLARE_3X_B32(between, inline, { return b <= a && a <= c; })
+SI_MATH_FUNC_DECLARE_2X       (min,     inline, { return (a < b) ? a : b;  })
+SI_MATH_FUNC_DECLARE_2X       (max,     inline, { return (a > b) ? a : b;  })
+SI_MATH_FUNC_DECLARE_1X_SIGNED(abs,     inline, { return a < 0 ? -a : a;   })
+SI_MATH_FUNC_DECLARE_3X_B32   (between, inline, { return b <= a && a <= c; })
 
 inline
-f64 si_sinF64(f64 x) {
+f64 si__sin_f64(f64 x) {
 	static f64 const x0 = +1.91059300966915117e-31;
 	static f64 const x1 = +1.00086760103908896;
 	static f64 const x2 = -1.21276126894734565e-2;
@@ -8362,7 +8446,7 @@ f64 si_sinF64(f64 x) {
 }
 
 inline
-f32 si_sinF32(f32 x) {
+f32 si__sin_f32(f32 x) {
 	static f32 const x0 = +1.91059300966915117e-31f;
 	static f32 const x1 = +1.00086760103908896f;
 	static f32 const x2 = -1.21276126894734565e-2f;
@@ -8375,7 +8459,7 @@ f32 si_sinF32(f32 x) {
 }
 
 inline
-f64 si_cosF64(f64 x) {
+f64 si__cos_f64(f64 x) {
 	static f64 const x0 = +1.00238601909309722;
 	static f64 const x1 = -3.81919947353040024e-2;
 	static f64 const x2 = -3.94382342128062756e-1;
@@ -8387,7 +8471,7 @@ f64 si_cosF64(f64 x) {
 	return x0 + x * (x1 + x * (x2 + x * (x3 + x * (x4 + x * (x5 + x * (x6 + x * x7))))));
 }
 inline
-f32 si_cosF32(f32 x) {
+f32 si__cos_f32(f32 x) {
 	static f32 const x0 = +1.00238601909309722f;
 	static f32 const x1 = -3.81919947353040024e-2f;
 	static f32 const x2 = -3.94382342128062756e-1f;
@@ -8399,15 +8483,14 @@ f32 si_cosF32(f32 x) {
 	return x0 + x * (x1 + x * (x2 + x * (x3 + x * (x4 + x * (x5 + x * (x6 + x * x7))))));
 }
 
-inline f64 si_roundF64(f64 x) { return (x >= 0.0f) ? si_floorF64(x + 0.5f) : si_ceilF64(x - 0.5f); }
-inline f32 si_roundF32(f32 x) { return (x >= 0.0f) ? si_floorF32(x + 0.5f) : si_ceilF32(x - 0.5f); }
+inline f64 si__round_f64(f64 x) { return (x >= 0.0f) ? si_floor(f64, x + 0.5f) : si_ceil(f64, x - 0.5f); }
+inline f32 si__round_f32(f32 x) { return (x >= 0.0f) ? si_floor(f32, x + 0.5f) : si_ceil(f32, x - 0.5f); }
 
-inline f64 si_floorF64(f64 x) { return (x >= 0.0f) ? si_cast(f64, (i64)x) : si_cast(f64, (i64)(x - 0.9999999999999999f)); }
-inline f32 si_floorF32(f32 x) { return (x >= 0.0f) ? si_cast(f32, (i32)x) : si_cast(f32, (i32)(x - 0.9999999999999999f)); }
+inline f32 si__floor_f32(f32 a) { return (a >= 0.0f) ? (f32)(i64)a : (f32)(i64)(a - 0.9999999999999999f); }
+inline f64 si__floor_f64(f64 a) { return (a >= 0.0f) ? (f64)(i64)a : (f64)(i64)(a - 0.9999999999999999f); }
 
-inline f64 si_ceilF64(f64 x)  { return (x < 0) ? si_cast(f64, (i64)x) : si_cast(f64, (i64)x + 1); }
-inline f32 si_ceilF32(f32 x)  { return (x < 0) ? si_cast(f32, (i32)x) : si_cast(f32, (i32)x + 1); }
-
+inline f32 si__ceil_f32(f32 a) { return (a < 0) ? (f32)(i64)a : (f32)(i64)(a + 1); }
+inline f64 si__ceil_f64(f64 a) { return (a < 0) ? (f64)(i64)a : (f64)(i64)(a + 1); }
 
 SIDEF
 u64 si_pow10(u32 exponent) {
