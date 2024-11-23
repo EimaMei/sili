@@ -96,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/hoi4/main.c
+SRC = tests/system.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
