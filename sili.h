@@ -4156,7 +4156,7 @@ b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen) {
 		return false;
 	}
 
-	usize newCapacity = SI_BUFFER_NEW_CAP(buffer->capacity, addLen);
+	usize newCapacity = SI_BUFFER_NEW_CAP(buffer, addLen);
 	buffer->data = si_realloc(
 		buffer->alloc, buffer->data,
 		buffer->capacity * buffer->typeSize, newCapacity * buffer->typeSize
