@@ -75,37 +75,41 @@ MACROS
 	```
 
 	- SI_RELEASE_MODE - disables certain functionality that decrease performance
-	(such as logging, error reporting, assertions, etc). Defining "NDEBUG"
-	does the same thing.
+	(such as logging, error reporting, assertions, etc). Defining "NDEBUG" does
+	the same thing.
 
-	- SI_NO_ASSERTIONS_IN_HEADER - assertion functions inside the library will
-	not check for any conditions, passively allowing for both correct and wrong
-	states to function instead of crashing when a condition evaluates to false.
+	- SI_NO_ASSERTIONS_IN_HEADER - assertion functions inside the library itself
+	get disabled, passively allowing for both correct and wrong states to function.
+	However, these functions are re-enabled outside of the header.
 
-	- SI_NO_ASSERTIONS - assertion functions that were defined in the sili header
-	will continue to not have their functionality, including outside its original
-	file.
+	- SI_NO_ASSERTIONS - same as defining 'SI_NO_ASSERTIONS_IN_HEADER', however
+	the assertion functions do not get re-enabled outside of the header.
+
+	- SI_USE_BUFFER_GROW - adds a 'grow' member to the 'siBuffer' struct, alongside
+	sligthly modifies the 'SI_USE_BUFFER_GROW' macro. This allows the user to set
+	how many extra elements should be added to the array after each resize. The
+	value of 'SI_USE_BUFFER_GROW' is also assumed to be the default growth number,
+	meaning by default setting 'SI_USE_BUFFER_GROW' to 32 means that a new capacity
+	for an array would be 'capacity + addLen + 32'. If you need to set a specific
+	growth number for buffer, you have to set it via '<array>.grow = N;'.
 
 	- SI_NO_ERROR_STRUCT - strips the 'siError' structure's members down to just
 	the error code member. This gets turned on automatically via 'SI_RELEASE_MODE'.
 
-	- SI_NO_ERROR_LOGS - disables sili's automatic loggin for when an 'SI_ERROR'
+	- SI_NO_ERROR_LOGS - disables sili's automatic logging for when a 'SI_ERROR'
 	is declared. This gets turned on automatically via 'SI_RELEASE_MODE'.
 
 	- SI_NO_INLINE_ASM - disables any usage of inline assembly in the header.
 
-	- SI_ASM_USE_ATT_SYNTAX - makes 'si_asm()' utilize AT&T syntax instead of
-	Intel's for GNU C compiler derivatives. This has no affect on compilers that
-	don't have support for AT&T syntax.
+	- SI_USE_ATT_SYNTAX - makes 'si_asm()' utilize AT&T syntax instead of
+	Intel's for GNU C compiler derivatives.
 
 	- SI_NO_WINDOWS_H - disables the inclusion of the win32 API inside the header.
-	Note that sili will most likely not properly function without a user-implemented
-	replacement.
 
 	- SI_NO_TYPEOF - disables the usage of the 'typeof' operator inside the header,
 	alongside undefining macros that utilize it.
 
-	- SI_DEFINE_CUSTOM_HASH_FUNCTION - undefines the base implementation of
+	- SI_USE_CUSTOM_HASH_FUNCTION - undefines the base implementation of
 	'si__hashKey' inside this file, allowing the user to define their own hash
 	key function.
 
@@ -114,8 +118,7 @@ MACROS
 
 	- SI_NO_SILI_PRINTF_STYLE - disables sili's added features for the 'si_printf'
 	types of functions, which may break some output compatibility with the old
-	'printf' (albeit most features use non-printf standard specifiers). The list
-	of said features:
+	'printf'. The list of said features:
 		1. Octal numbers being prefixed with '0o' instead of just '0'.
 		2. The string versions of booleans (true/false) being printed via '%B'.
 		3. Printing 'siString' types via '%S'.
@@ -132,14 +135,14 @@ LICENSE:
 	bottom of the file).
 
 WARNING
-	- Sili is designed to be a fast, modern, but also an experimental library and
-	because of it some unwarranted results may occur or be present when using the
-	library, those being:
-		1) Features may not work as expected
-		2) Functions may not be documented or only contain incomplete documentation
-		3) API breaking changes between releases
-		4) Little to no security checks for malicious code attempting to explode
-		sections of the code
+	- Sili is designed to be a library that's fast, modern, but also experimental.
+	Because of that, some unwarranted results may occur when using the library, 
+	those being:
+		1) Features not working as expected;
+		2) Functions not being documented or only containing incomplete documentation;
+		3) API breaking changes between releases;
+		4) Little to no security checks for malicious code attempting to exploit
+		parts of the code
 
 */
 
@@ -1058,9 +1061,9 @@ noreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
 	/* condition - EXPRESSION | message - cstring
 	 * Crashes the app with a message if the condition is not met. */
 	#define SI_ASSERT_MSG(condition, message) SI_ASSERT_FMT(condition, message, "")
-	/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC
+	/* condition - EXPRESSION | message - cstring | ...fmt - VARIADIC
 	 * Crashes the app with a formatted message if the condition is not met. */
-	#define SI_ASSERT_FMT(condition, message, ...) \
+	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
 		SI_STOPIF(!(condition), si_panic(#condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__))
 	/* ptr - rawptr
 	 * Crashes the app if a pointer is NULL. */
@@ -1555,17 +1558,18 @@ si_optional_define(f64);
 si_optional_define(rawptr);
 
 
-/* TODO | ...VALUE - EXPRESSION
- * Creates a returnable 'siOptional' from the given value. */
+/* type - TYPE | ...VALUE - EXPRESSION
+ * Creates a returnable 'siOptional' value from the given value. */
 #define SI_OPT(type, .../* VALUE */) (siOption(type)){true, .data = {__VA_ARGS__}}
 
-/* TODO
- * TODO */
+/* type - TYPE
+ * Creates a returnable 'siOptional' value, with the data being set to zero. */
 #define SI_OPT_NIL(type) SI_OPT_ERR(type, 0)
 
-/* TODO
- * TODO */
-#define SI_OPT_ERR(type, errorValue) (siOption(type)){false, .data = {.error = errorValue}}
+/* type - TYPE | errorV - siError
+ * Creates a returnable 'siOptional' error value, with the data being set to the
+ * error.*/
+#define SI_OPT_ERR(type, errorV) (siOption(type)){false, .data = {.error = errorV}}
 
 
 /* optionalVar - siOptional(TYPE) | defaultValue - EXPRESSION
@@ -1608,6 +1612,9 @@ typedef struct siBuffer {
 	usize capacity;
 	usize typeSize;
 	siAllocator alloc;
+#if defined(SI_USE_BUFFER_GROW)
+	usize grow;
+#endif
 } siBuffer;
 
 /* Defines a 'siBuffer 'optional type. */
@@ -1616,6 +1623,18 @@ si_optional_define(siBuffer);
 /* type - TYPE
  * Represents a buffer with a specific type. */
 #define siArray(type) siBuffer
+
+#ifndef SI_BUFFER_NEW_CAP
+	/* bufferPtr - siBuffer* | addLen - isize
+	 * Determines how much memory should be allocated for the new buffer's capacity.
+	 * Default non-grow capacity: '2 * (capacity + addLen)'.
+	 * Default grow capacity: 'capacity + addLen + grow'. */
+	#if !defined(SI_USE_BUFFER_GROW)
+		#define SI_BUFFER_NEW_CAP(bufferPtr, addLen) (2 * ((bufferPtr)->capacity + addLen))
+	#else
+		#define SI_BUFFER_NEW_CAP(bufferPtr, addLen) ((bufferPtr)->capacity + addLen + (bufferPtr)->grow)
+	#endif
+#endif
 
 
 /* type - TYPE | ...values - ANYTHING
@@ -1666,79 +1685,97 @@ si_optional_define(siBuffer);
 	for (type* name = &si_arrayGet(array, (array).len - 1, type); name >= &si_arrayGet(array, 0, type); name -= 1)
 
 
-/* TODO
- * TODO */
+/* alloc - siAllocator | type - TYPE | ...values - VARIADIC
+ * Dynamically allocates an array from the specified type and static items. */
 #define si_arrayMake(alloc, type, .../* values */) \
 	si_arrayMakeEx((type[]){__VA_ARGS__}, sizeof(type), countof((type[]){__VA_ARGS__}), alloc)
-/* TODO */
+/* Allocates 'count * sizeofItem' amount of bytes to make an array and copies the
+ * same amount of bytes from the specified list to it, whilst setting the length
+ * to 'count'. */
 SIDEF siBuffer si_arrayMakeEx(rawptr list, usize sizeofItem, usize count, siAllocator alloc);
-/* TODO */
+/* Allocates 'capacity * sizeofItem' amount of bytes to make an array, whilst
+ * setting the length to the specified size. */
 SIDEF siBuffer si_arrayMakeReserve(usize sizeofItem, usize length, usize capacity,
 		siAllocator alloc);
 /* Creates a siArray from another siArray. */
 SIDEF siBuffer si_arrayCopy(siBuffer array, siAllocator alloc);
 
-/* */
+/* Frees the allocated array. */
 SIDEF void si_arrayFree(siBuffer array);
 
 
-/* TODO */
+/* Copies an element at the specified index into the given pointer and returns
+ * true if the index is less than the array's length. Otherwise, 'false' is returned. */
 SIDEF b32 si_arrayAt(siBuffer array, usize index, rawptr outPtr);
-/* TODO */
+/* Copies the first element of the array into the given pointer and returns true
+ * if the array's length isn't zero. Otherwise, 'false' is returned. */
 SIDEF b32 si_arrayAtFront(siBuffer array, rawptr outPtr);
-/* Gets the last character of the sili-string. */
+/* Copies the last element of the array into the given pointer and returns true
+ * if the array's length isn't zero. Otherwise, 'false' is returned. */
 SIDEF b32 si_arrayAtBack(siBuffer array, rawptr outPtr);
-/* Returns a pointer to the first element in the array. */
+/* Returns a pointer to the first element (&array[0]) in the array. */
 SIDEF rawptr si_arrayBegin(siBuffer array);
-/* Returns a pointer to the past-the-end element in the array. */
+/* Returns a pointer to the past-the-end element (&array[array.len]) in the array. */
 SIDEF rawptr si_arrayEnd(siBuffer array);
 
 
 
-/* TODO */
+/* Goes from the start to the end of the array and checks if a element matches
+ * the contents of the specified pointer. If so, the index of the element is
+ * returned. If the value isn't found, negative one will be returned. */
 SIDEF isize si_arrayFind(siBuffer array, rawptr valuePtr);
-/* TODO */
+/* Goes from the end to the start of the array and checks if a element matches
+ * the contents of the specified pointer. If so, the index of the element is
+ * returned. If the value isn't found, negative one will be returned. */
 SIDEF isize si_arrayFindLast(siBuffer array, rawptr valuePtr);
 
-/* */
+/* Returns the amount of times the specified pointer's value repeats in the array. */
 SIDEF usize si_arrayFindCount(siBuffer array, rawptr valuePtr);
 
 
-/* TODO */
+/* Returns true if the two specified arrays are equal in length and contents. */
 SIDEF b32 si_arrayEqual(siBuffer lhs, siBuffer rhs);
 
 
-/* TODO */
+/* Appends the specified pointer's value to the array. Returns true if the array
+ * was reallocated. */
 SIDEF b32 si_arrayAppend(siBuffer* array, rawptr valuePtr);
-/* TODO */
+/* Appends the specified list of items to the array. Returns true if the array
+ * was reallocated. */
 SIDEF b32 si_arrayAppendEx(siBuffer* array, rawptr valueArray, usize count);
 /* Erases the last item in the array. */
 SIDEF void si_arrayPop(siBuffer* array);
-/* TODO */
+/* Sets the array's length to zero. */
 SIDEF void si_arrayClear(siBuffer* array);
 
-/* TODO */
+/* Inserts the specified pointer's value at the given index of the array. Returns
+ * true if the array was reallocated. */
 SIDEF b32 si_arrayInsert(siBuffer* array, usize index, rawptr value);
-/* TODO */
+/* Inserts the specified list of items at the given index of the array. Returns
+ * true if the array was reallocated. */
 SIDEF b32 si_arrayInsertEx(siBuffer* array, usize index, rawptr valueArray, usize count);
-/* TODO */
+/* Erases the specified pointer's value at the given index of the array. */
 SIDEF void si_arrayErase(siBuffer* array, usize index);
-/* TODO */
+/* Erases the specified list of items at the given index of the array. */
 SIDEF void si_arrayEraseEx(siBuffer* array, usize index, usize count);
 
-/* TODO */
+/* Reverses the contents of the array. */
 SIDEF void si_arrayReverse(siBuffer array);
-/* TODO */
+/* Fills the contents of the array with the specified pointer's value. Returns
+ * true if the array was reallocated. */
 SIDEF b32 si_arrayFill(siBuffer* array, usize index, usize count, rawptr valuePtr);
 
-/* TODO */
+/* Replaces all occurences of the firstly specified pointer's value with the
+ * secondly specified one. */
 SIDEF void si_arrayReplaceAll(siBuffer array, rawptr restrict valueOld,
 		rawptr restrict valueNew);
-/* TODO */
+/* Replaces a given amount of the firstly specified pointer's value with the
+ * secondly specified one. */
 SIDEF void si_arrayReplace(siBuffer array, rawptr restrict valueOld,
 		rawptr restrict valueNew, isize amount);
 
-/* TODO */
+/* If needed, reallocates the array for the added space. Returns true if the
+ * array was reallocated. Used internally. */
 SIDEF b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen);
 
 
@@ -3860,6 +3897,9 @@ siBuffer si_arrayMakeReserve(usize sizeofItem, usize length, usize capacity,
 	array.len = length;
 	array.capacity = capacity;
 	array.data = si_allocArray(alloc, u8, sizeofItem * capacity);
+#if defined(SI_USE_BUFFER_GROW)
+	array.grow = SI_USE_BUFFER_GROW;
+#endif
 
 	return array;
 }
@@ -4116,7 +4156,7 @@ b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen) {
 		return false;
 	}
 
-	usize newCapacity = (buffer->capacity + addLen) * 2;
+	usize newCapacity = SI_BUFFER_NEW_CAP(buffer->capacity, addLen);
 	buffer->data = si_realloc(
 		buffer->alloc, buffer->data,
 		buffer->capacity * buffer->typeSize, newCapacity * buffer->typeSize
@@ -4622,23 +4662,9 @@ siArray(siString) si_stringSplitEx(siString string, siString delimiter, isize am
 	return res;
 }
 
-SIDEF
+inline
 b32 si_stringMakeSpaceFor(siString* string, isize addLen) {
-	SI_ASSERT_NOT_NULL(string);
-	SI_ASSERT_NOT_NULL(string->alloc.proc);
-
-	isize newLength = (isize)string->len + addLen;
-	if (newLength <= (isize)string->capacity) {
-		string->len = newLength;
-		return false;
-	}
-
-	usize newCapacity = (string->capacity + addLen) * 2;
-	string->data = si_realloc(string->alloc, string->data, string->capacity, newCapacity);
-	string->len = newLength;
-	string->capacity = newCapacity;
-
-	return true;
+	return si_arrayMakeSpaceFor(string, addLen);
 }
 
 
@@ -5603,7 +5629,7 @@ i32 si_charHexToInt(char c) {
 force_inline
 u64 si__hashKey(u8* key, usize len);
 
-#if !defined(SI_DEFINE_CUSTOM_HASH_FUNCTION)
+#if !defined(SI_USE_CUSTOM_HASH_FUNCTION)
 #define SI__FNV_OFFSET 14695981039346656037UL
 #define SI__FNV_PRIME 1099511628211UL
 
@@ -8865,7 +8891,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 #endif
 
 
-#if !defined(SI_COMPILER_MSVC) && defined(SI_ASM_USE_ATT_SYNTAX)
+#if !defined(SI_COMPILER_MSVC) && defined(SI_USE_ATT_SYNTAX)
 	#undef si_asm
 	#undef SI_ASM_NL
 	#define si_asm(asm, ...)  __asm__ __volatile__(asm __VA_ARGS__)
@@ -8890,9 +8916,9 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	/* condition - EXPRESSION | message - cstring
 	 * Crashes the app with a message if the condition is not met. */
 	#define SI_ASSERT_MSG(condition, message) SI_ASSERT_FMT(condition, message, "")
-	/* condition - EXPRESSION | message - cstring | ...FMT - VARIADIC
+	/* condition - EXPRESSION | message - cstring | ...fmt - VARIADIC
 	 * Crashes the app with a formatted message if the condition is not met. */
-	#define SI_ASSERT_FMT(condition, message, ...) \
+	#define SI_ASSERT_FMT(condition, message, ... /* fmt */) \
 		SI_STOPIF(!(condition), si_panic(#condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__))
 	/* ptr - rawptr
 	 * Crashes the app if a pointer is NULL. */
