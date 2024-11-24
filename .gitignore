@@ -18,5 +18,9 @@ lib/
 *.json
 Dockerfile
 *.mp3
-*.png
-Makefile
+ideas.txt
+*.obj
+
+# Later
+siapp.h
+sigl.h

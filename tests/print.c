@@ -1,5 +1,7 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
+#include <math.h>
+
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
@@ -11,29 +13,31 @@
 		\
 		if (expectedLen != len) { \
 			si_printf( \
-				"%CR" __FILE__ ":%i: Lengths are not the same:%C '%zu' vs '%zu'\n", \
+				"%C" __FILE__ ":%i:%C Lengths are not the same: '%zu' vs '%zu'\n", \
+				si_printColor3bitEx(siPrintColorAnsi_Red, true, 0), \
 				__LINE__, expectedLen, len, buffer \
 			); \
 		} \
-		i32 res = strcmp(buffer, expectedStr); \
+		i32 res = si_memcompare(buffer, expectedStr, len); \
 		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%s'", res, buffer); \
 		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
 	} while(0)
 
 #define TEST_PRINT_REG(expectedStr) TEST_PRINT(expectedStr, expectedStr, 0)
 
+
 int main(void) {
 	/* From: https://en.cppreference.com/w/c/io/fprintf */
-	const char* s = "Hello";
+	const char* str = "Hello";
 	TEST_PRINT_REG("Strings:\n");
 	TEST_PRINT_REG(" padding:\n");
-	TEST_PRINT("\t[Hello]\n", "\t[%s]\n", s);
-	TEST_PRINT("\t[     Hello]\n", "\t[%10s]\n", s);
-	TEST_PRINT("\t[Hello     ]\n", "\t[%-10s]\n", s);
-	TEST_PRINT("\t[     Hello]\n", "\t[%*s]\n", 10, s);
+	TEST_PRINT("\t[Hello]\n", "\t[%s]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%10s]\n", str);
+	TEST_PRINT("\t[Hello     ]\n", "\t[%-10s]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%*s]\n", 10, str);
 	TEST_PRINT_REG(" truncating:\n");
-	TEST_PRINT("\tHell\n", "\t%.4s\n", s);
-	TEST_PRINT("\tHel\n", "\t%.*s\n", 3, s);
+	TEST_PRINT("\tHell\n", "\t%.4s\n", str);
+	TEST_PRINT("\tHel\n", "\t%.*s\n", 3, str);
 
 	TEST_PRINT("Characters:\tA %\n", "Characters:\t%c %%\n", 'A');
 
@@ -57,13 +61,53 @@ int main(void) {
 	TEST_PRINT("\tPadding:\t01.50 1.50  1.50\n", "\tPadding:\t%05.2f %.2f %5.2f\n", 1.5, 1.5, 1.5);
 	TEST_PRINT("\tScientific:\t1.500000E+00 1.500000e+00\n", "\tScientific:\t%E %e\n", 1.5, 1.5);
 	/* TEST_PRINT("\t0x1.8p+0 0X1.8P+0\n", "\tHexadecimal:\t%a %A\n", 1.5, 1.5); */
-	TEST_PRINT("\tSpecial values:\t0/0=nan 1/0=inf\n", "\tSpecial values:\t0/0=%g 1/0=%g\n", 0.0 / 0.0, 1.0 / 0.0);
+	{
+		const f64 nan = NAN;
+		const f64 inf = INFINITY;
+		const f64 n_inf = -INFINITY;
+		TEST_PRINT("\tSpecial values:\t0/0=nan 1/0=inf -1/0=-inf\n", "\tSpecial values:\t0/0=%g 1/0=%g -1/0=%g\n", nan, inf, n_inf);
+	}
 
 	TEST_PRINT_REG("Fixed-width types:\n");
 	TEST_PRINT("\tLargest 32-bit value is 4294967295 or 0xffffffff\n", "\tLargest 32-bit value is %u or %#x\n", UINT32_MAX, UINT32_MAX);
 
+#ifndef SI_NO_SILI_PRINTF_STYLE
 	TEST_PRINT("true false 0b1 0b0\n", "%B %B %#b %#b\n", true, false, 1, 0);
+	TEST_PRINT("qwertyuiop\n", "%S\n", SI_STR("qwertyuiop"));
+#endif
 
+	si_print("================\nPrint colour tests:\nANSI/3-bit colour:\n");
+	for_range (id, siPrintColorAnsi_Black, (siPrintColorAnsi)(siPrintColorAnsi_White + 1)) {
+		siPrintColor clr = si_printColor3bit(id),
+					 bold = si_printColor3bitEx(id, true, false),
+					 light = si_printColor3bitEx(id, false, true),
+					 both = si_printColor3bitEx(id, true, true);
+		si_printf("\t%CColor %i:%C %CBold%C %CLight%C %CAll%C\n", clr, id, bold, light, both);
+	}
 
-	si_printf("%CYTest '" __FILE__ "' has been completed!%C\n");
+	si_print("\n8-bit colour:\n\t");
+	for_range (i, 0, UINT8_MAX + 1) {
+		siPrintColor clr = si_printColor8bit((u8)i);
+		si_printf("%C% 3i%C ", clr, i);
+
+        if (i == 15 || (i > 15 && (i - 15) % 6 == 0)) {
+            si_printf("\n\t");
+        }
+	}
+	si_print("\n24-bit colour:\n\t");
+
+    for_range (column, 0, 77) {
+        i32 r = 255 - (column * 255 / 76);
+        i32 g = (column * 510 / 76);
+        i32 b = (column * 255 / 76);
+
+        if (g > 255) {
+            g = 510 - g;
+        }
+
+		si_printf("%C0%C", si_printColor24bit((u8)r, (u8)g, (u8)b));
+    }
+    si_printf("\n\n");
+
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, 0));
 }

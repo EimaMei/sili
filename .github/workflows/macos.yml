@@ -51,11 +51,11 @@ jobs:
       
     - name: Tests
       run: |
-        make compile_tests
+        make compile_tests CC=clang
 
     - name: Examples
       run: |
-        make compile_examples
+        make compile_examples CC=clang
 
     - name: Build Library
       run: |
@@ -65,15 +65,15 @@ jobs:
         brew install grep
         
         # Build sili x86_64 & arm64 static
-        make static OUTPUT="/tmp" EXTRA_FLAGS="-target x86_64-apple-macos10.12" NAME="sili_x86_64"
-        make static OUTPUT="/tmp" EXTRA_FLAGS="-target arm64-apple-macos11" NAME="sili_arm64"
+        make static CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-target x86_64-apple-macos10.12" NAME="sili_x86_64"
+        make static CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-target arm64-apple-macos11" NAME="sili_arm64"
         
         # Join x86_64 and arm64 static
         lipo -create -output build/${{ env.RELEASE_NAME }}/lib/libsili.a /tmp/libsili_x86_64.a /tmp/libsili_arm64.a
         
         # Build sili x86_64 & arm64 dynamic
-        make dynamic OUTPUT="/tmp" EXTRA_FLAGS="-target x86_64-apple-macos10.12" NAME="sili_x86_64"
-        make dynamic OUTPUT="/tmp" EXTRA_FLAGS="-target arm64-apple-macos11" NAME="sili_arm64"
+        make dynamic CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-fPIC -target x86_64-apple-macos10.12" NAME="sili_x86_64"
+        make dynamic CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-fPIC -target arm64-apple-macos11" NAME="sili_arm64"
         
         # Join sili and arm64 dynamic
         rm -f ./build/lib/*
