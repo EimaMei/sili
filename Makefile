@@ -26,14 +26,14 @@ GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)
 GNU_CC_OUT = -o
 
 
-MSVC_FLAGS = /nologo /std:c11 /Wall /wd4668 /wd4820 /wd5045
-MSVC_INCLUDES = /I"." /I"include"
+MSVC_FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
+MSVC_INCLUDES = -I"." -I"include"
 
-MSVC_STATIC_FLAGS = /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(NAME).o"
-MSVC_AR_FLAGS = /nologo /out:$(OUTPUT)/lib$(NAME).lib
-MSVC_DLL_FLAGS = /nologo /DLL /out:"$(OUTPUT)/lib$(NAME)$(DLL_EXT)" "$(OUTPUT)/$(NAME).o"
+MSVC_STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).o"
+MSVC_AR_FLAGS = -nologo -out:$(OUTPUT)\lib$(NAME).lib
+MSVC_DLL_FLAGS = -nologo -DLL -out:"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).o"
 
-MSVC_CC_OUT = /Fe
+MSVC_CC_OUT = -Fe
 
 
 DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
