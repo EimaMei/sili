@@ -31,7 +31,7 @@ MSVC_INCLUDES = -I"." -I"include"
 
 MSVC_STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).o"
 MSVC_AR_FLAGS = -nologo -out:$(OUTPUT)\lib$(NAME).lib
-MSVC_DLL_FLAGS = -nologo -DLL -out:"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).o"
+MSVC_DLL_FLAGS = -nologo -DLL -OUT:"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).o"
 
 MSVC_CC_OUT = -Fe
 

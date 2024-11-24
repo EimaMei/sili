@@ -3286,7 +3286,7 @@ rawptr si__BenchmarkThread(rawptr arg);
 			function; \
 		} \
 		timeSince = si_RDTSC() - timeSince; \
-		f64 timeTaken = (f64)timeSince / (f64)si_cpuClockSpeed() / 1000.0; /* NOTE(EimaMei): This will take the time in ms, not seconds. */ \
+		f64 timeTaken = (f64)timeSince / ((f64)si_cpuClockSpeed() / 1000.0); /* NOTE(EimaMei): This will take the time in ms, not seconds. */ \
 		si_printf(SI_PERFORMANCE_MSG, #function, timeTaken, timesToLoop / 1000000.0); \
 	} while(0)
 
@@ -8683,7 +8683,7 @@ void si_benchmarkLoopsAvgPrint(siBenchmarkInfo info, usize range[2]) {
 
 	const siBenchmarkLimit* element = nil;
 	u64* array = (u64*)info.cycles.data;
-	f64 freq = (f64)si_cpuClockSpeed() / 1000;
+	f64 freq = (f64)si_cpuClockSpeed() / 1000.0;
 
 	isize pad_runs = si_numLen(range[1]);
 	isize pad_cycles = si_numLen(array[info.cycles.len - 1]);
@@ -8737,7 +8737,7 @@ void si_benchmarkLoopsAvgCmpPrint(siBenchmarkInfo info[2], usize range[2]) {
 	);
 	const siBenchmarkLimit* elements[2];
 	u64* arrays[2] = {(u64*)info[0].cycles.data, (u64*)info[1].cycles.data};
-	f64 freq = (f64)si_cpuClockSpeed() / 1000;
+	f64 freq = (f64)si_cpuClockSpeed() / 1000.0;
 
 	isize pad_runs = si_numLen(range[1]);
 	isize pad_cycles[2] = {
