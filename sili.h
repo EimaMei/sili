@@ -5312,12 +5312,12 @@ siUtf16String si_utf8ToUtf16StrEx(u16* outBuffer, usize capacity, siUtf8String s
 		else {
 			SI_STOPIF(offsetUTF16 + 2 >= capacity, break);
 
-			u16 t = si_cast(u16, codepoint - 0x10000);
-			u16 high = si_cast(u16, (t << 10) + 0xD800);
-			u16 low = t + 0xDC00;
+			i32 t = codepoint - 0x10000,
+				high = (t << 10) + 0xD800,
+				low = t + 0xDC00;
 
-			res[offsetUTF16 + 0] = high;
-			res[offsetUTF16 + 1] = low;
+			res[offsetUTF16 + 0] = (u16)high;
+			res[offsetUTF16 + 1] = (u16)low;
 			offsetUTF16 += 2;
 		}
 	}
@@ -5490,7 +5490,7 @@ char si_charLower(char c) {
 inline
 char si_charUpper(char c) {
 	if (characterTraits[(u8)c] & SI__LETL) {
-		return c & ~SI_BIT(5);
+		return (char)(c & ~SI_BIT(5));
 	}
 	return c;
 }
@@ -8343,7 +8343,7 @@ GOTO_SCIENTIFIC_NOTATION:
 					si__printStrToBuf(&info);
 					break;
 				}
-				i8 exponent = 0;
+				i32 exponent = 0;
 				while (vaValue.F64 > 10) {
 					vaValue.F64 /= 10;
 					exponent += 1;
@@ -8358,11 +8358,11 @@ GOTO_SCIENTIFIC_NOTATION:
 				remainder[1] = '+';
 				if (exponent < 10) {
 					remainder[2] = '0';
-					remainder[3] = exponent + '0';
+					remainder[3] = (char)(exponent + '0');
 				}
 				else {
-					remainder[2] = (exponent / 10) + '0';
-					remainder[3] = (exponent % 10) + '0';
+					remainder[2] = (char)((exponent / 10) + '0');
+					remainder[3] = (char)((exponent % 10) + '0');
 				}
 
 				info.str = SI_STR_LEN(remainder, sizeof(remainder));
@@ -8373,7 +8373,7 @@ GOTO_SCIENTIFIC_NOTATION:
 				vaValue.F64  = va_arg(va, f64);
 
 				if (vaValue.F64 < 0.0001) {
-					x = 'E' + (x - 'G');
+					x = (char)('E' + (x - 'G'));
 					goto GOTO_SCIENTIFIC_NOTATION;
 				}
 

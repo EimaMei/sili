@@ -57,7 +57,7 @@ else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe
 
 	LIBS =
 	EXE = $(OUTPUT)/test.exe
-	LINKER = link
+	LINKER = link.exe
 
 	CC_OUT = $(MSVC_CC_OUT)
 	STATIC_FLAGS = $(MSVC_STATIC_FLAGS)
@@ -121,7 +121,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h siapp.h
+$(EXE): $(SRC) sili.h sigar.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
 
 # Compiles and runs every example.
