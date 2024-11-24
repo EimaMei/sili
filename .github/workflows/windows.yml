@@ -78,26 +78,40 @@ jobs:
       run: |
         set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
+
     - name: Tests (MinGW-w64 64-bit)
       run: |
         make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc
-        shell: cmd
+      shell: cmd
       if: |
         matrix.compiler == 'mingw-w64' &&
         matrix.bits == 64
   
-      - name: Tests (MSVC16 64-bit)
+    - name: Tests (MSVC16 64-bit)
       run: |
         make compile_tests CC=cl.exe
-        shell: cmd
+      shell: cmd
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
 
-    - name: Examples
+
+    - name: Examples (MinGW-w64 64-bit)
       run: |
         make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc
+      shell: cmd
+      if: |
+        matrix.compiler == 'mingw-w64' &&
+        matrix.bits == 64
+
+    - name: Examples (MSVC16 64-bit)
+      run: |
         make compile_examples CC=cl.exe
+      shell: cmd
+      if: |
+        matrix.compiler == 'msvc16' &&
+        matrix.bits == 64
+
 
     - name: Build Library (MSVC16 64-bit)
       run: |
@@ -122,6 +136,7 @@ jobs:
       if: |
         matrix.compiler == 'mingw-w64' &&
         matrix.bits == 64
+
 
     - name: Generate Artifacts
       run: |
