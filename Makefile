@@ -20,7 +20,7 @@ GNU_FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
 GNU_INCLUDES = -I"." -I"include"
 
 GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
-GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a
+GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a "$(OUTPUT)/$(NAME).o"
 GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)"
 
 GNU_CC_OUT = -o
@@ -29,9 +29,9 @@ GNU_CC_OUT = -o
 MSVC_FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
 MSVC_INCLUDES = -I"." -I"include"
 
-MSVC_STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).o"
-MSVC_AR_FLAGS = -nologo -out:$(OUTPUT)\lib$(NAME).lib
-MSVC_DLL_FLAGS = -nologo -DLL -OUT:"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).o"
+MSVC_STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).obj"
+MSVC_AR_FLAGS = -nologo -out:"$(OUTPUT)\lib$(NAME).lib" "$(OUTPUT)/$(NAME).obj"
+MSVC_DLL_FLAGS = -LD -nologo $(MSVC_CC_OUT)"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).obj"
 
 MSVC_CC_OUT = -Fe
 
@@ -57,7 +57,7 @@ else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe
 
 	LIBS =
 	EXE = $(OUTPUT)/test.exe
-	LINKER = link.exe
+	LINKER = $(CC)
 
 	CC_OUT = $(MSVC_CC_OUT)
 	STATIC_FLAGS = $(MSVC_STATIC_FLAGS)
@@ -104,7 +104,7 @@ all: $(OUTPUT) $(EXE) run
 # 'make static'
 static:
 	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
-	$(AR) $(AR_FLAGS) $(OUTPUT)/$(NAME).o
+	$(AR) $(AR_FLAGS)
 
 dynamic:
 	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
