@@ -20,7 +20,7 @@ sili.h - v0.1.0 - a general-purpose programming library to replace the C/C++ sta
 		- #define SI_NO_HASHTABLE
 		- #define SI_NO_IO
 		- #define SI_NO_THREAD
-		- #define IS_NO_TIME
+		- #define SI_NO_TIME
 		- #define SI_NO_BIT
 		- #define SI_NO_SYSTEM
 		- #define SI_NO_CPU
@@ -136,7 +136,7 @@ LICENSE:
 
 WARNING
 	- Sili is designed to be a library that's fast, modern, but also experimental.
-	Because of that, some unwarranted results may occur when using the library, 
+	Because of that, some unwarranted results may occur when using the library,
 	those being:
 		1) Features not working as expected;
 		2) Functions not being documented or only containing incomplete documentation;
@@ -153,7 +153,7 @@ WARNING
 #ifndef SI_INCLUDE_SI_H
 #define SI_INCLUDE_SI_H
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -169,7 +169,7 @@ extern "C" {
 #define SI_VERSION(major, minor, patch) (major * 10000 + minor * 100 + patch)
 
 #ifndef SI_EXTERN
-	#if defined(__cplusplus)
+	#ifdef __cplusplus
 		#define SI_EXTERN extern "C"
 	#else
 		#define SI_EXTERN extern
@@ -289,8 +289,8 @@ extern "C" {
 /* Checks if the currently-used compiler supports '#pragma once' functinoality. */
 #define SI_COMPILER_HAS_PRAGMA_ONCE (SI_COMPILER_CLANG || SI_COMPILER_MSVC || SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0))
 
-#if defined(__cplusplus)
-	#if defined(__OBJC__)
+#ifdef __cplusplus
+	#ifdef __OBJC__
 		#define SI_LANGUAGE_OBJ_CPP 1
 		#define SI_LANGUAGE_STR "Objective-C++"
 	#else
@@ -300,7 +300,7 @@ extern "C" {
 
 	#define SI_LANGUAGE_IS_CPP 1
 #else
-	#if defined(__OBJC__)
+	#ifdef __OBJC__
 		#define SI_LANGUAGE_OBJ_C 1
 		#define SI_LANGUAGE_STR "Objective-C"
 	#elif defined(__cplus__)
@@ -426,6 +426,7 @@ extern "C" {
 #else
 	#define SI_ARCH_UNKNOWN 1
 	#define SI_ARCH_STR "Unknown"
+
 #endif
 
 #if !defined(SI_ENDIAN_STR) && (!defined(SI_ENDIAN_IS_LITTLE) || !defined(SI_ENDIAN_IS_BIG))
@@ -537,7 +538,7 @@ extern "C" {
 		#define _CRT_SECURE_NO_WARNINGS
 	#endif
 
-	#if !defined(SI_NO_WINDOWS_H)
+	#ifndef SI_NO_WINDOWS_H
 		#define NOMINMAX            1
 		#define WIN32_LEAN_AND_MEAN 1
 		#define WIN32_MEAN_AND_LEAN 1
@@ -575,7 +576,7 @@ extern "C" {
 	#define SI_NO_ERROR_STRUCT
 #endif
 
-#if !defined(SI_NO_TYPE_DEFS)
+#ifndef SI_NO_TYPE_DEFS
 	#include <stdint.h>
 
 	typedef uint8_t   u8;
@@ -587,7 +588,7 @@ extern "C" {
 	typedef uint64_t u64;
 	typedef  int64_t i64;
 
-	#if !defined(b8)
+	#ifndef b8
 		typedef u8   b8; /* NOTE(EimaMei): Don't use this as the primary boolean type. */
 		typedef u16 b16;
 		typedef u32 b32; /* NOTE(EimaMei): Use this as the default! */
@@ -795,12 +796,12 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 
-#if !defined(rawptr)
+#ifndef rawptr
 	/* A pointer type pointing to raw data. */
 	typedef void* rawptr;
 #endif
 
-#if !defined(cstring)
+#ifndef cstring
 	/* A const NULL-terminated C-string type. */
 	typedef const char* cstring;
 #endif
@@ -827,7 +828,7 @@ SI_STATIC_ASSERT(false == 0);
 /* x - UINT
  * Shortcut for (1 << x). */
 #define SI_BIT(x) (1ULL << (x))
-#if !defined(nil)
+#ifndef nil
 	#if SI_LANGUAGE_IS_CPP
 		/* A nothing value, equivalent to NULL. */
 		#define nil nullptr
@@ -884,22 +885,22 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 
 #endif
 
-#if !defined(countof)
+#ifndef countof
 	/* value - ARRAY
 	* Gets the static length of the given value (must be an array). */
 	#define countof(.../* value */) (sizeof(__VA_ARGS__) / sizeof((__VA_ARGS__)[0]))
-
 #endif
-#if !defined(countof_str)
+
+#ifndef countof_str
 	/* value - ARRAY
-	* Gets the static length of the given string while excluding the NULL terminator. */
+	* Gets the length of a static NULL-terminated C-string.*/
 	#define countof_str(.../* value */) (countof(__VA_ARGS__) - 1)
-
 #endif
+
 SI_STATIC_ASSERT(countof("abcd") == 5);
 SI_STATIC_ASSERT(countof_str("abcd") == 4);
 
-#if !defined(offsetof)
+#ifndef offsetof
 	#if SI_COMPILER_CHECK_MIN(GCC, 3, 4, 0) || SI_COMPILER_CHECK_MIN(CLANG, 2, 6, 0)
 		/* type - STRUCT TYPE | element - TYPE's member
 		* Returns the offset of the specified member. */
@@ -938,7 +939,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
  * Casts a value to the type provided. */
 #define si_cast(type, value) ((type)((value)))
 
-#if defined(SI_TYPEOF_USED)
+#ifdef SI_TYPEOF_USED
 	/* type - TYPE | value - EXPRESSION
 	 * Type prunes a value with the specified type ('typeof' is used to get value's type). */
 	#define si_transmuteType(type, value) si_transmute(type, value, typeof(value))
@@ -984,7 +985,7 @@ extern "C++" {
 	========================
 */
 
-#if defined(SI_TYPEOF_USED)
+#ifdef SI_TYPEOF_USED
 	/* a - VARIABLE | b - VARIABLE
 	 * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
 	#define si_swap(a, b) do { typeof((a)) tmp = (a); (a) = (b); (b) = tmp; } while (0)
@@ -1033,7 +1034,7 @@ extern "C++" {
 */
 
 #ifndef SI_DEBUG_TRAP
-	#if defined(SI_COMPILER_MSVC)
+	#ifdef SI_COMPILER_MSVC
 	 	#if SI_COMPILER_VERSION < SI_VERSION(7, 0, 0)
 			#define SI_DEBUG_TRAP() __asm int 3
 		#else
@@ -1049,12 +1050,12 @@ extern "C++" {
 noreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
 		cstring func, cstring message, ...);
 
-#if defined(SI_NO_ASSERTIONS)
+#ifdef SI_NO_ASSERTIONS
 	#undef SI_NO_ASSERTIONS_IN_HEADER
 	#define SI_NO_ASSERTIONS_IN_HEADER
 #endif
 
-#if !defined(SI_NO_ASSERTIONS_IN_HEADER)
+#ifndef SI_NO_ASSERTIONS_IN_HEADER
 	/* condition - EXPRESSION
 	 * Crashes the app if the condition is not met. */
 	#define SI_ASSERT(condition) SI_ASSERT_MSG(condition, nil)
@@ -1341,7 +1342,7 @@ SIDEF usize si_allocatorGetAvailable(siAllocator alloc);
 #endif
 
 
-#if !defined(SI_NO_MEMORY)
+#ifndef SI_NO_MEMORY
 /*
 *
 *
@@ -1405,7 +1406,7 @@ SIDEF rawptr si_memmoveRight(void* src, usize size, isize moveBy);
 
 #endif /* SI_NO_MEMORY */
 
-#if !defined(SI_NO_OPTIONAL)
+#ifndef SI_NO_OPTIONAL
 /*
 *
 *
@@ -1432,83 +1433,86 @@ SIDEF rawptr si_memmoveRight(void* src, usize size, isize moveBy);
 	========================
 */
 
-/* A struct containing information about an error that happened during an operation. */
+/* A struct containing information about an error that was declared in a function. */
 typedef struct siError {
-	/* Error code from the operation. */
+	/* Error code. */
 	i32 code;
 
-#if !defined(SI_NO_ERROR_STRUCT)
-	/* */
+#ifndef SI_NO_ERROR_STRUCT
+	/* The line number where the error was declared. */
 	i32 line;
-	/* */
+	/* The file where the error was declared. */
 	cstring filename;
-	/* The time when the error happened (in UTC+0). */
+	/* The time when the error was declared (in UTC+0). */
 	i64 time;
 #endif
 } siError;
 
 
-/* ptr - siError* | errorCode - i32 | TODO
- * Sets the error code, function name and time for the error variable. The
- * specified pointer can be 'nil', however nothing will then be written. */
-#define SI_ERROR(ptr, errorCode) SI_ERROR_EX(ptr, errorCode, si_errorLogDefault)
-/* TODO
- * TODO */
+/* errVar - <nullable> siError* | errCode - i32
+ * Writes error-related information into the error variable. If logging is enabled,
+ * the default error log function is executed. */
+#define SI_ERROR(errVar, errCode) SI_ERROR_EX(errVar, errCode, si_errorLogDefault)
+/* Sets the error code to zero. */
 #define SI_ERROR_DEFAULT (siError){.code = 0}
 
-/* TODO
- * TODO */
-#define SI_ERROR_CHECK(condition, ptr, errorCode, returnValue) \
-	SI_ERROR_CHECK_EX(condition, ptr, errorCode, returnValue, si_errorLogDefault)
-/* TODO
- * TODO */
-#define SI_ERROR_CHECK_EX(condition, ptr, errorCode, returnValue, function) \
-	SI_STOPIF(condition, SI_ERROR_EX(ptr, errorCode, function); return returnValue);
+/* cond - b32 | errVar - <nullable> siError* | errCode - i32 | retValue - TYPE
+ * If the specified condition evaluates to true, an error is declared and the given
+ * return value will be returned. Error-related information is written into the
+ * error variable. If logging is enabled, the default error log function is executed. */
+#define SI_ERROR_CHECK(cond, errVar, errCode, retValue) \
+	SI_ERROR_CHECK_EX(cond, errVar, errCode, retValue, si_errorLogDefault)
+/* cond - b32 | errVar - <nullable> siError* | errCode - i32 | retValue - TYPE | func - FUNCTION
+ * If the specified condition evaluates to true, an error is declared and the given
+ * return value will be returned. Error-related information is written into the
+ * error variable. If logging is enabled, the given error log function is executed. */
+#define SI_ERROR_CHECK_EX(cond, errVar , errCode, retValue, func) \
+	SI_STOPIF(cond, SI_ERROR_EX(errVar, errCode, func); return retValue);
 
 
-#if !defined(SI_NO_ERROR_STRUCT)
-	/* error - siError* | errorCode - i32 | TODO
-	 * Sets the error code, function name and time for the error variable. The
-	 * specified pointer can be 'nil', however nothing will then be written. */
-	#define SI_ERROR_EX(error, errorCode, function) \
+#ifndef SI_NO_ERROR_STRUCT
+	/* err - siError* | errCode - i32 | func - FUNCTION
+	 * Writes error-related information (error code, time, line number and
+	 * filename) into the error variable. If logging is enabled, the given error
+	 * log function is executed. */
+	#define SI_ERROR_EX(err, errCode, func) \
 		do { \
-			i32 si__errorCode = errorCode; \
-			if (error != nil) { \
-				(error)->line = __LINE__; \
-				(error)->filename = __FILE__; \
-				(error)->code = si__errorCode; \
-				(error)->time = si_timeNowUTC(); \
+			if (err != nil) { \
+				(err)->line = __LINE__; \
+				(err)->filename = __FILE__; \
+				(err)->code = errCode; \
+				(err)->time = si_timeNowUTC(); \
 			} \
-			SI_ERROR_LOG(error, function); \
+			SI_ERROR_LOG(err, func); \
 		} while (0)
 
 #else
-	/* TODO
-	 * TODO */
-	#define SI_ERROR_EX(error, errorCode, function) \
+	/* err - siError* | errCode - i32 | function - func
+	 * Writes error-related information (error code) into the error variable. If
+	 * logging is enabled, the given error log function is executed. */
+	#define SI_ERROR_EX(error, errorCode, func) \
 		do { \
-			i32 si__errorCode = errorCode; \
 			if (error != nil) { \
-				(error)->code = si__errorCode;  \
+				(error)->code = errorCode;  \
 			} \
-			SI_ERROR_LOG(si__errorCode, function);
+			SI_ERROR_LOG(si__errorCode, func);
 		} while(0)
 
 #endif
 
-#if !defined(SI_NO_ERROR_LOGS)
-	/* TODO
-	 * TODO */
-	#define SI_ERROR_LOG(error, function) function(error)
+#ifndef SI_NO_ERROR_LOGS
+	/* err - siError* | func - FUNCTION
+	 * Executes the given error log function if error logging is enabled. */
+	#define SI_ERROR_LOG(err, func) func(err)
 
 #else
-	/* TODO
-	 * TODO */
-	#define SI_ERROR_LOG(errorCode, function) do {} while (0)
+	/* error - siError* | func - FUNCTION
+	 * Does nothing since error logging is disabled. */
+	#define SI_ERROR_LOG(err, func) do {} while (0)
 
 #endif
 
-/* TODO */
+/* The default error logging function when an error occurs. */
 SIDEF void si_errorLogDefault(siError* error);
 
 
@@ -1585,7 +1589,7 @@ si_optional_define(rawptr);
 
 #endif /* SI_NO_OPTIONAL */
 
-#if !defined(SI_NO_ARRAY)
+#ifndef SI_NO_ARRAY
 /*
 *
 *
@@ -1612,12 +1616,12 @@ typedef struct siBuffer {
 	usize capacity;
 	usize typeSize;
 	siAllocator alloc;
-#if defined(SI_USE_BUFFER_GROW)
+#ifdef SI_USE_BUFFER_GROW
 	usize grow;
 #endif
 } siBuffer;
 
-/* Defines a 'siBuffer 'optional type. */
+/* Defines a 'siBuffer' optional type. */
 si_optional_define(siBuffer);
 
 /* type - TYPE
@@ -1629,7 +1633,7 @@ si_optional_define(siBuffer);
 	 * Determines how much memory should be allocated for the new buffer's capacity.
 	 * Default non-grow capacity: '2 * (capacity + addLen)'.
 	 * Default grow capacity: 'capacity + addLen + grow'. */
-	#if !defined(SI_USE_BUFFER_GROW)
+	#ifndef SI_USE_BUFFER_GROW
 		#define SI_BUFFER_NEW_CAP(bufferPtr, addLen) (2 * ((bufferPtr)->capacity + addLen))
 	#else
 		#define SI_BUFFER_NEW_CAP(bufferPtr, addLen) ((bufferPtr)->capacity + addLen + (bufferPtr)->grow)
@@ -1651,7 +1655,7 @@ si_optional_define(siBuffer);
 	(siBuffer){(u8*)buffer, length, length, sizeof(type), alloc}
 
 
-#if defined(SI_RELEASE_MODE)
+#ifdef SI_RELEASE_MODE
 	/* array - siBuffer | index - usize | type - TYPE
 	 * Returns an element at the specified index of an array. No bound or type
 	 * checking is done. */
@@ -1686,7 +1690,7 @@ si_optional_define(siBuffer);
 
 
 /* alloc - siAllocator | type - TYPE | ...values - VARIADIC
- * Dynamically allocates an array from the specified type and static items. */
+ * Allocates an array from the specified type and static items. */
 #define si_arrayMake(alloc, type, .../* values */) \
 	si_arrayMakeEx((type[]){__VA_ARGS__}, sizeof(type), countof((type[]){__VA_ARGS__}), alloc)
 /* Allocates 'count * sizeofItem' amount of bytes to make an array and copies the
@@ -1720,13 +1724,11 @@ SIDEF rawptr si_arrayEnd(siBuffer array);
 
 
 
-/* Goes from the start to the end of the array and checks if a element matches
- * the contents of the specified pointer. If so, the index of the element is
- * returned. If the value isn't found, negative one will be returned. */
+/* Searches for the specified pointer's content in the array (from the beginning).
+ * If found, the value's array index is returned, otherwise '-1' is returned. */
 SIDEF isize si_arrayFind(siBuffer array, rawptr valuePtr);
-/* Goes from the end to the start of the array and checks if a element matches
- * the contents of the specified pointer. If so, the index of the element is
- * returned. If the value isn't found, negative one will be returned. */
+/* Searches for the specified pointer's content in the array (from the end). If
+ * found, the value's array index is returned, otherwise '-1' is returned. */
 SIDEF isize si_arrayFindLast(siBuffer array, rawptr valuePtr);
 
 /* Returns the amount of times the specified pointer's value repeats in the array. */
@@ -1781,7 +1783,7 @@ SIDEF b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen);
 
 #endif /* SI_NO_ARRAY */
 
-#if !defined(SI_NO_STRING)
+#ifndef SI_NO_STRING
 /*
 *
 *
@@ -1802,9 +1804,9 @@ SIDEF b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen);
 	========================
 */
 
-/* TODO */
+/* Represents a string type. */
 typedef siBuffer siString;
-/* TODO */
+/* Defines a 'siString' optional type. */
 si_optional_define(siString);
 
 /* name - NAME |  string- siString
@@ -1818,56 +1820,56 @@ si_optional_define(siString);
 
 
 /* string - cstring
- * Creates a sili-string literal on the stack from a string literal. */
+ * Makes a string from a static NULL-terminated C-string. */
 #define SI_STR(string) SI_STR_LEN(string, countof_str(string))
 /* string - STR | len - usize
- * Creates a sili-string literal on the stack from a length-specified C-string. */
+ * Makes a string from a length-specified C-string. */
 #define SI_STR_LEN(string, len) SI_BUF_LEN(u8, string, len)
 /* string - char*
- * Creates a sili-string on the stack from a NULL-terminated C-string. */
+ * Creates a string from a NULL-terminated C-string. */
 #define SI_CSTR(string) SI_STR_LEN(string, si_cstrLen(string))
 /* string - cstring
- * Creates a compile-time constant sItring literal on the stack from a string literal. */
+ * Creates a compile-time constant string from a static NULL-terminated C-string. */
 #define SI_STRC(string) {(u8*)string, countof_str(string), countof_str(string), 1, nil}
 
 
-/* TODO
- * TODO */
+/* string - siString | index - usize
+ * Returns a character at the specified index of the string. */
 #define si_stringGet(string, index) si_arrayGet(string, index, u8)
 
-/* TODO */
+/* Allocates a string from a NULL-terminated C-string. */
 SIDEF siString si_stringMake(cstring string, siAllocator alloc);
-/* TODO */
+/* Allocates a string from a C-string with a specified length. */
 SIDEF siString si_stringMakeLen(cstring string, usize len, siAllocator alloc);
-/* TODO */
+/* Allocates a string with a specified capacity, and copies the contents of a
+ * C-string with a specified length. */
 SIDEF siString si_stringMakeEx(cstring string, usize len, usize capacity,
 		siAllocator alloc);
-/* TODO */
+/* Allocates a string with a reserved capacity with a set length. */
 SIDEF siString si_stringMakeReserve(usize length, usize capacity, siAllocator alloc);
 /* TODO */
 SIDEF siString si_stringMakeFmt(siAllocator alloc, cstring fmt, ...);
 
-/* TODO */
+/* Allocates a duplicated string. */
 SIDEF siString si_stringCopy(siString from, siAllocator alloc);
-/* */
+/* Allocates a NULL-terminated C-string from a string. */
 SIDEF char* si_stringCopyToCstr(siString from, siAllocator alloc);
-/* TODO */
+/* Allocates a NULL-terminated C-string with a specified capacity from a string. */
 SIDEF char* si_stringCloneToCstrEx(siString from, usize capacity, siAllocator alloc);
 
-
-/* TODO */
+/* Frees the string */
 SIDEF void si_stringFree(siString string);
 
 
-/* Gets the character at a specified index in the sili-string. */
+/* Gets the character at a specified index. Returns '-1' if the index is invalid. */
 SIDEF i32 si_stringAt(siString string, usize index);
-/* Gets the first character of the sili-string. */
+/* Gets the string's first character. */
 SIDEF i32 si_stringAtFront(siString string);
-/* Gets the last character of the sili-string. */
+/* Gets the string's last character. */
 SIDEF i32 si_stringAtBack(siString string);
-/* Returns a pointer to the first character in the string. */
+/* Gets a pointer to the string's first character. */
 SIDEF u8* si_stringBegin(siString string);
-/* Returns a pointer to the past-the-end element in the string. */
+/* Gets pointer to the string's past-the-end element. */
 SIDEF u8* si_stringEnd(siString string);
 
 
@@ -1880,55 +1882,59 @@ SIDEF u8* si_stringEnd(siString string);
 #define si_stringSubToEnd(string, begin) si_stringSub(string, begin, (string).len - (begin))
 
 
-/* TODO */
+/* Searches for the specified substring in the string (from the beginning). If
+ * found, the value's string index is returned, otherwise '-1' is returned. */
 SIDEF isize si_stringFind(siString string, siString subStr);
-/* TODO */
+/* Searches for the specified byte in the string (from the beginning). If found,
+ * the value's string index is returned, otherwise '-1' is returned. */
 SIDEF isize si_stringFindByte(siString string, u8 byte);
-/* Finds the first occurence of the given UTF8 charcter in the specified string.
- * Returns the byte index position in the string, writes the character index
- * into 'outCharIndex'. */
+/* Searches for the specified UTF-8 character in the string (from the beginning).
+ * If found, the value's string index is returned and the value's UTF-8 character
+ * index is written to the given pointer. Otherwise, '-1' is returned while '-1'
+ * is written to the given pointer. . */
 SIDEF isize si_stringFindUtf8(siString string, const u8* character, isize* outUtf8Index);
 
-/* TODO */
+/* Searches for the specified substring in the string (from the end). If found,
+ * the value's string index is returned, otherwise '-1' is returned. */
 SIDEF isize si_stringFindLast(siString string, siString subStr);
-/* TODO */
+/* Searches for the specified byte in the string (from the end). If found, the
+ * value's string index is returned, otherwise '-1' is returned. */
 SIDEF isize si_stringFindLastByte(siString string, u8 byte);
 
-/* Returns the amount of occurences of a substring in the sili-string. */
+/* Returns the total occurences of the specified substring in the main string. */
 SIDEF usize si_stringFindCount(siString string, siString subStr);
 
 
-/* Compares two strings and returns an integer, representing which first byte comes
- * first lexicographically. '-1' for 'lhs', `1` for rhs, '0' if they're equal. */
-SIDEF i32 si_stringCompare(siString lhs, siString rhs);
-/* Compares two strings and returns a boolean, indicating if they're equal or not.  */
+/* Compares two strings and returns true if they're equal. */
 SIDEF b32 si_stringEqual(siString lhs, siString rhs);
+/* Compares two strings. Returns either: A) '0' if both strings are equal;
+ * B) '-1' if the largest differentiating byte is 'lhs' string's; C) '1' otherwise. */
+SIDEF i32 si_stringCompare(siString lhs, siString rhs);
 
-/* TODO */
+/* Appends a string to the main string. Returns true if the string was reallocated. */
 SIDEF b32 si_stringAppend(siString* string, siString other);
-/* TODO */
+/* Appends a sistring to the main string. Returns true if the string was reallocated. */
 SIDEF b32 si_stringSet(siString* string, siString str);
-/* TODO */
+/* Joins all specified strings into one and writes it into an allocated string. */
 SIDEF siString si_stringJoin(siArray(siString) strings, siString separator,
 		siAllocator alloc);
 
-/* Cuts the front and back occurences of the provided cut set in the sili-string. */
+/* Cuts every front and back occurences of the provided cut set in the string. */
 SIDEF void si_stringTrim(siString* string, siString cutSet);
-/* Cuts the front occurences of the provided cut set in the sili-string. */
+/* Cuts every front occurences of the provided cut set in the string. */
 SIDEF void si_stringTrimLeft(siString* string, siString cutSet);
-/* Cuts the back occurences of the provided cut set in the sili-string. */
+/* Cuts back occurences of the provided cut set in the string. */
 SIDEF void si_stringTrimRight(siString* string, siString cutSet);
 /* Removes any leading or trailing spaces and newlines in the string. */
 SIDEF void si_stringStrip(siString* string);
 
-/* Enquotes the given string. */
+/* Enquotes the string. */
 SIDEF b32 si_stringEnquote(siString* string);
-/* Pushes a character into the sili-string.
- * NOTE: A new string may be allocated. */
+/* Adds a character to the string. Returns true if the string was reallocated. */
 b32 si_stringPush(siString* string, char other);
-/* Pops the last character of the sili-string.  */
+/* Pops the last string's character. */
 void si_stringPop(siString* string);
-/* Clears the string by setting the length to zero. */
+/* Sets the string's leangth to zero. */
 void si_stringClear(siString* str);
 
 /* Inserts a substring at the specified index of a string. Returns true if the
@@ -1970,7 +1976,7 @@ SIDEF siArray(siString) si_stringSplitEx(siString string, siString delimiter,
  * string was reallocated. Used internally. */
 SIDEF b32 si_stringMakeSpaceFor(siString* string, isize addLen);
 
-#if !defined(SI_NO_MEMORY)
+#ifndef SI_NO_MEMORY
 
 /* Copies a string into the specified pointer (see 'si_memcopy' for more detail). */
 SIDEF rawptr si_memcopyStr(void* dst, siString src);
@@ -1979,113 +1985,105 @@ SIDEF rawptr si_memmoveStr(void* dst, siString src);
 /* Compares a string with the specified pointer (see 'si_memcompare' for more detail). */
 SIDEF i32 si_memcompareStr(const void* dst, siString src);
 
-/* TODO */
+/* Copies a string into the specified pointer (see 'si_memcopy_s' for more detail). */
 SIDEF usize si_memcopyStr_s(void* dst, usize dstSize, siString src);
-/* TODO */
+/* Moves a string into the specified pointer (see 'si_memmove_s' for more detail). */
 SIDEF usize si_memmoveStr_s(void* dst, usize dstSize, siString src);
-
 
 #endif
 
-/* TODO */
+/* An integer to character lookup table (eg. SI_NUM_TO_CHAR_TABLE[0] would return
+ * '0', wheare as an index of 10 would return 'A'/'a'). */
 extern const char* SI_NUM_TO_CHAR_TABLE;
 
-/* Changes the letters' cases to uppercase. */
+/* Capitalizes each string's letter. */
 SIDEF void si_stringUpper(siString string);
-/* Changes the letters' cases to lowercase. */
+/* Decapitalizes each string's letter. */
 SIDEF void si_stringLower(siString string);
-/* Changes each word's front letters' cases to uppercase, while everything else
- * is set to lowercase. */
+/* Capitalizes each string's word. */
 SIDEF void si_stringTitle(siString string);
-/* Changes the first word's front letter's case to uppercase, while everything
- * else is set to lowercase. */
+/* Capitalizes the first word, while every other word is decapitalized. */
 SIDEF void si_stringCapitalize(siString string);
 
-/* Sets the boolean to use lowercase/uppercase characters when converting an
+/* Sets the lookup table state to use upper/lower characters when converting an
  * integer to a string. If 'upper' is set to true, converting '15' to base 16
  * would result in "FF", otherwise "ff". By default this is set to true. */
-void si_numChangeTable(b32 upper);
+SIDEF void si_numChangeTable(b32 upper);
 
-/* Converts a string into a base 10 64-bit unsigned integer. The specified string
- * must be 20 characters long or lower, no error reporting is done at all. */
+/* Converts a string into a base 10 unsigned integer. The string can only contain
+ * up to 20 characters. No error reporting is done at all. */
 SIDEF u64 si_stringToUInt(siString string);
-/* Converts a string into a 64-bit unsigned integer with the conversion status
- * being written to the specified out pointer. For the list of error codes, check
- * the 'si_stringToUIntBase' function's documentation. */
+/* Converts a string into a base 10 unsigned integer. An error code is written to
+ * the specified pointer (check 'si_stringToUIntBase' for the error codes). */
 SIDEF u64 si_stringToUIntEx(siString string, i32* outRes);
-/* Converts a string into a specified base 64-bit unsigned integer with the conversion
- * status being written to the specified out pointer. Setting the base to '-1'
- * tells the function to find the base based on any indicators in the string,
- * like prefixes (eg, '0b' being in the front).
- *
- * Possible 'outRes' values:
- * '-2' - string size is bigger than the maximum 64-bit value for the base
- * '-1' - string size is zero, '0'
- * '<0...len - 1>' an invalid base character was encountered at that index.
- * 'INT32_MAX' - succesful conversion. */
+
+/* Converts a string into a base 10 unsigned integer. Setting a '-1' base tells
+ * the function to automatically find the base from the string's prefixes (eg. '0b').
+ * An error code is written to the specified pointer. The possible error codes
+ * are:
+ * '-2' - the string length is bigger than 20 characters,
+ * '-1' - the string length is zero,
+ * '<0...len - 1>' - an invalid base character was encountered at that index (eg.
+ * finding an alphabet character in a base 10 string).
+ * 'INT32_MAX' - no errors were encountered. */
 SIDEF u64 si_stringToUIntBase(siString string, i32 base, i32* outRes);
 
-/* Converts a string into a base 10 64-bit signed integer. The specified string
- * must be 20 characters long or lower, no error reporting is done at all. */
+/* Converts a string into a base 10 signed integer. The string can only contain
+ * up to 20 characters. No error reporting is done at all. */
 SIDEF i64 si_stringToInt(siString string);
-/* Converts a string into a 64-bit signed integer with the conversion status
- * being written to the specified out pointer. For the list of error codes, check
- * the 'si_stringToUIntBase' function's documentation. */
+/* Converts a string into a base 10 signed integer. An error code is written to
+ * the specified pointer (check 'si_stringToUIntBase' for the error codes). */
 SIDEF i64 si_stringToIntEx(siString string, i32* outRes);
-/* Converts a string into a specified base 64-bit signed integer with the conversion
- * status being written to the specified out pointer. Setting the base to '-1'
- * tells the function to find the base based on any indicators in the string,
- * like prefixes (eg, '0b' being in the front). For the list of error codes,
- * check the 'si_stringToUIntBase' function's documentation. */
+/* Converts a string into a base 10 unsigned integer. Setting a '-1' base tells
+ * the function to automatically find the base from the string's prefixes (eg. '0b').
+ * An error code is written to the specified pointer (check 'si_stringToUIntBase'
+ * for the error codes). */
 SIDEF i64 si_stringToIntBase(siString string, i32 base, i32* outRes);
 
 
-/* Creates a string from the specified unsigned integer in base 10. The string
- * gets allocated in the specified allocator. */
+/* Allocates a string from an unsigned integer in base 10. */
 SIDEF siString si_stringFromUInt(u64 num, siAllocator alloc);
-/* Creates a string from the specified unsigned integer in the given base. The
- * string gets allocated in the specified allocator. */
+/* Allocates a string from an unsigned integer in the specified base. */
 SIDEF siString si_stringFromUIntEx(u64 num, i32 base, siAllocator alloc);
-/* Creates a string from the specified signed integer in base 10. The string
- * gets allocated in the specified allocator. */
+/* Allocates a string from a signed integer in base 10. */
 SIDEF siString si_stringFromInt(i64 num, siAllocator alloc);
-/* Creates a string from the specified signed integer in the given base. The
- * string gets allocated in the specified allocator. */
+/* Allocates a string from a signed integer in the specified base. */
 SIDEF siString si_stringFromIntEx(i64 num, i32 base, siAllocator alloc);
 
 
-/* Creates a string from a float. By default the output base is base 10 and 6
- * decimals after the decimal point. */
+/* Allocates a string from a float with 6 digits after the decimal point in base 10. */
 SIDEF siString si_stringFromFloat(f64 num, siAllocator alloc);
-/* Creates a string from a float, using the specified base and amount of decimals
- * after the decimals point. String gets allocated unless it's "inf" or "nan". */
+/* Allocates a string from a float with the given amount of digits after the
+ * decimal point in the specified base. */
 SIDEF siString si_stringFromFloatEx(f64 num, i32 base, u32 afterPoint, siAllocator alloc);
-/* TODO(EimaMei): f64 si_cstr_to_f64(cstring str); */
 
-
-/* Converts a boolean into a string. */
+/* Returns a 'true'/'false' string from a boolean. */
 SIDEF siString si_stringFromBool(b32 boolean);
-/* Converts a string into a boolean. The function can return 'UINT32_MAX' to
- * indicate that the specified string cannot be turned into a boolean. */
+/* Returns either 'true', 'false' or UINT32_MAX from a string. 'UINT32_MAX'
+ * is returned if the given string cannot be converted into a boolean. */
 SIDEF b32 si_stringToBool(siString string);
 
-/* Checks if the specified string's front is identical to the given prefix. */
+/* Checks if the string has the specified prefix. */
 SIDEF b32 si_stringHasPrefix(siString string, siString prefix);
 /* Returns the amount of matching front characters between the specified strings. */
 SIDEF usize si_stringPrefixLen(siString string, siString prefix);
 
-/* Checks if the specified string's back is identical to the given suffix. */
+/* Checks if the string has the specified suffix. */
 SIDEF b32 si_stringHasSuffix(siString string, siString suffix);
 /* Returns the amount of matching back characters between the specified strings. */
 SIDEF usize si_stringSuffixLen(siString string, siString suffix);
 
-/* TODO */
-SIDEF siString si_stringFromArray(siBuffer array, cstring fmt);
+/* Allocates a formatted string that represents the contesnt of an array based
+ * on the 'fmt' string. For example, if 'fmt = "<%x, %hhu, %#b>' and 'array = (u8){255,
+ * 64, 4}, the string would be '{<0xFF, 64, 0b100>}'*/
+SIDEF siString si_stringFromArray(siBuffer array, cstring fmt, u8* outBuffer,
+		usize capacity);
+
 
 
 #endif /* SI_NO_STRING */
 
-#if !defined(SI_NO_UNICODE)
+#ifndef SI_NO_UNICODE
 /*
 *
 *
@@ -2114,9 +2112,9 @@ typedef siBuffer siUtf16String;
 
 
 /* A UTF-32 encoded '�' character for reporting invalid states. */
-#define SI_UTF32_REPLACEMENT_CHARACTER (siUtf32Char){0xFFFD, 3}
+#define SI_UNICODE_INVALID_UTF32 (siUtf32Char){0xFFFD, 3}
 /* A UTF-8 encoded '�' character for reporting invalid states. */
-#define SI_UTF8_REPLACEMENT_CHARACTER (siUtf8Char){{0xEF, 0xBF, 0xBD}, 3}
+#define SI_UNICODE_INVALID_UTF8 (siUtf8Char){{0xEF, 0xBF, 0xBD}, 3}
 
 
 typedef struct {
@@ -2175,7 +2173,7 @@ SIDEF siUtf8Char si_utf16Encode(const u16 character[2]);
 
 #endif /* SI_NO_UNICODE */
 
-#if !defined(SI_NO_CHAR)
+#ifndef SI_NO_CHAR
 /*
 *
 *
@@ -2238,7 +2236,7 @@ SIDEF i32 si_charHexToInt(char c);
 
 #endif /* SI_NO_CHAR */
 
-#if !defined(SI_NO_HASHTABLE)
+#ifndef SI_NO_HASHTABLE
 /*
 *
 *
@@ -2259,9 +2257,6 @@ SIDEF i32 si_charHexToInt(char c);
 	========================
 */
 
-/* type - TYPE
- * Denotes that this is a 'siHashTable' variable. */
-#define siHt(type) siHashTable
 
 typedef struct siHashEntry {
 	/* Key of the value. */
@@ -2273,6 +2268,10 @@ typedef struct siHashEntry {
 } siHashEntry;
 
 typedef siArray(siHashEntry) siHashTable;
+
+/* type - TYPE
+ * Denotes that this is a 'siHashTable' variable. */
+#define siHt(type) siHashTable
 
 /* Creates a hash table using the given names and data. */
 siHashTable si_hashtableMake(const rawptr* keyArray, usize keyLen,
@@ -2301,7 +2300,7 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr val
 
 #endif /* SI_NO_HASHTABLE */
 
-#if !defined(SI_NO_IO)
+#ifndef SI_NO_IO
 /*
 *
 *
@@ -2423,9 +2422,9 @@ SI_ENUM(i32, siFileError) {
 	const char SI_PATH_SEPARATOR = '/';
 #endif
 
-/* TODO */
+/* Returns the name of a file error code as a string. */
 SIDEF siString si_pathFsErrorName(siFileError err);
-/* TODO */
+/* Returns a description of the file error code. */
 SIDEF siString si_pathFsErrorDesc(siFileError err);
 
 /*
@@ -2606,7 +2605,7 @@ SIDEF b32 si_directoryPollEntryEx(siDirectory* dir, siDirectoryEntry* outEntry, 
 
 #endif /* SI_NO_IO */
 
-#if !defined(SI_NO_THREAD)
+#ifndef SI_NO_THREAD
 /*
 *
 *
@@ -2689,7 +2688,7 @@ b32 si_threadPrioritySet(siThread t, i32 priority);
 
 #endif /* SI_NO_THREAD */
 
-#if !defined(SI_NO_TIME)
+#ifndef SI_NO_TIME
 /*
 *
 *
@@ -2800,7 +2799,7 @@ SIDEF usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar,
 
 #endif /* SI_NO_TIME */
 
-#if !defined(SI_NO_BIT)
+#ifndef SI_NO_BIT
 /*
 *
 *
@@ -2842,10 +2841,6 @@ SI_ENUM(usize, siBitType) {
 	* Returns the specified 'big' value. */
 	#define SI_ENDIAN_VALUE(little, big) end
 #endif
-
-/* x - INT
- * Returns true if x is negative. */
-#define si_numIsNeg(x) ((x) < 0)
 
 /* Returns how many 1 bits are in an 8-bit number. */
 u32 si_numCountBitsU8(u8 num);
@@ -2932,7 +2927,7 @@ SIDEF u32 si_numLenI64Ex(i64 num, u32 base);
 
 #endif /* SI_NO_BIT */
 
-#if !defined (SI_NO_SYSTEM)
+#ifndef SI_NO_SYSTEM
 /*
 *
 *
@@ -2966,7 +2961,7 @@ SIDEF siString si_envVarGet(siString name, u8* out, usize capacity);
 
 #endif /* SI_NO_SYSTEM */
 
-#if !defined(SI_NO_CPU)
+#ifndef SI_NO_CPU
 /*
 *
 *
@@ -2996,7 +2991,7 @@ u32 si_cpuClockSpeed(void);
 
 #endif /* SI_NO_CPU */
 
-#if !defined(SI_NO_PRINT)
+#ifndef SI_NO_PRINT
 /*
 *
 *
@@ -3016,6 +3011,31 @@ u32 si_cpuClockSpeed(void);
 	| si_print             |
 	========================
 */
+
+/* Writes a NULL-terminated C-string into si_stdout. Returns the amount of
+ * written bytes. */
+SIDEF isize si_print(cstring str);
+/* Writes a NULL-terminated formatted C-string into si_stdout. Returns the amount
+ * of written bytes. */
+SIDEF isize si_printf(cstring fmt, ...);
+SIDEF isize si_printfVa(cstring fmt, va_list va);
+
+/* Writes a NULL-terminated C-string into a specified file. Returns the amount of
+ * written bytes. */
+SIDEF isize si_fprint(siFile* file, cstring str);
+/* Writes a NULL-terminated formatted C-string into a specified file. Returns the
+ * amount of written bytes. */
+SIDEF isize si_fprintf(siFile* file, cstring fmt, ...);
+SIDEF isize si_fprintfVa(siFile* file, cstring fmt, va_list va);
+
+/* TODO */
+SIDEF isize si_sprintf(char* buffer, cstring fmt, ...);
+SIDEF isize si_sprintfVa(char* buffer, cstring fmt, va_list va);
+
+/* TODO */
+SIDEF isize si_snprintf(char* buffer, usize outCapacity, cstring fmt, ...);
+SIDEF isize si_snprintfVa(char* buffer, usize outCapacity, cstring fmt, va_list va);
+
 
 SI_ENUM(u8, siPrintColorType) {
 	siPrintColorType_3bit = 1,
@@ -3065,34 +3085,12 @@ typedef struct siPrintColor {
 #define si_printColor24bit(r, g, b) \
 	(siPrintColor){siPrintColorType_24bit, {.rgb[0] = r, .rgb[1] = g, .rgb[2] = b}}
 
-
-/* Writes a NULL-terminated C-string into si_stdout. Returns the amount of
- * written bytes. */
-SIDEF isize si_print(cstring str);
-/* Writes a NULL-terminated formatted C-string into si_stdout. Returns the amount
- * of written bytes. */
-SIDEF isize si_printf(cstring fmt, ...);
-SIDEF isize si_printfVa(cstring fmt, va_list va);
-
-/* Writes a NULL-terminated C-string into a specified file. Returns the amount of
- * written bytes. */
-SIDEF isize si_fprint(siFile* file, cstring str);
-/* Writes a NULL-terminated formatted C-string into a specified file. Returns the
- * amount of written bytes. */
-SIDEF isize si_fprintf(siFile* file, cstring fmt, ...);
-SIDEF isize si_fprintfVa(siFile* file, cstring fmt, va_list va);
-
-/* TODO */
-SIDEF isize si_sprintf(char* buffer, cstring fmt, ...);
-SIDEF isize si_sprintfVa(char* buffer, cstring fmt, va_list va);
-
-/* TODO */
-SIDEF isize si_snprintf(char* buffer, usize outCapacity, cstring fmt, ...);
-SIDEF isize si_snprintfVa(char* buffer, usize outCapacity, cstring fmt, va_list va);
+/* Return true if the terminal supports displaying 24-bit colors. */
+SIDEF b32 si_printHas24bitColor(void);
 
 #endif /* !defined(SI_NO_PRINT) */
 
-#if !defined(SI_NO_DLL)
+#ifndef SI_NO_DLL
 /*
 *
 *
@@ -3132,7 +3130,7 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, cstring name);
 #define si_dllProcAddressFunc(dll, function, type) \
 	si_transmute(type, si_dllProcAddress(dll, #function), siDllProc)
 
-#if defined(SI_TYPEOF_USED)
+#ifdef SI_TYPEOF_USED
 /* dll - siDllHandle | function - FUNCTION
  * Loads the specified function's name as a processor and returns it as an ISO-C
  * friendly function. */
@@ -3140,9 +3138,9 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, cstring name);
 		si_dllProcAddressFunc(dll, function, typeof(function))
 #endif
 
-#endif /* !defined(SI_NO_DLL) */
+#endif /* SI_NO_DLL */
 
-#if !defined(SI_NO_MATH)
+#ifndef SI_NO_MATH
 /*
 *
 *
@@ -3275,10 +3273,10 @@ SIDEF u32 si_float64IsInf(f64 num);
 
 #endif
 
-#endif
+#endif /* SI_NO_MATH */
 
 
-#if !defined(SI_NO_BENCHMARK)
+#ifndef SI_NO_BENCHMARK
 /*
 *
 *
@@ -3455,38 +3453,62 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time);
 *
 */
 
-#if defined(SI_IMPLEMENTATION)
-	#define SI_IMPLEMENTATION_GENERAL
-	#define SI_IMPLEMENTATION_MEMORY
-	#define SI_IMPLEMENTATION_OPTIONAL
-	#define SI_IMPLEMENTATION_ARRAY
-	#define SI_IMPLEMENTATION_STRING
-	#define SI_IMPLEMENTATION_UNICODE
-	#define SI_IMPLEMENTATION_CHAR
-	#define SI_IMPLEMENTATION_HASHTABLE
-	#define SI_IMPLEMENTATION_IO
-	#define SI_IMPLEMENTATION_THREAD
+#ifdef SI_IMPLEMENTATION
+	#ifndef SI_NO_GENERAL
+		#define SI_IMPLEMENTATION_GENERAL
+	#endif
+	#ifndef SI_NO_MEMORY
+		#define SI_IMPLEMENTATION_MEMORY
+	#endif
+	#ifndef SI_NO_ARRAY
+		#define SI_IMPLEMENTATION_ARRAY
+	#endif
+	#ifndef SI_NO_STRING
+		#define SI_IMPLEMENTATION_STRING
+	#endif
+	#ifndef SI_NO_UNICODE
+		#define SI_IMPLEMENTATION_UNICODE
+	#endif
+	#ifndef SI_NO_CHAR
+		#define SI_IMPLEMENTATION_CHAR
+	#endif
+	#ifndef SI_NO_HASHTABLE
+		#define SI_IMPLEMENTATION_HASHTABLE
+	#endif
+	#ifndef SI_NO_IO
+		#define SI_IMPLEMENTATION_IO
+	#endif
+	#ifndef SI_NO_THREAD
+		#define SI_IMPLEMENTATION_THREAD
+	#endif
 	#ifndef SI_NO_TIME
 		#define SI_IMPLEMENTATION_TIME
 	#endif
-	#define SI_IMPLEMENTATION_BIT
+	#ifndef SI_NO_BIT
+		#define SI_IMPLEMENTATION_BIT
+	#endif
 	#ifndef SI_NO_SYSTEM
 		#define SI_IMPLEMENTATION_SYSTEM
 	#endif
 	#ifndef SI_NO_CPU
 		#define SI_IMPLEMENTATION_CPU
 	#endif
-	#define SI_IMPLEMENTATION_PRINT
-	#define SI_IMPLEMENTATION_DLL
-	#define SI_IMPLEMENTATION_MATH
 	#ifndef SI_NO_PRINT
-		#define SI_IMPLEMENTATION_ARGV
+		#define SI_IMPLEMENTATION_PRINT
 	#endif
-	#define SI_IMPLEMENTATION_BENCHMARK
+	#ifndef SI_NO_DLL
+		#define SI_IMPLEMENTATION_DLL
+	#endif
+	#ifndef SI_NO_MATH
+		#define SI_IMPLEMENTATION_MATH
+	#endif
+	#ifndef SI_NO_BENCHMARK
+		#define SI_IMPLEMENTATION_BENCHMARK
+	#endif
 #endif
 
 
-#if defined(SI_IMPLEMENTATION_GENERAL) && !defined(SI_NO_GENERAL)
+#ifdef SI_IMPLEMENTATION_GENERAL
 
 inline
 usize si_alignCeil(usize num) {
@@ -3749,6 +3771,8 @@ void si_panic(cstring conditionStr, cstring file, i32 line, cstring func,
 	SI_DEBUG_TRAP();
 }
 
+#ifndef SI_NO_OPTIONAL
+SIDEF
 void si_errorLogDefault(siError* error) {
 	siPrintColor red = si_printColor3bitEx(siPrintColorAnsi_Red, true, false);
 	si_fprintf(
@@ -3756,18 +3780,18 @@ void si_errorLogDefault(siError* error) {
 		red, error->filename, error->line, error->code
 	);
 }
+#endif /* SI_NO_OPTIONAL */
 
 #endif /* SI_IMPLEMENTATION_GENERAL */
 
-#if defined(SI_IMPLEMENTATION_MEMORY) && !defined(SI_NO_MEMORY)
-
+#ifdef SI_IMPLEMENTATION_MEMORY
 
 SIDEF
 rawptr si_memcopy(void* restrict dst, const void* restrict src, usize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return memcpy(dst, src, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
@@ -3779,7 +3803,7 @@ rawptr si_memmove(void* restrict dst, const void* restrict src, usize size) {
 	SI_ASSERT_NOT_NULL(dst);
 	SI_ASSERT_NOT_NULL(src);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return memmove(dst, src, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
@@ -3791,7 +3815,7 @@ SIDEF
 rawptr si_memset(void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return memset(data, value, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
@@ -3804,7 +3828,7 @@ i32 si_memcompare(const void* ptr1, const void* ptr2, usize size) {
 	SI_ASSERT_NOT_NULL(ptr1);
 	SI_ASSERT_NOT_NULL(ptr2);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return memcmp(ptr1, ptr2, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
@@ -3815,7 +3839,7 @@ SIDEF
 rawptr si_memchr(const void* data, u8 value, usize size) {
 	SI_ASSERT_NOT_NULL(data);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return (rawptr)memchr(data, value, size);
 #else
 	SI_PANIC_MSG("This function doesn't have an implementation for SI_NO_CRT.");
@@ -3827,7 +3851,7 @@ SIDEF
 usize si_cstrLen(cstring string) {
 	SI_ASSERT_NOT_NULL(string);
 
-#if !defined(SI_NO_CRT)
+#ifndef SI_NO_CRT
 	return strlen(string);
 #else
 	usize i = 0;
@@ -3865,12 +3889,12 @@ rawptr si_memmoveRight(void* src, usize length, isize moveBy) {
 	return si_memmove((u8*)src + moveBy, src, length);
 }
 
-#endif /* SI_IMPLEMENTATION_GENERAL */
+#endif /* SI_IMPLEMENTATION_MEMORY */
 
 
-#if defined(SI_IMPLEMENTATION_ARRAY) && !defined(SI_NO_ARRAY)
+#ifdef SI_IMPLEMENTATION_ARRAY
 
-#if !defined(SI_RELEASE_MODE)
+#ifndef SI_RELEASE_MODE
 rawptr si__arrayGet(const siBuffer* buffer, usize index, usize sizeof_type) {
 	SI_ASSERT_FMT(sizeof_type == buffer->typeSize, "Invalid type size ('%zd' vs '%zd).", sizeof_type, buffer->typeSize);
 	SI_ASSERT_FMT(index < buffer->capacity, "Invalid index ('%zd' vs '%zd').", index, buffer->capacity);
@@ -3897,7 +3921,7 @@ siBuffer si_arrayMakeReserve(usize sizeofItem, usize length, usize capacity,
 	array.len = length;
 	array.capacity = capacity;
 	array.data = si_allocArray(alloc, u8, sizeofItem * capacity);
-#if defined(SI_USE_BUFFER_GROW)
+#ifdef SI_USE_BUFFER_GROW
 	array.grow = SI_USE_BUFFER_GROW;
 #endif
 
@@ -4169,9 +4193,7 @@ b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen) {
 
 #endif /* SI_IMPLEMENTATION_ARRAY */
 
-#if defined(SI_IMPLEMENTATION_STRING) && !defined(SI_NO_STRING)
-
-
+#ifdef SI_IMPLEMENTATION_STRING
 
 inline
 siString si_stringMake(cstring string, siAllocator alloc) {
@@ -4668,7 +4690,7 @@ b32 si_stringMakeSpaceFor(siString* string, isize addLen) {
 }
 
 
-#if defined(SI_IMPLEMENTATION_MEMORY)
+#ifdef SI_IMPLEMENTATION_MEMORY
 
 inline rawptr si_memcopyStr(void* dst, siString src) { return si_memcopy(dst, src.data, src.len); }
 inline rawptr si_memmoveStr(void* dst, siString src) { return si_memmove(dst, src.data, src.len); }
@@ -4763,26 +4785,11 @@ siString si_stringFromUIntEx(u64 num, i32 base, siAllocator alloc) {
 
 	return res;
 }
-SIDEF
+
+inline
 u64 si_stringToUInt(siString string) {
-	SI_ASSERT(string.len <= 20);
-
-	u64 res = 0;
-	usize start = 0;
-
-	while (si_charIsSpace(si_stringGet(string, start))) {
-		start += 1;
-	}
-
-	for_range (i, start, string.len) {
-		char x = si_stringGet(string, i);
-		SI_STOPIF(!si_charIsDigit(x), break);
-
-		res *= 10;
-		res += (x - '0');
-	}
-
-	return res;
+	i32 tmp;
+	return si_stringToUIntEx(string, &tmp);
 }
 
 inline
@@ -4795,26 +4802,41 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 	SI_ASSERT_NOT_NULL(outRes);
 	SI_STOPIF(string.len == 0, *outRes = -1; return 0);
 
-	i32 front = si_stringAtFront(string);
+	u64 res = 0;
+	usize front = 0;
+	while (si_charIsSpace(si_stringGet(string, front))) { front += 1; }
 
-	/* NOTE(EimaMei): No base specified, meaning it's base-10. */
-	if (front != '0' || base == 10) {
+	if (si_stringGet(string, front) != '0' || base == 10) {
 		SI_STOPIF(string.len > 20, *outRes = -2; return 0);
 
+		for_range (i, front, string.len) {
+			char x = si_stringGet(string, i);
+			if (!si_charIsDigit(x)) {
+				usize oldI = i;
+				while (i < string.len && si_charIsSpace(si_stringGet(string, i))) { i += 1; }
+
+				*outRes = (i >= string.len) ? INT32_MAX : (i32)oldI;
+				return res;
+			}
+
+			res *= 10;
+			res += (x - '0');
+		}
+
+
 		*outRes = INT32_MAX;
-		return si_stringToUInt(string);
+		return res;
 	}
 
-	u64 res = 0;
 	u32 maxDigits;
-	usize start;
 
 	if (base > -1) {
-		switch (si_stringGet(string, 1)) {
-			case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16 + 2; start = 2; break;
-			case 'O': base =  8; string = si_stringSubToEnd(string, 2); maxDigits = 22 + 2; start = 2; break;
-			case 'B': base =  2; string = si_stringSubToEnd(string, 2); maxDigits = 64 + 2; start = 2; break;
-			default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22 + 1; start = 1; break;
+		front += 1;
+		switch (si_stringGet(string, front)) {
+			case 'X': base = 16; string = si_stringSubToEnd(string, 2); maxDigits = 16 + 2; front += 2; break;
+			case 'O': base =  8; string = si_stringSubToEnd(string, 2); maxDigits = 22 + 2; front += 2; break;
+			case 'B': base =  2; string = si_stringSubToEnd(string, 2); maxDigits = 64 + 2; front += 2; break;
+			default:  base =  8; string = si_stringSubToEnd(string, 1); maxDigits = 22 + 1; front += 1; break;
 		}
 	}
 	else {
@@ -4824,16 +4846,11 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 			case 2:  maxDigits = 64; break;
 			default: SI_PANIC();
 		}
-		start = 0;
 	}
 	SI_STOPIF(string.len > maxDigits, *outRes = -2; return res);
 
 
-	while (si_charIsSpace(si_stringGet(string, start))) {
-		start += 1;
-	}
-
-	for_range (i, start, string.len) {
+	for_range (i, front, string.len) {
 		res *= base;
 
 		i32 value = si_stringGet(string, i) - '0';
@@ -4852,12 +4869,11 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 		}
 		else {
 			usize oldI = i;
-			while ((usize)i < string.len && si_charIsSpace(si_stringGet(string, start))) {
+			while (i < string.len && si_charIsSpace(si_stringGet(string, i))) {
 				i += 1;
 			}
-			SI_STOPIF((usize)i >= string.len, break);
 
-			*outRes = (i32)oldI;
+			*outRes = (i >= string.len) ? INT32_MAX : (i32)oldI;
 			return res;
 		}
 	}
@@ -4872,7 +4888,7 @@ siString si_stringFromInt(i64 num, siAllocator alloc) {
 }
 SIDEF
 siString si_stringFromIntEx(i64 num, i32 base, siAllocator alloc) {
-	b32 isNegative = si_numIsNeg(num);
+	b32 isNegative = (num < 0);
 	usize len = si_numLenI64Ex(num, base);
 	siString res = si_stringMakeReserve(len, len, alloc);
 
@@ -5049,7 +5065,8 @@ usize si_stringSuffixLen(siString string, siString suffix) {
 
 
 SIDEF
-siString si_stringFromArray(siBuffer array, cstring fmt) {
+siString si_stringFromArray(siBuffer array, cstring fmt, u8* outBuffer, usize capacity) {
+	SI_STOPIF(capacity < 2, return SI_STR_LEN(nil, 0));
 	u64 args[16];
 	u32 argSizes[16];
 	usize argCount = 0;
@@ -5058,7 +5075,6 @@ siString si_stringFromArray(siBuffer array, cstring fmt) {
 		args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], \
 		args[14], args[15]
 
-	char buffer[SI_KILO(4)];
 	usize length  = 0;
 
 	{
@@ -5105,7 +5121,8 @@ go_back:
 		SI_ASSERT(argCount <= 16);
 	}
 
-	buffer[0] = '{', length += 1;
+	capacity -= 1;
+	outBuffer[0] = '{', length += 1;
 	for_range (i, 0, array.len) {
 		u8* base = (u8*)si_arrayGetPtr(array, i);
 		for_range (j, 0, argCount) {
@@ -5114,18 +5131,16 @@ go_back:
 			si_memcopy(&args[j], base, argSize);
 			base += argSize;
 		}
-		length += si_snprintf(&buffer[length], sizeof(buffer) - length, fmt, si__every_arg) - 1;
+		length += si_snprintf((char*)&outBuffer[length], capacity - length, fmt, si__every_arg) - 1;
 
 		if ((usize)i < array.len - 1) {
-			buffer[length + 0] = ',';
-			buffer[length + 1] = ' ';
-			length += 2;
+			length += si_memcopy_s(&outBuffer[length], capacity, ", ", countof_str(", "));
 		}
 	}
-	buffer[length] = '}';
+	outBuffer[length] = '}';
 	length += 1;
 
-	return SI_STR_LEN(buffer, length);
+	return SI_STR_LEN(outBuffer, length);
 	#undef si__every_arg
 }
 
@@ -5173,9 +5188,9 @@ i64 si_stringToIntBase(siString string, i32 base, i32* outRes) {
 	return si_stringToUIntBase(string, base, outRes);
 }
 
-#endif
+#endif /* SI_IMPLEMENTATION_STRING */
 
-#if defined(SI_IMPLEMENTATION_UNICODE) && !defined(SI_NO_UNICODE)
+#ifdef SI_IMPLEMENTATION_UNICODE
 
 #define FAILURE 12
 
@@ -5219,7 +5234,7 @@ siUtf32Char si_utf8Decode(const u8* character) {
 	} while (state != 0 && state != FAILURE);
 
 	if (state == FAILURE) {
-		return SI_UTF32_REPLACEMENT_CHARACTER;
+		return SI_UNICODE_INVALID_UTF32;
 	}
 
 	siUtf32Char res;
@@ -5272,7 +5287,7 @@ SIDEF
 siUtf32Char si_utf8StrAt(siUtf8String string, usize charIndex) {
 	SI_ASSERT_NOT_NULL(string.data);
 	SI_ASSERT(charIndex < string.len);
-	SI_STOPIF(string.len == 0, return SI_UTF32_REPLACEMENT_CHARACTER);
+	SI_STOPIF(string.len == 0, return SI_UNICODE_INVALID_UTF32);
 
 	siUtf32Char character = si_utf8Decode((u8*)string.data);
 	usize offset = character.len;
@@ -5452,9 +5467,9 @@ siUtf8Char si_utf16Encode(const u16 character[2]) {
 	siUtf32Char utf32 = si_utf16Decode(character);
 	return si_utf8Encode(utf32.codepoint);
 }
-#endif
+#endif /* SI_IMPLEMENTATION_UNICODE */
 
-#if defined(SI_IMPLEMENTATION_CHAR) && !defined(SI_NO_CHAR)
+#ifdef SI_IMPLEMENTATION_CHAR
 
 #define SI__CTRL SI_BIT(0) /* Control characters. */
 #define SI__PUNC SI_BIT(1) /* Punctuation characters. */
@@ -5620,16 +5635,14 @@ i32 si_charHexToInt(char c) {
 #undef SI__CTRS
 #undef SI__NUMX
 
-
-
 #endif /* SI_IMPLEMENTATION_CHAR */
 
-#if defined(SI_IMPLEMENTATION_HASHTABLE) && !defined(SI_NO_HASHTABLE)
+#ifdef SI_IMPLEMENTATION_HASHTABLE
 
 force_inline
 u64 si__hashKey(u8* key, usize len);
 
-#if !defined(SI_USE_CUSTOM_HASH_FUNCTION)
+#ifndef SI_USE_CUSTOM_HASH_FUNCTION
 #define SI__FNV_OFFSET 14695981039346656037UL
 #define SI__FNV_PRIME 1099511628211UL
 
@@ -5728,9 +5741,9 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr val
 	while (entry->key != 0) {
 		if (hash == entry->key) {
 			SI_STOPIF(outSuccess != nil, *outSuccess = false);
-#if !defined(SI_NO_HASH_OVERWRITE)
-			entry->value = valuePtr;
-#endif
+			#ifndef SI_NO_HASH_OVERWRITE
+				entry->value = valuePtr;
+			#endif
 			return entry;
 		}
 
@@ -5751,9 +5764,9 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr val
 	return entry;
 }
 
-#endif
+#endif /* SI_IMPLEMENTATION_HASHTABLE */
 
-#if defined(SI_IMPLEMENTATION_IO) && !defined(SI_NO_IO)
+#ifdef SI_IMPLEMENTATION_IO
 
 #if SI_COMPILER_MSVC
 	#pragma comment(lib, "shell32")
@@ -5764,7 +5777,7 @@ siIntern
 void si__fileErrorLog(siError* error) {
 	siPrintColor red = si_printColor3bitEx(siPrintColorAnsi_Red, true, false);
 
-#if !defined(SI_NO_ERROR_STRUCT)
+#ifndef SI_NO_ERROR_STRUCT
 	si_fprintf(
 		si_stderr, "%CFile system error at \"%s:%i\"%C: %S: %S\n",
 		red, error->filename, error->line,
@@ -6965,9 +6978,9 @@ b32 si_directoryPollEntryEx(siDirectory* dir, siDirectoryEntry* entry, b32 fullP
 	return true;
 }
 
-#endif /* SI_IO_IMPLEMENTATION */
+#endif /* SI_IMPLEMENTATION_IO */
 
-#if defined(SI_IMPLEMENTATION_THREAD) && !defined(SI_NO_THREAD)
+#ifdef SI_IMPLEMENTATION_THREAD
 
 #if SI_SYSTEM_IS_WINDOWS
 
@@ -7118,7 +7131,7 @@ b32 si_threadPrioritySet(siThread t, i32 priority) {
 }
 #endif /* SI_IMPLEMENTATION_THREAD */
 
-#if defined(SI_IMPLEMENTATION_TIME)
+#ifdef SI_IMPLEMENTATION_TIME
 
 siString si__timeMonthNames[] = {
 	SI_STRC("January"),
@@ -7183,7 +7196,7 @@ siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
 inline
 u64 si_RDTSC(void) {
 	/* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. (https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
-#if !defined(SI_NO_INLINE_ASM)
+#ifndef SI_NO_INLINE_ASM
 	#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
 		return __rdtsc();
 
@@ -7622,8 +7635,7 @@ usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siStr
 
 #endif /* SI_IMPLEMENTATION_TIME */
 
-#if defined(SI_IMPLEMENTATION_BIT) && !defined(SI_NO_BIT)
-
+#ifdef SI_IMPLEMENTATION_BIT
 
 SIDEF
 u32 si_numCountBitsU8(u8 num) {
@@ -7845,15 +7857,14 @@ u32 si_numLenI64(i64 num) {
 
 inline
 u32 si_numLenI64Ex(i64 num, u32 base) {
-	i64 isNegative = si_numIsNeg(num);
+	i64 isNegative = (num < 0);
 	u64 unsignedNum = (num ^ -isNegative) + isNegative;
 	return si_numLenEx(unsignedNum, base) + (u32)isNegative;
 }
 
+#endif /* SI_IMPLEMENTATION_BIT */
 
-#endif
-
-#if defined(SI_IMPLEMENTATION_SYSTEM)
+#ifdef SI_IMPLEMENTATION_SYSTEM
 /*
 *
 *
@@ -7946,7 +7957,7 @@ siString si_envVarGet(siString name, u8* out, usize capacity) {
 
 #endif /* SI_IMPLEMENTATION_SYSTEM */
 
-#if defined(SI_IMPLEMENTATION_CPU)
+#ifdef SI_IMPLEMENTATION_CPU
 
 u32 SI_CPU_FREQ_MHZ = 0;
 
@@ -7966,8 +7977,7 @@ u32 si_cpuClockSpeed(void) {
 
 #endif /* SI_IMPLEMENTATION_CPU */
 
-#if defined(SI_IMPLEMENTATION_PRINT) && !defined(SI_NO_PRINT)
-
+#ifdef SI_IMPLEMENTATION_PRINT
 
 SIDEF
 isize si_print(cstring str) {
@@ -8059,7 +8069,7 @@ void si__printStrToBuf(struct si__printfInfoStruct* info) {
 	}
 	else if (info->padSize < 0) {
 		isize padLen = len + info->padSize;
-		b32 padNeeded = si_numIsNeg(padLen);
+		b32 padNeeded = (padLen < 0);
 
 		si_memcopy(base, info->str.data, len);
 		if (padNeeded) {
@@ -8072,7 +8082,7 @@ void si__printStrToBuf(struct si__printfInfoStruct* info) {
 	}
 	else {
 		isize padLen = info->padSize - len;
-		b32 padNeeded = !si_numIsNeg(padLen);
+		b32 padNeeded = (padLen > 0);
 
 		if (padNeeded) {
 			memset(base, info->padLetter, padLen);
@@ -8531,10 +8541,19 @@ GOTO_SCIENTIFIC_NOTATION:
 #undef SI_CHECK_AFTERPOINT_INT
 #undef SI_SET_FMT_PTR
 
+
+inline
+b32 si_printHas24bitColor(void) {
+	u8 buf[16];
+	siString colorterm = si_envVarGet(SI_STR("COLORTERM"), buf, sizeof(buf));
+
+	return si_stringEqual(colorterm, SI_STR("truecolor"));
+}
+
+
 #endif /* SI_IMPLEMENTATION_PRINT */
 
-#if defined(SI_IMPLEMENTATION_DLL) && !defined(SI_NO_DLL)
-
+#ifdef SI_IMPLEMENTATION_DLL
 
 inline
 siDllHandle si_dllLoad(cstring path) {
@@ -8570,9 +8589,9 @@ siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
 
 #endif
 }
-#endif /* defined(SI_IMPLEMENTATION_DLL) */
+#endif /* SI_IMPLEMENTATION_DLL */
 
-#if defined(SI_IMPLEMENTATION_MATH) && !defined(SI_NO_MATH)
+#ifdef SI_IMPLEMENTATION_MATH
 
 SI_MATH_FUNC_DECLARE_2X       (min,     inline, { return (a < b) ? a : b;  })
 SI_MATH_FUNC_DECLARE_2X       (max,     inline, { return (a > b) ? a : b;  })
@@ -8695,7 +8714,7 @@ b32 si_float64IsNan(f64 num) {
 
 #endif /* SI_IMPLEMENTATION_MATH */
 
-#if defined(SI_IMPLEMENTATION_BENCHMARK) && !defined(SI_NO_BENCHMARK)
+#ifdef SI_IMPLEMENTATION_BENCHMARK
 
 SIDEF
 void si_benchmarkLoopsAvgPrint(siBenchmarkInfo info, usize range[2]) {
@@ -8888,8 +8907,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	return element;
 }
 
-#endif
-
+#endif /* SI_IMPLEMENTATION_BENCHMARK */
 
 #if !defined(SI_COMPILER_MSVC) && defined(SI_USE_ATT_SYNTAX)
 	#undef si_asm
@@ -8898,7 +8916,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	#define SI_ASM_NL "\n\t"
 #endif
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 }
 #endif
 

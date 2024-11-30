@@ -99,9 +99,10 @@ void example2(siAllocator alloc) {
 		createOptional(i, opt_array[i], alloc);
 	}
 
+	u8 buf[64];
 	si_printf("Element 1: '%X'\n", opt_i32.data.value);
 	si_printf("Element 2: '%S'\n", opt_string.data.value);
-	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i"));
+	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i", buf, sizeof(buf)));
 	si_printf("Element 4: '0x%016lX|%016lX'\n", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printf("Element 5: '%zd'\n", opt_type.data.value);
 	si_printf("Element 6: '%p'\n", opt_ptr.data.value);

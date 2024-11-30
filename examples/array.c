@@ -2,11 +2,13 @@
 #include <sili.h>
 
 
+u8 print_buf[256];
+
 #define si_arrayPrintInt(array) \
-	si_stringFromArray(array, (array.typeSize == 8) ? "%li" : "%i")
+	si_stringFromArray(array, (array.typeSize == 8) ? "%li" : "%i", print_buf, sizeof(print_buf))
 
 #define si_arrayPrintClr(array) \
-	si_stringFromArray(array, "{%hhu, %hhu, %hhu}")
+	si_stringFromArray(array, "{%hhu, %hhu, %hhu}", print_buf, sizeof(print_buf))
 
 
 int main(void) {
@@ -15,7 +17,7 @@ int main(void) {
 	si_print("Scope 1:\n");
 	{
 		siArray(i32) arrayStatic = SI_BUF(i32, 1, 2, 4, 8, 16, 32);
-		si_printf("\tarray: \"%S\" or \"%S\"\n", si_arrayPrintInt(arrayStatic), si_stringFromArray(arrayStatic, "%i"));
+		si_printf("\tarray: \"%S\" or \"%S\"\n", si_arrayPrintInt(arrayStatic), si_stringFromArray(arrayStatic, "%i", print_buf, countof(print_buf)));
 
 		siBuffer array = si_arrayCopy(arrayStatic, alloc);
 		si_printf("\t(array == arrayStatic) returns a '%B' boolean\n", si_arrayEqual(arrayStatic, array));
@@ -34,7 +36,8 @@ int main(void) {
 		siArray(i32) array = SI_BUF(i32, INT32_MAX, INT8_MAX, UINT16_MAX, INT32_MAX, 128);
 		si_printf(
 			"\tarray: '%S', len: '%zd', capacity: '%zd'\n",
-			si_stringFromArray(array, "%02#X"), array.len, array.capacity
+			si_stringFromArray(array, "%02#X", print_buf, sizeof(print_buf)),
+			array.len, array.capacity
 		);
 
 		i32 value = INT32_MAX;

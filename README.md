@@ -6,10 +6,9 @@ Sili
 ---
 
 <p align="center">
-Sili is a collection of cross-platform and single-header libraries for general
-programming in C99/C11. Many new fixes and exciting additions are made to the C
-libraries for a more modern developer experience while still adhering to the main
-principles and appeals of C: simplicity, performance and portability.
+Sili is a collection of cross-platform single-header libraries for general
+programming in C99/C11. It focuses on providing a more modern developer experience
+whilst adhering to the main principles and appeals of C: simplicity, performance and portability.
 </p>
 
 <p align="center">
@@ -29,28 +28,29 @@ principles and appeals of C: simplicity, performance and portability.
 # Libraries
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
-|  [sili.h](sili.h)    | v0.1.0  | A general-purpose programming library to replace the C standard libraries.
+|  [sili.h](sili.h)    | v0.1.0  | A general-purpose programming library. An alternative to the C/C++ standard libraries.
 |  [sigar.h](sigar.h)  | v0.0.0  | A cross-platform library for audio playback and recording.
 |  [siarg.h](siarg.h)  | v0.0.0  | An argument-parsing library for making CLIs.
 
-# Examples
-Examples of most (but definitely not all) sili's features are utilized in the
-`examples` folder.
+# Contact
+You can join the [semi-offical Discord server](https://discord.gg/MSfSmNanF2) for 
+any questions related to Sili.
 
 # Versioning systems
 ## `main` branch
 - Format: `v<main>.<minor>.<patch>`.
-- Descrpition: A `main` release guarantees that all of the `sili` libraries pass
-their respective tests and have their examples working as intended, as well as
-compiled releases being available for all platforms.
+- Descrpition: A `main` release guarantees that the library will have working examples 
+and tests that fufill their checks. Complete documentation is guaranteed, as well 
+as compiled releases being available for all platforms.
 
 ## `dev` branch
 - Format: `v<main-branch-version>-dev-<commit-number>`.
 - Descrpition: A `dev` release is less likely to pass all of the tests and have
-working examples on every platform.
+working examples on every platform. Some functions may have outdated or even no
+documentation at all.
 
 ## `experimental` branch
 - Format: `v<main-branch-version>-experimental-<commit-ID>`.
 - Descrpition: An `experimental` release is not meant for any stable use and is
-reserved  for the most cutting-edge release of sili. Errors and warnings are to
+reserved for the most cutting-edge version. Errors and warnings are to
 be expected.

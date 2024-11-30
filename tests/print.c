@@ -94,7 +94,7 @@ int main(void) {
             si_printf("\n\t");
         }
 	}
-	si_print("\n24-bit colour:\n\t");
+	si_printf("\n24-bit colour (%B):\n\t", si_printHas24bitColor());
 
     for_range (column, 0, 77) {
         i32 r = 255 - (column * 255 / 76);
