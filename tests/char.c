@@ -1,9 +1,9 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
-int main(void) {
-	SI_STATIC_ASSERT(SI_ASCII_MAX == 0x7F);
+SI_STATIC_ASSERT(SI_ASCII_MAX == 0x7F);
 
+int main(void) {
 	static const char expected_lower[0x80] = {
 	    '\0', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
 	    '\x08', '\x09', '\x0A', '\x0B', '\x0C', '\x0D', '\x0E', '\x0F',

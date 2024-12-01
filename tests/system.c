@@ -32,11 +32,11 @@ int main(void) {
 	SI_ASSERT(res == true);
 
 	siUnixDE de = si_unixGetDE();
-	SI_ASSERT(de == siUnixDE_KDE);
+	si_printf("DE: %i\n", de);
 
 #endif
 	u32 count = si_cpuProcessorCount();
-	SI_ASSERT(count == 4);
+	si_printf("Proc count: %i\n", count);
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
 }

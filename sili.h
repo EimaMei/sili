@@ -491,9 +491,11 @@ extern "C" {
 		/* condition - EXPRESSIONG | msg - cstring
 		 * Stops the program from being compiled if the condition isn't met with
 		 * an explanation as to why. */
-		#define SI_STATIC_ASSERT_MSG(condition, msg) \
-			extern int (*__si_error_if_negative (void)) \
-			[(condition) ? 2 : -1]
+		#define SI_STATIC_ASSERT_MSG(condition, msg) SI_STATIC_ASSERT_MSG1(condition, msg, __LINE__)
+
+		#define SI_STATIC_ASSERT_MSG1(condition, msg, line) SI_STATIC_ASSERT_MSG2(condition, msg, line)
+		#define SI_STATIC_ASSERT_MSG2(condition, msg, line) \
+			typedef char __si_error_if_negative_##line[(condition) ? 1 : -1]
 
 	#endif
 #endif
@@ -7941,55 +7943,51 @@ u32 si_numLenI64Ex(i64 num, u32 base) {
 	return si_numLenEx(unsignedNum, base) + (u32)isNegative;
 }
 
-#define SI_CHECK_ARITHMETIC_IMPL_ALL_I(func, def, ...) \
-	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, {    const i8 max = INT8_MAX;     const i8 min = INT8_MIN;  __VA_ARGS__ })  \
-	SI_CHECK_ARITHMETIC_DEC(i16,   func, SIDEF, {   const i16 max = INT16_MAX;   const i16 min = INT16_MIN; __VA_ARGS__ }) \
-	SI_CHECK_ARITHMETIC_DEC(i32,   func, SIDEF, {   const i32 max = INT32_MAX;   const i32 min = INT32_MIN; __VA_ARGS__ }) \
-	SI_CHECK_ARITHMETIC_DEC(i64,   func, SIDEF, {   const i64 max = INT64_MAX;   const i64 min = INT64_MIN; __VA_ARGS__ }) \
-	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, { const isize max = ISIZE_MAX; const isize min = ISIZE_MIN; __VA_ARGS__ })
+#define SI_CHECK_ARITHMETIC_IMPL_ALL_I(func, def, action, ...) \
+	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, {    const i8 max = INT8_MAX;     const i8 min = INT8_MIN;  *res =    (i8)(action); __VA_ARGS__ })  \
+	SI_CHECK_ARITHMETIC_DEC(i16,   func, SIDEF, {   const i16 max = INT16_MAX;   const i16 min = INT16_MIN; *res =   (i16)(action); __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(i32,   func, SIDEF, {   const i32 max = INT32_MAX;   const i32 min = INT32_MIN; *res =   (i32)(action); __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(i64,   func, SIDEF, {   const i64 max = INT64_MAX;   const i64 min = INT64_MIN; *res =   (i64)(action); __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, { const isize max = ISIZE_MAX; const isize min = ISIZE_MIN; *res = (isize)(action); __VA_ARGS__ })
 
-#define SI_CHECK_ARITHMETIC_IMPL_ALL_U(func, def, ...) \
-	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, {    const u8 max = UINT8_MAX;  SI_UNUSED(max); __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, {   const u16 max = UINT16_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, {   const u32 max = UINT32_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, {   const u64 max = UINT64_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, { const usize max = USIZE_MAX;  SI_UNUSED(max); __VA_ARGS__ } ) \
+#define SI_CHECK_ARITHMETIC_IMPL_ALL_U(func, def, action, ...) \
+	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, {    const u8 max = UINT8_MAX;  SI_UNUSED(max); *res =    (u8)(action); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, {   const u16 max = UINT16_MAX; SI_UNUSED(max); *res =   (u16)(action); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, {   const u32 max = UINT32_MAX; SI_UNUSED(max); *res =   (u32)(action); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, {   const u64 max = UINT64_MAX; SI_UNUSED(max); *res =   (u64)(action); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, { const usize max = USIZE_MAX;  SI_UNUSED(max); *res = (isize)(action); __VA_ARGS__ } ) \
 
 
-SI_CHECK_ARITHMETIC_IMPL_ALL_U(Add, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Add, SIDEF, a + b,
 	SI_ASSERT_NOT_NULL(res); \
-	return a > (*res = a + b); \
+	return a > *res; \
 )
-SI_CHECK_ARITHMETIC_IMPL_ALL_I(Add, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Add, SIDEF, a + b,
 	SI_ASSERT_NOT_NULL(res); \
-	*res = a + b ; \
 	if (a >= 0) { \
 		return (max - a < b); \
 	} \
 	return (b < min - a); \
 )
 
-SI_CHECK_ARITHMETIC_IMPL_ALL_U(Sub, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Sub, SIDEF, a - b,
 	SI_ASSERT_NOT_NULL(res); \
-	return a < (*res = a - b); \
+	return a < *res; \
 )
-SI_CHECK_ARITHMETIC_IMPL_ALL_I(Sub, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Sub, SIDEF, a - b,
 	SI_ASSERT_NOT_NULL(res); \
-	*res = a - b ; \
 	if (b < 0) { \
 		return (max + b < a); \
 	} \
 	return (min + b > a); \
 )
 
-SI_CHECK_ARITHMETIC_IMPL_ALL_U(Mul, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Mul, SIDEF, a * b,
 	SI_ASSERT_NOT_NULL(res); \
-	*res = a * b ; \
 	return (b > 0 && a > max / b);
 )
-SI_CHECK_ARITHMETIC_IMPL_ALL_I(Mul, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Mul, SIDEF, a * b,
 	SI_ASSERT_NOT_NULL(res); \
-	*res = a * b ; \
 	if (a > 0) { \
 		return (b > 0 && a > max / b) \
 			|| (b < 0 && b < min / a); \
@@ -8095,21 +8093,17 @@ siString si_envVarGet(siString name, u8* out, usize capacity) {
 #endif
 }
 
-#if SI_COMPILER_MSVC
-	#pragma comment(lib, "ntoskrnl")
-#endif
-
-
-#if SI_SYSTEM_IS_WINDOWS && !defined(NT_INCLUDED)
-NTSYSAPI i32 NTAPI RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation);
-#endif
-
 SIDEF
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
+	siDllHandle ntdll = si_dllLoad("ntdll.dll");
+	typedef LONG(WINAPI* RtlGetVersionProc)(POSVERSIONINFOEXW);
+	RtlGetVersionProc _RtlGetVersion = si_transmute(RtlGetVersionProc, si_dllProcAddress(ntdll, "RtlGetVersion"), siDllProc);
+
 	OSVERSIONINFOEXW info;
 	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
-	RtlGetVersion((OSVERSIONINFOW*)&info);
+	_RtlGetVersion(&info);
+	si_dllUnload(ntdll);
 
 	/* Windows 10 and 11. */
 	if (info.dwMajorVersion == 10 && info.dwMinorVersion == 0) {
