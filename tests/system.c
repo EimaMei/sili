@@ -31,11 +31,12 @@ int main(void) {
 	res = si_unixIsX11();
 	SI_ASSERT(res == true);
 
-	si_printf("%i\n", si_unixGetDE());
+	siUnixDE de = si_unixGetDE();
+	SI_ASSERT(de == siUnixDE_KDE);
 
 #endif
-
-	si_printf("%i\n", si_cpuProcessorCount());
+	u32 count = si_cpuProcessorCount();
+	SI_ASSERT(count == 4);
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
 }

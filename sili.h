@@ -558,6 +558,7 @@ extern "C" {
 
 #if SI_SYSTEM_IS_APPLE
 	#include <sys/socket.h>
+	#include <sys/sysctl.h>
 #endif
 
 #if SI_SYSTEM_IS_UNIX
@@ -7347,7 +7348,7 @@ u64 si_timeStampStart(void) {
 	return si_RDTSC();
 }
 
-inline
+SIDEF
 void si_timeStampPrintSince(u64 ts) {
 	u64 end = si_RDTSC();
 	u64 diff = (end - ts) / si_cpuClockSpeed() * 1000;
@@ -7940,21 +7941,26 @@ u32 si_numLenI64Ex(i64 num, u32 base) {
 	return si_numLenEx(unsignedNum, base) + (u32)isNegative;
 }
 
-#define SI_CHECK_ARITHMETIC_IMPL_ALL(func, def, ...) \
-	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, {    const i8 max = INT8_MAX;     const i8 min = INT8_MIN; __VA_ARGS__ })  \
+#define SI_CHECK_ARITHMETIC_IMPL_ALL_I(func, def, ...) \
+	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, {    const i8 max = INT8_MAX;     const i8 min = INT8_MIN;  __VA_ARGS__ })  \
 	SI_CHECK_ARITHMETIC_DEC(i16,   func, SIDEF, {   const i16 max = INT16_MAX;   const i16 min = INT16_MIN; __VA_ARGS__ }) \
 	SI_CHECK_ARITHMETIC_DEC(i32,   func, SIDEF, {   const i32 max = INT32_MAX;   const i32 min = INT32_MIN; __VA_ARGS__ }) \
 	SI_CHECK_ARITHMETIC_DEC(i64,   func, SIDEF, {   const i64 max = INT64_MAX;   const i64 min = INT64_MIN; __VA_ARGS__ }) \
-	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, { const isize max = ISIZE_MAX; const isize min = ISIZE_MIN; __VA_ARGS__ }) \
-	\
-	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, {    const u8 max = UINT8_MAX;    const u8 min = 0; __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, {  const u16 max = UINT16_MAX;   const u16 min = 0; __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, {  const u32 max = UINT32_MAX;   const u32 min = 0; __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, {  const u64 max = UINT64_MAX;   const u64 min = 0; __VA_ARGS__ } ) \
-	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, { const usize max = USIZE_MAX; const usize min = 0; __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, { const isize max = ISIZE_MAX; const isize min = ISIZE_MIN; __VA_ARGS__ })
+
+#define SI_CHECK_ARITHMETIC_IMPL_ALL_U(func, def, ...) \
+	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, {    const u8 max = UINT8_MAX;  SI_UNUSED(max); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, {   const u16 max = UINT16_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, {   const u32 max = UINT32_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, {   const u64 max = UINT64_MAX; SI_UNUSED(max); __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, { const usize max = USIZE_MAX;  SI_UNUSED(max); __VA_ARGS__ } ) \
 
 
-SI_CHECK_ARITHMETIC_IMPL_ALL(Add, SIDEF,
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Add, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	return a > (*res = a + b); \
+)
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Add, SIDEF,
 	SI_ASSERT_NOT_NULL(res); \
 	*res = a + b ; \
 	if (a >= 0) { \
@@ -7962,7 +7968,12 @@ SI_CHECK_ARITHMETIC_IMPL_ALL(Add, SIDEF,
 	} \
 	return (b < min - a); \
 )
-SI_CHECK_ARITHMETIC_IMPL_ALL(Sub, SIDEF,
+
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Sub, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	return a < (*res = a - b); \
+)
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Sub, SIDEF,
 	SI_ASSERT_NOT_NULL(res); \
 	*res = a - b ; \
 	if (b < 0) { \
@@ -7970,7 +7981,13 @@ SI_CHECK_ARITHMETIC_IMPL_ALL(Sub, SIDEF,
 	} \
 	return (min + b > a); \
 )
-SI_CHECK_ARITHMETIC_IMPL_ALL(Mul, SIDEF,
+
+SI_CHECK_ARITHMETIC_IMPL_ALL_U(Mul, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	*res = a * b ; \
+	return (b > 0 && a > max / b);
+)
+SI_CHECK_ARITHMETIC_IMPL_ALL_I(Mul, SIDEF,
 	SI_ASSERT_NOT_NULL(res); \
 	*res = a * b ; \
 	if (a > 0) { \
@@ -7983,7 +8000,8 @@ SI_CHECK_ARITHMETIC_IMPL_ALL(Mul, SIDEF,
 	); \
 )
 
-#undef SI_CHECK_ARITHMETIC_IMPL_ALL
+#undef SI_CHECK_ARITHMETIC_IMPL_ALL_U
+#undef SI_CHECK_ARITHMETIC_IMPL_ALL_S
 #undef SI_CHECK_ARITHMETIC_DEC
 
 #endif /* SI_IMPLEMENTATION_BIT */
@@ -8078,7 +8096,7 @@ siString si_envVarGet(siString name, u8* out, usize capacity) {
 }
 
 #if SI_COMPILER_MSVC
-	#pragma comment(lib, "ntdll")
+	#pragma comment(lib, "ntoskrnl")
 #endif
 
 
@@ -8176,8 +8194,10 @@ void si_CPUID(u32 ID, u32 registers[4]) {
 		)
 		SI_ASM_INPUT("a"(ID), "c"(0))
 	);
+#else
+	SI_UNUSED(ID); SI_UNUSED(registers);
 
-#endif /* !SI_NO_INLINE_ASM && SI_ARCH_IS_X86 */
+#endif
 }
 
 
@@ -8222,6 +8242,20 @@ u32 si_cpuProcessorCount(void) {
 	}
 
 	si_mfree(processors);
+
+#elif SI_SYSTEM_IS_APPLE
+	i64 count;
+	usize size = sizeof(i64);
+	if (sysctlbyname("hw.logicalcpu", &count, &size, nil, 0) == 0 && count > 0) {
+		procCount = (u32)count;
+	}
+	else  {
+		procCount = 0;
+	}
+
+#else
+	procCount = 0;
+
 #endif
 
 	return procCount;

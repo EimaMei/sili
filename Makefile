@@ -4,7 +4,7 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -std=c11 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -std=c11 -O2 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -41,7 +41,7 @@ ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-min
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS = -lkernel32 -lole32 -lopengl32 -lntdll
+	LIBS = -lkernel32 -lole32 -lopengl32 -lntoskrnl
 	EXE = $(OUTPUT)/test.exe
 	LINKER = $(CC)
 
