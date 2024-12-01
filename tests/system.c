@@ -20,6 +20,23 @@ int main(void) {
 	out = si_envVarGet(name, buf, countof(buf));
 	SI_ASSERT(out.data == nil);
 
+#if SI_SYSTEM_IS_WINDOWS
+	siWindowsVersion ver = si_windowsGetVersion();
+	SI_ASSERT_FMT(ver == siWindowsVersion_10, "%i", ver);
+
+#elif defined(SI_SYSTEM_LINUX)
+	res = si_unixIsWayland();
+	SI_ASSERT(res == false);
+
+	res = si_unixIsX11();
+	SI_ASSERT(res == true);
+
+	si_printf("%i\n", si_unixGetDE());
+
+#endif
+
+	si_printf("%i\n", si_cpuProcessorCount());
+
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
 }
 

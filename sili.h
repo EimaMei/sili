@@ -953,6 +953,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	/* type - TYPE | value - EXPRESSION | valueType - TYPE
 	 * Type prunes a value with the specified type. */
 	#define si_transmute(type, value, valueType) si_anarchyTransmute<type, valueType>(value)
+
 extern "C++" {
 	template<typename type, typename valueType>
 	type si_anarchyTransmute(valueType value) {
@@ -1277,12 +1278,8 @@ SIDEF usize si_alignCeilEx(usize n, u32 alignment);
 SIDEF siAllocator si_allocatorHeap(void);
 /* Creates an arena allocator. */
 SIDEF siAllocator si_allocatorMakeArena(usize capacity, siAllocatorData* inData);
-/* capacity - USIZE
- * Creates a stack allocator. */
-#define si_allocatorMakeStack(capacity) \
-	si__allocatorMakeStack(capacity, si_sallocItem(siAllocatorData), (u8*)si_salloc(capacity))
-/* Creates a temporary arena allocated based on the pointer. */
-SIDEF siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inData);
+/* Creates a temporary arena allocated based on a pointer. */
+SIDEF siAllocator si_allocatorMakePtr(rawptr ptr, usize capacity, siAllocatorData* inData);
 
 /* Allocates the specified amount of bytes of storage. */
 SIDEF rawptr si_alloc(siAllocator alloc, usize bytes);
@@ -1297,6 +1294,11 @@ SIDEF void si_freeAll(siAllocator alloc);
 SIDEF void si_allocatorReset(siAllocator alloc);
 /* Returns the available space left inside the specified allocator. */
 SIDEF usize si_allocatorGetAvailable(siAllocator alloc);
+
+/* capacity - USIZE
+ * Creates a stack allocator. */
+#define si_allocatorMakeStack(capacity) \
+	si__allocatorMakeStack(capacity, si_sallocItem(siAllocatorData), (u8*)si_salloc(capacity))
 
 
 /* allocator - siAllocator* | type - TYPE
@@ -2914,15 +2916,57 @@ SIDEF u32 si_numLenI64(i64 num);
 SIDEF u32 si_numLenI64Ex(i64 num, u32 base);
 
 
-#if 1 /* NOTE(EimaMei): The actual header definition for the macros. No reason to use these in practice. */
-	u32 si_numLeadingBitEx(u64 num, usize sizeof_num, siBitType bit);
-	u32 si_numTrailingBitEx(u64 num, usize number_sizeof, siBitType bit);
+/* type - TYPE | a - TYPE | b - TYPE | res - TYPE*
+ * Returns true if the addition of two integers resulted in an overflow. The addition
+ * result is written to the given pointer. */
+#define si_checkAdd(type, a, b, res) SI_CHECK_ARITHMETIC_FUNC(type, Add, a, b, res)
+/* type - TYPE | a - TYPE | b - TYPE | res - TYPE*
+ * Returns true if the subtraction of two integers resulted in an overflow. The
+ * subtraction result is written to the given pointer. */
+#define si_checkSub(type, a, b, res) SI_CHECK_ARITHMETIC_FUNC(type, Sub, a, b, res)
+/* type - TYPE | a - TYPE | b - TYPE | res - TYPE*
+ * Returns true if the multiplication of two integers resulted in an overflow.
+ * The mulitplication result is written to the given pointer. */
+#define si_checkMul(type, a, b, res) SI_CHECK_ARITHMETIC_FUNC(type, Mul, a, b, res)
 
-	u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
-	u64 si_numRotateRightEx(u64 num, usize num_sizeof, usize n);
-	u64 si_numReverseBitsEx(u64 num, usize num_sizeof);
 
-	siArray(u8) si_numToBytesEx(u64 num, usize num_sizeof, siAllocator alloc);
+
+#if 1
+
+u32 si_numLeadingBitEx(u64 num, usize sizeof_num, siBitType bit);
+u32 si_numTrailingBitEx(u64 num, usize number_sizeof, siBitType bit);
+
+u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
+u64 si_numRotateRightEx(u64 num, usize num_sizeof, usize n);
+u64 si_numReverseBitsEx(u64 num, usize num_sizeof);
+
+siArray(u8) si_numToBytesEx(u64 num, usize num_sizeof, siAllocator alloc);
+
+
+#define SI_CHECK_ARITHMETIC_FUNC(type, func, a, b, res) si__check##func##_##type(a, b, res)
+
+#define SI_CHECK_ARITHMETIC_DEC(type, func, def, body) \
+	def b32 si__check##func##_##type(type a, type b, type* res) body \
+
+#define SI_CHECK_ARITHMETIC_DEC_ALL(func, def, body) \
+	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(i16,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(i32,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(i64,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, ;) \
+	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, ;)
+
+
+SI_CHECK_ARITHMETIC_DEC_ALL(Add, SIDEF, ;)
+SI_CHECK_ARITHMETIC_DEC_ALL(Sub, SIDEF, ;)
+SI_CHECK_ARITHMETIC_DEC_ALL(Mul, SIDEF, ;)
+
+#undef SI_CHECK_ARITHMETIC_DEC_ALL
+
 #endif
 
 #endif /* SI_NO_BIT */
@@ -2948,8 +2992,26 @@ SIDEF u32 si_numLenI64Ex(i64 num, u32 base);
 	========================
 */
 
+SI_ENUM(i32, siWindowsVersion) {
+	siWindowsVersion_XP = 1,
+	siWindowsVersion_Vista,
+	siWindowsVersion_7,
+	siWindowsVersion_8,
+	siWindowsVersion_8_1,
+	siWindowsVersion_10,
+	siWindowsVersion_11,
+};
+
+SI_ENUM(i32, siUnixDE) {
+	siUnixDE_KDE = 1,
+	siUnixDE_GNOME,
+	siUnixDE_Xfce,
+};
+
+
+
 /* Ends the program with a to be returned code. */
-SIDEF noreturn void si_exit(u32 code);
+noreturn SIDEF void si_exit(u32 code);
 
 /* Sets an environment variable for the current process. */
 SIDEF b32 si_envVarSet(siString name, siString value);
@@ -2958,6 +3020,21 @@ SIDEF b32 si_envVarUnset(siString name);
 /* Gets an environment variable for the current process. If the specified variable
  * name doesn't exist, the returned string's data is set to nil. */
 SIDEF siString si_envVarGet(siString name, u8* out, usize capacity);
+
+
+/* Returns the current running Windows OS version. Returns '0' if the version is
+ * older than XP, '-1' if this function is executed on a non-Windows OS. */
+SIDEF siWindowsVersion si_windowsGetVersion(void);
+
+/* Returns true if the current Unix system is running Wayland. */
+SIDEF b32 si_unixIsWayland(void);
+/* Returns true if the current Unix system is running X11. */
+SIDEF b32 si_unixIsX11(void);
+
+/* Returns the current running desktop environment on the system. If the found
+ * desktop environment isn't recognized by Sili, 0 is returned. */
+SIDEF siUnixDE si_unixGetDE(void);
+
 
 #endif /* SI_NO_SYSTEM */
 
@@ -2981,13 +3058,15 @@ SIDEF siString si_envVarGet(siString name, u8* out, usize capacity);
 	| siCpu                |
 	========================
 */
-/* The frequency of the CPU in mHz (~3000, ~4200, etc). Set to 0 by default. When
- * 'si_cpuClockSpeed' is ran, the result gets cached to this variable. */
-extern u32 SI_CPU_FREQ_MHZ;
 
-/* Returns the CPU's clock speed in mHz. The result of the function gets cached
- * to 'SI_CPU_FREQ_MHZ'. */
-u32 si_cpuClockSpeed(void);
+/* Executes the 'CPUID' assembly instruction on x86 family of CPUs. */
+SIDEF void si_CPUID(u32 ID, u32 registers[4]);
+
+/* Returns the CPU's clock speed in mHz. The result of the function gets cached. */
+SIDEF u32 si_cpuClockSpeed(void);
+/* TODO */
+SIDEF u32 si_cpuProcessorCount(void);
+
 
 #endif /* SI_NO_CPU */
 
@@ -3677,7 +3756,7 @@ siAllocator si__allocatorMakeStack(usize capacity, siAllocatorData* inData, u8* 
 }
 
 SIDEF
-siAllocator si_allocatorMakeTmp(rawptr ptr, usize capacity, siAllocatorData* inData) {
+siAllocator si_allocatorMakePtr(rawptr ptr, usize capacity, siAllocatorData* inData) {
 	SI_ASSERT_NOT_NULL(inData);
 	inData->ptr = (u8*)ptr;
 	inData->offset = 0;
@@ -7196,11 +7275,10 @@ siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
 inline
 u64 si_RDTSC(void) {
 	/* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. (https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
-#ifndef SI_NO_INLINE_ASM
-	#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
-		return __rdtsc();
-
-	#elif SI_ARCH_I386
+#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
+	return __rdtsc();
+#elif !defined(SI_NO_INLINE_ASM)
+	#if SI_ARCH_I386
 		u64 res;
 		si_asm (".byte 0x0f, 0x31", : "=A" (res));
 		return res;
@@ -7423,7 +7501,7 @@ usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siStr
 	SI_ASSERT_NOT_NULL(buffer);
 
 	siAllocatorData aData;
-	siAllocator tmp = si_allocatorMakeTmp(buffer, capacity, &aData);
+	siAllocator tmp = si_allocatorMakePtr(buffer, capacity, &aData);
 	aData.alignment = 1;
 
 	b32 AMwasChecked = false;
@@ -7862,6 +7940,52 @@ u32 si_numLenI64Ex(i64 num, u32 base) {
 	return si_numLenEx(unsignedNum, base) + (u32)isNegative;
 }
 
+#define SI_CHECK_ARITHMETIC_IMPL_ALL(func, def, ...) \
+	SI_CHECK_ARITHMETIC_DEC(i8,    func, SIDEF, {    const i8 max = INT8_MAX;     const i8 min = INT8_MIN; __VA_ARGS__ })  \
+	SI_CHECK_ARITHMETIC_DEC(i16,   func, SIDEF, {   const i16 max = INT16_MAX;   const i16 min = INT16_MIN; __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(i32,   func, SIDEF, {   const i32 max = INT32_MAX;   const i32 min = INT32_MIN; __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(i64,   func, SIDEF, {   const i64 max = INT64_MAX;   const i64 min = INT64_MIN; __VA_ARGS__ }) \
+	SI_CHECK_ARITHMETIC_DEC(isize, func, SIDEF, { const isize max = ISIZE_MAX; const isize min = ISIZE_MIN; __VA_ARGS__ }) \
+	\
+	SI_CHECK_ARITHMETIC_DEC(u8,    func, SIDEF, {    const u8 max = UINT8_MAX;    const u8 min = 0; __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u16,   func, SIDEF, {  const u16 max = UINT16_MAX;   const u16 min = 0; __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u32,   func, SIDEF, {  const u32 max = UINT32_MAX;   const u32 min = 0; __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(u64,   func, SIDEF, {  const u64 max = UINT64_MAX;   const u64 min = 0; __VA_ARGS__ } ) \
+	SI_CHECK_ARITHMETIC_DEC(usize, func, SIDEF, { const usize max = USIZE_MAX; const usize min = 0; __VA_ARGS__ } ) \
+
+
+SI_CHECK_ARITHMETIC_IMPL_ALL(Add, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	*res = a + b ; \
+	if (a >= 0) { \
+		return (max - a < b); \
+	} \
+	return (b < min - a); \
+)
+SI_CHECK_ARITHMETIC_IMPL_ALL(Sub, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	*res = a - b ; \
+	if (b < 0) { \
+		return (max + b < a); \
+	} \
+	return (min + b > a); \
+)
+SI_CHECK_ARITHMETIC_IMPL_ALL(Mul, SIDEF,
+	SI_ASSERT_NOT_NULL(res); \
+	*res = a * b ; \
+	if (a > 0) { \
+		return (b > 0 && a > max / b) \
+			|| (b < 0 && b < min / a); \
+	} \
+	return a < 0 && ( \
+		(b > 0 && a < min / b) \
+		|| (b < 0 && a < max / b) \
+	); \
+)
+
+#undef SI_CHECK_ARITHMETIC_IMPL_ALL
+#undef SI_CHECK_ARITHMETIC_DEC
+
 #endif /* SI_IMPLEMENTATION_BIT */
 
 #ifdef SI_IMPLEMENTATION_SYSTEM
@@ -7885,7 +8009,7 @@ u32 si_numLenI64Ex(i64 num, u32 base) {
 	========================
 */
 
-inline noreturn
+noreturn inline
 void si_exit(u32 code) {
 #if SI_SYSTEM_IS_WINDOWS
 	ExitProcess(code);
@@ -7951,20 +8075,117 @@ siString si_envVarGet(siString name, u8* out, usize capacity) {
 	return SI_STR_LEN(content, len);
 
 #endif
-
 }
 
+#if SI_COMPILER_MSVC
+	#pragma comment(lib, "ntdll")
+#endif
+
+
+#if SI_SYSTEM_IS_WINDOWS && !defined(NT_INCLUDED)
+NTSYSAPI i32 NTAPI RtlGetVersion(IN OUT PRTL_OSVERSIONINFOW lpVersionInformation);
+#endif
+
+SIDEF
+siWindowsVersion si_windowsGetVersion(void) {
+#if SI_SYSTEM_IS_WINDOWS
+	OSVERSIONINFOEXW info;
+	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+	RtlGetVersion((OSVERSIONINFOW*)&info);
+
+	/* Windows 10 and 11. */
+	if (info.dwMajorVersion == 10 && info.dwMinorVersion == 0) {
+		return (info.dwBuildNumber >= 22000) ? siWindowsVersion_11 : siWindowsVersion_10;
+	}
+
+	/* Windows 8.1, 8, 7 and Vista. */
+	if (info.dwMajorVersion == 6) {
+		return siWindowsVersion_Vista + info.dwMinorVersion;
+	}
+
+	return (info.dwMajorVersion == 5 && (info.dwMinorVersion == 1 || info.dwMinorVersion == 2))
+		? siWindowsVersion_XP
+		: 0;
+#else
+	return -1;
+#endif
+}
+
+SIDEF
+b32 si_unixIsWayland(void) {
+#if SI_SYSTEM_IS_UNIX
+	static b32 isWayland = UINT32_MAX;
+	SI_STOPIF(isWayland != UINT32_MAX, return isWayland);
+
+	u8 buf[1];
+	siString res = si_envVarGet(SI_STR("WAYLAND_DISPLAY"), buf, sizeof(buf));
+	isWayland = (res.data != nil);
+
+	return isWayland;
+#else
+	return false;
+#endif
+}
+
+inline
+b32 si_unixIsX11(void) {
+#if SI_SYSTEM_IS_UNIX
+	return !si_unixIsWayland();
+#else
+	return false;
+#endif
+}
+
+SIDEF
+siUnixDE si_unixGetDE(void) {
+#if SI_SYSTEM_IS_UNIX
+	static siUnixDE de = -1;
+	SI_STOPIF(de != -1, return de);
+
+	u8 buf[8];
+	siString res = si_envVarGet(SI_STR("XDG_CURRENT_DESKTOP"), buf, sizeof(buf));
+	SI_STOPIF(res.data == nil, return 0);
+
+	if (si_stringEqual(res, SI_STR("KDE"))) { de = siUnixDE_KDE; }
+	else if (si_stringEqual(res, SI_STR("GNOME"))) { de = siUnixDE_GNOME; }
+	else if (si_stringEqual(res, SI_STR("XFCE"))) { de = siUnixDE_Xfce; }
+	else { de = 0; }
+
+	return de;
+#else
+	return -1;
+#endif
+
+}
 
 #endif /* SI_IMPLEMENTATION_SYSTEM */
 
 #ifdef SI_IMPLEMENTATION_CPU
 
-u32 SI_CPU_FREQ_MHZ = 0;
+inline
+void si_CPUID(u32 ID, u32 registers[4]) {
+#if SI_COMPILER_CHECK_MIN(MSVC, 8, 0, 0)
+	__cpuid((i32*)registers, (i32)ID);
+
+#elif !defined(SI_NO_INLINE_ASM) && SI_ARCH_IS_X86
+	si_asm(
+		"cpuid",
+		SI_ASM_OUTPUT(
+			"=a"(registers[0]), "=b"(registers[1]),
+			"=c"(registers[2]), "=d"(registers[3])
+		)
+		SI_ASM_INPUT("a"(ID), "c"(0))
+	);
+
+#endif /* !SI_NO_INLINE_ASM && SI_ARCH_IS_X86 */
+}
 
 
 SIDEF
 u32 si_cpuClockSpeed(void) {
-	SI_STOPIF(SI_CPU_FREQ_MHZ != 0, return SI_CPU_FREQ_MHZ);
+	static u32 SI_CPU_FREQ_MHZ = UINT32_MAX;
+	SI_STOPIF(SI_CPU_FREQ_MHZ != UINT32_MAX, return SI_CPU_FREQ_MHZ);
+
 	u64 begin = si_RDTSC();
 	si_sleep(100);
 	u64 end = si_RDTSC();
@@ -7973,6 +8194,37 @@ u32 si_cpuClockSpeed(void) {
 	SI_CPU_FREQ_MHZ = ((val + 5) / 10) * 10;
 
 	return SI_CPU_FREQ_MHZ;
+}
+
+SIDEF
+u32 si_cpuProcessorCount(void) {
+	static u32 procCount = UINT32_MAX;
+	SI_STOPIF(procCount != UINT32_MAX, return procCount);
+
+#if SI_SYSTEM_IS_UNIX
+	procCount = (u32)sysconf(_SC_NPROCESSORS_ONLN);
+
+#elif SI_SYSTEM_IS_WINDOWS
+	DWORD len;
+	u32 res = GetLogicalProcessorInformation(nil, &len);
+	SI_STOPIF(res != 0 || GetLastError() != 122 || len == 0, return 0);
+
+	SYSTEM_LOGICAL_PROCESSOR_INFORMATION* processors = si_mallocArray(SYSTEM_LOGICAL_PROCESSOR_INFORMATION, len);
+	res = GetLogicalProcessorInformation(&processors[0], &len);
+	SI_STOPIF(res == 0, len = 0);
+
+	procCount = 0;
+	for_range (i, 0, len) {
+		SYSTEM_LOGICAL_PROCESSOR_INFORMATION processor = processors[i];
+		if (processor.Relationship == RelationProcessorCore) {
+			procCount += si_numCountBitsU64(processor.ProcessorMask);
+		}
+	}
+
+	si_mfree(processors);
+#endif
+
+	return procCount;
 }
 
 #endif /* SI_IMPLEMENTATION_CPU */
@@ -8490,7 +8742,7 @@ GOTO_SCIENTIFIC_NOTATION:
 					case siPrintColorType_8bit: {
 						char str[32] = "\33[38;5;";
 						usize i = countof_str("\33[38;5;");
-						siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
+						siAllocator tmp = si_allocatorMakePtr(&str[i], countof(str), &inData);
 
 						siString valueStr = si_stringFromInt(clr.data.cube, tmp);
 							i += valueStr.len;
@@ -8507,7 +8759,7 @@ GOTO_SCIENTIFIC_NOTATION:
 
 						static char buf[3] = {';', ';', 'm'};
 						for_range (j, 0, countof(clr.data.rgb)) {
-							siAllocator tmp = si_allocatorMakeTmp(&str[i], countof(str), &inData);
+							siAllocator tmp = si_allocatorMakePtr(&str[i], countof(str), &inData);
 							siString valueStr = si_stringFromInt(clr.data.rgb[j], tmp);
 								i += valueStr.len;
 							str[i] = buf[j],

@@ -41,7 +41,7 @@ ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-min
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS = -lkernel32 -lole32 -lopengl32
+	LIBS = -lkernel32 -lole32 -lopengl32 -lntdll
 	EXE = $(OUTPUT)/test.exe
 	LINKER = $(CC)
 
@@ -96,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = tests/system.c
+SRC = tests/bit.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
