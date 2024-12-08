@@ -83,7 +83,7 @@ int main(void) {
 	si_printf(
 		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
 		 leadTrailNum,
-		 si_numLeadingBit(u8, leadTrailNum, SI_BIT_ONE), si_numTrailingBit(u8, leadTrailNum, SI_BIT_ZERO)
+		 si_numLeadingOnes(u8, leadTrailNum), si_numTrailingBit(u8, leadTrailNum, SI_BIT_ZERO)
 	);
 
 	u32 rotateAdr = si_numRotateLeft(u32, 0x00001234, 24);

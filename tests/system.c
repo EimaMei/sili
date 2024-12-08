@@ -38,6 +38,6 @@ int main(void) {
 	u32 count = si_cpuProcessorCount();
 	si_printf("Proc count: %i\n", count);
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
 }
 

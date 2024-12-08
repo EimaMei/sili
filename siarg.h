@@ -703,8 +703,8 @@ back:
 
 SIDEF
 void si_argvError(siOptionContext ctx) {
-	siPrintColor red = si_printColor3bitEx(siPrintColorAnsi_Red, true, false),
-				 bold = si_printColor3bitEx(siPrintColorAnsi_White, true, true);
+	siPrintColor red = si_printColor3bitEx(siPrintColor3bit_Red, true, false),
+				 bold = si_printColor3bitEx(siPrintColor3bit_White, true, true);
 	siArgvOption* option = ctx.error.option;
 	siString type = si__argvType(option->type);
 

@@ -14,7 +14,7 @@
 		if (expectedLen != len) { \
 			si_printf( \
 				"%C" __FILE__ ":%i:%C Lengths are not the same: '%zu' vs '%zu'\n", \
-				si_printColor3bitEx(siPrintColorAnsi_Red, true, 0), \
+				si_printColor3bitEx(siPrintColor3bit_Red, true, false), \
 				__LINE__, expectedLen, len, buffer \
 			); \
 		} \
@@ -77,7 +77,7 @@ int main(void) {
 #endif
 
 	si_print("================\nPrint colour tests:\nANSI/3-bit colour:\n");
-	for_range (id, siPrintColorAnsi_Black, (siPrintColorAnsi)(siPrintColorAnsi_White + 1)) {
+	for_range (id, siPrintColor3bit_Black, (siPrintColor3bit)(siPrintColor3bit_White + 1)) {
 		siPrintColor clr = si_printColor3bit(id),
 					 bold = si_printColor3bitEx(id, true, false),
 					 light = si_printColor3bitEx(id, false, true),
@@ -109,5 +109,5 @@ int main(void) {
     }
     si_printf("\n\n");
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, 0));
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, 0));
 }

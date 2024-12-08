@@ -164,21 +164,6 @@ void example3(void)	{
 		si_printf("Error '%S' occurred: '%S'\n", si_pathFsErrorName(res.code), si_pathFsErrorDesc(res.code));
 #endif
 	}
-	{
-		siString test_folder = SI_STR("testFolder");
-
-		siError res = si_pathCreateFolder(test_folder);
-		SI_ASSERT(res.code == 0 || si_pathExists(test_folder));
-
-		siFilePermissions perms = si_pathPermissions(test_folder);
-		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
-
-		si_pathEditPermissions(test_folder, SI_FS_PERM_ALL);
-		perms = si_pathPermissions(test_folder);
-		si_printf("Permissions of 'testFolder' (in octal): %o\n", perms);
-
-		si_pathRemove(test_folder);
-	}
 
 	{
 		u64 lastWriteTime, curWriteTime;
@@ -238,7 +223,7 @@ void example4(void) {
 	siDirectoryEntry entry;
 
 	usize count = 0;
-	while (si_directoryPollEntryEx(&dir, &entry, false)) {
+	while (si_directoryPollEntry(&dir, &entry)) {
 		si_printf(
 			"%zu: %S ('%zu' bytes, type '%i')\n",
 			count, entry.path, entry.path.len, entry.type
@@ -266,12 +251,12 @@ void example5(siAllocator* alloc) {
 	si_printf(
 		"%CThis text will be displayed in red%C, while this - %Cin blue%C!\n"
 		"%CSome terminals might support 8-bit color%C, %Csome may even have 24-bit color support.%C\n",
-		si_printColor3bit(siPrintColorAnsi_Red), si_printColor3bitEx(siPrintColorAnsi_Blue, true, true),
+		si_printColor3bit(siPrintColor3bit_Red), si_printColor3bitEx(siPrintColor3bit_Blue, true, true),
 		si_printColor8bit(202), si_printColor24bit(90, 242, 166)
 	);
 	si_fprintf(
 		si_stdout,
 		"Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%C* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n",
-		si_printColor3bit(siPrintColorAnsi_Yellow)
+		si_printColor3bit(siPrintColor3bit_Yellow)
 	);
 }

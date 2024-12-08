@@ -99,7 +99,7 @@ int main(void) {
 	si_print("Test 1 has been completed.\n");
 
 	{
-		usize ceil = si_alignCeilEx(12, 8);
+		usize ceil = si_alignForward(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
 		siAllocator alloc;
@@ -170,7 +170,11 @@ int main(void) {
 			si_allocItem(alloc, randomStruct);
 			si_allocArray(alloc, randomStruct, 3);
 
-			TEST_EQ_U64(inData.offset, si_alignCeil(sizeof(randomStruct)) + si_alignCeil(3 * sizeof(randomStruct)));
+			TEST_EQ_U64(
+				inData.offset, 
+				si_alignForward(sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT) 
+				+ si_alignForward(3 * sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
+			);
 
 			si_freeAll(alloc);
 		}
@@ -232,7 +236,7 @@ int main(void) {
 	si_print("Test 5 has been completed.\n");
 
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColorAnsi_Yellow, true, false));
+	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
 }
 
 
