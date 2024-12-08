@@ -6840,17 +6840,17 @@ siDirectory si_directoryOpen(siString path) {
 	siDirectory dir;
 	dir.error = SI_ERROR_DEFAULT;
 	dir.handle = nil;
+	dir.directoryLen = path.len;
 	si_memcopyStr(dir.buffer, path);
 
 	if (si_stringAtBack(path) != SI_PATH_SEPARATOR) {
-		dir.buffer[path.len] = SI_PATH_SEPARATOR;
-		path.len += 1;
+		dir.buffer[dir.directoryLen] = SI_PATH_SEPARATOR;
+		dir.directoryLen += 1;
 	}
-	dir.directoryLen = path.len;
 
 #if SI_SYSTEM_IS_WINDOWS
 	u16 stack[512];
-	siUtf16String pathWide = si_utf8ToUtf16StrEx(path, true, stack, countof(stack));
+	siUtf16String pathWide = si_utf8ToUtf16Str(SI_STR_LEN(dir.buffer, dir.directoryLen), stack, countof(stack));
 
 	u16* dataWide = (u16*)pathWide.data;
 	dataWide[pathWide.len + 0] = '*';
@@ -6865,7 +6865,7 @@ siDirectory si_directoryOpen(siString path) {
 
 #else
 	/* NOTE(EimaMei): We do this because opendir only takes NULL-terminated C-strings. */
-	dir.buffer[path.len] = '\0';
+	dir.buffer[dir.directoryLen] = '\0';
 
 	dir.handle = opendir((char*)dir.buffer);
 	siFileError_CHECK(dir.handle == nil, &dir.error, dir);
