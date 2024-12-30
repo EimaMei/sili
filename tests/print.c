@@ -9,7 +9,7 @@
 		size_t expectedLen = si_cstrLen(expectedStr) + 1; \
 		SI_ASSERT(expectedLen <= sizeof(buffer)); \
 		\
-		size_t len = si_snprintf(buffer, sizeof(buffer), input, __VA_ARGS__); \
+		size_t len = si_bprintf(buffer, sizeof(buffer), input, __VA_ARGS__); \
 		\
 		if (expectedLen != len) { \
 			si_printf( \

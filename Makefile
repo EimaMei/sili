@@ -5,11 +5,11 @@ OUTPUT = build
 NAME = sili
 
 GNU_FLAGS = -std=c99 -Wall -Wextra -Wpedantic \
-	-Wconversion -Wno-float-conversion -Wno-sign-conversion \
+	-Wconversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
-	-Wvla -Wcast-align -Wcast-align=strict \
+	-Wvla -Wcast-align -Wcast-align=strict -Wno-sign-conversion \
 	\
-	-Wno-missing-braces  -Wno-missing-field-initializers -Wswitch-enum -Wcast-align -Wstrict-overflow=5 \
+	-Wswitch-enum -Wcast-align -Wstrict-overflow=5 \
 	-Wstrict-prototypes -Winline -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
 	-Wold-style-definition \
 	\
@@ -96,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = tests/bit.c
+SRC = examples/file.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

@@ -12,7 +12,8 @@ u8 print_buf[256];
 
 
 int main(void) {
-	siAllocator alloc = si_allocatorMakeStack(256);
+	siAllocatorArena arena = si_arenaMakePtr(si_stackAlloc(256), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator alloc = si_allocatorArena(&arena);
 
 	si_print("Scope 1:\n");
 	{
@@ -87,6 +88,4 @@ int main(void) {
 		si_arrayFill(&array, 0, 4, &SI_RGB(255, 255, 255));
 		si_printf("\tarray: \"%S\"\n", si_arrayPrintClr(array));
 	}
-
-	return 0;
 }

@@ -2,9 +2,8 @@
 #include <sili.h>
 
 
-rawptr thread_test(rawptr arg);
-rawptr thread_matrix(rawptr arg);
-
+SIDEF SI_THREAD_PROC(thread_test);
+SIDEF SI_THREAD_PROC(thread_matrix);
 
 /* Example 1 shows off sili's threading functions and how they're meant to use
  * at their core. */
@@ -23,10 +22,11 @@ int main(void) {
 
 void example1(void) {
 	b32 loopState = false;
-	siThread thread;
-	si_threadMake(thread_test, &loopState, true, &thread);
 
-	while (thread.isRunning) {
+	siThread thread;
+	si_threadMakeAndRun(thread_test, &loopState, &thread);
+
+	while (thread.state == siThreadState_Running) {
 		si_print("Even though 'thread' is sleeping, the main thread is running independently.\n");
 		si_sleep(1000);
 	}
@@ -64,8 +64,8 @@ typedef struct matrixData {
 
 
 void example2(void) {
-	siAllocatorData inData;
-	siAllocator alloc = si_allocatorMakeArena(4 * (SIZE * SIZE * sizeof(f32)), &inData);
+	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), 4 * (SIZE * SIZE * sizeof(f32)));
+	siAllocator alloc = si_allocatorArena(&aData);
 
 	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */
 	f32* A = si_allocArray(alloc, f32, SIZE * SIZE);
@@ -107,28 +107,23 @@ void matrix_singlethreaded(f32* a, f32* b, f32* result) {
 }
 void matrix_multithreaded(f32* a, f32* b, f32* result) {
 	siThread threads[THREAD_COUNT];
-	matrixData threadData[THREAD_COUNT];
+	matrixData data[THREAD_COUNT];
 
-	int rowsPerThread = SIZE / THREAD_COUNT;
+	i32 rows = SIZE / THREAD_COUNT;
 	for_range (i, 0, THREAD_COUNT) {
-		threadData[i].start = i * rowsPerThread;
-		threadData[i].end = (i == THREAD_COUNT - 1)
+		data[i].start = i * rows;
+		data[i].end = (i == THREAD_COUNT - 1)
 			? SIZE
-			: (i + 1) * rowsPerThread;
+			: (i + 1) * rows;
 
-		threadData[i].a = a;
-		threadData[i].b = b;
-		threadData[i].result = result;
+		data[i].a = a;
+		data[i].b = b;
+		data[i].result = result;
 
-		si_threadMake(thread_matrix, &threadData[i], true, &threads[i]);
+		si_threadMakeAndRun(thread_matrix, &data[i], &threads[i]);
 	}
-	for_range (i, 0, THREAD_COUNT) {
-		si_threadJoin(&threads[i]);
-	}
-
-	for_range (i, 0, countof(threads)) {
-		si_threadDestroy(&threads[i]);
-	}
+	for_range (i, 0, THREAD_COUNT) { si_threadJoin(&threads[i]); }
+	for_range (i, 0, THREAD_COUNT) { si_threadDestroy(&threads[i]); }
 }
 
 

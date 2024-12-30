@@ -33,6 +33,8 @@ typedef struct randomStruct {
 	TEST_EQ(arg1, arg2, "%p")
 #define TEST_EQ_USIZE(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%zu")
+#define TEST_EQ_U32(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%u")
 
 
 
@@ -102,45 +104,56 @@ int main(void) {
 		usize ceil = si_alignForward(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
-		siAllocator alloc;
-		rawptr ptr;
-		usize avail;
-		siAllocatorData inData;
-
-		{
-			alloc = si_allocatorHeap();
-			TEST_EQ_PTR(alloc.proc, si_allocator_heap_proc);
-			TEST_EQ_PTR(alloc.userData, nil);
-
-			ptr = si_alloc(alloc, SI_KILO(1));
-			si_free(alloc, ptr);
-
-			avail = si_allocatorGetAvailable(alloc);
-			TEST_EQ_USIZE(avail, USIZE_MAX);
+		for_range (i, 0, sizeof(usize) * 8) {
+			SI_ASSERT(si_isPowerOfTwo(SI_BIT(i)));
 		}
+		SI_ASSERT(si_isPowerOfTwo(0) == false);
+	}
+	si_print("Test 2 has been completed.\n");
 
-		{
-			alloc = si_allocatorMakeArena(SI_MEGA(1), &inData);
-			TEST_EQ_PTR(alloc.proc, si_allocator_stack_proc);
-			TEST_EQ_PTR(alloc.userData, &inData);
-			TEST_EQ_USIZE(inData.offset, 0);
-			TEST_EQ_USIZE(inData.capacity, SI_MEGA(1));
+	{
+		siAllocator alloc = si_allocatorHeap();
+		TEST_EQ_PTR(alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_PTR(alloc.data, nil);
 
-			ptr = si_alloc(alloc, SI_KILO(1));
-			TEST_EQ_USIZE(inData.offset, SI_KILO(1));
-			TEST_EQ_PTR(ptr, inData.ptr);
+		rawptr ptr = si_alloc(alloc, SI_KILO(1));
+		ptr = si_realloc(alloc, ptr, 0, SI_KILO(4));
+		si_free(alloc, ptr);
 
-			avail = si_allocatorGetAvailable(alloc);
-			TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
+		usize avail = si_allocatorAvailable(alloc);
+		TEST_EQ_USIZE(avail, USIZE_MAX);
+	}
+	si_print("Test 3 has been completed.\n");
 
-			si_allocatorReset(alloc);
-			TEST_EQ_USIZE(inData.offset, 0);
+	{
+		siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
+		TEST_EQ_PTR(aData.alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_USIZE(aData.offset, 0);
+		TEST_EQ_USIZE(aData.capacity, SI_MEGA(1));
+		TEST_EQ_U32(aData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
+		SI_ASSERT_NOT_NULL(aData.ptr);
 
-			si_freeAll(alloc);
-			TEST_EQ_PTR(inData.ptr, nil);
-			TEST_EQ_USIZE(inData.offset, 0);
-			TEST_EQ_USIZE(inData.capacity, 0);
-		}
+		siAllocator alloc = si_allocatorArena(&aData);
+		TEST_EQ_PTR(alloc.proc, si_allocator_arena_proc);
+		TEST_EQ_PTR(alloc.data, &aData);
+
+		rawptr ptr = si_alloc(alloc, SI_KILO(1));
+		TEST_EQ_USIZE(aData.offset, SI_KILO(1));
+		TEST_EQ_PTR(ptr, aData.ptr);
+
+		usize avail = si_allocatorAvailable(alloc);
+		TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
+
+		si_freeAll(alloc);
+		TEST_EQ_USIZE(aData.offset, 0);
+
+		si_arenaFree(&aData);
+		TEST_EQ_PTR(aData.ptr, nil);
+		TEST_EQ_USIZE(aData.offset, 0);
+		TEST_EQ_USIZE(aData.capacity, 0);
+	}
+	si_print("Test 4 has been completed.\n");
+
 #if 0
 		char x[128];
 		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
@@ -155,6 +168,7 @@ int main(void) {
 		si_allocatorFree(&alloc);
 		TEST_EQ_H64(alloc.ptr, 0);
 #endif
+#if 0
 		{
 			siAllocator stack = si_allocatorMakeStack(32);
 			char* x = si_alloc(stack, 1);
@@ -166,19 +180,18 @@ int main(void) {
 			*ptr1 = USIZE_MAX;
 			TEST_EQ_H64(*ptr1, USIZE_MAX);
 
-			alloc = si_allocatorMakeArena(SI_KILO(1), &inData);
+			alloc = si_allocatorMakeArena(SI_KILO(1), &aData);
 			si_allocItem(alloc, randomStruct);
 			si_allocArray(alloc, randomStruct, 3);
 
 			TEST_EQ_U64(
-				inData.offset, 
-				si_alignForward(sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT) 
+				aData.offset,
+				si_alignForward(sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
 				+ si_alignForward(3 * sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
 			);
 
 			si_freeAll(alloc);
 		}
-	}
 	si_print("Test 2 has been completed.\n");
 
 	{
@@ -233,6 +246,7 @@ int main(void) {
 
 		#endif
 	}
+#endif
 	si_print("Test 5 has been completed.\n");
 
 

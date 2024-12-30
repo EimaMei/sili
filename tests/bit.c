@@ -1,10 +1,10 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 
-#if !SI_COMPILER_MSVC
+#if SI_COMPILER_GCC || SI_COMPILER_CLANG
 #define test(type, min, max) \
 	do { \
-		u64 ts = si_timeStampStart(); \
+		si_timeStampStart(); \
 		for (i64 a = min; a < max - max / 16; a += max / 16) { \
 			type limit = si_max(type, 1, max / UINT16_MAX / 64); \
 			for (i64 b = min; b < max - limit; b += limit) { \
@@ -19,7 +19,7 @@
 				SI_ASSERT(res[0] == res[1]); \
 			} \
 		} \
-		si_timeStampPrintSince(ts); \
+		si_timeStampPrintSince(); \
 	} while (0)
 #else
 	#define test(type, min, max)
@@ -64,7 +64,8 @@ int main(void) {
 		}
 
 	}
-	if (0) {
+
+	{
 		test(u8, 0, UINT8_MAX);
 		test(u16, 0, UINT16_MAX);
 		test(u32, 0, UINT32_MAX);

@@ -9,13 +9,13 @@ void example2(siAllocator alloc);
 
 
 int main(void) {
-	siAllocatorData arenaData;
-	siAllocator alloc = si_allocatorMakeArena(SI_KILO(1), &arenaData);
+	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_KILO(1));
+	siAllocator alloc = si_allocatorArena(&aData);
 
 	example1(alloc);
 	example2(alloc);
 
-	si_freeAll(alloc);
+	si_arenaFree(&aData);
 }
 
 

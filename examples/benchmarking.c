@@ -34,8 +34,6 @@ int main(void) {
 
 	si_print("Now we will compare the performance stats between 'function_regular()' and 'function_simd()':\n");
 	si_benchmarkLoopsAvgCmp(100000, function_regular(), function_simd());
-
-	return 0;
 }
 
 void function_regular(void) {
@@ -61,5 +59,5 @@ void function_regular(void) {
 		vst1q_s32(res, result);
 	}
 #else
-	#error why
+	#error "Other CPU platforms aren't supported"
 #endif

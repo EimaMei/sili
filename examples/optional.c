@@ -2,15 +2,15 @@
 #include <sili.h>
 
 
-SI_ENUM(usize, valueType) {
-	TYPE_I32 = 0,
-	TYPE_STRING,
-	TYPE_ARRAY,
-	TYPE_STRUCT,
-	TYPE_ENUM,
-	TYPE_FUNC_PTR,
+SI_ENUM(usize, Type) {
+	Type_i32 = 0,
+	Type_string,
+	Type_array,
+	Type_struct,
+	Type_enum,
+	Type_funcPtr,
 
-	SI_TYPE_COUNT
+	Type_len
 };
 
 typedef struct {
@@ -24,7 +24,7 @@ typedef struct {
 } userInfo;
 
 /* For additional siOptional(<TYPE>) types, you need to define them once beforehand. */
-si_optional_define(valueType);
+si_optional_define(Type);
 si_optional_define(u128Struct);
 si_optional_define(cstring);
 si_optional_define(userInfo);
@@ -39,7 +39,8 @@ void example3(void);
 
 
 int main(void) {
-	siAllocator stack = si_allocatorMakeStack(256);
+	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(256), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator stack = si_allocatorArena(&aData);
 
 	example1();
 	example2(stack);
@@ -80,7 +81,7 @@ void example1(void) {
 
 /* Creates an optional object from the specified type and writes it into the
  * given raw pointer.*/
-void createOptional(valueType type, rawptr out, siAllocator alloc);
+void createOptional(Type type, rawptr out, siAllocator alloc);
 
 void example2(siAllocator alloc) {
 	si_print("==============\n\n==============\nExample 2:\n");
@@ -89,7 +90,7 @@ void example2(siAllocator alloc) {
 	siOption(siString) opt_string;
 	siOption(siArray(i32)) opt_buffer;
 	siOption(u128Struct) opt_u128;
-	siOption(valueType) opt_type;
+	siOption(Type) opt_type;
 	siOption(rawptr) opt_ptr;
 
 	rawptr opt_array[] = {
@@ -136,35 +137,35 @@ siOption(cstring) create(b32 value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
-void createOptional(valueType type, rawptr out, siAllocator alloc) {
+void createOptional(Type type, rawptr out, siAllocator alloc) {
 	switch (type) {
-		case TYPE_I32: {
+		case Type_i32: {
 			siOption(i32)* res = out;
 			*res = SI_OPT(i32, INT32_MIN);
 		} break;
 
-		case TYPE_STRING: {
+		case Type_string: {
 			siOption(siString)* res = out;
 			*res = SI_OPT(siString, si_stringMake("Ayn Rand", alloc));
 		} break;
 
-		case TYPE_ARRAY: {
+		case Type_array: {
 			siOption(siArray(i32))* res = out;
 			*res = SI_OPT(siBuffer, si_arrayMake(alloc, i32, 1, 2, 4, 6, 8));
 		} break;
 
-		case TYPE_STRUCT: {
+		case Type_struct: {
 			siOption(u128Struct)* res = out;
 			*res = SI_OPT(u128Struct, {0xFF, UINT64_MAX});
 		} break;
 
-		case TYPE_ENUM: {
-			siOption(valueType)* res = out;
-			*res = SI_OPT(valueType, TYPE_ENUM);
+		case Type_enum: {
+			siOption(Type)* res = out;
+			*res = SI_OPT(Type, Type_enum);
 		} break;
 
-		case TYPE_FUNC_PTR: {
-			typedef void (create_optional_type)(valueType, rawptr, siAllocator);
+		case Type_funcPtr: {
+			typedef void (create_optional_type)(Type, rawptr, siAllocator);
 
 			siOption(rawptr)* res = out;
 			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));
@@ -189,5 +190,3 @@ siResult(userInfo) get_name(u32 identification) {
 
 	return SI_OPT(userInfo, database[identification]);
 }
-
-

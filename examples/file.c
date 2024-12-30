@@ -16,8 +16,8 @@ void example5(siAllocator* alloc);
 
 
 int main(void) {
-	siAllocatorData inData;
-	siAllocator alloc = si_allocatorMakeArena(SI_MEGA(1), &inData);
+	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
+	siAllocator alloc = si_allocatorArena(&aData);
 
 	example1(alloc);
 	example2();
@@ -25,13 +25,14 @@ int main(void) {
 	example4();
 	example5(&alloc);
 
-	si_freeAll(alloc);
+	si_arenaFree(&aData);
 	return 0;
 }
 
 
 void example1(siAllocator alloc) {
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
+	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator stack = si_allocatorArena(&aData);
 
 	si_printf("==============\n\n==============\nExample 1:\n");
 	siString file_random = SI_STR("random.txt");
@@ -56,18 +57,6 @@ void example1(siAllocator alloc) {
 			content.len, content
 		);
 
-		si_fileWriteAtLine(&newFile, SI_STR("and now we have a changed line"), 1);
-
-		siArray(siString) newFileLines = si_fileReadlines(newFile, alloc);
-		si_printf(
-			"Contents of '%S' ('%zd' lines in total):\n",
-			si_pathBaseName(file_random), newFileLines.len
-		);
-
-		for_eachArr (siString, str, newFileLines) {
-			si_stringStrip(str);
-			si_printf("\tLine %zu: '%S'\n", str - (siString*)newFileLines.data, *str);
-		}
 		si_fileClose(newFile);
 	}
 
@@ -95,7 +84,9 @@ void example1(siAllocator alloc) {
 }
 
 void example2(void)	{
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
+	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator stack = si_allocatorArena(&aData);
+
 	si_printf("==============\n\n==============\nExample 2:\n");
 
 	{
@@ -159,9 +150,9 @@ void example3(void)	{
 	{
 		siError res = si_pathRemove(SI_STR("SI_FILE_THAT_DOESNT_EXIST"));
 #ifndef SI_NO_ERROR_STRUCT
-		si_printf("Error '%S' occurred at \"%s:%i\": '%S'\n", si_pathFsErrorName(res.code), res.filename, res.line, si_pathFsErrorDesc(res.code));
+		si_printf("Error '%S' occurred at \"%s:%i\": '%S'\n", si_systemErrorName(res.code), res.filename, res.line, si_systemErrorDesc(res.code));
 #else
-		si_printf("Error '%S' occurred: '%S'\n", si_pathFsErrorName(res.code), si_pathFsErrorDesc(res.code));
+		si_printf("Error '%S' occurred: '%S'\n", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
 #endif
 	}
 

@@ -54,7 +54,8 @@ cstring standard(void) {
 SI_STATIC_ASSERT(SI_BIT(8) == 256);
 
 int main(void) {
-	siAllocator alloc = si_allocatorMakeStack(SI_KILO(1));
+	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator alloc = si_allocatorArena(&aData);
 
 	si_printf(
 		"Information about the system:\n\t"

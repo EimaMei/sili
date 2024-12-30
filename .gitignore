@@ -20,6 +20,7 @@ Dockerfile
 *.mp3
 ideas.txt
 *.obj
+lt.txt
 
 # Later
 siapp.h
