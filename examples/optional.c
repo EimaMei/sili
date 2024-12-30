@@ -127,7 +127,13 @@ void example3(void) {
 			si_printf("ID %u: %S moneis - %u cents\n", id, res.data.value.name, res.data.value.moneis);
 		}
 		else {
-			si_printf("Couldn't get info on ID %u: Error %u\n", id, res.data.error.code);
+			u8 buf[64];
+			siError err = res.data.error;
+			siString time = si_timeToString(buf, countof(buf), si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"));
+			si_printf(
+				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')\n",
+				id, err.code, err.filename, err.line, time
+			);
 		}
 	}
 }
@@ -180,12 +186,15 @@ siResult(userInfo) get_name(u32 identification) {
 		{SI_STRC("Joe"), false, 4000 * 100},
 		{SI_STRC("Gitanas Nausėda"), true, UINT32_MAX}
 	};
+	siError err;
 
 	if (identification >= countof(database)) {
-		return SI_OPT_ERR(userInfo, INVALID_ID);
+		SI_ERROR(&err, INVALID_ID);
+		return SI_OPT_ERR(userInfo, err);
 	}
 	else if (database[identification].isAdmin) {
-		return SI_OPT_ERR(userInfo, ACCESS_DENIED);
+		SI_ERROR(&err, ACCESS_DENIED);
+		return SI_OPT_ERR(userInfo, err);
 	}
 
 	return SI_OPT(userInfo, database[identification]);

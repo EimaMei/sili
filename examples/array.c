@@ -76,7 +76,7 @@ int main(void) {
 	si_print("Scope 3:\n");
 	{
 
-		siArray(u32) array = si_arrayMake(alloc, siColor, {255, 0, 0}, {128, 128, 128}, {96, 255, 186}, {23, 204, 2});
+		siArray(u32) array = si_arrayMake(alloc, siColor, {255, 0, 0, 255}, {128, 128, 128, 255}, {96, 255, 186, 255}, {23, 204, 2, 255});
 		si_printf("\tarray: \"%S\"\n", si_arrayPrintClr(array));
 
 		si_arrayReverse(array);

@@ -38,8 +38,6 @@ void example1(void) {
 	si_threadJoin(&thread); /* Now we wait... */
 
 	si_printf("thread_test(true) returned a '%i'.\n", si_threadGetReturn(thread, i16));
-	si_sleep(2000);
-
 	si_threadDestroy(&thread);
 }
 
@@ -75,11 +73,11 @@ void example2(void) {
 
 
 	/* Fill out both matrix A and B with random data. */
-	srand((u32)si_clock());
+	srand((u32)(si_clock() / SI_CLOCKS_MILI));
 	for_range (i, 0, SIZE) {
 		for_range (j, 0, SIZE) {
-			A[i * SIZE + j] = si_cast(f32, rand() % 10);
-			B[i * SIZE + j] = si_cast(f32, rand() % 10);
+			A[i * SIZE + j] = (f32)(rand() % 10);
+			B[i * SIZE + j] = (f32)(rand() % 10);
 		}
 	}
 

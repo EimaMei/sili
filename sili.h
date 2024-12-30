@@ -239,7 +239,6 @@ extern "C" {
 
 #endif
 
-
 #if defined(__GNUC__) && !defined(__clang__)
 	#define SI_COMPILER_GCC 1
 	#define SI_COMPILER_STR "GCC"
@@ -263,7 +262,6 @@ extern "C" {
 	#define SI_COMPILER_TYPEOF_SUPPORTS 1
 
 	#define SI_COMPILER_VERSION	SI_VERSION(__clang_major__, __clang_minor__, __clang_patchlevel__)
-
 
 #else
 	#define SI_COMPILER_UNKNOWN 1
@@ -522,7 +520,6 @@ extern "C" {
 	#include <unistd.h>
 	#include <dirent.h>
 	#include <dlfcn.h>
-	#include <ftw.h>
 
 	#include <time.h>
 	#include <memory.h>
@@ -552,6 +549,10 @@ extern "C" {
 		#undef WIN32_LEAN_AND_MEAN
 		#undef WIN32_MEAN_AND_LEAN
 		#undef VC_EXTRALEAN
+	#endif
+	#if SI_COMPILER_MSVC
+		#include <malloc.h>
+		#include <intrin.h>
 	#endif
 #endif
 
@@ -1760,7 +1761,7 @@ si_optional_define(rawptr);
 
 /* type - TYPE
  * Creates a returnable 'siOptional' value, with the data being set to zero. */
-#define SI_OPT_NIL(type) SI_OPT_ERR(type, 0)
+#define SI_OPT_NIL(type) SI_OPT_ERR(type, {.code = 0})
 
 /* type - TYPE | errorV - siError
  * Creates a returnable 'siOptional' error value, with the data being set to the
@@ -1839,12 +1840,11 @@ si_optional_define(siBuffer);
 /* type - TYPE | buffer - rawptr | length - usize
  * Makes an array from the specified type, pointer and length. Array is assumed
  * to be static (eg. no allocator). Length is assumed to be the capacity as well. */
-#define SI_BUF_LEN(type, buffer, length) SI_BUF_ALL(type, buffer, length, {0})
-/* type - TYPE | buffer - rawptr | length - usize | alloc - siAllocator
- * Makes an array from the specified type, pointer, length and allocator. Length
- * is assumed to be the capacity as well. */
-#define SI_BUF_ALL(type, buffer, length, alloc) \
-	(siBuffer){buffer, length, length, sizeof(type), alloc}
+#define SI_BUF_LEN(type, buffer, length) SI_BUF_CAP(type, buffer, length, length)
+/* type - TYPE | buffer - rawptr | length - usize | capacity - usize
+ * Makes an array from the specified type, pointer, length and capacity. */
+#define SI_BUF_CAP(type, buffer, length, capacity) \
+	(siBuffer){buffer, length, capacity, sizeof(type), {0}}
 
 /* bytes - usize
  * Stack allocates the specified amount of bytes and creates a siBuffer from it. */
@@ -2022,19 +2022,27 @@ si_optional_define(siString);
 /* string - STR | len - usize
  * Makes a string from a length-specified C-string. */
 #define SI_STR_LEN(string, len) SI_BUF_LEN(u8, (u8*)string, len)
+/* string - STR | len - usize | capacity - usize
+ * Makes a string from a length and capacity specified C-string. */
+#define SI_STR_CAP(string, len, capacity) SI_BUF_CAP(u8, (u8*)string, len, capacity)
+
 /* string - char*
  * Creates a string from a NULL-terminated C-string. */
 #define SI_CSTR(string) SI_STR_LEN((char*)string, si_cstrLen(string))
 /* string - cstring
  * Creates a compile-time constant string from a static NULL-terminated C-string. */
 #define SI_STRC(string) {string, countof_str(string), countof_str(string), 1, {0}}
+
 /* TODO */
 #define SI_STR_EMPTY SI_STR_LEN("", 0)
+/* TODO */
+#define SI_STR_NIL SI_STR_LEN(nil, 0)
 
 
 /* string - siString | index - usize
  * Returns a character at the specified index of the string. */
 #define si_stringGet(string, index) si_arrayGet(string, index, u8)
+
 
 /* Allocates a string from a NULL-terminated C-string. */
 SIDEF siString si_stringMake(cstring string, siAllocator alloc);
@@ -2193,6 +2201,8 @@ SIDEF usize si_memmoveStr_s(void* dst, usize dstSize, siString src);
  * '0', wheare as an index of 10 would return 'A'/'a'). */
 extern const char* SI_NUM_TO_CHAR_TABLE;
 
+
+
 /* Capitalizes each string's letter. */
 SIDEF void si_stringUpper(siString string);
 /* Decapitalizes each string's letter. */
@@ -2278,6 +2288,19 @@ SIDEF siString si_stringFromArray(siBuffer array, cstring fmt, u8* out,
 
 
 
+#if SI_SYSTEM_IS_WINDOWS
+	/* TODO */
+	typedef u16 siOsChar;
+#else
+	/* TODO */
+	typedef char siOsChar;
+#endif
+
+/* TODO */
+typedef siOsChar* siOsString;
+/* TODO */
+typedef struct siOsString_2x { siOsString v[2]; usize len[2]; } siOsString_2x;
+
 #endif /* SI_NO_STRING */
 
 #ifndef SI_NO_UNICODE
@@ -2314,14 +2337,14 @@ typedef siArray(u16) siUtf16String;
 #define SI_UNICODE_INVALID_UTF8 (siUtf8Char){{0xEF, 0xBF, 0xBD}, 3}
 
 
-typedef struct {
+typedef struct siUtf8Char {
 	/* The codepoint (UTF-8 encoded). */
-	char codepoint[4];
+	u8 codepoint[4];
 	/* Length of 'codepoint' in bytes. */
 	u32 len;
 } siUtf8Char;
 
-typedef struct {
+typedef struct siUtf32Char {
 	/* The codepoint (UTF-32 encoded). */
 	i32 codepoint;
 	/* Length of the character in UTF-8. */
@@ -2336,29 +2359,37 @@ SIDEF siUtf32Char si_utf8Decode(const u8* character);
  * structure. This function does not check if the UTF-32 is invalid. */
 SIDEF siUtf8Char si_utf8Encode(i32 codepoint);
 
-/* Returns the amount of characters in an UTF-8 string. For example, an input
- * string of "Ąsotis" would returns 7 from 'si_cstrLen', while 'si_utf8StrLen'
- * would returns 6. */
+
+/* Returns the amount of _characters_ (not bytes) in a UTF-8 string. */
 SIDEF usize si_utf8StrLen(siUtf8String string);
-/* Returns a UTF-32 character at the specified _character_ index.
- * Example: 'si_utf8StrAt("リトアニア", 2)' would return {0x30A2, 3}. */
+
+/* Returns a UTF-32 _character at the specified _character_ (not byte) index. */
 SIDEF siUtf32Char si_utf8StrAt(siUtf8String string, usize charIndex);
-/* Returns a pointer to the specified _character_ index.
- * Example: 'si_utf8StrAt("リトアニア", 2)' would return {&str[7], 3}. */
+/* Returns a pointer to the specified _character_ (note byte) index. */
 SIDEF siString si_utf8StrAtUTF8(siUtf8String string, usize charIndex);
+
 
 /* Encodes a UTF-8 string into a UTF-16 string _without_ a NULL-terminator. */
 SIDEF siUtf16String si_utf8ToUtf16Str(siUtf8String str, u16* out, usize capacity);
-/* Encodes a UTF-8 string into a UTF-16 string with an option to make it
- * NULL-terminated. */
+/* Encodes a UTF-8 string into a UTF-16 string with an option to include a NULL-terminated
+ * byte.
+ * NOTE: If a NULL-terminated byte is requested, the returned string will have a
+ * capacity of 'length + 1'. _Use 'string.capacity' to advance the buffer's offset,
+ * not the length._ */
 SIDEF siUtf16String si_utf8ToUtf16StrEx(siUtf8String str, b32 nullTerm, u16* out,
 		usize capacity);
+
 /* Encodes a UTF-16 string into a UTF-8 string _without_ a NULL-terminator. */
 SIDEF siUtf8String si_utf16ToUtf8Str(siUtf16String str, u8* out, usize capacity);
-/* Encodes a UTF-16 string into a UTF-8 string with an option to make it
- * NULL-terminated. */
+/* Encodes a UTF-16 string into a UTF-8 string with an option to include a NULL-terminated
+ * byte.
+ * NOTE: If a NULL-terminated byte is requested, the returned string will have a
+ * capacity of 'length + 1'. _Use 'string.capacity' to advance the buffer's offset,
+ * not the length._ */
 SIDEF siUtf8String si_utf16ToUtf8StrEx(siUtf16String str, b32 nullTerm, u8* out,
 		usize capacity);
+/* Returns how many bytes a UTF-16 string would occupy in UTF-8. */
+SIDEF usize si_utf16ToUtf8StrLen(siUtf16String string);
 
 
 /* Decodes the given UTF-16 character into UTF-32 and returns a 'siUtf32Char' structure.
@@ -2518,6 +2549,22 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr val
 	========================
 */
 
+#ifndef SIDEF_WINDOWS
+	#if SI_SYSTEM_IS_WINDOWS
+		#define SIDEF_WINDOWS
+	#else
+		#define SIDEF_WINDOWS noreturn
+	#endif
+#endif
+
+#ifndef SIDEF_UNIX
+	#if SI_SYSTEM_IS_UNIX
+		#define SIDEF_UNIX
+	#else
+		#define SIDEF_UNIX noreturn
+	#endif
+#endif
+
 SI_ENUM(i32, siErrorSystem) {
 	/* No error. */
 	siErrorSystem_None = 0,
@@ -2536,11 +2583,19 @@ SI_ENUM(i32, siErrorSystem) {
 	siErrorSystem_NoMemory,
 	/* Failed to truncate the file. */
 	siErrorSystem_TruncationFail,
+	/* System has insufficient resources to complete the action. */
+	siErrorSystem_Unavailable,
+	/* A thread deadlock occurred. */
+	siErrorSystem_Deadlock,
 
 	/* An unspecified error occurred. */
 	siErrorSystem_Generic,
 	/* Total amount of valid errors. */
 	siErrorSystem_Length,
+
+	/* Sili reserves its errors to span from 0 to (INT32_MAX / 2). Every other 
+	 * value won't be touched by sili. */
+	//SI_ERROR_SYSTEM_RESERVED = INT32_MAX / 2,
 };
 
 SI_ENUM(i32, siWindowsVersion) {
@@ -2569,27 +2624,31 @@ SIDEF siString si_systemErrorDesc(siErrorSystem err);
 /* Ends the program with a to be returned code. */
 noreturn SIDEF void si_exit(u32 code);
 
+
 /* Sets an environment variable for the current process. */
 SIDEF b32 si_envVarSet(siString name, siString value);
 /* Unsets an environment variable for the current process. */
 SIDEF b32 si_envVarUnset(siString name);
+
+/* Gets the data length of the specified environment variable. */
+SIDEF usize si_envVarGetLength(siString name);
 /* Gets an environment variable for the current process. If the specified variable
  * name doesn't exist, the returned string's data is set to nil. */
-SIDEF siString si_envVarGet(siString name, u8* out, usize capacity);
+SIDEF siString si_envVarGetData(siString name, u8* out, usize capacity);
 
 
 /* Returns the current running Windows OS version. Returns '0' if the version is
- * older than XP, '-1' if this function is executed on a non-Windows OS. */
-SIDEF siWindowsVersion si_windowsGetVersion(void);
+ * older than XP. */
+SIDEF SIDEF_WINDOWS siWindowsVersion si_windowsGetVersion(void);
 
 /* Returns true if the current Unix system is running Wayland. */
-SIDEF b32 si_unixIsWayland(void);
+SIDEF SIDEF_UNIX b32 si_unixIsWayland(void);
 /* Returns true if the current Unix system is running X11. */
-SIDEF b32 si_unixIsX11(void);
+SIDEF SIDEF_UNIX b32 si_unixIsX11(void);
 
 /* Returns the current running desktop environment on the system. If the found
  * desktop environment isn't recognized by Sili, 0 is returned. */
-SIDEF siUnixDE si_unixGetDE(void);
+SIDEF SIDEF_UNIX siUnixDE si_unixGetDE(void);
 
 
 #endif /* SI_NO_SYSTEM */
@@ -2676,6 +2735,7 @@ SI_ENUM(i32, siStdFile) {
 
 /* Checks if the specified path exists. */
 SIDEF b32 si_pathExists(siString path);
+SIDEF b32 si_pathExistsOS(siOsString path);
 /* Copies the specified source path to the destination. Returns the size of the
  * file if the copy was succesful. */
 SIDEF siResult(usize) si_pathCopy(siString pathSrc, siString pathDst);
@@ -2723,15 +2783,10 @@ SIDEF b32 si_pathIsAbsolute(siString path);
 SIDEF b32 si_pathIsRelative(siString path);
 
 /* TODO */
-SIDEF siUtf16String si_pathToWin32(siString path, u16* out, usize capacity);
+SIDEF usize si_pathToOS(siString path, siOsChar* out, usize capacity);
 /* TODO */
-SIDEF void si_pathToWin32Mul(siString pathSrc, siString pathDst, u16* outBuf, usize capacity,
-		siUtf16String out[2]);
-/* TODO */
-SIDEF char* si_pathToUnix(siString path, u8* out, usize capacity);
-/* TODO */
-void si_pathToUnixMul(siString pathSrc, siString pathDst, u8* outBuf, usize capacity,
-		char* out[2]);
+SIDEF siOsString_2x si_pathToOSMul(siString first, siString second, siOsChar* out,
+		usize capacity);
 
 
 
@@ -3007,12 +3062,12 @@ extern siString* SI_NAMES_DAYS_SHRT;
 extern siString* SI_NAMES_AM_PM;
 
 
-/* How many clocks of 'si_clock()' are equivalent to a second (1s = 1e+9 ns). */
-#define SI_CLOCKS_S (1000000000)
-/* How many clocks of 'si_clock()' are equivalent to a milisecond (1ms = 1e+6 ns). */
-#define SI_CLOCKS_MS (1000000)
-/* How many clocks of 'si_clock()' are equivalent to a microsecond (1µs = 1e+3 ns). */
-#define SI_CLOCKS_US (1000)
+/* One microsecond in nanoseconds */
+#define SI_CLOCKS_MICRO (1000)
+/* One milisecond in nanoseconds */
+#define SI_CLOCKS_MILI  (1000000)
+/* One second in nanoseconds */
+#define SI_CLOCKS_SECS  (1000000000)
 
 /* time - UINT
  * Converts Windows time into sili's Unix time. */
@@ -3023,7 +3078,7 @@ extern siString* SI_NAMES_AM_PM;
  * NOTE: Only natively works for AMD64, i386, ARM64 and PPC CPUs. On other CPUs
  * the function relies on OS functions like 'gettimeofday'. */
 SIDEF u64 si_RDTSC(void);
-/* Returns the current clock. */
+/* Returns the current clock (in nanoseconds). */
 SIDEF u64 si_clock(void);
 
 /* Starts a timestamp locally. */
@@ -3052,8 +3107,7 @@ SIDEF i32 si_timeGetDayOfWeek(i32 year, i32 month, i32 day);
 /* Converts raw Unix time into human-readable time components. */
 SIDEF siTimeCalendar si_timeToCalendar(i64 time);
 
-/* Creates a string in the specified buffer from the format and returns the length
- * of it.
+/* Creates a string in the specified buffer from the specified format.
  * Specifiers:
  * - 'yyyy'/'yy' - full year/the two last digits
  * - 'M'/'MM' - month digit without/with padding, 'MMM'/'MMMM' - shortened/full month name,
@@ -3061,7 +3115,7 @@ SIDEF siTimeCalendar si_timeToCalendar(i64 time);
  * - 'h'/'hh' - hours without/with padding, 'm'/'mm' - minutes without/with padding,
  * - 's'/'ss' - seconds without/with padding, 'n'/'nn' - nanoseconds without/with padding.
  * - 'AP/ap' - uppercased/lowercased am/pm display. */
-SIDEF usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt);
+SIDEF siString si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt);
 
 #endif /* SI_NO_TIME */
 
@@ -3341,8 +3395,8 @@ SIDEF isize si_bprintfLnVa(char* out, usize capacity, cstring fmt, va_list va);
 
 /* Writes a NULL-terminated formatted C-string to a buffer. Returns the amount
  * of written bytes. */
-SIDEF siString si_aprintf(siAllocator alloc, cstring fmt, ...);
-SIDEF siString si_aprintfVa(siAllocator alloc, cstring fmt, va_list va);
+//SIDEF siString si_aprintf(siAllocator alloc, cstring fmt, ...);
+//SIDEF siString si_aprintfVa(siAllocator alloc, cstring fmt, va_list va);
 
 
 
@@ -3608,11 +3662,12 @@ SIDEF u32 si_float64IsInf(f64 num);
 #define si_benchmarkRunsPerLoop(timesToLoop, function) \
 	do { \
 		u64 timeSince = si_RDTSC(); \
-		for_range (i, 0, timesToLoop) { \
+		volatile usize i; \
+		for (i = 0; i < (timesToLoop); i += 1) { \
 			function; \
 		} \
 		timeSince = si_RDTSC() - timeSince; \
-		f64 timeTaken = (f64)timeSince / ((f64)si_cpuClockSpeed() / 1000.0); /* NOTE(EimaMei): This will take the time in ms, not seconds. */ \
+		f64 timeTaken = (f64)timeSince / ((f64)si_cpuClockSpeed() / 1000.0) / (f64)SI_CLOCKS_MILI; \
 		si_printf(SI_PERFORMANCE_MSG, #function, timeTaken, timesToLoop / 1000000.0); \
 	} while(0)
 
@@ -3645,7 +3700,7 @@ SIDEF u32 si_float64IsInf(f64 num);
  * average of all of the runs. */
 #define si_benchmarkLoopsAvgRange(start, end, function) \
 	do { \
-		siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT); \
+		siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(sizeof(u64) * 20), SI_DEFAULT_MEMORY_ALIGNMENT); \
 		siBenchmarkInfo arr = { \
 			#function, \
 			si_arrayMakeReserve(sizeof(u64), 0, 20, si_allocatorArena(&aData)) \
@@ -3670,7 +3725,7 @@ SIDEF u32 si_float64IsInf(f64 num);
  * function1 vs function2 (ON UNIX: green text - faster, red text - slower). */
 #define si_benchmarkLoopsAvgCmpRange(start, end, function1, function2) \
 	do { \
-		siAllocatorArena si_aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT); \
+		siAllocatorArena si_aData = si_arenaMakePtr(si_stackAlloc(sizeof(u64) * 2 * 20), SI_DEFAULT_MEMORY_ALIGNMENT); \
 		siAllocator si_alloc = si_allocatorArena(&si_aData); \
 		siBenchmarkInfo si_arr[2] = { \
 			{#function1, si_arrayMakeReserve(sizeof(u64), 0, 20, si_alloc)}, \
@@ -3693,19 +3748,20 @@ typedef struct { u64 duration; cstring unit; } siBenchmarkLimit;
 
 #define si_benchmarkLoop(function, cycles, start, end) \
 	do { \
-		usize arrayIndex = 0; \
-		u64 medianIndex; \
+		volatile u64 medianIndex; \
 		for (medianIndex = start; medianIndex < 10 * end; medianIndex *= 10) { \
-			u64 index; \
+			volatile u64 index; \
+			si_printf("");  /* NOTE(EimaMei): Having a 'print' statement forces
+							   smart compilers like GCC and Clang to become  dumb
+							   and stops them from optimzing the function out. */ \
 			u64 begin = si_RDTSC(); \
 			for (index = 0; index < medianIndex; index++) { \
 				(void)function; \
 			} \
 			begin = si_RDTSC() - begin; \
-			si_arrayGet(cycles, arrayIndex, u64) = begin; \
-			arrayIndex += 1; \
+			si_arrayGet(cycles, cycles.len, u64) = begin; \
+			cycles.len += 1; \
 		} \
-		cycles.len = arrayIndex; \
 	} while (0)
 
 extern const siBenchmarkLimit siBenchLimit[];
@@ -4113,8 +4169,8 @@ rawptr si_allocator_lifo_proc(siAllocatorFunc func, rawptr data) {
 		} break;
 
 		case siAllocatorFunc_Resize: {
-			SI_PANIC_MSG("Unsupported function.");
 			out = nil;
+			SI_PANIC_MSG("Unsupported function.");
 		} break;
 
 		case siAllocatorFunc_GetAvailable: {
@@ -4249,8 +4305,7 @@ void si_panic(cstring conditionStr, cstring file, i32 line, cstring func,
 	if (message != nil) {
 		va_list va;
 		va_start(va, message);
-		si_fprintfVa(si_stderr, message, va);
-		si_fprint(si_stderr, "\n");
+		si_fprintfLnVa(si_stderr, message, va);
 		va_end(va);
 	}
 
@@ -4400,7 +4455,7 @@ rawptr si_memmoveRight(void* src, usize length, isize moveBy) {
 #ifdef SI_IMPLEMENTATION_ARRAY
 
 #ifndef SI_RELEASE_MODE
-inline
+SIDEF
 rawptr si__arrayGet(const siBuffer* buffer, usize index, usize sizeof_type,
 		cstring file, i32 line) {
 	SI_ASSERT_FMT(
@@ -4419,7 +4474,7 @@ rawptr si__arrayGet(const siBuffer* buffer, usize index, usize sizeof_type,
 
 
 
-inline
+SIDEF
 siBuffer si_arrayMakeEx(rawptr list, usize sizeofItem, usize count, siAllocator alloc)  {
 	siBuffer array = si_arrayMakeReserve(sizeofItem, count, count, alloc);
 	si_memcopy(array.data, list, sizeofItem * count);
@@ -4946,8 +5001,7 @@ b32 si_stringSet(siString* string, siString str) {
 }
 
 SIDEF
-siString si_stringJoin(siArray(siString) strings, siString separator,
-		siAllocator alloc) {
+siString si_stringJoin(siArray(siString) strings, siString separator, siAllocator alloc) {
 	SI_ASSERT_NOT_NULL(strings.data);
 	SI_STOPIF(strings.len == 0, return SI_STR_EMPTY);
 
@@ -4959,15 +5013,15 @@ siString si_stringJoin(siArray(siString) strings, siString separator,
 	siString res = si_stringMakeReserve(length, length, alloc);
 
 	siString* data = (siString*)strings.data;
+	si_memcopyStr(res.data, data[0]);
 	usize i = data[0].len;
-	si_memcopy(res.data, data[0].data, data[0].len);
 
 	for_range (j, 1, strings.len) {
 		siString str = data[j];
 
-		si_memcopyStr(&si_stringGet(res, i), separator),
+		si_memcopyStr(&si_stringGet(res, i), separator);
 			i += separator.len;
-		si_memcopyStr(&si_stringGet(res, i), str),
+		si_memcopyStr(&si_stringGet(res, i), str);
 			i += str.len;
 	}
 
@@ -4987,8 +5041,9 @@ void si_stringTrimLeft(siString* string, siString cutSet) {
 
 	u8* posStart = si_stringBegin(*string);
 	u8* posEnd = si_stringEnd(*string);
-	while (posStart < posEnd && si_stringFindByte(cutSet, *posStart) != -1) {
+	while (si_stringFindByte(cutSet, *posStart) != -1) {
 		posStart += 1;
+		SI_STOPIF(posStart >= posEnd, break);
 	}
 
 
@@ -5123,13 +5178,14 @@ b32 si_stringReplace(siString* string, siString strOld, siString strNew, isize a
 	}
 	SI_STOPIF(amount == 0, return false);
 
-	usize len = string->len + amount * (isize)(strNew.len - strOld.len);
+	usize len = string->len + amount * (usize)(strNew.len - strOld.len);
 	usize lineStart = 0, i = 0;
 	siString res = si_stringMakeReserve(len, len, alloc);
 
 	while (amount) {
 		siString subStr = si_stringSubToEnd(*string, lineStart);
 		subStr.len = si_stringFind(subStr, strOld);
+		SI_ASSERT(subStr.len != USIZE_MAX); /* This shouldn't happen, but I include it to make GCC shut up. */
 
 		si_memcopyStr(&si_stringGet(res, i), subStr),
 			i += subStr.len;
@@ -5649,7 +5705,7 @@ go_back:
 }
 
 
-inline
+SIDEF
 i64 si_stringToInt(siString string) {
 	SI_ASSERT_NOT_NULL(string.data);
 
@@ -5661,7 +5717,7 @@ i64 si_stringToInt(siString string) {
 			return -(i64)si_stringToUInt(string);
 		case '+':
 			string.data = (u8*)string.data + 1;
-			string.len  -= 1;
+			string.len -= 1;
 			break;
 	}
 
@@ -5673,7 +5729,7 @@ i64 si_stringToIntEx(siString string, i32* outRes) {
 	return si_stringToIntBase(string, -1, outRes);
 }
 
-inline
+SIDEF
 i64 si_stringToIntBase(siString string, i32 base, i32* outRes) {
 	SI_ASSERT_NOT_NULL(string.data);
 
@@ -5752,34 +5808,44 @@ siUtf32Char si_utf8Decode(const u8* character) {
 
 SIDEF
 siUtf8Char si_utf8Encode(i32 codepoint) {
-	siUtf8Char result;
+	siUtf8Char res;
 
-	u32 len = (codepoint >= 0x80) + (codepoint >= 0x800) + (codepoint >= 0x10000);
-	if (len == 0) {
-		result.codepoint[0] = (char)codepoint;
-		result.len = 1;
-		return result;
+	if (codepoint <= 0x7F) {
+		res.codepoint[0] = (u8)codepoint;
+		res.len = 1;
+		return res;
 	}
-
-	result.codepoint[0] = si_cast(char, ((0xFF80 >> len) & 0xFF) | (codepoint >> (6 * len)));
-	result.len = len + 1;
-
-	for_range (i, 1, result.len) {
-		result.codepoint[i] = si_cast(char, 0x80 | ((codepoint >> (6 * (len - i))) & 0x3F));
+	else if (codepoint <= 0x7FF) {
+		res.codepoint[0] = 0xC0 | (u8)(codepoint >> 6);
+        res.codepoint[1] = 0x80 | (u8)(codepoint & 0x3F);
+		res.len = 2;
 	}
+	else if (codepoint <= 0xFFFF) {
+		SI_STOPIF(si_between(i32, codepoint, 0xD800, 0xDFFF), return SI_UNICODE_INVALID_UTF8);
+        res.codepoint[0] = 0xE0 | (u8)(codepoint >> 12);
+        res.codepoint[1] = 0x80 | (u8)((codepoint >> 6) & 0x3F);
+        res.codepoint[2] = 0x80 | (u8)(codepoint & 0x3F);
+		res.len = 3;
+	}
+	else if (codepoint <= 0x10FFFF) {
+        res.codepoint[0] = 0xF0 | (u8)(codepoint >> 18);
+        res.codepoint[1] = 0x80 | (u8)((codepoint >> 12) & 0x3F);
+        res.codepoint[2] = 0x80 | (u8)((codepoint >> 6) & 0x3F);
+        res.codepoint[3] = 0x80 | (u8)(codepoint & 0x3F);
+		res.len = 4;
+	}
+	else return SI_UNICODE_INVALID_UTF8;
 
-	return result;
+
+	return res;
 }
-
 
 SIDEF
 usize si_utf8StrLen(siUtf8String string) {
-	SI_ASSERT_NOT_NULL(string.data);
+	usize offset = 0;
+	usize len = 0;
 
-	usize offset = 0,
-		  len = 0;
-
-	while (offset > string.len) {
+	while (offset < string.len) {
 		offset += si_utf8Decode(&si_stringGet(string, offset)).len;
 		len += 1;
 	}
@@ -5787,10 +5853,8 @@ usize si_utf8StrLen(siUtf8String string) {
 	return len;
 }
 
-
 SIDEF
 siUtf32Char si_utf8StrAt(siUtf8String string, usize charIndex) {
-	SI_ASSERT_NOT_NULL(string.data);
 	SI_ASSERT(charIndex < string.len);
 	SI_STOPIF(string.len == 0, return SI_UNICODE_INVALID_UTF32);
 
@@ -5829,7 +5893,6 @@ siString si_utf8StrAtUTF8(siUtf8String string, usize charIndex) {
 	character = si_utf8Decode(characterPtr);
 	return SI_STR_LEN(characterPtr, character.len);
 }
-
 
 inline
 siUtf16String si_utf8ToUtf16Str(siUtf8String str, u16* out, usize capacity) {
@@ -5870,7 +5933,7 @@ siUtf8String si_utf8ToUtf16StrEx(siUtf8String str, b32 nullTerm, u16* out,
 
 	if (nullTerm) {
 		out[offsetUTF16] = '\0';
-		offsetUTF16 += 1;
+		return SI_BUF_CAP(u16, out, offsetUTF16, offsetUTF16 + 1);
 	}
 
 	return SI_BUF_LEN(u16, out, offsetUTF16);
@@ -5938,36 +6001,50 @@ siUtf8String si_utf16ToUtf8StrEx(siUtf16String str, b32 nullTerm, u8* out,
 
 	if (nullTerm) {
 		out[offsetUTF8] = '\0';
-		offsetUTF8 += 1;
+		return SI_STR_CAP(out, offsetUTF8, offsetUTF8 + 1);
 	}
 
 	return SI_STR_LEN(out, offsetUTF8);
 }
 
 SIDEF
+usize si_utf16ToUtf8StrLen(siUtf16String string) {
+	usize count = 0;
+	usize i = 0;
+
+	while (i < string.len) {
+		siUtf32Char character = si_utf16Decode(&si_arrayGet(string, i, u16));
+		count += character.len;
+		i += 1 + (character.len == 4);
+	}
+
+	return count;
+}
+
+SIDEF
 siUtf32Char si_utf16Decode(const u16 character[2]) {
-	siUtf32Char utf32 = SI_UNICODE_INVALID_UTF32;
 	i32 chr = character[0];
 
 	if (si_between(i32, chr, 0xD800, 0xDBFF)) {
 		i32 high = (chr - 0xD800) << 10,
 			low = character[1] - 0xDC00;
 
-		utf32.codepoint = (high | low) + 0x10000;
-		utf32.len = 4;
-	}
-	else {
-		utf32.codepoint = chr;
-		utf32.len = 1 + (chr >= 0x80) + (chr >= 0x800);
+		siUtf32Char res;
+		res.codepoint = (high | low) + 0x10000;
+		res.len = 4;
+		return res;
 	}
 
-	return utf32;
+	siUtf32Char res;
+	res.codepoint = chr;
+	res.len = 1 + (chr >= 0x80) + (chr >= 0x800);
+
+	return res;
 }
 
 SIDEF
 siUtf8Char si_utf16Encode(const u16 character[2]) {
-	siUtf32Char utf32 = si_utf16Decode(character);
-	return si_utf8Encode(utf32.codepoint);
+	return si_utf8Encode(si_utf16Decode(character).codepoint);
 }
 #endif /* SI_IMPLEMENTATION_UNICODE */
 
@@ -6329,8 +6406,9 @@ inline
 siString si_systemErrorName(siErrorSystem error) {
 	SI_ASSERT(error < siErrorSystem_Length);
 
-    static const siString names[] = {
+    static const siString names[siErrorSystem_Length] = {
         SI_STRC("siErrorSystem_None"),
+
         SI_STRC("siErrorSystem_Exists"),
         SI_STRC("siErrorSystem_NotExists"),
         SI_STRC("siErrorSystem_Invalid"),
@@ -6338,8 +6416,12 @@ siString si_systemErrorName(siErrorSystem error) {
         SI_STRC("siErrorSystem_Permission"),
         SI_STRC("siErrorSystem_NoMemory"),
         SI_STRC("siErrorSystem_TruncationFail"),
+		SI_STRC("siErrorSystem_Unavailable"),
+		SI_STRC("siErrorSystem_Deadlock"),
+
 		SI_STRC("siErrorSystem_Generic"),
     };
+
 	return names[error];
 }
 
@@ -6347,8 +6429,9 @@ inline
 siString si_systemErrorDesc(siErrorSystem error) {
 	SI_ASSERT(error < siErrorSystem_Length);
 
-	static const siString descriptions[] = {
+	static const siString descriptions[siErrorSystem_Length] = {
         SI_STRC("No error has been encountered."),
+
         SI_STRC("File or directory already exists."),
         SI_STRC("File or directory doesn't exist."),
         SI_STRC("Provided value is invalid."),
@@ -6356,6 +6439,9 @@ siString si_systemErrorDesc(siErrorSystem error) {
         SI_STRC("User doesn't have sufficient permissions."),
         SI_STRC("Out of memory."),
         SI_STRC("Failed to truncate the file."),
+        SI_STRC("System has insufficient resources to complete the action."),
+		SI_STRC("A thread deadlock occurred."),
+
         SI_STRC("An unspecified, platform-specific error occurred."),
     };
 	return descriptions[error];
@@ -6367,33 +6453,28 @@ siErrorSystem si__fileGetOSError(void) {
 	switch (GetLastError()) {
 		case ERROR_NO_MORE_FILES:
 		case ERROR_SUCCESS: return siErrorSystem_None;
-		case ERROR_ALREADY_EXISTS:
-		case ERROR_FILE_EXISTS: return siErrorSystem_Exists;
-		case ERROR_INVALID_NAME:
-		case ERROR_BAD_PATHNAME: return siErrorSystem_InvalidFilename;
-		case ERROR_DIRECTORY:
-		case ERROR_INVALID_ADDRESS: return siErrorSystem_Invalid;
-		case ERROR_PATH_NOT_FOUND:
-		case ERROR_FILE_NOT_FOUND: return siErrorSystem_NotExists;
+		case ERROR_ALREADY_EXISTS: case ERROR_FILE_EXISTS: return siErrorSystem_Exists;
+		case ERROR_INVALID_NAME: case ERROR_BAD_PATHNAME: return siErrorSystem_InvalidFilename;
+		case ERROR_DIRECTORY: case ERROR_INVALID_ADDRESS: return siErrorSystem_Invalid;
+		case ERROR_PATH_NOT_FOUND: case ERROR_FILE_NOT_FOUND: return siErrorSystem_NotExists;
 		case ERROR_ACCESS_DENIED: return siErrorSystem_Permission;
 		case ERROR_NOT_ENOUGH_MEMORY: return siErrorSystem_NoMemory;
 	}
-	return siErrorSystem_Invalid;
 #else
 	switch (errno) {
 		case 0: return siErrorSystem_None;
 		case EEXIST: return siErrorSystem_Exists;
 		case EINVAL: return siErrorSystem_Invalid;
-		case EISDIR:
-		case ENAMETOOLONG: return siErrorSystem_InvalidFilename;
+		case EISDIR: case ENAMETOOLONG: return siErrorSystem_InvalidFilename;
 		case ENOENT: return siErrorSystem_NotExists;
-		case EPERM:
-		case EACCES: return siErrorSystem_Permission;
+		case EPERM: case EACCES: return siErrorSystem_Permission;
 		case ENOMEM: return siErrorSystem_NoMemory;
+		case EAGAIN: return siErrorSystem_Unavailable;
+		case EDEADLK: return siErrorSystem_Deadlock;
 	}
-
-	return siErrorSystem_Invalid;
 #endif
+
+	return siErrorSystem_Generic;
 }
 
 noreturn inline
@@ -6408,92 +6489,68 @@ void si_exit(u32 code) {
 
 SIDEF
 b32 si_envVarSet(siString name, siString value) {
+	siOsChar stack[SI_PATH_MAX];
+	siOsString_2x strs = si_pathToOSMul(name, value, stack, countof(stack));
+	siOsString* paths = strs.v;
+
+
 #if SI_SYSTEM_IS_WINDOWS
-	siUtf16String paths[2];
-	u16 stack[SI_PATH_MAX];
-	si_pathToWin32Mul(name, value, stack, countof(stack), paths);
-
-	return SetEnvironmentVariableW((u16*)paths[0].data, (u16*)paths[1].data) != 0;
-#else
-	char* paths[2];
-	u8 stack[SI_PATH_MAX];
-	si_pathToUnixMul(name, value, stack, countof(stack), paths);
-
+	return SetEnvironmentVariableW(paths[0], paths[1]) != 0;
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	return setenv(paths[0], paths[1], 1) == 0;
 #endif
 }
 
 SIDEF
 b32 si_envVarUnset(siString name) {
-#if SI_SYSTEM_IS_WINDOWS
-	u16 stack[SI_PATH_MAX];
-	si_pathToWin32(name, stack, countof(stack));
+	siOsChar path[SI_PATH_MAX];
+	si_pathToOS(name, path, countof(path));
 
-	return SetEnvironmentVariableW(stack, nil) != 0;
-#else
-	u8 stack[SI_PATH_MAX];
-	return unsetenv(si_pathToUnix(name, stack, countof(stack))) == 0;
+#if SI_SYSTEM_IS_WINDOWS
+	return SetEnvironmentVariableW(path, nil) != 0;
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	return unsetenv(path) == 0;
 #endif
 }
 
-#if SI_SYSTEM_IS_UNIX
-	typedef char siOsChar;
-	typedef char* siOsString;
-#else
-	#error "d"
-#endif
 
-
-SIDEF usize si_envVarGetLength(siString name);
-SIDEF usize si_envVarGetLengthOS(siOsString name);
-
-SIDEF siString si_envVarGetData(siString name, u8* out, usize capacity);
-SIDEF siString si_envVarGetDataEx(siString name, u8* out, usize bytesToCopy);
-SIDEF siString si_envVarGetDataOS(siOsString name, u8* out, usize bytesToCopy);
-
-inline
+SIDEF
 usize si_envVarGetLength(siString name) {
-	siOsChar stack[SI_PATH_MAX];
-
-}
-
-inline
-siString si_envVarGet(siString name, u8* out, usize capacity) {
-	return si_envVarGetLen(name, out, si_min(usize, capacity, si_envVarGetLength(name)));
-}
-
-SIDEF
-siString si_envVarGetEx(siString name, u8* out, usize bytesToCopy) {
-
-
-siString si_envVarGetEx(siString name, u8* out, usize bytesToCopy) {
-	SI_ASSERT_NOT_NULL(out);
+	siOsChar path[SI_PATH_MAX * 2];
+	usize pathLen = si_pathToOS(name, path, countof(path));
 
 #if SI_SYSTEM_IS_WINDOWS
-	u16 stack[SI_PATH_MAX];
-	siUtf16String nameWide = si_pathToWin32(name, stack, countof(stack));
+	u32 len = GetEnvironmentVariableW(path, &path[pathLen], si_cast(u32, countof(path) - pathLen));
+	SI_STOPIF(len == 0, return 0);
 
-	u32 len = (u32)(countof(stack) - nameWide.len);
-	len = GetEnvironmentVariableW(nameWide.data, &stack[nameWide.len], len);
-	SI_STOPIF(len == 0, return SI_STR_EMPTY);
-
-	return si_utf16ToUtf8Str(SI_BUF_LEN(u16, &stack[nameWide.len], len), out, capacity);
-#else
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(4));
-	cstring nameU = si_stringCopyToCstr(name, stack);
-
-	cstring content = getenv(nameU);
-	SI_STOPIF(content == nil, return SI_STR_EMPTY);
-
-	usize len = si_cstrLen(content);
-	si_memcopy_s(out, capacity, content, len);
-
-	return SI_STR_LEN(content, len);
-
+	return si_utf16ToUtf8StrLen(SI_BUF_LEN(u16, &path[pathLen], len));
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	return si_cstrLen(getenv(path));
+	SI_UNUSED(pathLen);
 #endif
 }
 
 SIDEF
+siString si_envVarGetData(siString name, u8* out, usize capacity) {
+	siOsChar path[SI_PATH_MAX * 2];
+	usize pathLen = si_pathToOS(name, path, countof(path));
+
+#if SI_SYSTEM_IS_WINDOWS
+	u32 len = GetEnvironmentVariableW(path, &path[pathLen], si_cast(u32, countof(path) - pathLen));
+	SI_STOPIF(len == 0, return SI_STR_NIL);
+
+	return si_utf16ToUtf8Str(SI_BUF_LEN(u16, &path[pathLen], len), out, capacity);
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	char* data = getenv(path);
+	SI_STOPIF(data == nil, return SI_STR_NIL);
+
+	usize len = si_memcopy_s(out, capacity, data, si_cstrLen(data));
+	return SI_STR_LEN(out, len);
+	SI_UNUSED(pathLen);
+#endif
+}
+
+SIDEF SIDEF_WINDOWS
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	OSVERSIONINFOEXW info;
@@ -6522,45 +6579,46 @@ siWindowsVersion si_windowsGetVersion(void) {
 		? siWindowsVersion_XP
 		: 0;
 #else
-	return -1;
+	SI_PANIC_MSG("Unavailable function for this platform.");
 #endif
 }
 
-SIDEF
+SIDEF SIDEF_UNIX
 b32 si_unixIsWayland(void) {
 #if SI_SYSTEM_IS_UNIX
 	static b32 isWayland = UINT32_MAX;
 	SI_STOPIF(isWayland != UINT32_MAX, return isWayland);
 
 	u8 buf[1];
-	siString res = si_envVarGet(SI_STR("WAYLAND_DISPLAY"), buf, sizeof(buf));
+	siString res = si_envVarGetData(SI_STR("WAYLAND_DISPLAY"), buf, sizeof(buf));
 	isWayland = (res.data != nil);
 
 	return isWayland;
 #else
-	return false;
+	SI_PANIC_MSG("Unavailable function for this platform.");
 #endif
 }
 
-inline
+inline SIDEF_UNIX
 b32 si_unixIsX11(void) {
 #if SI_SYSTEM_IS_UNIX
 	return !si_unixIsWayland();
 #else
-	return false;
+	SI_PANIC_MSG("Unavailable function for this platform.");
 #endif
 }
 
-SIDEF
+SIDEF SIDEF_UNIX
 siUnixDE si_unixGetDE(void) {
 #if SI_SYSTEM_IS_UNIX
 	static siUnixDE de = -1;
 	SI_STOPIF(de != -1, return de);
 
 	u8 buf[8];
-	siString res = si_envVarGet(SI_STR("XDG_CURRENT_DESKTOP"), buf, sizeof(buf));
+	siString res = si_envVarGetData(SI_STR("XDG_CURRENT_DESKTOP"), buf, sizeof(buf));
 	SI_STOPIF(res.data == nil, return 0);
 
+	/* TODO(EimaMei): Hashtable? */
 	if (si_stringEqual(res, SI_STR("KDE"))) { de = siUnixDE_KDE; }
 	else if (si_stringEqual(res, SI_STR("GNOME"))) { de = siUnixDE_GNOME; }
 	else if (si_stringEqual(res, SI_STR("XFCE"))) { de = siUnixDE_Xfce; }
@@ -6568,7 +6626,7 @@ siUnixDE si_unixGetDE(void) {
 
 	return de;
 #else
-	return -1;
+	SI_PANIC_MSG("Unavailable function for this platform.");
 #endif
 
 }
@@ -6582,57 +6640,52 @@ siUnixDE si_unixGetDE(void) {
 	#pragma comment(lib, "Advapi32")
 #endif
 
-SIDEF
+inline
 b32 si_pathExists(siString path) {
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, countof(stack));
+	return si_pathExistsOS(stack);
+}
+inline
+b32 si_pathExistsOS(siOsString path) {
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX];
-		si_pathToWin32(path, stack, countof(stack));
-
-		return GetFileAttributesW(stack) != INVALID_FILE_ATTRIBUTES;
-
-	#else
-		u8 stack[SI_PATH_MAX];
+		return GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 		struct stat tmp;
-
-		return stat(si_pathToUnix(path, stack, countof(stack)), &tmp) == 0;
-
+		return stat(path, &tmp) == 0;
 	#endif
 }
 SIDEF
 siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
+	siOsChar stack[SI_PATH_MAX * 2];
+	siOsString_2x strs = si_pathToOSMul(pathSrc, pathDst, stack, countof(stack));
+	siOsString* paths = strs.v;
+
+
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX * 2];
-
-		siUtf16String paths[2];
-		si_pathToWin32Mul(pathSrc, pathDst, stack, countof(stack), paths);
-
-		i32 size = CopyFileW((u16*)paths[0].data, (u16*)paths[1].data, true);
+		i32 size = CopyFileW(paths[0], paths[1], true);
 		siErrorSystem_CHECK_OPT(size == 0, usize);
 
-	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		cstring src = si_stringCopyToCstr(pathSrc, stack),
-				dst = si_stringCopyToCstr(pathDst, stack);
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		int src = open(paths[0], O_RDONLY, 0);
+		siErrorSystem_CHECK_OPT(src == -1, usize);
 
-		int fileSrc = open(src, O_RDONLY, 0);
-		siErrorSystem_CHECK_OPT(fileSrc == -1, usize);
-
-		int fileDst = open(dst, O_WRONLY | O_CREAT, 0666);
-		siErrorSystem_CHECK_OPT(fileDst == -1, usize);
+		int dst = open(paths[1], O_WRONLY | O_CREAT, 0666);
+		siErrorSystem_CHECK_OPT(dst == -1, usize);
 
 		struct stat stat;
-		int res = fstat(fileDst, &stat);
+		int res = fstat(dst, &stat);
 		siErrorSystem_CHECK_OPT(res == -1, usize);
 
 		#if SI_SYSTEM_IS_UNIX
-			isize size = sendfile64(fileDst, fileSrc, 0, stat.st_size);
+			isize size = sendfile64(dst, src, 0, stat.st_size);
 		#else
-			isize size = sendfile(fileDst, fileSrc, 0, &stat.st_size, NULL, 0);
+			isize size = sendfile(dst, src, 0, &stat.st_size, nil, 0);
 		#endif
 		siErrorSystem_CHECK_OPT(size == -1, usize);
 
-		close(fileSrc);
-		close(fileDst);
+		close(src);
+		close(dst);
 
 	#endif
 
@@ -6640,6 +6693,7 @@ siResult(usize) si_pathCopy(siString pathSrc, siString pathDst) {
 }
 SIDEF
 siResult(u32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
+	/* TODO(EimaMei): Rework this mess one day. */
 	SI_ASSERT(pathDst.len <= SI_PATH_MAX);
 
 	siDirectory dir = si_directoryOpen(pathSrc);
@@ -6678,27 +6732,20 @@ siResult(u32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
 SIDEF
 siError si_pathMove(siString pathSrc, siString pathDst) {
 	siError error = SI_ERROR_DEFAULT;
+	siOsChar stack[SI_PATH_MAX * 2];
+	siOsString_2x strs = si_pathToOSMul(pathSrc, pathDst, stack, countof(stack));
+	siOsString* paths = strs.v;
+
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX * 2];
-
-		siUtf16String paths[2];
-		si_pathToWin32Mul(pathSrc, pathDst, stack, countof(stack), paths);
-
-		i32 res = MoveFileW((u16*)paths[0].data, (u16*)paths[1].data);
+		i32 res = MoveFileW(paths[0], paths[1]);
 		siErrorSystem_CHECK(res == 0, &error, error);
-
-	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		cstring src = si_stringCopyToCstr(pathSrc, stack),
-				dst = si_stringCopyToCstr(pathDst, stack);
-
-		int res = link(src, dst);
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		int res = link(paths[0], paths[1]);
 		siErrorSystem_CHECK(res != 0, &error, error);
 
-		res = unlink(src);
+		res = unlink(paths[0]);
 		siErrorSystem_CHECK(res != 0, &error, error);
-
 	#endif
 
 	return error;
@@ -6711,50 +6758,30 @@ siError si_pathRename(siString path, siString newPath) {
 
 SIDEF
 siError si_pathCreateFolder(siString path) {
-	SI_ASSERT(path.len <= SI_PATH_MAX);
-
 	siError error = SI_ERROR_DEFAULT;
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, countof(stack));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX];
-		si_pathToWin32(path, stack, countof(stack));
-
 		i32 res = CreateDirectoryW(stack, nil);
 		siErrorSystem_CHECK(res == 0, &error, error);
-
-	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		cstring str = si_stringCopyToCstr(path, stack);
-
-		/* NOTE(EimaMei): For whatever reason, 'mkdir' will sometimes return -1
-		 * but still create the folder and set 'errno' to 0. What? */
-		int res = mkdir(str, 0777);
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		int res = mkdir(stack, 0777);
 		siErrorSystem_CHECK(res != 0, &error, error);
-
 	#endif
 
 	return error;
 }
 
-#if !SI_SYSTEM_IS_WINDOWS
-// TODO(EimaMei): Replace this.
-
-force_inline
-i32 si__unlinkCb(cstring path, const struct stat* sb, i32 typeflag, struct FTW* ftwbuf) {
-	return remove(path);
-	SI_UNUSED(sb); SI_UNUSED(typeflag); SI_UNUSED(ftwbuf);
-}
-#endif
-
 SIDEF
 siError si_pathRemove(siString path) {
+	/* TODO(EimaMei): Check the performance of this, rewrite it. */
 	siError error = SI_ERROR_DEFAULT;
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, countof(stack));
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 pathWide[SI_PATH_MAX];
-		si_pathToWin32(path, pathWide, countof(pathWide));
-
-		u32 attrs = GetFileAttributesW(pathWide);
+		u32 attrs = GetFileAttributesW(stack);
 		siErrorSystem_CHECK(attrs == INVALID_FILE_ATTRIBUTES, &error, error);
 
 		b32 res;
@@ -6766,18 +6793,32 @@ siError si_pathRemove(siString path) {
 				SI_STOPIF(err.code != 0, return err);
 			}
 
-			res = RemoveDirectoryW(pathWide);
+			res = RemoveDirectoryW(stack);
 		}
 		else {
-			res = DeleteFileW(pathWide);
+			res = DeleteFileW(stack);
 		}
 		siErrorSystem_CHECK(res == false, &error, error);
 
-	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		cstring pathCstr = si_stringCopyToCstr(path, stack);
-		int res = nftw(pathCstr, si__unlinkCb, 64, FTW_DEPTH | FTW_PHYS);
-		siErrorSystem_CHECK(res == -1, &error, error);
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		struct stat tmp;
+		i32 res = stat(stack, &tmp);
+		siErrorSystem_CHECK(res != 0, &error, error);
+
+		if (S_ISDIR(tmp.st_mode)) {
+			siDirectoryEntry entry;
+			siDirectory dir = si_directoryOpen(path);
+			while (si_directoryPollEntry(&dir, &entry)) {
+				siError err = si_pathRemove(entry.path);
+				SI_STOPIF(err.code != 0, return err);
+			}
+
+			res = rmdir(stack);
+		}
+		else {
+			res = remove(stack);
+		}
+		siErrorSystem_CHECK(res != 0, &error, error);
 
 	#endif
 
@@ -6787,24 +6828,16 @@ siError si_pathRemove(siString path) {
 SIDEF
 siError si_pathCreateHardLink(siString path, siString pathLink) {
 	siError error = SI_ERROR_DEFAULT;
+	siOsChar stack[SI_PATH_MAX * 2];
+	siOsString_2x strs = si_pathToOSMul(path, pathLink, stack, countof(stack));
+	siOsString* paths = strs.v;
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX * 2];
-
-		siUtf16String paths[2];
-		si_pathToWin32Mul(path, pathLink, stack, countof(stack), paths);
-
-		i32 res = CreateHardLinkW((u16*)paths[1].data, (u16*)paths[0].data, nil);
+		i32 res = CreateHardLinkW(paths[1], paths[0], nil);
 		siErrorSystem_CHECK(res == 0, &error, error);
-
 	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		int res = link(
-			si_stringCopyToCstr(path, stack),
-			si_stringCopyToCstr(pathLink, stack)
-		);
+		int res = link(paths[0], paths[1]);
 		siErrorSystem_CHECK(res == -1, &error, error);
-
 	#endif
 
 	return error;
@@ -6812,34 +6845,20 @@ siError si_pathCreateHardLink(siString path, siString pathLink) {
 
 SIDEF
 siError si_pathCreateSoftLink(siString path, siString pathLink) {
-	SI_ASSERT(path.len <= SI_PATH_MAX);
-	SI_ASSERT(pathLink.len <= SI_PATH_MAX);
-
 	siError error = SI_ERROR_DEFAULT;
+	siOsChar stack[SI_PATH_MAX * 2];
+	siOsString_2x strs = si_pathToOSMul(path, pathLink, stack, countof(stack));
+	siOsString* paths = strs.v;
 
 	#if SI_SYSTEM_IS_WINDOWS
-		u16 stack[SI_PATH_MAX * 2];
-
-		siUtf16String paths[2];
-		si_pathToWin32Mul(path, pathLink, stack, countof(stack), paths);
-
-		u32 attrs = GetFileAttributesW((u16*)paths[0].data);
+		u32 attrs = GetFileAttributesW(paths[0]);
 		siErrorSystem_CHECK(attrs == INVALID_FILE_ATTRIBUTES, &error, error);
 
-		i32 res = CreateSymbolicLinkW(
-			(u16*)paths[1].data, (u16*)paths[0].data,
-			attrs & FILE_ATTRIBUTE_DIRECTORY
-		);
+		i32 res = CreateSymbolicLinkW(paths[1], paths[0], attrs & FILE_ATTRIBUTE_DIRECTORY);
 		siErrorSystem_CHECK(res == 0, &error, error);
-
 	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-		int res = symlink(
-			si_stringCopyToCstr(path, stack),
-			si_stringCopyToCstr(pathLink, stack)
-		);
+		int res = symlink(paths[0], paths[1]);
 		siErrorSystem_CHECK(res == -1, &error, error);
-
 	#endif
 
 	return error;
@@ -6892,31 +6911,29 @@ siString si_pathExtension(siString path) {
 
 SIDEF
 siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
-	u8 pathOut[SI_PATH_MAX];
+	siOsChar stack[SI_PATH_MAX * 2];
+	usize pathLen = si_pathToOS(path, stack, countof(stack));
+
 
 	#if SI_SYSTEM_IS_WINDOWS
-		usize len;
-		u16 stack[SI_PATH_MAX * 2];
+		siErrorSystem_CHECK_OPT(!si_pathExistsOS(stack), siString);
+		DWORD dif = si_cast(u32, countof(stack) - pathLen);
 
-		siUtf16String tmp = si_pathToWin32(path, stack, countof(stack));
-		DWORD dif = si_cast(u32, countof(stack) - tmp.len);
-
-		len = GetFullPathNameW(stack, dif, &stack[tmp.len], nil);
+		usize len = GetFullPathNameW(stack, dif, &stack[pathLen], nil);
 		siErrorSystem_CHECK_OPT(len == 0, siString);
 
-		siUtf8String res = si_utf16ToUtf8Str(
-			SI_BUF_LEN(u16, &stack[tmp.len], len),
-			pathOut, countof(pathOut)
-		);
-		return SI_OPT(siString, si_stringCopy(res, alloc));
+		siUtf16String str = SI_BUF_LEN(u16, &stack[pathLen], len);
+		len = si_utf16ToUtf8StrLen(str);
 
-	#else
-		siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
+		u8* res = si_allocArray(alloc, u8, len);
+		return SI_OPT(siString, si_utf16ToUtf8Str(str, res, len));
 
-		realpath(si_stringCopyToCstr(path, stack), pathOut);
-		siErrorSystem_CHECK_OPT(pathOut == nil, siString);
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		siOsChar* out = &stack[pathLen];
+		out = realpath(stack, out);
+		siErrorSystem_CHECK_OPT(out == nil, siString);
 
-		return SI_OPT(siString, si_stringMake(pathOut, alloc));
+		return SI_OPT(siString, si_stringMake(out, alloc));
 
 	#endif
 }
@@ -6945,8 +6962,12 @@ b32 si_pathIsRelative(siString path) {
 }
 
 SIDEF
-siUtf16String si_pathToWin32(siString path, u16* out, usize capacity) {
-	SI_ASSERT(path.len <= SI_KILO(4));
+usize si_pathToOS(siString path, siOsChar* out, usize capacity) {
+	SI_ASSERT(path.len <= SI_PATH_MAX);
+	SI_ASSERT_NOT_NULL(out);
+	SI_STOPIF(capacity == 0, return 0);
+
+#if SI_SYSTEM_IS_WINDOWS
 	usize i = 0;
 
 	if (path.len > 260 && si_pathIsAbsolute(path)) {
@@ -6956,53 +6977,44 @@ siUtf16String si_pathToWin32(siString path, u16* out, usize capacity) {
 		out[3] = '\\';
 		i += 4;
 
-		siUtf16String res = si_utf8ToUtf16StrEx(path, true, &out[i], capacity - i);
-		res.data = out;
-		res.len += i;
-
-		return res;
+		siUtf16String str = si_utf8ToUtf16StrEx(path, true, &out[i], capacity - i);
+		return str.capacity + i;
 	}
 
-	return si_utf8ToUtf16StrEx(path, true, out, capacity);
+	siUtf16String str = si_utf8ToUtf16StrEx(path, true, out, capacity);
+	return str.capacity;
+
+#else
+	usize len = si_memcopy_s(out, capacity - 1, path.data, path.len);
+	out[len] = '\0';
+
+	return len + 1;
+
+
+#endif
 }
 
 inline
-void si_pathToWin32Mul(siString pathSrc, siString pathDst, u16* outBuf, usize capacity,
-		siUtf16String out[2]) {
-	out[0] = si_pathToWin32(pathSrc, outBuf, capacity);
-	out[1] = si_pathToWin32(pathDst, &outBuf[out[0].len], capacity - out[0].len);
+siOsString_2x si_pathToOSMul(siString first, siString second, siOsChar* out, usize capacity) {
+	siOsString_2x res;
+	res.v[0] = out;
+	res.len[0] = si_pathToOS(first, out, capacity);
+
+	res.v[1] = &out[res.len[0]];
+	res.len[1] = si_pathToOS(second, res.v[1], capacity - res.len[0]);
+
+	return res;
 }
-
-
-SIDEF
-char* si_pathToUnix(siString path, u8* out, usize capacity) {
-	SI_ASSERT(path.len <= SI_KILO(4));
-	SI_ASSERT(capacity == 0);
-
-	si_memcopy_s(out, capacity - 1, path.data, path.len);
-	out[path.len] = '\0';
-
-	return (char*)out;
-}
-
-inline
-void si_pathToUnixMul(siString pathSrc, siString pathDst, u8* outBuf, usize capacity,
-		char* out[2]) {
-	out[0] = si_pathToUnix(pathSrc, outBuf, capacity);
-	out[1] = si_pathToUnix(pathDst, &outBuf[pathSrc.len + 1], capacity - (pathSrc.len + 1));
-}
-
-
 
 
 SIDEF
 u64 si_pathLastWriteTime(siString path) {
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, countof(stack));
+
 #if SI_SYSTEM_IS_WINDOWS
 	FILETIME lastWriteTime = {0};
 	WIN32_FILE_ATTRIBUTE_DATA data = {0};
-
-	u16 stack[SI_PATH_MAX];
-	si_pathToWin32(path, stack, countof(stack));
 
 	if (GetFileAttributesExW(stack, GetFileExInfoStandard, &data)) {
 		lastWriteTime = data.ftLastWriteTime;
@@ -7015,10 +7027,9 @@ u64 si_pathLastWriteTime(siString path) {
 	return si_timeToUnix(res.QuadPart);
 
 #else
-	/* TODO(EimaMei): Check if this is correct. */
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
+	/* TODO(EimaMei): Check if the output is correct. */
 	struct stat fs;
-	int res = stat(si_stringCopyToCstr(path, stack), &fs);
+	int res = stat(stack, &fs);
 	return (res == 0) ? fs.st_mtime : 0;
 
 #endif
@@ -7139,8 +7150,8 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 
 	rawptr handle;
 	{
-		u16 stack[SI_PATH_MAX];
-		si_pathToWin32(path, stack, countof(stack));
+		siOsChar stack[SI_PATH_MAX];
+		si_pathToOS(path, stack, countof(stack));
 
 		handle = CreateFileW(
 			stack, access, FILE_SHARE_READ | FILE_SHARE_DELETE, nil,
@@ -7181,13 +7192,17 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 			flags = O_RDWR | O_APPEND | O_CREAT;
 			break;
 		default:
-			flags = 0;
 			SI_PANIC_MSG("Invalid file mode.");
+			flags = 0;
 	}
 
-	siAllocator stack = si_allocatorMakeStack(SI_KILO(1));
-	cstring pathCstr = si_stringCopyToCstr(path, stack);
-	i64 handle = open(pathCstr, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	i64 handle;
+	{
+		siOsChar stack[SI_PATH_MAX];
+		si_pathToOS(path, stack, countof(stack));
+
+		handle = open(stack, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	}
 	siErrorSystem_CHECK(handle == -1, &res.error, res);
 
 #endif
@@ -7557,12 +7572,17 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 		out->path.data, sizeof(dir->buffer) - dir->directoryLen,
 		dirEntry->d_name, len
 	);
+	out->path.typeSize = sizeof(u8);
 
 #endif
-	usize dirLen = dir->directoryLen * fullPath;
-	out->path.data = si_pointerSub(out->path.data, dirLen);
-	out->path.len += dirLen;
-	out->path.capacity += dirLen;
+	if (fullPath) {
+		out->path.data = dir->buffer;
+		out->path.len += dir->directoryLen;
+		out->path.capacity = sizeof(dir->buffer);
+	}
+	else {
+		out->path.capacity = sizeof(dir->buffer) - dir->directoryLen;
+	}
 
 	return true;
 }
@@ -7602,7 +7622,7 @@ siIntern
 rawptr si__threadProc(rawptr arg) {
 	siThread* t = (siThread*)arg;
 	t->returnValue = t->func(t->arg);
-	t->isRunning = false;
+	t->state = siThreadState_Initialized;
 
 	return nil;
 }
@@ -7618,17 +7638,16 @@ inline
 siThread si_threadMakeEx(siThreadFunction function, rawptr arg, usize stackSize) {
 	SI_ASSERT_NOT_NULL(function);
 
-	siThread thread;
+	siThread thread = {0};
 	thread.func = function;
 	thread.arg = arg;
 	thread.stackSize = stackSize;
 	thread.state = siThreadState_Initialized;
-	thread.returnValue = nil;
 
 	return thread;
 }
 
-inline
+SIDEF
 siError si_threadMakeAndRun(siThreadFunction function, rawptr arg, siThread* out) {
 	*out = si_threadMake(function, arg);
 	return si_threadRun(out);
@@ -7646,24 +7665,26 @@ siError si_threadRun(siThread* thread) {
 		siErrorSystem_CHECK(thread->id == nil, &error, error);
 
 	#else
-		int res;
 		pthread_attr_t attr;
 		rawptr attrPtr = nil;
-		if (t->stackSize != 0) {
-			res = pthread_attr_init(&attr);
-			SI_ASSERT(res == 0);
-
-			pthread_attr_setstacksize(&attr, t->stackSize);
-			res = pthread_create(&t->id, &attr, si__threadProc, t);
-			if (res) {
-				pthread_attr_destroy(&attr);
+		if (thread->stackSize != 0) {
+			int res = pthread_attr_init(&attr);
+			if (res != 0) {
+				pthread_attr_setstacksize(&attr, thread->stackSize);
+				attrPtr = &attr;
 			}
 		}
-		else {
-			res = pthread_create(&t->id, nil, si__threadProc, t);
-		}
-		t->isRunning = (res == 0);
 
+		pthread_t id;
+		{
+			int res = pthread_create(&id, attrPtr, si__threadProc, thread);
+			siErrorSystem_CHECK(res != 0, &error, error);
+		}
+		thread->id = id;
+
+		if (attrPtr) {
+			pthread_attr_destroy(&attr);
+		}
 	#endif
 
 	thread->state = siThreadState_Running;
@@ -7690,8 +7711,7 @@ siError si_threadJoin(siThread* thread) {
 SIDEF
 siError si_threadDestroy(siThread* thread) {
 	SI_ASSERT_NOT_NULL(thread);
-	SI_ASSERT(thread->state != siThreadState_Running);
-	SI_STOPIF(thread->id == nil, return SI_ERROR_DEFAULT);
+	SI_STOPIF(thread->id == 0, return SI_ERROR_DEFAULT);
 
 	siError error = SI_ERROR_DEFAULT;
 
@@ -7700,7 +7720,7 @@ siError si_threadDestroy(siThread* thread) {
 	siErrorSystem_CHECK(!res, &error, error);
 #endif
 
-	thread->id = nil;
+	thread->id = 0;
 	thread->state = siThreadState_Closed;
 
 	return error;
@@ -8035,7 +8055,7 @@ siTimeCalendar si_timeToCalendar(i64 time) {
 }
 
 /* TODO(EimaMei): Refactor the code to be shorter and easier to understand. */
-usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt) {
+siString si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siString fmt) {
 	SI_ASSERT_NOT_NULL(buffer);
 
 	siAllocatorArena aData = si_arenaMakePtr(buffer, capacity, 1);
@@ -8245,7 +8265,7 @@ usize si_timeToString(u8* buffer, usize capacity, siTimeCalendar calendar, siStr
 		}
 	}
 
-	return aData.offset;
+	return SI_STR_LEN(buffer, aData.offset);
 }
 
 #endif /* SI_IMPLEMENTATION_TIME */
@@ -8490,8 +8510,8 @@ u32 si_numLenI64(i64 num) {
 
 inline
 u32 si_numLenI64Ex(i64 num, u32 base) {
-	u64 isNegative = (num < 0);
-	u64 unsignedNum = ((u64)num ^ -isNegative) + isNegative;
+	i64 isNegative = (num < 0);
+	u64 unsignedNum = (u64)(num ^ -isNegative) + isNegative;
 	return si_numLenEx(unsignedNum, base) + (u32)isNegative;
 }
 
@@ -8647,6 +8667,10 @@ SIDEF
 isize si_print(cstring str) {
 	return si_fprint(si_stdout, str);
 }
+SIDEF
+isize si_printLn(cstring str) {
+	return si_fprintLn(si_stdout, str);
+}
 
 SIDEF
 isize si_printf(cstring fmt, ...) {
@@ -8657,14 +8681,28 @@ isize si_printf(cstring fmt, ...) {
 
 	return res;
 }
-
-inline
+SIDEF
 isize si_printfVa(cstring fmt, va_list va) {
 	return si_fprintfVa(si_stdout, fmt, va);
 }
 
+SIDEF
+isize si_printfLn(cstring fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	isize res = si_printfLnVa(fmt, va);
+	va_end(va);
 
-inline
+	return res;
+}
+SIDEF
+isize si_printfLnVa(cstring fmt, va_list va) {
+	return si_fprintfLnVa(si_stdout, fmt, va);
+}
+
+
+
+SIDEF
 isize si_fprint(siFile* file, cstring str) {
 	return si_fileWrite(file, SI_CSTR(str));
 }
@@ -8678,6 +8716,13 @@ isize si_fprintf(siFile* file, cstring fmt, ...) {
 
 	return res;
 }
+
+SIDEF
+isize si_fprintLn(siFile* file, cstring str) {
+	usize n = si_fileWrite(file, SI_CSTR(str));
+	n += si_fileWrite(file, SI_STR("\n"));
+	return n;
+}
 SIDEF
 isize si_fprintfVa(siFile* file, cstring fmt, va_list va) {
 	char buffer[SI_KILO(8)];
@@ -8685,6 +8730,25 @@ isize si_fprintfVa(siFile* file, cstring fmt, va_list va) {
 
 	return si_fileWrite(file, SI_STR_LEN(buffer, (usize)count));
 }
+
+SIDEF
+isize si_fprintfLn(siFile* file, cstring fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	isize res = si_fprintfLnVa(file, fmt, va);
+	va_end(va);
+
+	return res;
+}
+SIDEF
+isize si_fprintfLnVa(siFile* file, cstring fmt, va_list va) {
+	char buffer[SI_KILO(8)];
+	isize count = si_bprintfLnVa(buffer, sizeof(buffer), fmt, va) - 1;
+
+	return si_fileWrite(file, SI_STR_LEN(buffer, (usize)count));
+}
+
+
 SIDEF
 isize si_bprintf(char* out, usize capacity, cstring fmt, ...) {
 	va_list va;
@@ -9195,7 +9259,7 @@ GOTO_SCIENTIFIC_NOTATION:
 #undef SI_SET_FMT_PTR
 
 
-inline
+SIDEF
 isize si_bprintfLn(char* out, usize capacity, cstring fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
@@ -9213,10 +9277,10 @@ isize si_bprintfLnVa(char* out, usize capacity, cstring fmt, va_list va) {
 }
 
 
-inline
+SIDEF
 b32 si_printHas24bitColor(void) {
 	u8 buf[16];
-	siString colorterm = si_envVarGet(SI_STR("COLORTERM"), buf, sizeof(buf));
+	siString colorterm = si_envVarGetData(SI_STR("COLORTERM"), buf, sizeof(buf));
 
 	return si_stringEqual(colorterm, SI_STR("truecolor"));
 }

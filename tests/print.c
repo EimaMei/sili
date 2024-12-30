@@ -105,6 +105,7 @@ int main(void) {
             g = 510 - g;
         }
 
+		/* TODO(EimaMei): On Windows a newline appears after each print for whatever reason. */
 		si_printf("%C0%C", si_printColor24bit((u8)r, (u8)g, (u8)b));
     }
     si_printf("\n\n");

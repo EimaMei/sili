@@ -26,7 +26,6 @@ int main(void) {
 	example5(&alloc);
 
 	si_arenaFree(&aData);
-	return 0;
 }
 
 
@@ -105,15 +104,15 @@ void example2(void)	{
 
 		siResult(usize) error = si_pathCopy(str_random, str_random2);
 		si_printf(
-			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n",
-			si_pathExists(str_random2), si_optionalGetOrDefault(error, 0)
+			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n\n",
+			si_pathExists(str_random2), si_optionalGetOrDefault(error, USIZE_MAX)
 		);
 
-		siError res = si_pathMove(str_random, str_renamed);
+		siError res = si_pathMove(str_random, str_renamed); // 'si_pathRename' does the same thiing as well.
 		si_printf(
 			"Does 'random.txt' exist: %B\n"
-			"'renamed.txt' outputs a %B (res: '%i')\n",
-			si_pathExists(str_renamed), si_pathExists(str_renamed), res.code
+			"'renamed.txt' outputs a %B (res: '%i')\n\n",
+			si_pathExists(str_random), si_pathExists(str_renamed), res.code
 		);
 
 		res = si_pathRemove(str_random2);
@@ -139,7 +138,7 @@ void example2(void)	{
 				"Full path - '%S'\n\t"
 				"Is relative: %B\n",
 			path, si_pathBaseName(path), si_pathExtension(path),
-			si_optionalGetOrDefault(fullPath, path), si_pathIsRelative(path)
+			si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), si_pathIsRelative(path)
 		);
 	}
 }
@@ -187,9 +186,9 @@ void example3(void)	{
 		si_pathCreateHardLink(str_file, str_hard);
 		si_pathCreateSoftLink(str_file, str_soft);
 
-		si_pathRemove(str_file);
-		si_pathRemove(str_hard);
 		si_pathRemove(str_soft);
+		si_pathRemove(str_hard);
+		si_pathRemove(str_file);
 
 		si_printf("Temporary path of the system: %S\n", si_pathGetTmp());
 	}
@@ -208,6 +207,7 @@ void example4(void) {
 		si_fileWrite(&file, SI_STR(ROOT_PATH));
 		si_fileClose(file);
 		si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret.link"));
+		si_pathCreateHardLink(SI_STR(ROOT_PATH "/hardLinkToSecret.link"), SI_STR(ROOT_PATH "/softLinkToHardLink.link"));
 	}
 
 	siDirectory dir = si_directoryOpen(SI_STR(ROOT_PATH));

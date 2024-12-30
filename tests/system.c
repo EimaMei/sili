@@ -1,35 +1,39 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
-
+#include <tests/test.h>
 
 int main(void) {
 	siString name = SI_STRC("test");
 	siString value = SI_STRC("Už žalių miškelių, kur aukšta kalva.");
 
 	b32 res = si_envVarSet(name, value);
-	SI_ASSERT(res == true);
+	SI_ASSERT(res);
+
+	usize len = si_envVarGetLength(name);
+	TEST_EQ_USIZE(len, value.len);
 
 	u8 buf[1024];
-	siString out = si_envVarGet(name, buf, countof(buf));
-	SI_ASSERT(out.data != nil);
+	siString out = si_envVarGetData(name, buf, countof(buf));
+	SI_ASSERT_NOT_NULL(out.data);
+	TEST_EQ_USIZE(out.len, value.len);
 	SI_ASSERT(si_stringEqual(out, value));
 
 	res = si_envVarUnset(name);
-	SI_ASSERT(res == true);
+	SI_ASSERT(res);
 
-	out = si_envVarGet(name, buf, countof(buf));
+	out = si_envVarGetData(name, buf, countof(buf));
 	SI_ASSERT(out.data == nil);
 
 #if SI_SYSTEM_IS_WINDOWS
 	siWindowsVersion ver = si_windowsGetVersion();
-	SI_ASSERT_FMT(ver == siWindowsVersion_10, "%i", ver);
+	TEST_EQ_U32(ver, siWindowsVersion_10);
 
 #elif defined(SI_SYSTEM_LINUX)
 	res = si_unixIsWayland();
-	SI_ASSERT(res == false);
+	SI_ASSERT(!res);
 
 	res = si_unixIsX11();
-	SI_ASSERT(res == true);
+	SI_ASSERT(res);
 
 	siUnixDE de = si_unixGetDE();
 	si_printf("DE: %i\n", de);

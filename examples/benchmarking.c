@@ -8,9 +8,9 @@ void function_regular(void);
 void function_simd(void);
 
 
-i32 res[4];
-i32 first[4] = {10, 20, 30, 40};
-i32 second[4] =  {5, 5, 5, 5};
+volatile i32 res[4];
+volatile i32 first[4] = {10, 20, 30, 40};
+volatile i32 second[4] =  {5, 5, 5, 5};
 
 
 int main(void) {
@@ -22,7 +22,6 @@ int main(void) {
 		function_simd();
 		SI_ASSERT(res[0] == 15 && res[1] == 25 && res[2] == 35 && res[3] == 45);
 	}
-
 	si_print("Running 'function_regular()' 100000 times. Lets see how long it takes to execute that many times...\n");
 	si_benchmarkRunsPerLoop(1000000, function_regular());
 
