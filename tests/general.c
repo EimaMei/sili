@@ -37,8 +37,8 @@ int main(void) {
 		cstring str = "ABCD";
 		TEST_EQ_U64(SI_TO_U32(str), value);
 
-		TEST_EQ_U64(si_offsetof(randomStruct, three), 4 + sizeof(usize));
-		TEST_EQ_U64(si_alignof(randomStruct), sizeof(usize));
+		TEST_EQ_U64(offsetof(randomStruct, three), 4 + sizeof(usize));
+		TEST_EQ_U64(alignof(randomStruct), sizeof(usize));
 
 		int buf1 = 8;
 		int buf2 = 4;
@@ -76,10 +76,11 @@ int main(void) {
 		usize ceil = si_alignForward(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
-		for_range (i, 0, sizeof(usize) * 8) {
-			SI_ASSERT(si_isPowerOfTwo(SI_BIT(i)));
+		for_range (i, 0, sizeof(usize) * 8 - 1) {
+			SI_ASSERT(si_isPowerOfTwo((isize)SI_BIT(i)));
 		}
 		SI_ASSERT(si_isPowerOfTwo(0) == false);
+		SI_ASSERT(si_isPowerOfTwo(-238) == false);
 	}
 	si_print("Test 2 has been completed.\n");
 
@@ -92,8 +93,8 @@ int main(void) {
 		ptr = si_realloc(alloc, ptr, 0, SI_KILO(4));
 		si_free(alloc, ptr);
 
-		usize avail = si_allocatorAvailable(alloc);
-		TEST_EQ_USIZE(avail, USIZE_MAX);
+		isize avail = si_allocatorAvailable(alloc);
+		TEST_EQ_USIZE(avail, ISIZE_MAX);
 	}
 	si_print("Test 3 has been completed.\n");
 
@@ -113,7 +114,7 @@ int main(void) {
 		TEST_EQ_USIZE(aData.offset, SI_KILO(1));
 		TEST_EQ_PTR(ptr, aData.ptr);
 
-		usize avail = si_allocatorAvailable(alloc);
+		isize avail = si_allocatorAvailable(alloc);
 		TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
 
 		si_freeAll(alloc);

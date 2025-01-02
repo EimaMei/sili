@@ -93,11 +93,11 @@ void example2(siAllocator alloc) {
 	siOption(Type) opt_type;
 	siOption(rawptr) opt_ptr;
 
-	rawptr opt_array[] = {
+	rawptr opt_array[Type_len] = {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
-	for_range (i, 0, countof(opt_array)) {
-		createOptional(i, opt_array[i], alloc);
+	for_range (i, 0, Type_len) {
+		createOptional((Type)i, opt_array[i], alloc);
 	}
 
 	u8 buf[64];
@@ -120,7 +120,7 @@ siResult(userInfo) get_name(u32 identification);
 void example3(void) {
 	si_print("==============\n\n==============\nExample 3:\n");
 
-	for_range (id, 0, 3) {
+	for_range (id, 0, 3u) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
@@ -186,15 +186,12 @@ siResult(userInfo) get_name(u32 identification) {
 		{SI_STRC("Joe"), false, 4000 * 100},
 		{SI_STRC("Gitanas Nausėda"), true, UINT32_MAX}
 	};
-	siError err;
 
 	if (identification >= countof(database)) {
-		SI_ERROR(&err, INVALID_ID);
-		return SI_OPT_ERR(userInfo, err);
+		return SI_OPT_ERR(userInfo, SI_ERROR(INVALID_ID));
 	}
 	else if (database[identification].isAdmin) {
-		SI_ERROR(&err, ACCESS_DENIED);
-		return SI_OPT_ERR(userInfo, err);
+		return SI_OPT_ERR(userInfo, SI_ERROR(ACCESS_DENIED));
 	}
 
 	return SI_OPT(userInfo, database[identification]);

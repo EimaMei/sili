@@ -4,10 +4,10 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -std=c99 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -std=c99 -O3 -Wall -Wextra -Wpedantic \
 	-Wconversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
-	-Wvla -Wcast-align -Wcast-align=strict -Wno-sign-conversion \
+	-Wvla -Wcast-align -Wcast-align=strict \
 	\
 	-Wswitch-enum -Wcast-align -Wstrict-overflow=5 \
 	-Wstrict-prototypes -Winline -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
@@ -96,7 +96,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/file.c
+SRC = tests/system.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

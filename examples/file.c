@@ -102,10 +102,10 @@ void example2(void)	{
 			si_fileClose(file);
 		}
 
-		siResult(usize) error = si_pathCopy(str_random, str_random2);
+		siResult(isize) error = si_pathCopy(str_random, str_random2);
 		si_printf(
 			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n\n",
-			si_pathExists(str_random2), si_optionalGetOrDefault(error, USIZE_MAX)
+			si_pathExists(str_random2), si_optionalGetOrDefault(error, -1)
 		);
 
 		siError res = si_pathMove(str_random, str_renamed); // 'si_pathRename' does the same thiing as well.

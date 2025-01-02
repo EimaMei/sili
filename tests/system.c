@@ -9,7 +9,7 @@ int main(void) {
 	b32 res = si_envVarSet(name, value);
 	SI_ASSERT(res);
 
-	usize len = si_envVarGetLength(name);
+	isize len = si_envVarGetLength(name);
 	TEST_EQ_USIZE(len, value.len);
 
 	u8 buf[1024];
@@ -39,8 +39,9 @@ int main(void) {
 	si_printf("DE: %i\n", de);
 
 #endif
-	u32 count = si_cpuProcessorCount();
+	i32 count = si_cpuProcessorCount();
 	si_printf("Proc count: %i\n", count);
+	SI_ASSERT(count != 0);
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
 }

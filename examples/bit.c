@@ -74,10 +74,10 @@ int main(void) {
 	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", sizeof(usize) * 8);
 
 	u16 adr = 0xFFFE;
-	u32 numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
+	i32 numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
 	si_printf(
-		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
-		numBits, sizeof(adr) * 8 - numBits
+		"Number of 1s in 'adr': '%zi', number of 0s: '%zd'\n",
+		numBits, si_sizeof(adr) * 8 - numBits
 	);
 
 	u8 leadTrailNum = 248;

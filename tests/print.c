@@ -5,11 +5,11 @@
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
-		char buffer[SI_KILO(4)]; \
-		size_t expectedLen = si_cstrLen(expectedStr) + 1; \
-		SI_ASSERT(expectedLen <= sizeof(buffer)); \
+		u8 buffer[SI_KILO(8)]; \
+		isize expectedLen = si_cstrLen(expectedStr); \
+		SI_ASSERT(expectedLen <= si_sizeof(buffer)); \
 		\
-		size_t len = si_bprintf(buffer, sizeof(buffer), input, __VA_ARGS__); \
+		isize len = si_bprintf(buffer, si_sizeof(buffer), input, __VA_ARGS__).len; \
 		\
 		if (expectedLen != len) { \
 			si_printf( \

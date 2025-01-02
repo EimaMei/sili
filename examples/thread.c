@@ -53,8 +53,8 @@ void matrix_multithreaded(f32* a, f32* b, f32* result);
 
 
 typedef struct matrixData {
-	usize start;
-	usize end;
+	isize start;
+	isize end;
 	f32* a;
 	f32* b;
 	f32* result;

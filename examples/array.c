@@ -5,10 +5,10 @@
 u8 print_buf[256];
 
 #define si_arrayPrintInt(array) \
-	si_stringFromArray(array, (array.typeSize == 8) ? "%li" : "%i", print_buf, sizeof(print_buf))
+	si_stringFromArray(array, (array.typeSize == 8) ? "%li" : "%i", print_buf, si_sizeof(print_buf))
 
 #define si_arrayPrintClr(array) \
-	si_stringFromArray(array, "{%hhu, %hhu, %hhu}", print_buf, sizeof(print_buf))
+	si_stringFromArray(array, "{%hhu, %hhu, %hhu}", print_buf, si_sizeof(print_buf))
 
 
 int main(void) {
@@ -32,27 +32,28 @@ int main(void) {
 		si_arrayAtBack(array, &back);
 		si_printf("\tfront: '%i', middle: '%i', back: '%i'\n", front, middle, back);
 	}
+
 	si_print("Scope 2:\n");
 	{
 		siArray(i32) array = SI_BUF(i32, INT32_MAX, INT8_MAX, UINT16_MAX, INT32_MAX, 128);
 		si_printf(
-			"\tarray: '%S', len: '%zd', capacity: '%zd'\n",
-			si_stringFromArray(array, "%02#X", print_buf, sizeof(print_buf)),
+			"\tarray: '%S', len: '%zi', capacity: '%zi'\n",
+			si_stringFromArray(array, "%02#X", print_buf, si_sizeof(print_buf)),
 			array.len, array.capacity
 		);
 
 		i32 value = INT32_MAX;
 		isize posFirst = si_arrayFind(array, &value),
 			  posLast = si_arrayFindLast(array, &value);
-		usize occurences = si_arrayFindCount(array, &value);
+		isize occurences = si_arrayFindCount(array, &value);
 
 		si_printf(
-			"\tThe integer '%02#X' was first found at index '%zd', last found at index '%zd', with '%zd' occurences in total.\n",
+			"\tThe integer '%02#X' was first found at index '%zi', last found at index '%zi', with '%zi' occurences in total.\n",
 			value, posFirst, posLast, occurences
 		);
 
 		isize pos = si_arrayFind(array , &(i32){-123});
-		si_printf("\tHowever, the integer '-123' wasn't found and so, the function returns '%zd'\n", pos);
+		si_printf("\tHowever, the integer '-123' wasn't found and so, the function returns '%zi'\n", pos);
 	}
 
 	si_print("Scope 3:\n");

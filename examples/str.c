@@ -37,17 +37,17 @@ void example1(siAllocator alloc) {
 	si_print("Scope 2:\n");
 	{
 		siString str = si_stringMake("Dynamically allocated string", alloc);
-		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		si_printf("\tstr: '%S', len: '%zi', capacity: '%zi'\n", str, str.len, str.capacity);
 
 		i32 front = si_stringAtFront(str);
 		i32 back = si_stringAtBack(str);
 		si_printf("\tfront: '%c', back: '%c'\n", front, back);
 
 		b32 allocated = si_stringSet(&str, SI_STR("A different string"));
-		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zd', capacity: '%zd'\n", str, allocated, str.len, str.capacity);
+		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zi', capacity: '%zi'\n", str, allocated, str.len, str.capacity);
 
 		allocated = si_stringPush(&str, '.');
-		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zd'\n", str, allocated, str.len);
+		si_printf("\tstr: \"%S\", allocated: '%B', len: '%zi'\n", str, allocated, str.len);
 	}
 
 	si_print("Scope 3:\n");
@@ -57,42 +57,42 @@ void example1(siAllocator alloc) {
 			"geriems vyrams geroj girioj gerą girą gera gert.",
 			alloc
 		);
-		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		si_printf("\tstr: '%S', len: '%zi', capacity: '%zi'\n", str, str.len, str.capacity);
 		siString str_ger = SI_STR("ger");
 
 		isize posFirst = si_stringFind(str, str_ger),
 			  posLast = si_stringFindLast(str, str_ger);
-		usize occurences = si_stringFindCount(str, str_ger);
+		isize occurences = si_stringFindCount(str, str_ger);
 
 		si_printf(
-			"\tThe substring '%S' was first found at index '%zd', last found at index '%zd', with '%zd' occurences in total.\n",
+			"\tThe substring '%S' was first found at index '%zi', last found at index '%zi', with '%zi' occurences in total.\n",
 			str_ger, posFirst, posLast, occurences
 		);
 
 		isize pos = si_stringFind(str, SI_STR("Žąsys"));
-		si_printf("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zd'\n", pos);
+		si_printf("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zi'\n", pos);
 	}
 
 	si_print("Scope 4:\n");
 	{
 		siString str = si_stringMake("smaug giganteus", alloc);
-		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		si_printf("\tstr: '%S', len: '%zi', capacity: '%zi'\n", str, str.len, str.capacity);
 
 		si_stringTrim(&str, SI_STR("s"));
-		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		si_printf("\tstr: '%S', len: '%zi', capacity: '%zi'\n", str, str.len, str.capacity);
 
 		b32 allocated = si_stringInsert(&str, SI_STR("the "), countof_str("maug "));
-		si_printf("\tstr: '%S', allocated: '%B', len: '%zd', capacity: '%zd'\n", str, allocated, str.len, str.capacity);
+		si_printf("\tstr: '%S', allocated: '%B', len: '%zi', capacity: '%zi'\n", str, allocated, str.len, str.capacity);
 
 		si_stringErase(&str, 3, 6);
-		si_printf("\tstr: '%S', len: '%zd'\n", str, str.len);
+		si_printf("\tstr: '%S', len: '%zi'\n", str, str.len);
 
 	}
 
 	si_print("Scope 5:\n");
 	{
 		siString str = si_stringMake("one.two.three.four.five", alloc);
-		si_printf("\tstr: '%S', len: '%zd', capacity: '%zd'\n", str, str.len, str.capacity);
+		si_printf("\tstr: '%S', len: '%zi', capacity: '%zi'\n", str, str.len, str.capacity);
 
 		siArray(siString) list = si_stringSplit(str, SI_STR("."), alloc);
 
@@ -101,16 +101,16 @@ void example1(siAllocator alloc) {
 		si_print("\n");
 
 		si_stringClear(&str);
-		si_printf("\tLength of str: '%zd'\n", str.len);
+		si_printf("\tLength of str: '%zi'\n", str.len);
 	}
 
 	si_print("Scope 6:\n");
 	{
 		siString str = si_stringMake("\t       dnuora gniliart        ", alloc);
-		si_printf("Before: '%S' (len: '%zd')\n", str, str.len);
+		si_printf("Before: '%S' (len: '%zi')\n", str, str.len);
 
 		si_stringStrip(&str);
-		si_printf("After: '%S' (len: '%zd')\n", str, str.len);
+		si_printf("After: '%S' (len: '%zi')\n", str, str.len);
 
 		si_stringReverse(str);
 		si_printf("'str' in reverse: '%S'\n", str);
@@ -125,7 +125,7 @@ void example2(siAllocator alloc) {
 	si_printf("str: \"%S\"\n", str);
 
 	i64 num = si_stringToInt(SI_STR("  9300  "));
-	si_printf("num: %zd\n", num);
+	si_printf("num: %li\n", num);
 
 	str = si_stringFromFloat(FLOAT32_MAX, alloc);
 	si_printf("str: %S\n", str);
