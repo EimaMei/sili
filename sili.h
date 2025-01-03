@@ -769,27 +769,27 @@ SI_STATIC_ASSERT(false == 0);
 	#endif
 #endif
 
-#ifndef noreturn
+#ifndef siNoreturn
 	#if SI_STANDARD_CHECK_MIN(C, C23) || SI_STANDARD_CHECK_MIN(CPP, CPP11)
 		/* Specifies that the function will not return anything. */
-		#define noreturn [[noreturn]]
+		#define siNoreturn [[noreturn]]
 
 	#elif SI_STANDARD_CHECK_MIN(C, C11)
 		/* Specifies that the function will not return anything. */
-		#define noreturn _Noreturn
+		#define siNoreturn _Noreturn
 
 	#else
 		#if defined(SI_COMPILER_CLANG) || SI_COMPILER_CHECK_MIN(GCC, 2, 5, 0)
 			/* Specifies that the function will not return anything. */
-			#define noreturn __attribute__((noreturn))
+			#define siNoreturn __attribute__((noreturn))
 
 		#elif defined(SI_COMPILER_MSVC)
 			/* Specifies that the function will not return anything. */
-			#define noreturn __declspec(noreturn)
+			#define siNoreturn __declspec(noreturn)
 
 		#else
 			/* Specifies that the function will not return anything. */
-			#define noreturn
+			#define siNoreturn
 		#endif
 	#endif
 #endif
@@ -1096,8 +1096,8 @@ extern "C++" {
 	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
 		SI_STOPIF(!(condition), si_panic(#condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__))
 	/* ptr - rawptr
-	 * Terminates the program if a pointer is NULL. */
-	#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
+	 * Terminates the program if a pointer is nil. */
+	#define SI_ASSERT_NOT_NIL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
 	/* num - INT
 	 * Terminates the program if the integer is negative. */
 	#define SI_ASSERT_NOT_NEG(num) SI_ASSERT_MSG((num) >= 0, #num " must not be negative.")
@@ -1107,7 +1107,7 @@ extern "C++" {
 	#define SI_ASSERT(condition) do { } while(0)
 	#define SI_ASSERT_MSG(condition, message) do {} while(0)
 	#define SI_ASSERT_FMT(condition, message, ...) do {} while(0)
-	#define SI_ASSERT_NOT_NULL(ptr) do { SI_UNUSED(ptr); } while(0)
+	#define SI_ASSERT_NOT_NIL(ptr) do { SI_UNUSED(ptr); } while(0)
 	#define SI_ASSERT_NOT_NEG(num) do { SI_UNUSED(ptr); } while(0)
 
 #endif /* SI_NO_ASSERTIONS_IN_HEADER */
@@ -1262,7 +1262,7 @@ typedef struct siError {
 /* name - NAME
  * Defines a valid error logger function prototype. Returning 'false' terminates
  * the app. */
-#define SI_ERROR_PROC(name) b32 name(siError error, rawptr data)
+#define SI_ERROR_PROC(name) b32 name(siError* error, rawptr data)
 /* Represents an error logger procedure. */
 typedef SI_ERROR_PROC(siErrorProc);
 
@@ -2600,7 +2600,7 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawp
 	#if SI_SYSTEM_IS_WINDOWS
 		#define SIDEF_WINDOWS
 	#else
-		#define SIDEF_WINDOWS noreturn
+		#define SIDEF_WINDOWS siNoreturn
 	#endif
 #endif
 
@@ -2608,7 +2608,7 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawp
 	#if SI_SYSTEM_IS_UNIX
 		#define SIDEF_UNIX
 	#else
-		#define SIDEF_UNIX noreturn
+		#define SIDEF_UNIX siNoreturn
 	#endif
 #endif
 
@@ -2642,7 +2642,7 @@ SI_ENUM(i32, siErrorSystem) {
 
 	/* Sili reserves its errors to span from 0 to (INT32_MAX / 2). Every other
 	 * value won't be touched by sili. */
-	//SI_ERROR_SYSTEM_RESERVED = INT32_MAX / 2,
+	SI_ERROR_SYSTEM_END = (INT32_MAX / 2),
 };
 
 SI_ENUM(i32, siWindowsVersion) {
@@ -2665,14 +2665,14 @@ SI_ENUM(i32, siUnixDE) {
 /* TODO */
 #define SI_ERROR_SYS() SI_ERROR_SYS_EX(si_systemGetError())
 /* TODO */
-#define SI_ERROR_SYS_EX(code) SI_ERROR_EX(code, si__systemErrorLog, nil);
+#define SI_ERROR_SYS_EX(code) SI_ERROR_EX(code, si_systemErrorLog, nil);
 /* TODO */
 #define SI_ERROR_SYS_CHECK(condition, .../*action*/) \
-	SI_ERROR_CHECK_EX(condition, si_systemGetError(), si__systemErrorLog, nil, __VA_ARGS__)
+	SI_ERROR_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, __VA_ARGS__)
 /* TODO */
-#define SI_ERROR_SYS_CHECK_RET(condition) SI_ERROR_CHECK_EX_RET(condition, si_systemGetError(), si__systemErrorLog, nil)
+#define SI_ERROR_SYS_CHECK_RET(condition) SI_ERROR_CHECK_EX_RET(condition, si_systemGetError(), si_systemErrorLog, nil)
 /* TODO */
-#define SI_OPTION_SYS_CHECK(condition, type) SI_OPTION_CHECK_EX(condition, si_systemGetError(), si__systemErrorLog, nil, type)
+#define SI_OPTION_SYS_CHECK(condition, type) SI_OPTION_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, type)
 
 
 /* TODO */
@@ -2685,7 +2685,7 @@ SIDEF siString si_systemErrorDesc(siErrorSystem err);
 
 
 /* Ends the program with a to be returned code. */
-noreturn SIDEF void si_exit(i32 code);
+siNoreturn SIDEF void si_exit(i32 code);
 
 
 /* Sets an environment variable for the current process. */
@@ -2714,7 +2714,7 @@ SIDEF SIDEF_UNIX b32 si_unixIsX11(void);
 SIDEF SIDEF_UNIX siUnixDE si_unixGetDE(void);
 
 /* TODO */
-SIDEF SI_ERROR_PROC(si__systemErrorLog);
+SIDEF SI_ERROR_PROC(si_systemErrorLog);
 
 #endif /* SI_NO_SYSTEM */
 
@@ -3466,7 +3466,7 @@ SIDEF siString si_bprintfLnVa(u8* out, isize capacity, cstring fmt, va_list va);
 
 /* Terminates the program immediately with a formatted C-string message.
  * NOTE: Use the SI_PANIC() macros instead. */
-noreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
+siNoreturn SIDEF void si_panic(cstring conditionStr, cstring file, i32 line,
 		cstring func, cstring message, ...);
 
 
@@ -3638,10 +3638,17 @@ u64 si_pow10(i32 exponent);
  * -18 to 18, otherwise the app will crash.*/
 f64 si_pow10F64(i32 exponent);
 
+/* Checks if the given 32-bit float is NaN. */
+SIDEF b32 si_float32IsNan(f32 num);
+/* Checks if the given 32-bit float is infinite. '0' - number isn't infinite, 
+ * '1' - positive infinity, '2' - negative infinity. */
+SIDEF i32 si_float32IsInf(f32 num);
+
 /* Checks if the given 64-bit float is NaN. */
 SIDEF b32 si_float64IsNan(f64 num);
-/* Checks if the given 64-bit float is infinite. */
-SIDEF u32 si_float64IsInf(f64 num);
+/* Checks if the given 64-bit float is infinite. '0' - number isn't infinite, 
+ * '1' - positive infinity, '2' - negative infinity. */
+SIDEF i32 si_float64IsInf(f64 num);
 
 #if 1
 	#define SI_MATH_FUNC(type, name, ...) si__##name##_##type(__VA_ARGS__)
@@ -3955,7 +3962,7 @@ siError si__errorDeclare(i32 error, siErrorProc proc, rawptr userData, cstring _
 
 #ifndef SI_NO_ERROR_LOGS
 	if (proc != nil) {
-		b32 status = proc(res, userData);
+		b32 status = proc(&res, userData);
 		SI_STOPIF(!status, si_exit(-1));
 	}
 	else {
@@ -3996,8 +4003,8 @@ inline b32 si_pointerBetween(const void* ptr, const void* start, const void* end
 
 SIDEF
 rawptr si_memcopy(void* restrict dst, const void* restrict src, isize size) {
-	SI_ASSERT_NOT_NULL(dst);
-	SI_ASSERT_NOT_NULL(src);
+	SI_ASSERT_NOT_NIL(dst);
+	SI_ASSERT_NOT_NIL(src);
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
@@ -4009,8 +4016,8 @@ rawptr si_memcopy(void* restrict dst, const void* restrict src, isize size) {
 
 SIDEF
 rawptr si_memmove(void* restrict dst, const void* restrict src, isize size) {
-	SI_ASSERT_NOT_NULL(dst);
-	SI_ASSERT_NOT_NULL(src);
+	SI_ASSERT_NOT_NIL(dst);
+	SI_ASSERT_NOT_NIL(src);
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
@@ -4023,7 +4030,7 @@ rawptr si_memmove(void* restrict dst, const void* restrict src, isize size) {
 
 SIDEF
 rawptr si_memset(void* data, u8 value, isize size) {
-	SI_ASSERT_NOT_NULL(data);
+	SI_ASSERT_NOT_NIL(data);
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
@@ -4036,8 +4043,8 @@ rawptr si_memset(void* data, u8 value, isize size) {
 
 SIDEF
 i32 si_memcompare(const void* ptr1, const void* ptr2, isize size) {
-	SI_ASSERT_NOT_NULL(ptr1);
-	SI_ASSERT_NOT_NULL(ptr2);
+	SI_ASSERT_NOT_NIL(ptr1);
+	SI_ASSERT_NOT_NIL(ptr2);
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
@@ -4049,7 +4056,7 @@ i32 si_memcompare(const void* ptr1, const void* ptr2, isize size) {
 
 SIDEF
 rawptr si_memchr(const void* data, u8 value, isize size) {
-	SI_ASSERT_NOT_NULL(data);
+	SI_ASSERT_NOT_NIL(data);
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
@@ -4062,7 +4069,7 @@ rawptr si_memchr(const void* data, u8 value, isize size) {
 
 SIDEF
 isize si_cstrLen(cstring string) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 
 #ifndef SI_NO_CRT
 	return (isize)strlen(string);
@@ -4128,7 +4135,7 @@ siResult(siVirtualMemory) si_vmAlloc(rawptr address, isize size) {
 
 SIDEF
 siError si_vmFree(siVirtualMemory vm) {
-	SI_ASSERT_NOT_NULL(vm.data);
+	SI_ASSERT_NOT_NIL(vm.data);
 
 #if SI_SYSTEM_IS_WINDOWS
 	MEMORY_BASIC_INFORMATION info;
@@ -4157,7 +4164,7 @@ siError si_vmFree(siVirtualMemory vm) {
 
 SIDEF
 siError si_vmPurge(siVirtualMemory vm) {
-	SI_ASSERT_NOT_NULL(vm.data);
+	SI_ASSERT_NOT_NIL(vm.data);
 
 #if SI_SYSTEM_IS_WINDOWS
 	i32 res = (VirtualAlloc(vm.data, (usize)vm.size, MEM_RESET, PAGE_READWRITE) == nil);
@@ -4242,7 +4249,7 @@ rawptr si_allocator_heap_proc(siAllocatorFunc func, rawptr data) {
 	switch (func.type) {
 		case siAllocatorFunc_Alloc: {
 			out = malloc(func.data.alloc);
-			SI_ASSERT_NOT_NULL(out);
+			SI_ASSERT_NOT_NIL(out);
 		} break;
 
 		case siAllocatorFunc_Free: {
@@ -4257,7 +4264,7 @@ rawptr si_allocator_heap_proc(siAllocatorFunc func, rawptr data) {
 		case siAllocatorFunc_Resize: {
 			siAllocatorDataResize resize = func.data.resize;
 			out = realloc(resize.src, resize.sizeNew);
-			SI_ASSERT_NOT_NULL(out);
+			SI_ASSERT_NOT_NIL(out);
 		} break;
 
 		case siAllocatorFunc_GetAvailable: {
@@ -4595,7 +4602,7 @@ rawptr si_allocator_pool_proc(siAllocatorFunc func, rawptr data) {
 	return out;
 }
 
-noreturn SIDEF
+siNoreturn SIDEF
 void si_panic(cstring conditionStr, cstring file, i32 line, cstring func,
 		cstring message, ...) {
 	siPrintColor red = si_printColor3bitEx(siPrintColor3bit_Red, true, false);
@@ -4683,7 +4690,7 @@ void si_arrayFree(siBuffer array) {
 
 inline
 b32 si_arrayAt(siBuffer array, isize index, rawptr out) {
-	SI_ASSERT_NOT_NULL(out);
+	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(index);
 
 	if (index >= array.len) {
@@ -4779,8 +4786,8 @@ b32 si_arrayAppend(siBuffer* array, rawptr valuePtr) {
 
 SIDEF
 b32 si_arrayAppendEx(siBuffer* array, rawptr valueArray, isize count) {
-	SI_ASSERT_NOT_NULL(array);
-	SI_ASSERT_NOT_NULL(valueArray);
+	SI_ASSERT_NOT_NIL(array);
+	SI_ASSERT_NOT_NIL(valueArray);
 	SI_ASSERT_NOT_NEG(count);
 
 	isize offset = array->len * array->typeSize;
@@ -4792,14 +4799,14 @@ b32 si_arrayAppendEx(siBuffer* array, rawptr valueArray, isize count) {
 
 inline
 void si_arrayPop(siBuffer* array) {
-	SI_ASSERT_NOT_NULL(array);
+	SI_ASSERT_NOT_NIL(array);
 	SI_STOPIF(array->len == 0, return);
 	array->len -= 1;
 }
 
 inline
 void si_arrayClear(siBuffer* array) {
-	SI_ASSERT_NOT_NULL(array);
+	SI_ASSERT_NOT_NIL(array);
 	array->len = 0;
 }
 
@@ -4811,8 +4818,8 @@ b32 si_arrayInsert(siBuffer* array, isize index, rawptr value) {
 
 SIDEF
 b32 si_arrayInsertEx(siBuffer* array, isize index, rawptr valueArray, isize count) {
-	SI_ASSERT_NOT_NULL(array);
-	SI_ASSERT_NOT_NULL(valueArray);
+	SI_ASSERT_NOT_NIL(array);
+	SI_ASSERT_NOT_NIL(valueArray);
 	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT_NOT_NEG(count);
 	SI_ASSERT(index < array->len);
@@ -4835,7 +4842,7 @@ void si_arrayErase(siBuffer* array, isize index) {
 
 SIDEF
 void si_arrayEraseEx(siBuffer* array, isize index, isize count) {
-	SI_ASSERT_NOT_NULL(array);
+	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT_NOT_NEG(count);
 	SI_ASSERT(index + count <= array->len);
@@ -4858,8 +4865,8 @@ void si_arrayReplaceAll(siBuffer array, rawptr restrict valueOld, rawptr restric
 SIDEF
 void si_arrayReplace(siBuffer array, rawptr restrict valueOld, rawptr restrict valueNew,
 		isize amount) {
-	SI_ASSERT_NOT_NULL(valueOld);
-	SI_ASSERT_NOT_NULL(valueNew);
+	SI_ASSERT_NOT_NIL(valueOld);
+	SI_ASSERT_NOT_NIL(valueNew);
 	SI_STOPIF(amount == 0, return);
 
 
@@ -4900,8 +4907,8 @@ void si_arrayReverse(siBuffer array) {
 
 SIDEF
 b32 si_arrayFill(siBuffer* array, isize index, isize count, rawptr valuePtr) {
-	SI_ASSERT_NOT_NULL(array);
-	SI_ASSERT_NOT_NULL(valuePtr);
+	SI_ASSERT_NOT_NIL(array);
+	SI_ASSERT_NOT_NIL(valuePtr);
 	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT_NOT_NEG(count);
 
@@ -4924,8 +4931,8 @@ b32 si_arrayFill(siBuffer* array, isize index, isize count, rawptr valuePtr) {
 
 SIDEF
 b32 si_arrayMakeSpaceFor(siBuffer* buffer, isize addLen) {
-	SI_ASSERT_NOT_NULL(buffer);
-	SI_ASSERT_NOT_NULL(buffer->alloc.proc);
+	SI_ASSERT_NOT_NIL(buffer);
+	SI_ASSERT_NOT_NIL(buffer->alloc.proc);
 
 	isize newLength = buffer->len + addLen;
 	if (newLength <= buffer->capacity) {
@@ -4961,7 +4968,7 @@ siString si_stringMakeLen(cstring string, isize len, siAllocator alloc) {
 SIDEF
 siString si_stringMakeEx(cstring string, isize len, isize capacity,
 		siAllocator alloc) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 
 	siString str = si_arrayMakeReserve(si_sizeof(u8), len, capacity, alloc);
 	si_memcopy(str.data, string, len);
@@ -5003,7 +5010,7 @@ void si_stringFree(siString string) {
 
 inline
 i32 si_stringAt(siString string, isize index) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 	SI_STOPIF(string.len <= index || string.len == 0, return -1);
 
 	return si_stringGet(string, index);
@@ -5011,7 +5018,7 @@ i32 si_stringAt(siString string, isize index) {
 
 inline
 i32 si_stringAtFront(siString string) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 	SI_STOPIF(string.len == 0, return -1);
 
 	return si_stringGet(string, 0);
@@ -5019,7 +5026,7 @@ i32 si_stringAtFront(siString string) {
 
 SIDEF
 i32 si_stringAtBack(siString string) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 	SI_STOPIF(string.len == 0, return -1);
 
 	return si_stringGet(string, string.len - 1);
@@ -5069,8 +5076,8 @@ isize si_stringFindByte(siString string, u8 byte) {
 
 SIDEF
 isize si_stringFindUtf8(siString string, const u8* character, isize* outCharIndex) {
-	SI_ASSERT_NOT_NULL(character);
-	SI_ASSERT_NOT_NULL(outCharIndex);
+	SI_ASSERT_NOT_NIL(character);
+	SI_ASSERT_NOT_NIL(outCharIndex);
 
 	isize i = 0;
 	isize utf8I = 0;
@@ -5095,7 +5102,7 @@ isize si_stringFindUtf8(siString string, const u8* character, isize* outCharInde
 
 SIDEF
 isize si_stringFindLast(siString string, siString subStr) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 
 	isize subStrEnd = subStr.len - 1;
 	isize counter = subStrEnd;
@@ -5166,7 +5173,7 @@ b32 si_stringEqual(siString lhs, siString rhs) {
 
 SIDEF
 b32 si_stringAppend(siString* string, siString other) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 
 	isize oldLen = string->len;
 	b32 allocated = si_stringMakeSpaceFor(string, other.len);
@@ -5185,7 +5192,7 @@ b32 si_stringSet(siString* string, siString str) {
 
 SIDEF
 siString si_stringJoin(siArray(siString) strings, siString separator, siAllocator alloc) {
-	SI_ASSERT_NOT_NULL(strings.data);
+	SI_ASSERT_NOT_NIL(strings.data);
 	SI_STOPIF(strings.len == 0, return SI_STR_EMPTY);
 
 	isize length = separator.len * (strings.len - 1);
@@ -5220,7 +5227,7 @@ void si_stringTrim(siString* string, siString cutSet) {
 
 SIDEF
 void si_stringTrimLeft(siString* string, siString cutSet) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 
 	u8* posStart = si_stringBegin(*string);
 	u8* posEnd = si_stringEnd(*string);
@@ -5244,7 +5251,7 @@ void si_stringTrimLeft(siString* string, siString cutSet) {
 
 SIDEF
 void si_stringTrimRight(siString* string, siString cutSet) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 
 	u8* posStart = si_stringBegin(*string);
 	u8* posEnd = si_stringEnd(*string) - 1;
@@ -5264,8 +5271,8 @@ void si_stringStrip(siString* string) {
 SIDEF
 b32 si_stringEnquote(siString* string) {
 	/* TODO(EimaMei): Update */
-	SI_ASSERT_NOT_NULL(string);
-	SI_ASSERT_NOT_NULL(string->data);
+	SI_ASSERT_NOT_NIL(string);
+	SI_ASSERT_NOT_NIL(string->data);
 
 	isize oldLen = string->len;
 	b32 allocated = si_stringMakeSpaceFor(string, 2);
@@ -5285,21 +5292,21 @@ b32 si_stringPush(siString* string, char other) {
 
 inline
 void si_stringPop(siString* string) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 	SI_STOPIF(string->len == 0, return);
 	string->len -= 1;
 }
 
 inline
 void si_stringClear(siString* string) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 	string->len = 0;
 }
 
 
 SIDEF
 b32 si_stringInsert(siString* string, siString subStr, isize index) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT(index < string->len);
 	SI_STOPIF(subStr.len == 0, return false);
@@ -5315,7 +5322,7 @@ b32 si_stringInsert(siString* string, siString subStr, isize index) {
 
 SIDEF
 void si_stringErase(siString* string, isize index, isize count) {
-	SI_ASSERT_NOT_NULL(string);
+	SI_ASSERT_NOT_NIL(string);
 	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT_NOT_NEG(count);
 	SI_ASSERT(index + count <= string->len);
@@ -5353,9 +5360,9 @@ b32 si_stringReplaceAll(siString* string, siString strOld, siString strNew,
 SIDEF
 b32 si_stringReplace(siString* string, siString strOld, siString strNew, isize amount,
 		siAllocator alloc) {
-	SI_ASSERT_NOT_NULL(string);
-	SI_ASSERT_NOT_NULL(strOld.data);
-	SI_ASSERT_NOT_NULL(strNew.data);
+	SI_ASSERT_NOT_NIL(string);
+	SI_ASSERT_NOT_NIL(strOld.data);
+	SI_ASSERT_NOT_NIL(strNew.data);
 	SI_STOPIF(strOld.data == strNew.data, return false);
 
 	if (amount < 0) {
@@ -5553,7 +5560,7 @@ u64 si_stringToUIntEx(siString string, i32* outRes) {
 SIDEF
 u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 	/* TODO(EimaMei): Make this UTF-8 friendly. */
-	SI_ASSERT_NOT_NULL(outRes);
+	SI_ASSERT_NOT_NIL(outRes);
 	SI_STOPIF(string.len == 0, *outRes = -1; return 0);
 
 	u64 res = 0;
@@ -5673,7 +5680,7 @@ siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siAllocator all
 	SI_ASSERT_NOT_NEG(afterPoint);
 
 	{
-		u32 isInf = si_float64IsInf(num);
+		i32 isInf = si_float64IsInf(num);
 		if (isInf) {
 			return (isInf == 1) ? SI_STR("inf") : SI_STR("-inf");
 		}
@@ -5752,7 +5759,7 @@ SIDEF
 b32 si_stringToBool(siString string) {
 	/* TODO(EimaMei): Make this UTF-8 friendly. */
 
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 	SI_STOPIF(string.len == 0 || (string.len != 1 && string.len != 4 && string.len != 5), return UINT32_MAX);
 
 	if (string.len == 1) {
@@ -5825,7 +5832,7 @@ isize si_stringSuffixLen(siString string, siString suffix) {
 
 SIDEF
 siString si_stringFromArray(siBuffer array, cstring fmt, u8* out, isize capacity) {
-	SI_ASSERT_NOT_NULL(fmt);
+	SI_ASSERT_NOT_NIL(fmt);
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(capacity < 2, return SI_STR_EMPTY);
 
@@ -5911,7 +5918,7 @@ go_back:
 
 SIDEF
 i64 si_stringToInt(siString string) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 
 	switch (*(u8*)string.data) {
 		case '-':
@@ -5935,7 +5942,7 @@ i64 si_stringToIntEx(siString string, i32* outRes) {
 
 SIDEF
 i64 si_stringToIntBase(siString string, i32 base, i32* outRes) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 
 	switch (*(u8*)string.data) {
 		case '-':
@@ -6076,7 +6083,7 @@ siUtf32Char si_utf8StrAt(siUtf8String string, isize charIndex) {
 }
 SIDEF
 siString si_utf8StrAtUTF8(siUtf8String string, isize charIndex) {
-	SI_ASSERT_NOT_NULL(string.data);
+	SI_ASSERT_NOT_NIL(string.data);
 	SI_ASSERT_NOT_NEG(charIndex);
 	SI_ASSERT(charIndex < string.len);
 	SI_STOPIF(string.len == 0, return SI_STR_EMPTY);
@@ -6108,7 +6115,7 @@ siUtf16String si_utf8ToUtf16Str(siUtf8String str, u16* out, isize capacity) {
 SIDEF
 siUtf8String si_utf8ToUtf16StrEx(siUtf8String str, b32 nullTerm, u16* out,
 		isize capacity) {
-	SI_ASSERT_NOT_NULL(out);
+	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(str.len == 0 || capacity == 0, return SI_STR_EMPTY);
 
@@ -6155,7 +6162,7 @@ siUtf8String si_utf16ToUtf8Str(siUtf16String str, u8* out, isize capacity) {
 SIDEF
 siUtf8String si_utf16ToUtf8StrEx(siUtf16String str, b32 nullTerm, u8* out,
 		isize capacity) {
-	SI_ASSERT_NOT_NULL(out);
+	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(str.len == 0 || capacity == 0, return SI_STR_EMPTY);
 
@@ -6454,8 +6461,8 @@ u64 si__hashKey(u8* key, isize len) {
 SIDEF
 siHashTable si_hashtableMake(const rawptr* keyArray, isize keyLen, const rawptr* dataArray,
 		isize len, siAllocator alloc) {
-	SI_ASSERT_NOT_NULL(keyArray);
-	SI_ASSERT_NOT_NULL(dataArray);
+	SI_ASSERT_NOT_NIL(keyArray);
+	SI_ASSERT_NOT_NIL(dataArray);
 	SI_ASSERT(keyLen != 0);
 
 	siHashTable table = si_hashtableMakeReserve(len, alloc);
@@ -6482,7 +6489,7 @@ siHashTable si_hashtableMakeReserve(isize capacity, siAllocator alloc) {
 
 SIDEF
 rawptr si_hashtableGet(siHashTable ht, rawptr key, isize keyLen) {
-	SI_ASSERT_NOT_NULL(key);
+	SI_ASSERT_NOT_NIL(key);
 	SI_ASSERT_NOT_NEG(keyLen);
 	SI_ASSERT(keyLen != 0);
 	SI_STOPIF(ht.len == 0, return nil);
@@ -6514,7 +6521,7 @@ skip:
 SIDEF
 siHashEntry* si_hashtableSet(siHashTable* ht, const rawptr key, isize keyLen,
 		const rawptr valuePtr, b32* outSuccess) {
-	SI_ASSERT_NOT_NULL(key);
+	SI_ASSERT_NOT_NIL(key);
 	SI_ASSERT_NOT_NEG(keyLen);
 	SI_ASSERT(keyLen != 0);
 
@@ -6525,7 +6532,7 @@ siHashEntry* si_hashtableSet(siHashTable* ht, const rawptr key, isize keyLen,
 SIDEF
 siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr valuePtr,
 		b32* outSuccess) {
-	SI_ASSERT_NOT_NULL(ht);
+	SI_ASSERT_NOT_NIL(ht);
 	SI_ASSERT_MSG(ht->len < ht->capacity, "The capacity of the hash table has been surpassed.");
 
 
@@ -6583,19 +6590,19 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, const rawptr val
 */
 
 SIDEF
-SI_ERROR_PROC(si__systemErrorLog) {
+SI_ERROR_PROC(si_systemErrorLog) {
 	siPrintColor red = si_printColor3bitEx(siPrintColor3bit_Red, true, false);
 
 #ifndef SI_NO_ERROR_STRUCT
 	si_fprintf(
-		si_stderr, "%CFile system error at \"%s:%i\"%C: %S: %S\n",
-		red, error.filename, error.line,
-		si_systemErrorName(error.code), si_systemErrorDesc(error.code)
+		si_stderr, "%CSystem error at \"%s:%i\"%C: %S: %S\n",
+		red, error->filename, error->line,
+		si_systemErrorName(error->code), si_systemErrorDesc(error->code)
 	);
 
 #else
 	si_fprintf(
-		si_stderr, "%CFile system error%C: %S: %S\n",
+		si_stderr, "%CSystem error%C: %S: %S\n",
 		red, si_systemErrorName(error->code), si_systemErrorDesc(error->code)
 	);
 #endif
@@ -6606,6 +6613,7 @@ SI_ERROR_PROC(si__systemErrorLog) {
 
 inline
 siString si_systemErrorName(siErrorSystem error) {
+	SI_ASSERT_NOT_NEG(error);
 	SI_ASSERT(error < siErrorSystem_Length);
 
     static const siString names[siErrorSystem_Length] = {
@@ -6629,6 +6637,7 @@ siString si_systemErrorName(siErrorSystem error) {
 
 inline
 siString si_systemErrorDesc(siErrorSystem error) {
+	SI_ASSERT_NOT_NEG(error);
 	SI_ASSERT(error < siErrorSystem_Length);
 
 	static const siString descriptions[siErrorSystem_Length] = {
@@ -6684,7 +6693,7 @@ siErrorSystem si_systemGetError(void) {
 
 }
 
-noreturn inline
+siNoreturn inline
 void si_exit(i32 code) {
 #if SI_SYSTEM_IS_WINDOWS
 	ExitProcess((u32)code);
@@ -7158,7 +7167,7 @@ b32 si_pathIsRelative(siString path) {
 SIDEF
 isize si_pathToOS(siString path, siOsChar* out, isize capacity) {
 	SI_ASSERT(path.len <= SI_PATH_MAX);
-	SI_ASSERT_NOT_NULL(out);
+	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(capacity == 0, return 0);
 
@@ -7408,7 +7417,7 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 
 SIDEF
 isize si_fileSize(siFile file) {
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
+	SI_ASSERT_NOT_NIL((rawptr)file.handle);
 
 #if SI_SYSTEM_IS_WINDOWS
 	ULARGE_INTEGER res = {0};
@@ -7435,7 +7444,7 @@ isize si_fileSize(siFile file) {
 
 inline
 void si_fileSizeUpdate(siFile* file) {
-	SI_ASSERT_NOT_NULL(file);
+	SI_ASSERT_NOT_NIL(file);
 	file->size = si_fileSize(*file);
 }
 
@@ -7466,10 +7475,10 @@ siError si_fileReadAtBuf(siFile file, isize offset, isize len, siBuffer* out) {
 
 SIDEF
 siError si_fileReadUnsafe(siFile file, isize offset, isize len, siBuffer* out) {
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
-	SI_ASSERT_NOT_NULL(out);
+	SI_ASSERT_NOT_NIL((rawptr)file.handle);
+	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(len);
-	SI_ASSERT_NOT_NULL(out->data);
+	SI_ASSERT_NOT_NIL(out->data);
 
 	si_fileSeek(file, offset, siSeekWhere_Begin);
 
@@ -7527,9 +7536,9 @@ isize si_fileWrite(siFile* file, siBuffer content) {
 }
 SIDEF
 isize si_fileWriteAt(siFile* file, siBuffer content, isize offset) {
-	SI_ASSERT_NOT_NULL(file);
-	SI_ASSERT_NOT_NULL((rawptr)file->handle);
-	SI_ASSERT_NOT_NULL(content.data);
+	SI_ASSERT_NOT_NIL(file);
+	SI_ASSERT_NOT_NIL((rawptr)file->handle);
+	SI_ASSERT_NOT_NIL(content.data);
 
 #if SI_SYSTEM_IS_WINDOWS
 	si_fileSeek(*file, offset, siSeekWhere_Begin);
@@ -7561,7 +7570,7 @@ isize si_fileTell(siFile file) {
 
 inline
 isize si_fileSeek(siFile file, isize offset, siSeekWhere method) {
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
+	SI_ASSERT_NOT_NIL((rawptr)file.handle);
 
 #if SI_SYSTEM_IS_WINDOWS
 	LARGE_INTEGER res;
@@ -7592,9 +7601,9 @@ b32 si_fileSeekBack(siFile file) {
 }
 SIDEF
 b32 si_fileTruncate(siFile* file, isize size) {
-	SI_ASSERT_NOT_NULL(file);
+	SI_ASSERT_NOT_NIL(file);
 	SI_ASSERT_NOT_NEG(size);
-	SI_ASSERT_NOT_NULL((rawptr)file->handle);
+	SI_ASSERT_NOT_NIL((rawptr)file->handle);
 
 #if SI_SYSTEM_IS_WINDOWS
 	isize prevOffset = si_fileTell(*file);
@@ -7643,7 +7652,7 @@ u64 si_fileLastWriteTime(siFile file) {
 
 inline
 void si_fileClose(siFile file) {
-	SI_ASSERT_NOT_NULL((rawptr)file.handle);
+	SI_ASSERT_NOT_NIL((rawptr)file.handle);
 #if SI_SYSTEM_IS_WINDOWS
 	CloseHandle(file.handle);
 #else
@@ -7653,7 +7662,7 @@ void si_fileClose(siFile file) {
 
 SIDEF
 siDirectory si_directoryOpen(siString path) {
-	SI_ASSERT_NOT_NULL(path.data);
+	SI_ASSERT_NOT_NIL(path.data);
 	SI_ASSERT(path.len <= SI_PATH_MAX);
 
 	siDirectory dir;
@@ -7708,9 +7717,9 @@ b32 si_directoryPollEntry(siDirectory* dir, siDirectoryEntry* out) {
 
 SIDEF
 b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* out) {
-	SI_ASSERT_NOT_NULL(dir);
-	SI_ASSERT_NOT_NULL(out);
-	SI_ASSERT_NOT_NULL(dir->handle);
+	SI_ASSERT_NOT_NIL(dir);
+	SI_ASSERT_NOT_NIL(out);
+	SI_ASSERT_NOT_NIL(dir->handle);
 
 #if SI_SYSTEM_IS_WINDOWS
 	WIN32_FIND_DATAW file;
@@ -7783,7 +7792,7 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 
 inline
 void si_directoryClose(siDirectory* dir) {
-	SI_ASSERT_NOT_NULL(dir);
+	SI_ASSERT_NOT_NIL(dir);
 	SI_STOPIF(dir->handle == nil, return);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -7830,7 +7839,7 @@ siThread si_threadMake(siThreadFunction function, rawptr arg) {
 
 inline
 siThread si_threadMakeEx(siThreadFunction function, rawptr arg, usize stackSize) {
-	SI_ASSERT_NOT_NULL(function);
+	SI_ASSERT_NOT_NIL(function);
 
 	siThread thread = {0};
 	thread.func = function;
@@ -7849,7 +7858,7 @@ siError si_threadMakeAndRun(siThreadFunction function, rawptr arg, siThread* out
 
 SIDEF
 siError si_threadRun(siThread* thread) {
-	SI_ASSERT_NOT_NULL(thread);
+	SI_ASSERT_NOT_NIL(thread);
 	SI_ASSERT(thread->state == siThreadState_Initialized);
 
 	#if SI_SYSTEM_IS_WINDOWS
@@ -7885,8 +7894,8 @@ siError si_threadRun(siThread* thread) {
 
 SIDEF
 siError si_threadJoin(siThread* thread) {
-	SI_ASSERT_NOT_NULL(thread);
-	SI_ASSERT_NOT_NULL((rawptr)thread->id);
+	SI_ASSERT_NOT_NIL(thread);
+	SI_ASSERT_NOT_NIL((rawptr)thread->id);
 
 	#if SI_SYSTEM_IS_WINDOWS
 		DWORD res = WaitForSingleObject(thread->id, INFINITE);
@@ -7900,7 +7909,7 @@ siError si_threadJoin(siThread* thread) {
 
 SIDEF
 siError si_threadDestroy(siThread* thread) {
-	SI_ASSERT_NOT_NULL(thread);
+	SI_ASSERT_NOT_NIL(thread);
 	SI_STOPIF(thread->id == 0, return SI_ERROR_NIL);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -8053,7 +8062,7 @@ u64 si_RDTSC(void) {
 
 	#else
 		struct timeval tv;
-		gettimeofday(&tv, NULL);
+		gettimeofday(&tv, nil);
 		return tv.tv_sec * 1000000 + tv.tv_usec;
 
 	#endif
@@ -8065,7 +8074,7 @@ u64 si_RDTSC(void) {
 
 	#else
 		struct timeval tv;
-		gettimeofday(&tv, NULL);
+		gettimeofday(&tv, nil);
 		return tv.tv_sec * 1000000 + tv.tv_usec;
 
 	#endif
@@ -8243,7 +8252,7 @@ siTimeCalendar si_timeToCalendar(i64 time) {
 
 /* TODO(EimaMei): Refactor the code to be shorter and easier to understand. */
 siString si_timeToString(u8* buffer, isize capacity, siTimeCalendar calendar, siString fmt) {
-	SI_ASSERT_NOT_NULL(buffer);
+	SI_ASSERT_NOT_NIL(buffer);
 	SI_ASSERT_NOT_NEG(capacity);
 
 	siAllocatorArena aData = si_arenaMakePtr(buffer, capacity, 1);
@@ -8574,7 +8583,7 @@ siArray(u8) si_numToBytesEx(u64 num, isize num_sizeof, siAllocator alloc) {
 
 SIDEF
 u64 si_numFromBytes(siArray(u8) bytes) {
-	SI_ASSERT_NOT_NULL(bytes.data);
+	SI_ASSERT_NOT_NIL(bytes.data);
 	u64 res = 0;
 
 	for_eachArr (u8, byte, bytes) {
@@ -8723,11 +8732,11 @@ isize si_numLenI64Ex(i64 num, i32 base) {
 
 
 SI_CHECK_ARITHMETIC_IMPL_ALL_U(Add, SIDEF, a + b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	return a > *res; \
 )
 SI_CHECK_ARITHMETIC_IMPL_ALL_I(Add, SIDEF, a + b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	if (a >= 0) { \
 		return (max - a < b); \
 	} \
@@ -8735,11 +8744,11 @@ SI_CHECK_ARITHMETIC_IMPL_ALL_I(Add, SIDEF, a + b,
 )
 
 SI_CHECK_ARITHMETIC_IMPL_ALL_U(Sub, SIDEF, a - b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	return a < *res; \
 )
 SI_CHECK_ARITHMETIC_IMPL_ALL_I(Sub, SIDEF, a - b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	if (b < 0) { \
 		return (max + b < a); \
 	} \
@@ -8747,11 +8756,11 @@ SI_CHECK_ARITHMETIC_IMPL_ALL_I(Sub, SIDEF, a - b,
 )
 
 SI_CHECK_ARITHMETIC_IMPL_ALL_U(Mul, SIDEF, a * b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	return (b > 0 && a > max / b);
 )
 SI_CHECK_ARITHMETIC_IMPL_ALL_I(Mul, SIDEF, a * b,
-	SI_ASSERT_NOT_NULL(res); \
+	SI_ASSERT_NOT_NIL(res); \
 	if (a > 0) { \
 		return (b > 0 && a > max / b) \
 			|| (b < 0 && b < min / a); \
@@ -8793,6 +8802,7 @@ void si_CPUID(u32 ID, u32 registers[4]) {
 
 SIDEF
 i32 si_cpuClockSpeed(void) {
+	/* TODO(EimaMei): Find a better solution. */
 	static i32 SI_CPU_FREQ_MHZ = -1;
 	SI_STOPIF(SI_CPU_FREQ_MHZ != -1, return SI_CPU_FREQ_MHZ);
 
@@ -9023,7 +9033,7 @@ void si__printStrCpy(struct si__printfInfoStruct* info) {
 
 SIDEF
 siString si_bprintfVa(u8* buffer, isize capacity, cstring fmt, va_list va) {
-	SI_ASSERT_NOT_NULL(buffer);
+	SI_ASSERT_NOT_NIL(buffer);
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(capacity == 0, return SI_STR_EMPTY);
 
@@ -9485,7 +9495,7 @@ b32 si_printHas24bitColor(void) {
 
 inline
 siDllHandle si_dllLoad(cstring path) {
-	SI_ASSERT_NOT_NULL(path);
+	SI_ASSERT_NOT_NIL(path);
 #if SI_SYSTEM_IS_WINDOWS
 	return (siDllHandle)LoadLibraryA(path);
 #else
@@ -9495,7 +9505,7 @@ siDllHandle si_dllLoad(cstring path) {
 
 inline
 void si_dllUnload(siDllHandle dll) {
-	SI_ASSERT_NOT_NULL(dll);
+	SI_ASSERT_NOT_NIL(dll);
 #if SI_SYSTEM_IS_WINDOWS
 	FreeLibrary((HMODULE)dll);
 #else
@@ -9505,8 +9515,8 @@ void si_dllUnload(siDllHandle dll) {
 
 inline
 siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
-	SI_ASSERT_NOT_NULL(dll);
-	SI_ASSERT_NOT_NULL(name);
+	SI_ASSERT_NOT_NIL(dll);
+	SI_ASSERT_NOT_NIL(name);
 
 #if SI_SYSTEM_IS_WINDOWS
 	PROC proc = GetProcAddress((HMODULE)dll, name);
@@ -9625,13 +9635,37 @@ f64 si_pow10F64(i32 exponent) {
 }
 
 inline
-u32 si_float64IsInf(f64 num) {
+i32 si_float32IsInf(f32 num) {
+    union { f32 f; u32 n; } check;
+    check.f = num;
+
+    switch (check.n) {
+        case 0x7F800000: return 1;
+        case 0xFF800000: return 2;
+    }
+
+    return 0;
+}
+
+inline
+b32 si_float32IsNan(f32 num) {
+    static const u32 nanV = 0x7FC00000; /* NOTE(EimaMei): Canonical NaN value for 32-bit. */
+
+    union { f32 f; u32 n; } check;
+    check.f = num;
+    check.n &= ~SI_ENDIAN_VALUE(SI_BIT(31), SI_BIT(0)); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
+
+    return check.n == nanV;
+}
+
+inline
+i32 si_float64IsInf(f64 num) {
 	union { f64 f; u64 n; } check;
 	check.f = num;
 
 	switch (check.n) {
-		case 0x7FF0000000000000: return 1;
-		case 0xFFF0000000000000: return 2;
+		case 0x7FF0000000000000: return 1; /* NOTE(EimaMei): Positive infinity. */
+		case 0xFFF0000000000000: return 2; /* NOTE(EimaMei): Negative infinity. */
 	}
 
 	return 0;
@@ -9639,7 +9673,7 @@ u32 si_float64IsInf(f64 num) {
 
 inline
 b32 si_float64IsNan(f64 num) {
-	static const u64 nanV = 0x7FF8000000000000;
+	static const u64 nanV = 0x7FF8000000000000; /* NOTE(EimaMei): Canonical NaN value for 64-bit. */
 
 	union { f64 f; u64 n; } check;
 	check.f = num;
@@ -9862,7 +9896,7 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	#undef SI_ASSERT
 	#undef SI_ASSERT_MSG
 	#undef SI_ASSERT_FMT
-	#undef SI_ASSERT_NULL
+	#undef SI_ASSERT_NOT_NIL
 	#undef SI_ASSERT_NOT_NEG
 
 	/* condition - EXPRESSION
@@ -9876,8 +9910,8 @@ const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
 	#define SI_ASSERT_FMT(condition, message, ... /* fmt */) \
 		SI_STOPIF(!(condition), si_panic(#condition, __FILE__, __LINE__, __func__, message, __VA_ARGS__))
 	/* ptr - rawptr
-	 * Terminates the program if a pointer is NULL. */
-	#define SI_ASSERT_NOT_NULL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be NULL.")
+	 * Terminates the program if a pointer is nil. */
+	#define SI_ASSERT_NOT_NIL(ptr) SI_ASSERT_MSG((ptr) != nil, #ptr " must not be nil.")
 	/* num - INT
 	 * Terminates the program if the integer is negative. */
 	#define SI_ASSERT_NOT_NEG(num) SI_ASSERT_MSG((num) > 0, #num " must not be negative.")

@@ -88,8 +88,8 @@ WARNING
 
 */
 
-#ifndef SIGAR_INCLUDE_SI_H
-#define SIGAR_INCLUDE_SI_H
+#ifndef SIGAR_INCLUDE_SIGAR_H
+#define SIGAR_INCLUDE_SIGAR_H
 
 #if defined(__cplusplus)
 extern "C" {
@@ -2480,7 +2480,7 @@ void sigar__callbackOutputDefault(siAudioDevice* device, u8* restrict output,
 }
 #endif
 
-#endif /* SIGAR_INCLUDE_SI_H */
+#endif /* SIGAR_INCLUDE_SIGAR_H */
 
 /*
 ------------------------------------------------------------------------------
