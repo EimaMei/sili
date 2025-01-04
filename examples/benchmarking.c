@@ -42,21 +42,35 @@ void function_regular(void) {
 }
 
 #if SI_ARCH_IS_X86
-	#include <emmintrin.h>
 
-	void function_simd(void) {
-		*(__m128i*)res = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
-	}
+#include <emmintrin.h>
+
+void function_simd(void) {
+	*(__m128i*)res = _mm_add_epi32(*(__m128i*)first, *(__m128i*)second);
+}
 
 #elif SI_ARCH_ARM64
-	#include <arm_neon.h>
 
-	void function_simd(void) {
-		int32x4_t vec_first = vld1q_s32(first);
-		int32x4_t vec_second = vld1q_s32(second);
-		int32x4_t result = vaddq_s32(vec_first, vec_second);
-		vst1q_s32(res, result);
-	}
+#include <arm_neon.h>
+
+void function_simd(void) {
+	int32x4_t vec_first = vld1q_s32(first);
+	int32x4_t vec_second = vld1q_s32(second);
+	int32x4_t result = vaddq_s32(vec_first, vec_second);
+	vst1q_s32(res, result);
+}
+
+#elif SI_ARCH_IS_WASM
+
+#include <wasm_simd128.h>
+
+void function_simd(void) {
+    v128_t vec_first = wasm_v128_load((rawptr)first);
+    v128_t vec_second = wasm_v128_load((rawptr)second);
+    v128_t vec_result = wasm_i32x4_add(vec_first, vec_second);
+    wasm_v128_store((rawptr)res, vec_result);
+}
+
 #else
 	#error "Other CPU platforms aren't supported"
 #endif

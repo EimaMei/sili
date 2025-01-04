@@ -2,24 +2,24 @@
 #include <sili.h>
 #include <math.h>
 
+siBuffer buffer = SI_BUF_STACK(SI_KILO(8));
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
-		u8 buffer[SI_KILO(8)]; \
 		isize expectedLen = si_cstrLen(expectedStr); \
-		SI_ASSERT(expectedLen <= si_sizeof(buffer)); \
+		SI_ASSERT(expectedLen <= buffer.len); \
 		\
-		isize len = si_bprintf(buffer, si_sizeof(buffer), input, __VA_ARGS__).len; \
+		isize len = si_bprintf(buffer, input, __VA_ARGS__).len; \
 		\
 		if (expectedLen != len) { \
 			si_printf( \
 				"%C" __FILE__ ":%i:%C Lengths are not the same: '%zu' vs '%zu'\n", \
 				si_printColor3bitEx(siPrintColor3bit_Red, true, false), \
-				__LINE__, expectedLen, len, buffer \
+				__LINE__, expectedLen, len \
 			); \
 		} \
-		i32 res = si_memcompare(buffer, expectedStr, len); \
-		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%s'", res, buffer); \
+		i32 res = si_memcompare(buffer.data, expectedStr, len); \
+		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%S'", res, buffer); \
 		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
 	} while(0)
 

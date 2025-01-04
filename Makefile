@@ -4,8 +4,8 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -std=c99 -O3 -Wall -Wextra -Wpedantic \
-	-Wconversion \
+GNU_FLAGS = -std=c99 -Wall -Wextra -Wpedantic \
+	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
 	\
@@ -65,6 +65,27 @@ else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe
 	AR_FLAGS = $(MSVC_AR_FLAGS)
 	DLL_EXT = .dll
 
+else ifneq (,$(filter $(CC), wasm32-wasi-clang))
+	FLAGS = --target=wasm32-wasi $(GNU_FLAGS)
+	INCLUDES = $(GNU_INCLUDES)
+
+	LIBS =
+	EXE = $(OUTPUT)/test.wasm
+	LINKER =
+
+	CC_OUT = $(GNU_CC_OUT)
+
+else ifneq (,$(filter $(CC), emcc))
+	FLAGS = --target=wasm32-unknown-emscripten $(GNU_FLAGS) -s WASM=1 -s ASYNCIFY \
+		-s PTHREAD_POOL_SIZE=4 -pthread
+	INCLUDES = $(GNU_INCLUDES)
+
+	LIBS =
+	EXE = $(OUTPUT)/test.html
+	LINKER =
+
+	CC_OUT = $(GNU_CC_OUT)
+
 else ifeq ($(DETECTED_OS),Darwin)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
@@ -96,7 +117,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/main.c
+SRC = examples/thread.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

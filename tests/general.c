@@ -20,7 +20,7 @@ int main(void) {
 		TEST_EQ_U64(SI_KILO(1), 1024);
 		TEST_EQ_U64(SI_MEGA(1), 1024 * 1024);
 		TEST_EQ_U64(SI_GIGA(1), 1024 * 1024 * 1024);
-		TEST_EQ_U64(SI_TERA(1), 1024 * 1024 * 1024 * 1024u);
+		TEST_EQ_U64(SI_TERA(1), 1024 * 1024 * 1024 * 1024ll);
 
 		TEST_EQ_U64(SI_BIT(63), 0x8000000000000000);
 		TEST_EQ_U64(nil, (void*)0);
@@ -104,7 +104,7 @@ int main(void) {
 		TEST_EQ_USIZE(aData.offset, 0);
 		TEST_EQ_USIZE(aData.capacity, SI_MEGA(1));
 		TEST_EQ_U32(aData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
-		SI_ASSERT_NOT_NULL(aData.ptr);
+		SI_ASSERT_NOT_NIL(aData.ptr);
 
 		siAllocator alloc = si_allocatorArena(&aData);
 		TEST_EQ_PTR(alloc.proc, si_allocator_arena_proc);

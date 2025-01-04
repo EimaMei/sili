@@ -56,7 +56,7 @@ void example1(siAllocator alloc) {
 			content.len, content
 		);
 
-		si_fileClose(newFile);
+		si_fileClose(&newFile);
 	}
 
 	{
@@ -78,7 +78,7 @@ void example1(siAllocator alloc) {
 		for_eachArr (siString, line, lines) {
 			si_printf("\tLine %zu (%zu bytes): '%S'\n", line - (siString*)lines.data, line->len, *line);
 		}
-		si_fileClose(file);
+		si_fileClose(&file);
 	}
 }
 
@@ -99,7 +99,7 @@ void example2(void)	{
 
 			siFile file = si_fileCreate(str_random);
 			si_fileWrite(&file, SI_STR("QWERTYUIOP"));
-			si_fileClose(file);
+			si_fileClose(&file);
 		}
 
 		siResult(isize) error = si_pathCopy(str_random, str_random2);
@@ -174,7 +174,7 @@ void example3(void)	{
 			curWriteTime - lastWriteTime
 		);
 
-		si_fileClose(file_handle);
+		si_fileClose(&file_handle);
 	}
 
 	{
@@ -205,7 +205,7 @@ void example4(void) {
 		si_pathCreateFolder(SI_STR(ROOT_PATH "/other"));
 		siFile file = si_fileCreate(SI_STR(ROOT_PATH "/secret.txt"));
 		si_fileWrite(&file, SI_STR(ROOT_PATH));
-		si_fileClose(file);
+		si_fileClose(&file);
 		si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret.link"));
 		si_pathCreateHardLink(SI_STR(ROOT_PATH "/hardLinkToSecret.link"), SI_STR(ROOT_PATH "/softLinkToHardLink.link"));
 	}

@@ -100,10 +100,9 @@ void example2(siAllocator alloc) {
 		createOptional((Type)i, opt_array[i], alloc);
 	}
 
-	u8 buf[64];
 	si_printf("Element 1: '%X'\n", opt_i32.data.value);
 	si_printf("Element 2: '%S'\n", opt_string.data.value);
-	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i", buf, sizeof(buf)));
+	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
 	si_printf("Element 4: '0x%016lX|%016lX'\n", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printf("Element 5: '%zd'\n", opt_type.data.value);
 	si_printf("Element 6: '%p'\n", opt_ptr.data.value);
@@ -127,9 +126,8 @@ void example3(void) {
 			si_printf("ID %u: %S moneis - %u cents\n", id, res.data.value.name, res.data.value.moneis);
 		}
 		else {
-			u8 buf[64];
 			siError err = res.data.error;
-			siString time = si_timeToString(buf, countof(buf), si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"));
+			siString time = si_timeToString(SI_BUF_STACK(64), si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"));
 			si_printf(
 				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')\n",
 				id, err.code, err.filename, err.line, time

@@ -2,6 +2,9 @@
 #include <sili.h>
 #include <tests/test.h>
 
+
+siBuffer buf = SI_BUF_STACK(1024);
+
 int main(void) {
 	siString name = SI_STRC("test");
 	siString value = SI_STRC("Už žalių miškelių, kur aukšta kalva.");
@@ -12,16 +15,15 @@ int main(void) {
 	isize len = si_envVarGetLength(name);
 	TEST_EQ_USIZE(len, value.len);
 
-	u8 buf[1024];
-	siString out = si_envVarGetData(name, buf, countof(buf));
-	SI_ASSERT_NOT_NULL(out.data);
+	siString out = si_envVarGetData(name, buf);
+	SI_ASSERT_NOT_NIL(out.data);
 	TEST_EQ_USIZE(out.len, value.len);
 	SI_ASSERT(si_stringEqual(out, value));
 
 	res = si_envVarUnset(name);
 	SI_ASSERT(res);
 
-	out = si_envVarGetData(name, buf, countof(buf));
+	out = si_envVarGetData(name, buf);
 	SI_ASSERT(out.data == nil);
 
 #if SI_SYSTEM_IS_WINDOWS
