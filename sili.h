@@ -3853,7 +3853,7 @@ SIDEF i32 si_float64IsInf(f64 num);
 		u64 counter = 0; \
 		u32 miliseconds = (u32)ms; \
 		siThread thread; \
-		si_threadMakeAndRun(si__BenchmarkThread, &miliseconds, &thread); \
+		si_threadMakeAndRun(si__benchmarkThread, &miliseconds, &thread); \
 		while (thread.state == siThreadState_Running) { \
 			function; \
 			counter += 1; \
@@ -3950,7 +3950,7 @@ typedef struct siBenchmarkInfo {
 
 SIDEF void si_benchmarkLoopsAvgPrint(siBenchmarkInfo info, usize range[2]);
 SIDEF void si_benchmarkLoopsAvgCmpPrint(siBenchmarkInfo info[2], usize range[2]);
-SIDEF rawptr si__BenchmarkThread(rawptr arg);
+SIDEF rawptr si__benchmarkThread(rawptr arg);
 
 #endif /* SI_NO_BENCHMARK */
 
@@ -5803,14 +5803,14 @@ u64 si_stringToUIntBase(siString string, i32 base, i32* outRes) {
 	for_range (i, front, string.len) {
 		res *= (u32)base;
 
-		u32 value = si_stringGet(string, i) - '0';
+		i32 value = si_stringGet(string, i) - '0';
 		if (value < 10) {
-			res += value;
+			res += (u32)value;
 		}
-		else if (value != (u32)(' ' - '0')) {
-			value = (u32)si_charUpper((char)value) - 7;
-			if (value < (u32)base) {
-				res += value;
+		else if (value != (' ' - '0')) {
+			value = si_charUpper((char)value) - 7;
+			if (value < base) {
+				res += (u32)value;
 			}
 			else {
 				*outRes = (i32)i;
@@ -6431,8 +6431,8 @@ siUtf8String si_utf16ToUtf8StrEx(siUtf16String str, b32 nullTerm, siArray(u8) ou
 		else if (chr >= 0xD800) {
 			SI_STOPIF(offsetUTF8 + 4 >= capacity, break);
 
-			u32 high = (chr - 0xD800) << 10,
-				low  = si_arrayGet(str, offsetUTF16 + 1, u16) - 0xDC00;
+			u32 high = (chr - 0xD800u) << 10,
+				low  = si_arrayGet(str, offsetUTF16 + 1, u16) - 0xDC00u;
 			u32 codepoint = (high | low) + 0x10000;
 
 			data[offsetUTF8 + 0] = si_cast(u8, 0xF0 | (codepoint >> 18));           /* 11110xxx */
@@ -8487,7 +8487,10 @@ u64 si_RDTSCP(i32* proc) {
 		u32 aux;
 
 		/* TODO(EimaMei): Check if this is even accurate. */
-		si_asm ("mfspr %0, 1023" : "=r"(aux));
+		si_asm(
+			"mfspr %0, 1023",
+			SI_ASM_OUTPUT("=r"(aux))
+		);
 		*proc = (i32)aux;
 
 		return si_RDTSC();
@@ -8496,7 +8499,10 @@ u64 si_RDTSCP(i32* proc) {
 		u64 mpidr;
 
 		/* TODO(EimaMei): Check if this is even accurate. */
-		si_asm ("mrs %0, mpidr_el1" : "=r"(mpidr));
+		si_asm(
+			"mrs %0, mpidr_el1",
+			SI_ASM_OUTPUT("=r"(mpidr))
+		);
 		*proc = (i32)(mpidr & 0xFF);
 
 		return si_RDTSC();
@@ -10329,8 +10335,8 @@ void si_benchmarkLoopsAvgCmpPrint(siBenchmarkInfo info[2], usize range[2]) {
 	);
 }
 
-rawptr si__BenchmarkThread(rawptr arg) {
-	si_sleep(SI_TO_U32(arg));
+rawptr si__benchmarkThread(rawptr arg) {
+	si_sleep((i32)SI_TO_U32(arg));
 	return nil;
 }
 
