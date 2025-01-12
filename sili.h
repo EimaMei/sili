@@ -1289,6 +1289,9 @@ typedef struct siError {
 #endif
 } siError;
 
+/* Sets the error code to zero. */
+#define SI_ERROR_NIL (siError){.code = 0}
+
 
 /* name - NAME
  * Defines a valid error logger function prototype. Returning 'false' terminates
@@ -1297,31 +1300,41 @@ typedef struct siError {
 /* Represents an error logger procedure. */
 typedef SI_ERROR_PROC(siErrorProc);
 
-
-/* TODO */
+/* code - i32
+  * Declares an error with a generic error log. */
 #define SI_ERROR(code) SI_ERROR_EX(code, nil, nil)
-/* TODO */
+/* code - i32 | function - siErrorProc (nullable) | data - rawptr (nullable)
+ * Declares an error with a specified error log function and pointer data. Specifying
+ * nil for the function defaults to the generic error log. */
 #define SI_ERROR_EX(code, function, data) si__errorDeclare(code, function, data, __FILE__, __LINE__)
-/* Sets the error code to zero. */
-#define SI_ERROR_NIL (siError){.code = 0}
 
-/* TODO */
+/* condition - b32 | code - i32 | ...action - ACTION
+ * If the condition is true, an error is declared with a generic error log and
+ * the specified actions are executed. The result of 'SI_ERROR_EX' is saved in
+ * the 'SI_ERROR_RES' variable. */
 #define SI_ERROR_CHECK(condition, code, .../*action*/) \
 	SI_ERROR_CHECK_EX(condition, code, nil, nil, __VA_ARGS__)
-/* TODO */
-#define SI_ERROR_CHECK_EX(condition, code, func, param, .../*action*/) \
-	SI_STOPIF(condition, siError SI_ERROR_RES = SI_ERROR_EX(code, func, param); SI_UNUSED(SI_ERROR_RES); __VA_ARGS__);
+/* condition - b32 | code - i32 | func - siErrorProc (nullable) | data - rawptr (nullable) | ...action - ACTION
+ * If the condition is true, an error is declared with a specified error log and
+ * and the specified actions are executed. The result of 'SI_ERROR_EX' is saved
+ * in the 'SI_ERROR_RES' variable. Specifying nil for the function defaults to the
+ * generic error log. */
+#define SI_ERROR_CHECK_EX(condition, code, func, data, .../*action*/) \
+	SI_STOPIF(condition, siError SI_ERROR_RES = SI_ERROR_EX(code, func, data); SI_UNUSED(SI_ERROR_RES); __VA_ARGS__);
 
-
-/* TODO */
+/* condition - b32 | code - i32
+ * If the condition is true, an error is declared with a generic error log and
+ * gets returned. */
 #define SI_ERROR_CHECK_RET(condition, code) SI_ERROR_CHECK_EX_RET(condition, code, nil, nil)
-/* TODO */
-#define SI_ERROR_CHECK_EX_RET(condition, code, func, param) \
-	SI_ERROR_CHECK_EX(condition, code, func, param, return SI_ERROR_RES)
+/* condition - b32 | code - i32 | func - siErrorProc (nullable) | data - rawptr (nullable)
+ * If the condition is true, an error is declared with a specified error log and
+ * gets returned. Specifying nil for the function defaults to the generic error log.*/
+#define SI_ERROR_CHECK_EX_RET(condition, code, func, data) \
+	SI_ERROR_CHECK_EX(condition, code, func, data, return SI_ERROR_RES)
 
 
 
-/* TODO */
+/* Function that internally handles error handling. No reason to call this. */
 SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, rawptr userData,
 		cstring __file__, i32 __line__);
 
@@ -1353,6 +1366,7 @@ SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, rawptr userData,
  * no value, additional information _will be_ written in the structure. */
 #define siResult(type) siOption(type)
 
+
 si_optional_define(u8);
 si_optional_define(u16);
 si_optional_define(u32);
@@ -1371,16 +1385,14 @@ si_optional_define(f64);
 si_optional_define(rawptr);
 
 
-
 /* type - TYPE | ...VALUE - EXPRESSION
  * Creates a returnable 'siOptional' value from the given value. */
 #define SI_OPT(type, .../* VALUE */) (siOption(type)){true, .data = {__VA_ARGS__}}
 /* type - TYPE
- * Creates a returnable 'siOptional' value, with the data being set to zero. */
-#define SI_OPT_NIL(type) SI_OPT_ERR(type, {.code = 0})
+ * Creates a returnable 'siOptional' item that has no value inside.. */
+#define SI_OPT_NIL(type) SI_OPT_ERR(type, SI_ERROR_NIL)
 /* type - TYPE | errorV - siError
- * Creates a returnable 'siOptional' error value, with the data being set to the
- * error.*/
+ * Creates a returnable 'siOptional' error value with a designated error. */
 #define SI_OPT_ERR(type, errorV) (siOption(type)){false, .data = {.error = errorV}}
 
 
@@ -1391,9 +1403,14 @@ si_optional_define(rawptr);
 	((optionalVar).hasValue ? (optionalVar).data.value : (defaultValue))
 
 
-/* TODO */
+/* condition - b32 | code - i32 | type - TYPE
+ * If the condition is true, an error is declared with a generic error log and
+ * an error optional value gets returned. */
 #define SI_OPTION_CHECK(condition, code, type) SI_OPTION_CHECK_EX(condition, code, nil, nil, type)
-/* TODO */
+/* condition - b32 | code - i32 | func - siErrorProc (nullable) | data - rawptr (nullable) | type - TYPE
+ * If the condition is true, an error is declared with a specified error log and
+ * an error optional value gets returned. Specifying nil for the function defaults
+ * to the generic error log.*/
 #define SI_OPTION_CHECK_EX(condition, code, func, param, type) \
 	SI_ERROR_CHECK_EX(condition, code, func, param, return SI_OPT_ERR(type, SI_ERROR_RES))
 
@@ -1573,7 +1590,6 @@ SI_ENUM(i32, siAllocatorFuncEnum) {
 
 	siAllocatorFunc_GetAvailable,
 };
-
 
 typedef struct siAllocatorDataResize {
 	rawptr src;
@@ -2385,6 +2401,14 @@ typedef siOsChar* siOsString;
 /* TODO */
 typedef struct siOsString_2x { siOsString v[2]; isize len[2]; } siOsString_2x;
 
+
+/* TODO */
+SIDEF siOsString si_stringToOsStr(siString str, siArray(siOsChar) out);
+/* TODO */
+SIDEF siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied);
+
+
+
 #endif /* SI_NO_STRING */
 
 #ifndef SI_NO_UNICODE
@@ -3178,9 +3202,12 @@ extern siString* SI_NAMES_AM_PM;
 
 
 /* Reads the current value of the processor’s time-stamp counter.
- * NOTE: Only natively works for AMD64, i386, ARM64 and PPC CPUs. On other CPUs
+ * NOTE: Only natively works for AMD64, i386, ARM64, WASI and PPC CPUs. On other CPUs
  * the function relies on OS functions like 'gettimeofday'. */
 SIDEF u64 si_RDTSC(void);
+/* Reads the current value of the processor’s time-stamp counter and writes the
+ * current processor ID to the pointer. */
+SIDEF u64 si_RDTSCP(i32* proc);
 /* Returns the current clock (in nanoseconds). */
 SIDEF u64 si_clock(void);
 
@@ -3194,7 +3221,7 @@ SIDEF u64 si_timeStampStartEx(void);
 SIDEF void si_timeStampPrintSinceEx(u64 t);
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
-SIDEF void si_sleep(u32 miliseconds);
+SIDEF void si_sleep(i32 miliseconds);
 
 /* Returns the number of seconds since 1970-01-01 UTC-0. */
 SIDEF i64 si_timeNowUTC(void);
@@ -3675,17 +3702,52 @@ u64 si_pow10(i32 exponent);
  * -18 to 18, otherwise the app will crash.*/
 f64 si_pow10F64(i32 exponent);
 
+
 /* Checks if the given 32-bit float is NaN. */
 SIDEF b32 si_float32IsNan(f32 num);
+/* Checks if the given 64-bit float is NaN. */
+SIDEF b32 si_float64IsNan(f64 num);
+
+#if SI_STANDARD_CHECK_MIN(C, C11)
+	/* num - f32/f64
+	 * Checks if the given float is NaN. */
+	#define si_floatIsNan(num) \
+	    _Generic((num),        \
+	        f32 : si_float32IsNan, \
+	        f64 : si_float64IsNan \
+	    )(num)
+#else
+	/* num - f32/f64
+	 * Checks if the given float is NaN. */
+	#define si_floatIsNan(num) \
+		(si_sizeof(num) == 4) ? si_float32IsNan((f32)num) : si_float64IsNan((f64)num)
+
+#endif
+
 /* Checks if the given 32-bit float is infinite. '0' - number isn't infinite,
  * '1' - positive infinity, '2' - negative infinity. */
 SIDEF i32 si_float32IsInf(f32 num);
-
-/* Checks if the given 64-bit float is NaN. */
-SIDEF b32 si_float64IsNan(f64 num);
 /* Checks if the given 64-bit float is infinite. '0' - number isn't infinite,
  * '1' - positive infinity, '2' - negative infinity. */
 SIDEF i32 si_float64IsInf(f64 num);
+
+#if SI_STANDARD_CHECK_MIN(C, C11)
+	/* num - f32/f64
+	 * Checks if the given 32-bit float is infinite. '0' - number isn't infinite,
+	 * '1' - positive infinity, '2' - negative infinity. */
+	#define si_floatIsInf(num) \
+	    _Generic((num),        \
+	        f32 : si_float32IsInf, \
+	        f64 : si_float64IsInf \
+	    )(num)
+#else
+	/* num - f32/f64
+	 * Checks if the given 32-bit float is infinite. '0' - number isn't infinite,
+	 * '1' - positive infinity, '2' - negative infinity. */
+	#define si_floatIsInf(num) \
+		(si_sizeof(num) == 4) ? si_float32IsInf((f32)num) : si_float64IsInf((f64)num)
+
+#endif
 
 #if 1
 	#define SI_MATH_FUNC(type, name, ...) si__##name##_##type(__VA_ARGS__)
@@ -6046,6 +6108,42 @@ go_back:
 	return SI_STR_LEN(data, length);
 }
 
+inline
+siOsString si_stringToOsStr(siString str, siArray(siOsChar) out) {
+	isize copied;
+	return si_stringToOsStrEx(str, out, &copied);
+}
+
+
+SIDEF
+siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied) {
+	SI_ASSERT(out.typeSize == si_sizeof(siOsChar));
+	SI_ASSERT_NOT_NIL(copied);
+
+#ifdef SI_SYSTEM_IS_WINDOWS
+	SI_STOPIF(out.capacity == 0, *copied = -1; return nil);
+
+	siUtf16String res = si_utf8ToUtf16StrEx(str, true, out);
+	*copied = res.capacity;
+
+	return res.data;
+
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	SI_STOPIF(out.capacity == 0, *copied = -1; return nil);
+
+	isize len = si_memcopyStr_s(out.data, out.capacity - 1, str);
+	((u8*)out.data)[len] = '\0';
+	*copied = len + 1;
+
+	return out.data;
+
+#else
+	*copied = 0;
+	return str.data;
+#endif
+}
+
+
 
 SIDEF
 i64 si_stringToInt(siString string) {
@@ -6158,22 +6256,24 @@ siUtf8Char si_utf8Encode(i32 codepoint) {
 		return res;
 	}
 	else if (codepoint <= 0x7FF) {
-		res.codepoint[0] = 0xC0 | (u8)(codepoint >> 6);
-		res.codepoint[1] = 0x80 | (u8)(codepoint & 0x3F);
+		res.codepoint[0] = (u8)(0xC0 | (codepoint >> 6));
+		res.codepoint[1] = (u8)(0x80 | (codepoint & 0x3F));
 		res.len = 2;
 	}
 	else if (codepoint <= 0xFFFF) {
-		SI_STOPIF(si_between(i32, codepoint, 0xD800, 0xDFFF), return SI_UNICODE_INVALID_UTF8);
-		res.codepoint[0] = 0xE0 | (u8)(codepoint >> 12);
-		res.codepoint[1] = 0x80 | (u8)((codepoint >> 6) & 0x3F);
-		res.codepoint[2] = 0x80 | (u8)(codepoint & 0x3F);
+		if (si_between(i32, codepoint, 0xD800, 0xDFFF)) {
+			return SI_UNICODE_INVALID_UTF8;
+		}
+		res.codepoint[0] = (u8)(0xE0 | (codepoint >> 12));
+		res.codepoint[1] = (u8)(0x80 | ((codepoint >> 6) & 0x3F));
+		res.codepoint[2] = (u8)(0x80 | (codepoint & 0x3F));
 		res.len = 3;
 	}
 	else if (codepoint <= 0x10FFFF) {
-		res.codepoint[0] = 0xF0 | (u8)(codepoint >> 18);
-		res.codepoint[1] = 0x80 | (u8)((codepoint >> 12) & 0x3F);
-		res.codepoint[2] = 0x80 | (u8)((codepoint >> 6) & 0x3F);
-		res.codepoint[3] = 0x80 | (u8)(codepoint & 0x3F);
+		res.codepoint[0] = (u8)(0xF0 | (codepoint >> 18));
+		res.codepoint[1] = (u8)(0x80 | ((codepoint >> 12) & 0x3F));
+		res.codepoint[2] = (u8)(0x80 | ((codepoint >> 6) & 0x3F));
+		res.codepoint[3] = (u8)(0x80 | (codepoint & 0x3F));
 		res.len = 4;
 	}
 	else return SI_UNICODE_INVALID_UTF8;
@@ -7376,30 +7476,23 @@ isize si_pathToOS(siString path, siOsChar* out, isize capacity) {
 	SI_ASSERT_NOT_NEG(capacity);
 	SI_STOPIF(capacity == 0, return 0);
 
-#if SI_SYSTEM_IS_WINDOWS
-	isize i = 0;
+	isize copied;
 
-	if (path.len > 260 && si_pathIsAbsolute(path)) {
+#if SI_SYSTEM_IS_WINDOWS
+	if (path.len > 260 && si_pathIsAbsolute(path) && capacity > 4) {
 		out[0] = '\\';
 		out[1] = '\\';
 		out[2] = '?';
 		out[3] = '\\';
-		i += 4;
 
-		siUtf16String str = si_utf8ToUtf16StrEx(path, true, SI_BUF_LEN(u16, &out[i], capacity - i));
-		return str.capacity + i;
+		siBuffer buf = SI_BUF_LEN(siOsChar, &out[4], capacity - 4);
+		si_stringToOsStrEx(path, buf, &copied);
+		return copied + 4;
 	}
-
-	siUtf16String str = si_utf8ToUtf16StrEx(path, true, SI_BUF_LEN(u16, out, capacity));
-	return str.capacity;
-
-#else
-	isize len = si_memcopy_s(out, capacity - 1, path.data, path.len);
-	out[len] = '\0';
-
-	return len + 1;
-
 #endif
+
+	si_stringToOsStrEx(path, SI_BUF_LEN(siOsChar, out, capacity), &copied);
+	return copied;
 }
 
 inline
@@ -7486,7 +7579,7 @@ static siFile SI_STD_FILE_ARR[siStdFile_Count] = {0};
 
 SIDEF
 siFile* si_fileGetStdFile(siStdFile type) {
-	SI_ASSERT_MSG(si_between(i32, type, siStdFile_Input, siStdFile_Error), "Invalid STD file type.");
+	SI_ASSERT_MSG(si_between(i32, type, siStdFile_Input, siStdFile_Error), "Invalid standard file type.");
 
 	#define SET_STD_FILE(index, type) SI_STD_FILE_ARR[index].handle = type
 
@@ -7498,6 +7591,17 @@ siFile* si_fileGetStdFile(siStdFile type) {
 
 			if (IsValidCodePage(CP_UTF8)) {
 				SetConsoleOutputCP(CP_UTF8);
+			}
+
+			#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+				#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+			#endif
+
+			for_range (i, 1, 2) {
+				DWORD mode;
+				GetConsoleMode((HANDLE)SI_STD_FILE_ARR[i].handle, &mode);
+				mode |= ENABLE_PROCESSED_OUTPUT  | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+				SetConsoleMode((HANDLE)SI_STD_FILE_ARR[i].handle, mode);
 			}
 		#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
 			SET_STD_FILE(0, 0);
@@ -7946,11 +8050,6 @@ siDirectory si_directoryOpen(siString path) {
 	dir.handle = opendir((char*)dir.buffer);
 	SI_ERROR_SYS_CHECK(dir.handle == nil, dir.error = SI_ERROR_RES; return dir);
 
-	/* NOTE(EimaMei): We skip '.' and '..'. */
-	/* TODO(EimaMei): Fix the '.' and '..' bugs. */
-	SI_DISCARD(readdir((DIR*)dir.handle));
-	SI_DISCARD(readdir((DIR*)dir.handle));
-
 #endif
 
 	return dir;
@@ -7994,8 +8093,9 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 	);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-
-	struct dirent* dirEntry = readdir((DIR*)dir->handle);
+	struct dirent* dirEntry;
+back:
+	dirEntry= readdir((DIR*)dir->handle);
 	if (dirEntry == nil) {
 		errno = 0;
 		siErrorSystem code = si_systemGetError();
@@ -8004,6 +8104,7 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 		SI_ERROR_SYS_CHECK(code != 0, dir->error = SI_ERROR_RES; return false);
 		return false;
 	}
+
 
 	static u8 IO_types[] = {
 		[DT_REG]  = siIoType_File,
@@ -8017,6 +8118,13 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 	out->type = IO_types[dirEntry->d_type];
 
 	isize len = si_cstrLen(dirEntry->d_name);
+	if (len <= 2) {
+		u16 front = SI_TO_U16(dirEntry->d_name);
+		if (front == SI_TO_U16(".\0") || front == SI_TO_U16("..")) {
+			goto back;
+		}
+	}
+
 	out->path.data = &dir->buffer[dir->directoryLen];
 	out->path.len = si_memcopy_s(
 		out->path.data, si_sizeof(dir->buffer) - dir->directoryLen,
@@ -8354,6 +8462,76 @@ u64 si_RDTSC(void) {
 }
 
 inline
+u64 si_RDTSCP(i32* proc) {
+	SI_ASSERT_NOT_NIL(proc);
+
+#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
+	return __rdtscp((u32*)proc);
+#elif !defined(SI_NO_INLINE_ASM)
+	#if SI_ARCH_I386
+		u64 res;
+		si_asm (".byte 0x0f, 0x31", : "=A" (res));
+		return res;
+
+	#elif SI_ARCH_AMD64
+		u64 res;
+		si_asm(
+			"rdtscp"          SI_ASM_NL
+			"shl rdx, 0x20"   SI_ASM_NL
+			"or rax, rdx",
+			SI_ASM_OUTPUT("=a"(res), "=c"(*proc))
+		);
+		return res;
+
+	#elif SI_ARCH_IS_PPC
+		u32 aux;
+
+		/* TODO(EimaMei): Check if this is even accurate. */
+		si_asm ("mfspr %0, 1023" : "=r"(aux));
+		*proc = (i32)aux;
+
+		return si_RDTSC();
+
+	#elif SI_ARCH_ARM64
+		u64 mpidr;
+
+		/* TODO(EimaMei): Check if this is even accurate. */
+		si_asm ("mrs %0, mpidr_el1" : "=r"(mpidr));
+		*proc = (i32)(mpidr & 0xFF);
+
+		return si_RDTSC();
+
+	#elif SI_SYSTEM_IS_WINDOWS
+		*proc = GetCurrentProcessorNumber();
+		return si_RDTSC();
+
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		*proc = sched_getcpu();
+		return si_RDTSC();
+
+	#else
+		*proc = 0;
+		return si_RDTSC();
+
+	#endif
+
+#else
+	#if SI_SYSTEM_IS_WINDOWS
+		*proc = GetCurrentProcessorNumber();
+		return si_RDTSC();
+
+	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+		*proc = sched_getcpu();
+		return si_RDTSC();
+	#else
+		*proc = 0;
+		return si_RDTSC();
+	#endif
+#endif /* SI_NO_INLINE_ASM */
+}
+
+
+inline
 u64 si_clock(void) {
 	return si_RDTSC() / (u32)si_cpuClockSpeed() * 1000;
 }
@@ -8386,7 +8564,8 @@ void si_timeStampPrintSinceEx(u64 ts) {
 }
 
 inline
-void si_sleep(u32 miliseconds) {
+void si_sleep(i32 miliseconds) {
+	SI_ASSERT_NOT_NEG(miliseconds);
 	SI_STOPIF(miliseconds == 0, return);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -8394,8 +8573,8 @@ void si_sleep(u32 miliseconds) {
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec ts = {
-		(time_t)miliseconds / 1000,
-		si_cast(time_t, miliseconds % 1000) * SI_CLOCKS_MILI
+		miliseconds / 1000,
+		(miliseconds % 1000) * SI_CLOCKS_MILI
 	};
 	nanosleep(&ts, &ts);
 
@@ -9092,16 +9271,21 @@ void si_CPUID(u32 ID, u32 registers[4]) {
 
 SIDEF
 i32 si_cpuClockSpeed(void) {
-	/* TODO(EimaMei): Find a better solution. */
+	/* TODO(EimaMei): Not sure if this is a good solution. */
 	static i32 SI_CPU_FREQ_MHZ = -1;
 	SI_STOPIF(SI_CPU_FREQ_MHZ != -1, return SI_CPU_FREQ_MHZ);
 
+	/* NOTE(EimaMei): We can find an accurate clock speed by waiting a whole second
+	 * and storing the results, however waing a whole second is too long.
+	 *
+	 * We can somewhat mitigate this by only waiting 100 ms, convert it into mHz
+	 * by dividing _integers_ (this specifically "rounds" up the errors), then
+	 * multiply by 10. */
 	u64 begin = si_RDTSC();
 	si_sleep(100);
 	u64 end = si_RDTSC();
 
-	i32 val = si_cast(i32, end - begin) / 100000;
-	SI_CPU_FREQ_MHZ = ((val + 5) / 10) * 10;
+	SI_CPU_FREQ_MHZ = (i32)(end - begin) / SI_CLOCKS_MILI * 10;
 
 	return SI_CPU_FREQ_MHZ;
 }
@@ -9142,6 +9326,9 @@ i32 si_cpuProcessorCount(void) {
 	else  {
 		procCount = 0;
 	}
+
+#elif SI_SYSTEM_IS_WASM
+	procCount = 1;
 
 #else
 	procCount = 0;
