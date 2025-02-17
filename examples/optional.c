@@ -5,7 +5,7 @@
 SI_ENUM(usize, Type) {
 	Type_i32 = 0,
 	Type_string,
-	Type_array,
+	Type_buffer,
 	Type_struct,
 	Type_enum,
 	Type_funcPtr,
@@ -33,17 +33,14 @@ si_optional_define(userInfo);
 /* Shows off the basic usage of 'siOption' */
 void example1(void);
 /* Shows siOption's compatibility with many types. */
-void example2(siAllocator stack);
+void example2(void);
 /* Shows off the difference between 'siOption' and 'siResult'. */
 void example3(void);
 
 
 int main(void) {
-	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(256), SI_DEFAULT_MEMORY_ALIGNMENT);
-	siAllocator stack = si_allocatorArena(&aData);
-
 	example1();
-	example2(stack);
+	example2();
 	example3();
 
 	return 0;
@@ -81,14 +78,14 @@ void example1(void) {
 
 /* Creates an optional object from the specified type and writes it into the
  * given raw pointer.*/
-void createOptional(Type type, rawptr out, siAllocator alloc);
+void createOptional(Type type, rawptr out);
 
-void example2(siAllocator alloc) {
+void example2(void) {
 	si_print("==============\n\n==============\nExample 2:\n");
 
 	siOption(i32) opt_i32;
 	siOption(siString) opt_string;
-	siOption(siArray(i32)) opt_buffer;
+	siOption(siBuffer(i32)) opt_buffer;
 	siOption(u128Struct) opt_u128;
 	siOption(Type) opt_type;
 	siOption(rawptr) opt_ptr;
@@ -97,12 +94,12 @@ void example2(siAllocator alloc) {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
 	for_range (i, 0, Type_len) {
-		createOptional((Type)i, opt_array[i], alloc);
+		createOptional((Type)i, opt_array[i]);
 	}
 
 	si_printf("Element 1: '%X'\n", opt_i32.data.value);
 	si_printf("Element 2: '%S'\n", opt_string.data.value);
-	si_printf("Element 3: '%S'\n", si_stringFromArray(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
+	si_printf("Element 3: '%S'\n", si_stringFromBuffer(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
 	si_printf("Element 4: '0x%016lX|%016lX'\n", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printf("Element 5: '%zd'\n", opt_type.data.value);
 	si_printf("Element 6: '%p'\n", opt_ptr.data.value);
@@ -127,7 +124,7 @@ void example3(void) {
 		}
 		else {
 			siError err = res.data.error;
-			siString time = si_timeToString(SI_BUF_STACK(64), si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"));
+			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_BUF_STACK(64));
 			si_printf(
 				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')\n",
 				id, err.code, err.filename, err.line, time
@@ -141,7 +138,7 @@ siOption(cstring) create(b32 value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
-void createOptional(Type type, rawptr out, siAllocator alloc) {
+void createOptional(Type type, rawptr out) {
 	switch (type) {
 		case Type_i32: {
 			siOption(i32)* res = out;
@@ -150,12 +147,12 @@ void createOptional(Type type, rawptr out, siAllocator alloc) {
 
 		case Type_string: {
 			siOption(siString)* res = out;
-			*res = SI_OPT(siString, si_stringMake("Ayn Rand", alloc));
+			*res = SI_OPT(siString, SI_STR("Ayn Rand"));
 		} break;
 
-		case Type_array: {
-			siOption(siArray(i32))* res = out;
-			*res = SI_OPT(siBuffer, si_arrayMake(alloc, i32, 1, 2, 4, 6, 8));
+		case Type_buffer: {
+			siOption(siBuffer(i32))* res = out;
+			*res = SI_OPT(siBuffer(i32), SI_BUF(i32, 1, 2, 4, 6, 8));
 		} break;
 
 		case Type_struct: {
@@ -169,7 +166,7 @@ void createOptional(Type type, rawptr out, siAllocator alloc) {
 		} break;
 
 		case Type_funcPtr: {
-			typedef void (create_optional_type)(Type, rawptr, siAllocator);
+			typedef void (create_optional_type)(Type, rawptr);
 
 			siOption(rawptr)* res = out;
 			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));

@@ -15,7 +15,7 @@ volatile i32 second[4] =  {5, 5, 5, 5};
 
 int main(void) {
 	{
-		/* Checking if both functions return the correct output. */
+		/* Check if both functions return the correct output. */
 		function_regular();
 		SI_ASSERT(res[0] == 15 && res[1] == 25 && res[2] == 35 && res[3] == 45);
 

@@ -95,10 +95,10 @@ int main(void) {
 
 	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
 
-	siArray(u8) array = si_numToBytes(u32, 0xFF00EEAA, alloc);
-	si_printf("array: %S, (len: %zd)\n", si_stringFromArray(array, "%#hhX", SI_BUF_STACK(64)), array.len);
+	siBuffer(u8) buffer = si_numToBytes(u32, 0xFF00EEAA, alloc);
+	si_printf("buffer: %S, (len: %zd)\n", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
 
-	u32 newNum = (u32)si_numFromBytes(array);
+	u32 newNum = (u32)si_numFromBytes(buffer);
 	si_printf("Combining them all back, we get '%#X'\n", newNum);
 
 	adr = si_swap16(adr);

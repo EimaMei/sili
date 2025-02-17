@@ -117,7 +117,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = src/main.c
+SRC = examples/str.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

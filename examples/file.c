@@ -42,10 +42,10 @@ void example1(siAllocator alloc) {
 	 * get an assertion error. */
 	{
 		siFile newFile = si_fileCreate(file_random);
-		si_fileWrite(&newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else."));
+		si_fileWriteStr(&newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else."));
 
 		siString content = si_fileReadContents(newFile, alloc);
-		si_stringReplaceAll(&content, SI_STR("\n"), SI_STR("\\n"), alloc);
+		content = si_stringReplaceAll(content, SI_STR("\n"), SI_STR("\\n"), alloc);
 
 		si_printf(
 			"About 'random.txt':\n\t"
@@ -69,14 +69,15 @@ void example1(siAllocator alloc) {
 			file.size
 		);
 
-		siArray(siString) lines = si_fileReadlines(file, alloc);
+		siBuffer(siString) lines = si_fileReadlines(file, alloc);
 		si_printf(
 			"Contents of '%S' ('%zd' lines in total):\n",
 			si_pathBaseName(file_examples_file), lines.len
 		);
 
-		for_eachArr (siString, line, lines) {
-			si_printf("\tLine %zu (%zu bytes): '%S'\n", line - (siString*)lines.data, line->len, *line);
+		siString line;
+		for_eachBufEx (line, i, lines) {
+			si_printf("\tLine %zu (%zu bytes): '%S'\n", i + 1, line);
 		}
 		si_fileClose(&file);
 	}
@@ -98,7 +99,7 @@ void example2(void)	{
 			si_print("Since 'random.txt' doesn't exist, we'll just create one\n");
 
 			siFile file = si_fileCreate(str_random);
-			si_fileWrite(&file, SI_STR("QWERTYUIOP"));
+			si_fileWriteStr(&file, SI_STR("QWERTYUIOP"));
 			si_fileClose(&file);
 		}
 
@@ -165,7 +166,7 @@ void example3(void)	{
 		si_printf("Last write time: %lu\n", lastWriteTime);
 
 		si_sleep(1000);
-		si_fileWrite(&file_handle, SI_STR("random garbage"));
+		si_fileWriteStr(&file_handle, SI_STR("random garbage"));
 
 		curWriteTime = si_pathLastWriteTime(file_path);
 		si_printf(
@@ -204,7 +205,7 @@ void example4(void) {
 
 		si_pathCreateFolder(SI_STR(ROOT_PATH "/other"));
 		siFile file = si_fileCreate(SI_STR(ROOT_PATH "/secret.txt"));
-		si_fileWrite(&file, SI_STR(ROOT_PATH));
+		si_fileWriteStr(&file, SI_STR(ROOT_PATH));
 		si_fileClose(&file);
 		si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret.link"));
 		si_pathCreateHardLink(SI_STR(ROOT_PATH "/hardLinkToSecret.link"), SI_STR(ROOT_PATH "/softLinkToHardLink.link"));
