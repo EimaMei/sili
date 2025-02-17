@@ -2,10 +2,10 @@
 #include <sili.h>
 #include <math.h>
 
-siBuffer buffer = SI_BUF_STACK(SI_KILO(8));
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
+		siBuffer(u8) buffer = SI_BUF_STACK(1024); \
 		isize expectedLen = si_cstrLen(expectedStr); \
 		SI_ASSERT(expectedLen <= buffer.len); \
 		\

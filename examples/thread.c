@@ -126,10 +126,10 @@ void matrix_multithreaded(f32* a, f32* b, f32* result) {
 
 
 
-/* A thread can only return a maximum of 'sizeof(rawptr)' bytes, and take a
- * sizeof(rawptr) byte parameter. */
-rawptr thread_test(rawptr arg) {
-	b32 loop = *si_transmute(b32*, arg, rawptr);
+/* A thread can only return a maximum of 'sizeof(void*)' bytes, and take a
+ * sizeof(void*) byte parameter. */
+void* thread_test(void* arg) {
+	b32 loop = *si_transmute(b32*, arg, void*);
 	i16 count = INT16_MIN;
 
 	if (loop) {
@@ -145,10 +145,10 @@ rawptr thread_test(rawptr arg) {
 		si_print("Exiting the thread now.\n");
 	}
 
-	return si_transmute(rawptr, count, i16);
+	return si_transmute(void*, count, i16);
 }
 
-rawptr thread_matrix(rawptr mData) {
+void* thread_matrix(void* mData) {
 	matrixData* data = mData;
 
 	for_range (i, data->start, data->end) {

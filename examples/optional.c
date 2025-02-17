@@ -78,7 +78,7 @@ void example1(void) {
 
 /* Creates an optional object from the specified type and writes it into the
  * given raw pointer.*/
-void createOptional(Type type, rawptr out);
+void createOptional(Type type, void* out);
 
 void example2(void) {
 	si_print("==============\n\n==============\nExample 2:\n");
@@ -90,7 +90,7 @@ void example2(void) {
 	siOption(Type) opt_type;
 	siOption(rawptr) opt_ptr;
 
-	rawptr opt_array[Type_len] = {
+	void* opt_array[Type_len] = {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
 	for_range (i, 0, Type_len) {
@@ -138,7 +138,7 @@ siOption(cstring) create(b32 value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
-void createOptional(Type type, rawptr out) {
+void createOptional(Type type, void* out) {
 	switch (type) {
 		case Type_i32: {
 			siOption(i32)* res = out;
@@ -166,7 +166,7 @@ void createOptional(Type type, rawptr out) {
 		} break;
 
 		case Type_funcPtr: {
-			typedef void (create_optional_type)(Type, rawptr);
+			typedef void (create_optional_type)(Type, void*);
 
 			siOption(rawptr)* res = out;
 			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));

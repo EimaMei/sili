@@ -65,10 +65,10 @@ void function_simd(void) {
 #include <wasm_simd128.h>
 
 void function_simd(void) {
-    v128_t vec_first = wasm_v128_load((rawptr)first);
-    v128_t vec_second = wasm_v128_load((rawptr)second);
+    v128_t vec_first = wasm_v128_load((void*)first);
+    v128_t vec_second = wasm_v128_load((void*)second);
     v128_t vec_result = wasm_i32x4_add(vec_first, vec_second);
-    wasm_v128_store((rawptr)res, vec_result);
+    wasm_v128_store((void*)res, vec_result);
 }
 
 #else

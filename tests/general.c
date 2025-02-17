@@ -37,8 +37,8 @@ int main(void) {
 		cstring str = "ABCD";
 		TEST_EQ_U64(SI_TO_U32(str), value);
 
-		TEST_EQ_U64(offsetof(randomStruct, three), 4 + sizeof(usize));
-		TEST_EQ_U64(alignof(randomStruct), sizeof(usize));
+		TEST_EQ_U64(offsetof(randomStruct, three), 4 + si_sizeof(usize));
+		TEST_EQ_U64(alignof(randomStruct), si_sizeof(usize));
 
 		int buf1 = 8;
 		int buf2 = 4;
@@ -54,7 +54,7 @@ int main(void) {
 
 		u64 src = 0x00FF00FF00FF00FF;
 		u32 dst;
-		si_memcopy_s(&dst, sizeof(dst), &src, sizeof(src));
+		si_memcopy_s(SI_BUF_LEN(&dst, 1), &src, si_sizeof(src));
 		TEST_EQ_H64(dst, 0x00FF00FF);
 
 		TEST_EQ_H64(0x44434241, si_swap32le(value));
@@ -76,7 +76,7 @@ int main(void) {
 		usize ceil = si_alignForward(12, 8);
 		TEST_EQ_U64(ceil, 16);
 
-		for_range (i, 0, sizeof(usize) * 8 - 1) {
+		for_range (i, 0, si_sizeof(usize) * 8 - 1) {
 			SI_ASSERT(si_isPowerOfTwo((isize)SI_BIT(i)));
 		}
 		SI_ASSERT(si_isPowerOfTwo(0) == false);
@@ -89,7 +89,7 @@ int main(void) {
 		TEST_EQ_PTR(alloc.proc, si_allocator_heap_proc);
 		TEST_EQ_PTR(alloc.data, nil);
 
-		rawptr ptr = si_alloc(alloc, SI_KILO(1));
+		void* ptr = si_alloc(alloc, SI_KILO(1));
 		ptr = si_realloc(alloc, ptr, 0, SI_KILO(4));
 		si_free(alloc, ptr);
 
@@ -110,7 +110,7 @@ int main(void) {
 		TEST_EQ_PTR(alloc.proc, si_allocator_arena_proc);
 		TEST_EQ_PTR(alloc.data, &aData);
 
-		rawptr ptr = si_alloc(alloc, SI_KILO(1));
+		void* ptr = si_alloc(alloc, SI_KILO(1));
 		TEST_EQ_USIZE(aData.offset, SI_KILO(1));
 		TEST_EQ_PTR(ptr, aData.ptr);
 
@@ -159,8 +159,8 @@ int main(void) {
 
 			TEST_EQ_U64(
 				aData.offset,
-				si_alignForward(sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
-				+ si_alignForward(3 * sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
+				si_alignForward(si_sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
+				+ si_alignForward(3 * si_sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
 			);
 
 			si_freeAll(alloc);

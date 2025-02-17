@@ -77,7 +77,7 @@ void example1(siAllocator alloc) {
 
 		siString line;
 		for_eachBufEx (line, i, lines) {
-			si_printf("\tLine %zu (%zu bytes): '%S'\n", i + 1, line);
+			si_printf("\tLine %zu (%zu bytes): '%S'\n", i + 1, line.len, line);
 		}
 		si_fileClose(&file);
 	}

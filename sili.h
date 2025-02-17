@@ -842,6 +842,11 @@ SI_STATIC_ASSERT(false == 0);
 
 #endif
 
+#ifndef rawptr
+	/* 'void*' without implicit casting privileges. */
+	typedef void* rawptr;
+#endif
+
 
 #ifndef cstring
 	/* An immutable NULL-terminated C-string type. */
@@ -1385,6 +1390,8 @@ si_optional_define(isize);
 si_optional_define(f32);
 si_optional_define(f64);
 
+si_optional_define(rawptr);
+
 
 /* type - TYPE | ...VALUE - EXPRESSION
  * Creates a returnable 'siOptional' value from the given value. */
@@ -1893,17 +1900,17 @@ si_optional_define(siBufferAny);
 #define for_eachBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	si_copyAnyPtr(&name, (buffer).data, si_sizeof(name)); \
+	if (0 < (buffer).len) { si_copyAnyPtr(&name, (buffer).data, si_sizeof(name)); } \
 	for (isize indexName = 0; indexName < (buffer).len; indexName += 1, \
 		si_copyAnyPtr(&name, (u8*)((buffer).data) + indexName * si_sizeof(name), si_sizeof(name)))
 
 /* TODO */
 #define for_eachRefBuf(name, buffer) for_eachRefBufEx(name, si__i, buffer)
 /* TODO */
-#define for_eachrefbufex(name, indexName, buffer) \
+#define for_eachRefbufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	si_copyAny(name, (buffer).data, si_sizeof(void*)); \
+	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
+	if ((buffer).len != 0) { si_copyAny(name, (buffer).data, si_sizeof(void*)); } \
 	for (isize indexName = 0; indexName < (buffer).len; indexName += 1, name += 1) \
 
 
@@ -1913,7 +1920,7 @@ si_optional_define(siBufferAny);
 #define for_eachRevBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	si_copyAnyPtr(&name, (u8*)(buffer).data + ((buffer).len - 1) * si_sizeof(name), si_sizeof(name)); \
+	if ((buffer).len != 0) {si_copyAnyPtr(&name, (u8*)(buffer).data + ((buffer).len - 1) * si_sizeof(name), si_sizeof(name)); } \
 	for (isize indexName = (buffer).len - 1; indexName >= 0; indexName -= 1, \
 		si_copyAnyPtr(&name, (u8*)((buffer).data) + indexName * si_sizeof(name), si_sizeof(name)))
 
@@ -1922,8 +1929,8 @@ si_optional_define(siBufferAny);
 /* TODO */
 #define for_eachRevRefBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	si_copyAny(name, ((u8*)(buffer).data)[(buffer).len - 1 * si_sizeof(name)], si_sizeof(void*)); \
+	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
+	if ((buffer).len != 0) { si_copyAny(name, ((u8*)(buffer).data)[(buffer).len - 1 * si_sizeof(name)], si_sizeof(void*)); } \
 	for (isize indexName = (buffer).len - 1; indexName >= 0; indexName += 1, name -= 1) \
 
 
@@ -1943,10 +1950,19 @@ si_optional_define(siBufferAny);
 /* bytes - usize
  * Stack allocates the specified amount of bytes and creates a siBuffer from it. */
 #define SI_BUF_STACK(bytes) SI_BUF_STACK_EX(u8, bytes)
-/* bytes - usize | type - TYPE
- * Stack allocates the specified amount of bytes and creates a siBuffer from it. */
-#define SI_BUF_STACK_EX(type, bytes) SI_BUF_LEN((type*)si_stack(bytes * sizeof(type)), bytes)
+/* type - TYPE | len - usize
+ * Stack allocates the specified amount of typed-elements and creates a siBuffer from it. */
+#define SI_BUF_STACK_EX(type, len) SI_BUF_LEN((type*)si_stack(len * sizeof(type)), len)
 
+
+/* Returns a slice from the specified start to the specified index end. */
+SIDEF siBufferAny si_slice(siBufferAny buffer, isize start, isize end);
+/* Returns a slice from the specified start to the end (&array[array.capacity]). */
+SIDEF siBufferAny si_sliceEnd(siBufferAny buffer, isize start);
+/* Returns a slice from index 0 to the specified end. */
+SIDEF siBufferAny si_sliceStart(siBufferAny buffer, isize end);
+/* Returns a slice from the specified start with a length. */
+SIDEF siBufferAny si_sliceLen(siBufferAny buffer, isize start, isize length);
 
 /* TODO */
 SIDEF void* si_bufferGet(siBufferAny buffer, isize index);
@@ -2018,23 +2034,13 @@ si_optional_define(siArrayAny);
  * Represents a buffer with a specific type. */
 #define siArray(type) siArrayAny
 
+/* TODO */
+#define SI_BUF_ARR(array) SI_BUF_EX((array).data, (array).len, (array).typeSize)
+
 #ifndef SI_BUFFER_NEW_CAP
 	/* TODO */
 	#define SI_BUFFER_NEW_CAP(bufferPtr, addLen) (2 * ((bufferPtr)->capacity + addLen))
 #endif
-
-
-/* TODO */
-#define SI_BUF_ARR(array) SI_BUF_EX((array).data, (array).len, (array).typeSize)
-
-
-
-
-/* type - TYPE | name - NAME | array - siBuffer
- * Loops through every element of the specified array in reverse. */
-#define for_eachRevArr(type, name, array) \
-	SI_ASSERT_MSG(si_sizeof(type) == (array).typeSize, "Invalid type specified."); \
-	for (type* name = &si_arrayGet(array, (array).len - 1, type); name >= &si_arrayGet(array, 0, type); name -= 1)
 
 
 /* alloc - siAllocator | type - TYPE | ...values - VARIADIC
@@ -2055,16 +2061,6 @@ SIDEF siArrayAny si_arrayCopy(siBufferAny array, siAllocator alloc);
 
 /* Frees the allocated array. */
 SIDEF void si_arrayFree(siArrayAny array);
-
-
-/* Returns a slice from the specified start to the specified index end. */
-SIDEF siBufferAny si_slice(siBufferAny buffer, isize start, isize end);
-/* Returns a slice from the specified start to the end (&array[array.capacity]). */
-SIDEF siBufferAny si_sliceEnd(siBufferAny buffer, isize start);
-/* Returns a slice from index 0 to the specified end. */
-SIDEF siBufferAny si_sliceStart(siBufferAny buffer, isize end);
-/* Returns a slice from the specified start with a length. */
-SIDEF siBufferAny si_sliceLen(siBufferAny buffer, isize start, isize length);
 
 
 /* TODO */
@@ -4916,6 +4912,34 @@ void si_panic(cstring conditionStr, siCallerLoc call, cstring message, ...) {
 
 
 inline
+siBufferAny si_slice(siBufferAny array, isize start, isize end) {
+	SI_ASSERT_NOT_NEG(start);
+	SI_ASSERT_NOT_NEG(end);
+	SI_ASSERT(start < array.len);
+	SI_ASSERT(end < array.len);
+
+	siBufferAny buffer;
+	buffer.data = si_bufferGet(array, start);
+	buffer.len = (end - start) + 1;
+	buffer.typeSize = array.typeSize;
+
+	return buffer;
+}
+
+inline
+siBufferAny si_sliceEnd(siBufferAny array, isize start) {
+	return si_slice(array, start, (array.len - 1));
+}
+inline
+siBufferAny si_sliceStart(siBufferAny array, isize end) {
+	return si_slice(array, 0, end);
+}
+inline
+siBufferAny si_sliceLen(siBufferAny array, isize start, isize length) {
+	return si_slice(array, start, start + length);
+}
+
+inline
 void* si_bufferGet(siBufferAny buffer, isize index) {
 	SI_ASSERT_NOT_NIL(buffer.data);
 	SI_ASSERT_NOT_NEG(index);
@@ -5060,60 +5084,20 @@ void si_arrayFree(siArrayAny array) {
 }
 
 
-inline
-siBufferAny si_slice(siBufferAny array, isize start, isize end) {
-	SI_ASSERT_NOT_NEG(start);
-	SI_ASSERT_NOT_NEG(end);
-	SI_ASSERT(start < array.len);
-	SI_ASSERT(end < array.len);
-
-	siBufferAny buffer;
-	buffer.data = si_bufferGet(array, start);
-	buffer.len = (end - start) + 1;
-	buffer.typeSize = array.typeSize;
-
-	return buffer;
-}
-
-inline
-siBufferAny si_sliceEnd(siBufferAny array, isize start) {
-	return si_slice(array, start, (array.len - 1));
-}
-inline
-siBufferAny si_sliceStart(siBufferAny array, isize end) {
-	return si_slice(array, 0, end);
-}
-inline
-siBufferAny si_sliceLen(siBufferAny array, isize start, isize length) {
-	return si_slice(array, start, start + length);
-}
-
 inline void* si_arrayGet(siArrayAny array, isize index) { return si_bufferGet(SI_BUF_ARR(array), index); }
 inline void* si_arrayFront(siArrayAny array) { return si_bufferFront(SI_BUF_ARR(array)); }
 inline void* si_arrayBack(siArrayAny array) { return si_bufferBack(SI_BUF_ARR(array)); }
 inline void si_arraySet(siArrayAny array, isize index, void* data) { si_bufferSet(SI_BUF_ARR(array), index, data); }
 
-/* Copies an element at the specified index into the given pointer and returns
- * true if the index is less than the array's length. Otherwise, 'false' is returned. */
-SIDEF b32 si_arrayAtGet(siArrayAny array, isize index, void* out);
-/* Copies the first element of the array into the given pointer and returns true
- * if the array's length isn't zero. Otherwise, 'false' is returned. */
-SIDEF b32 si_arrayAtFront(siArrayAny array, void* out);
-/* Copies the last element of the array into the given pointer and returns true
- * if the array's length isn't zero. Otherwise, 'false' is returned. */
-SIDEF b32 si_arrayAtBack(siArrayAny array, void* out);
+inline b32 si_arrayAtGet(siArrayAny array, isize index, void* out) { return si_bufferAtGet(SI_BUF_ARR(array), index, out); }
+inline b32 si_arrayAtFront(siArrayAny array, void* out) { return si_bufferAtFront(SI_BUF_ARR(array), out); }
+inline b32 si_arrayAtBack(siArrayAny array, void* out) { return si_bufferAtBack(SI_BUF_ARR(array), out); }
 
-/* Searches for the specified pointer's content in the array (from the beginning).
- * If found, the value's array index is returned, otherwise '-1' is returned. */
-SIDEF isize si_arrayFind(siArrayAny array, void* valuePtr);
-/* Searches for the specified pointer's content in the array (from the end). If
- * found, the value's array index is returned, otherwise '-1' is returned. */
-SIDEF isize si_arrayFindLast(siArrayAny array, void* valuePtr);
-/* Returns the amount of times the specified pointer's value repeats in the array. */
-SIDEF isize si_arrayFindCount(siArrayAny array, void* valuePtr);
+inline isize si_arrayFind(siArrayAny array, void* valuePtr) { return si_bufferFind(SI_BUF_ARR(array), valuePtr); }
+inline isize si_arrayFindLast(siArrayAny array, void* valuePtr) { return si_bufferFindLast(SI_BUF_ARR(array), valuePtr); }
+inline isize si_arrayFindCount(siArrayAny array, void* valuePtr) { return si_bufferFindCount(SI_BUF_ARR(array), valuePtr); }
 
-/* Returns true if the two specified arrays are equal in length and contents. */
-SIDEF b32 si_arrayEqual(siArrayAny lhs, siArrayAny rhs);
+inline b32 si_arrayEqual(siArrayAny lhs, siArrayAny rhs) { return si_bufferEqual(SI_BUF_ARR(lhs), SI_BUF_ARR(rhs)); }
 
 
 
@@ -5121,7 +5105,6 @@ inline
 b32 si_arrayAppend(siArrayAny* array, void* valuePtr) {
 	return si_arrayAppendEx(array, valuePtr, 1);
 }
-
 SIDEF
 b32 si_arrayAppendEx(siArrayAny* array, void* valueArray, isize count) {
 	SI_ASSERT_NOT_NIL(array);
@@ -5506,7 +5489,7 @@ inline
 void si_builderPopRune(siBuilder* b) {
 	SI_ASSERT_NOT_NIL(b);
 
-	siUtf32Char str;
+	siUtf32Char str = {0};
 	isize i = 0;
 	while (i < b->len) {
 		str = si_utf8Decode(&b->data[i]);
@@ -6409,10 +6392,10 @@ siOsString si_stringToOsStrEx(siString str, siBuffer(siOsChar) out, isize* copie
 	SI_ASSERT_NOT_NIL(copied);
 
 #ifdef SI_SYSTEM_IS_WINDOWS
-	SI_STOPIF(out.capacity == 0, *copied = -1; return nil);
+	SI_STOPIF(out.len == 0, *copied = -1; return nil);
 
 	siUtf16String res = si_utf8ToUtf16StrEx(str, true, out);
-	*copied = res.capacity;
+	*copied = res.len;
 
 	return res.data;
 
@@ -7959,7 +7942,7 @@ siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
 	siUtf16String str = SI_BUF_LEN(&stack[pathLen], len);
 	len = si_utf16ToUtf8StrLen(str);
 
-	siString res = si_utf16ToUtf8Str(str, si_arrayMakeReserve(si_sizeof(u8), 0, len, alloc));
+	siString res = si_utf16ToUtf8Str(str, SI_BUF_ALLOC(u8, len, alloc));
 	return SI_OPT(siString, res);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
@@ -8017,8 +8000,7 @@ isize si_pathToOS(siString path, siOsChar* out, isize capacity) {
 		out[2] = '?';
 		out[3] = '\\';
 
-		siBuffer buf = SI_BUF_LEN(&out[4], capacity - 4);
-		si_stringToOsStrEx(path, buf, &copied);
+		si_stringToOsStrEx(path, SI_BUF_LEN(&out[4], capacity - 4), &copied);
 		return copied + 4;
 	}
 #endif
@@ -9282,7 +9264,7 @@ siTimeCalendar si_timeToCalendar(i64 time) {
 
 siIntern
 isize si__timeToStr(siString fmt, isize* i, char letter, siBuffer(u8) out, isize len, i32 time) {
-	if (*i - 1 < fmt.len && fmt.data[1 + *i] == letter) {
+	if (*i < fmt.len - 1 && fmt.data[1 + *i] == letter) {
 		*i += 1;
 		if (time < 10) {
 			si_bufferSet(out, len, "0");
@@ -9320,7 +9302,7 @@ siString si_timeToString(siTimeCalendar calendar, siString fmt, siBuffer(u8) out
 		switch (fmt.data[i]) {
 			case 'y': {
 				u32 count = 1;
-				while (i + 1 < fmt.len && fmt.data[i + 1] == 'y' && count != 4) { count += 1; }
+				while (i < fmt.len - 1 && fmt.data[i + 1] == 'y' && count != 4) { count += 1; }
 				i += count - 1;
 
 				u32 year = (count != 2) ? (u32)calendar.years : (u32)calendar.years % 100u;
@@ -9331,7 +9313,7 @@ siString si_timeToString(siTimeCalendar calendar, siString fmt, siBuffer(u8) out
 				SI_ASSERT(si_between(i32, calendar.months, 0, 12));
 
 				u32 count = 1;
-				while (i + 1 < fmt.len && fmt.data[i + 1] == 'M' && count != 4) { count += 1; }
+				while (i < fmt.len - 1 && fmt.data[i + 1] == 'M' && count != 4) { count += 1; }
 				i += count - 1;
 
 				switch (count) {
@@ -9421,12 +9403,12 @@ siString si_timeToString(siTimeCalendar calendar, siString fmt, siBuffer(u8) out
 			} break;
 
 			case 'A': {
-				SI_STOPIF(i - 1 < fmt.len && fmt.data[1 + i] == 'P', break);
+				SI_STOPIF(i < fmt.len - 1 && fmt.data[1 + i] == 'P', break);
 				goto AM_code;
 			} break;
 
 			case 'a': {
-				SI_STOPIF(i - 1 < fmt.len && fmt.data[1 + i] == 'p', break);
+				SI_STOPIF(i < fmt.len - 1 && fmt.data[1 + i] == 'p', break);
 AM_code:
 				i += 1;
 
@@ -9832,7 +9814,7 @@ i32 si_cpuProcessorCount(void) {
 	i64 count;
 	usize size = si_sizeof(i64);
 	if (sysctlbyname("hw.logicalcpu", &count, &size, nil, 0) == 0 && count > 0) {
-		procCount = count;
+		procCount = (i32)count;
 	}
 	else  {
 		procCount = 0;

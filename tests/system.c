@@ -3,7 +3,6 @@
 #include <tests/test.h>
 
 
-siBuffer buf = SI_BUF_STACK(1024);
 
 int main(void) {
 	siString name = SI_STRC("test");
@@ -15,7 +14,7 @@ int main(void) {
 	isize len = si_envVarGetLength(name);
 	TEST_EQ_USIZE(len, value.len);
 
-	siString out = si_envVarGetData(name, buf);
+	siString out = si_envVarGetData(name, SI_BUF_STACK(1024));
 	SI_ASSERT_NOT_NIL(out.data);
 	TEST_EQ_USIZE(out.len, value.len);
 	SI_ASSERT(si_stringEqual(out, value));
@@ -23,7 +22,7 @@ int main(void) {
 	res = si_envVarUnset(name);
 	SI_ASSERT(res);
 
-	out = si_envVarGetData(name, buf);
+	out = si_envVarGetData(name, SI_BUF_STACK(1024));
 	SI_ASSERT(out.data == nil);
 
 #if SI_SYSTEM_IS_WINDOWS
