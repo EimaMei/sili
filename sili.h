@@ -1060,7 +1060,7 @@ typedef struct siCallerLoc {
 	/* a - VARIABLE | b - VARIABLE
 	 * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
 	#define si_swap(a, b) do { \
-		SI_ASSERT(si_sizeof(a) == si_sizeof(b));
+		SI_ASSERT(si_sizeof(a) == si_sizeof(b)); \
 		char tmp[si_sizeof(a)]; \
 		si_memcopy(tmp, &(a), si_sizeof(a)); \
 		si_memcopy(&(a), &(a), si_sizeof(a)); \
@@ -2817,22 +2817,6 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
 	========================
 */
 
-#ifndef SIDEF_WINDOWS
-	#if SI_SYSTEM_IS_WINDOWS
-		#define SIDEF_WINDOWS
-	#else
-		#define SIDEF_WINDOWS siNoreturn
-	#endif
-#endif
-
-#ifndef SIDEF_UNIX
-	#if SI_SYSTEM_IS_UNIX
-		#define SIDEF_UNIX
-	#else
-		#define SIDEF_UNIX siNoreturn
-	#endif
-#endif
-
 SI_ENUM(i32, siErrorSystem) {
 	/* No error. */
 	siErrorSystem_None = 0,
@@ -2923,16 +2907,16 @@ SIDEF siString si_envVarGetData(siString name, siBuffer(u8) out);
 
 /* Returns the current running Windows OS version. Returns '0' if the version is
  * older than XP. */
-SIDEF SIDEF_WINDOWS siWindowsVersion si_windowsGetVersion(void);
+SIDEF siWindowsVersion si_windowsGetVersion(void);
 
 /* Returns true if the current Unix system is running Wayland. */
-SIDEF SIDEF_UNIX b32 si_unixIsWayland(void);
+SIDEF b32 si_unixIsWayland(void);
 /* Returns true if the current Unix system is running X11. */
-SIDEF SIDEF_UNIX b32 si_unixIsX11(void);
+SIDEF b32 si_unixIsX11(void);
 
 /* Returns the current running desktop environment on the system. If the found
  * desktop environment isn't recognized by Sili, 0 is returned. */
-SIDEF SIDEF_UNIX siUnixDE si_unixGetDE(void);
+SIDEF siUnixDE si_unixGetDE(void);
 
 /* TODO */
 SIDEF SI_ERROR_PROC(si_systemErrorLog);
@@ -3553,7 +3537,7 @@ SIDEF u32 si_numTrailingBitEx(u64 num, usize totalBits, siBitType bit);
 
 u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
 u64 si_numRotateRightEx(u64 num, usize num_sizeof, usize n);
-u64 si_numReverseBitsEx(u64 num, usize num_sizeof);
+u64 si_numReverseBitsEx(u64 num, isize num_sizeof);
 
 siBuffer(u8) si_numToBytesEx(u64 num, isize num_sizeof, siAllocator alloc);
 
@@ -4035,7 +4019,7 @@ SIDEF i32 si_float64IsInf(f64 num);
 #define si_benchmarkLoopsAvgRange(start, end, function) \
 	do { \
 		u64 array[20]; \
-		usize len = 0; \
+		isize len = 0; \
 		si_benchmarkLoop(function, array, &len, start, end); \
 		si_benchmarkLoopsAvgPrint(#function, array, len, (usize[]){start, end}); \
 	} while(0)
@@ -4056,7 +4040,7 @@ SIDEF i32 si_float64IsInf(f64 num);
 #define si_benchmarkLoopsAvgCmpRange(start, end, function1, function2) \
 	do { \
 		u64 arrays[2][20]; \
-		usize len1 = 0, len2 = 0; \
+		isize len1 = 0, len2 = 0; \
 		si_benchmarkLoop(function1, arrays[0], &len1, start, end); \
 		si_benchmarkLoop(function2, arrays[1], &len2, start, end); \
 		\
@@ -4096,8 +4080,8 @@ extern const siBenchmarkLimit siBenchLimit[];
 
 const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time);
 
-SIDEF void si_benchmarkLoopsAvgPrint(cstring name, u64 cycles[20], usize len, usize range[2]);
-SIDEF void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 cycles[2][20], usize len, usize range[2]);
+SIDEF void si_benchmarkLoopsAvgPrint(cstring name, u64 cycles[20], isize len, usize range[2]);
+SIDEF void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 cycles[2][20], isize len, usize range[2]);
 SIDEF void* si__benchmarkThread(void* arg);
 
 #endif /* SI_NO_BENCHMARK */
@@ -7597,7 +7581,7 @@ siString si_envVarGetData(siString name, siBuffer(u8) out) {
 #endif
 }
 
-SIDEF SIDEF_WINDOWS
+SIDEF
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	OSVERSIONINFOEXW info;
@@ -7626,11 +7610,11 @@ siWindowsVersion si_windowsGetVersion(void) {
 		? siWindowsVersion_XP
 		: 0;
 #else
-	SI_PANIC_MSG("Unavailable function for this platform.");
+	return -1;
 #endif
 }
 
-SIDEF SIDEF_UNIX
+SIDEF
 b32 si_unixIsWayland(void) {
 #if SI_SYSTEM_IS_UNIX
 	static b32 isWayland = UINT32_MAX;
@@ -7641,20 +7625,20 @@ b32 si_unixIsWayland(void) {
 
 	return isWayland;
 #else
-	SI_PANIC_MSG("Unavailable function for this platform.");
+	return false;
 #endif
 }
 
-inline SIDEF_UNIX
+inline
 b32 si_unixIsX11(void) {
 #if SI_SYSTEM_IS_UNIX
 	return !si_unixIsWayland();
 #else
-	SI_PANIC_MSG("Unavailable function for this platform.");
+	return false;
 #endif
 }
 
-SIDEF SIDEF_UNIX
+SIDEF
 siUnixDE si_unixGetDE(void) {
 #if SI_SYSTEM_IS_UNIX
 	static siUnixDE de = -1;
@@ -7671,7 +7655,7 @@ siUnixDE si_unixGetDE(void) {
 
 	return de;
 #else
-	SI_PANIC_MSG("Unavailable function for this platform.");
+	return -1;
 #endif
 
 }
@@ -9548,7 +9532,7 @@ u64 si_numRotateRightEx(u64 num, usize totalBits, usize bits) {
 
 
 inline
-u64 si_numReverseBitsEx(u64 num, usize totalBits) {
+u64 si_numReverseBitsEx(u64 num, isize totalBits) {
 	u64 res = 0;
 
 	for_range (i, 0, totalBits) {
@@ -9829,7 +9813,7 @@ i32 si_cpuProcessorCount(void) {
 	SI_STOPIF(res == 0, len = 0);
 
 	procCount = 0;
-	for_range (i, 0, len) {
+	for_range (i, 0, (isize)len) {
 		SYSTEM_LOGICAL_PROCESSOR_INFORMATION processor = processors[i];
 		if (processor.Relationship == RelationProcessorCore) {
 			procCount += si_numCountBitsU64(processor.ProcessorMask);
@@ -10717,7 +10701,7 @@ b32 si_float64IsNan(f64 num) {
 #ifdef SI_IMPLEMENTATION_BENCHMARK
 
 SIDEF
-void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], usize len, usize range[2]) {
+void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize range[2]) {
 	si_printf(
 		"====== BENCHMARK DATA ======\n"
 		"General:\n"
@@ -10768,7 +10752,7 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], usize len, usize ran
 }
 
 SIDEF
-void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], usize len,
+void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len,
 		usize range[2]) {
 	si_printf(
 		"====== BENCHMARK DATA ======\n"
