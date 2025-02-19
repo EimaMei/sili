@@ -1063,7 +1063,7 @@ typedef struct siCallerLoc {
 		SI_ASSERT(si_sizeof(a) == si_sizeof(b)); \
 		char tmp[si_sizeof(a)]; \
 		si_memcopy(tmp, &(a), si_sizeof(a)); \
-		si_memcopy(&(a), &(a), si_sizeof(a)); \
+		si_memcopy(&(a), &(b), si_sizeof(a)); \
 		si_memcopy(&(b), tmp, si_sizeof(a)); \
 	} while (0)
 
