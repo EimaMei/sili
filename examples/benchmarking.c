@@ -22,16 +22,16 @@ int main(void) {
 		function_simd();
 		SI_ASSERT(res[0] == 15 && res[1] == 25 && res[2] == 35 && res[3] == 45);
 	}
-	si_print("Running 'function_regular()' 100000 times. Lets see how long it takes to execute that many times...\n");
+	si_printLn("Running 'function_regular()' 100000 times. Lets see how long it takes to execute that many times...");
 	si_benchmarkRunsPerLoop(1000000, function_regular());
 
-	si_print("Now let's see how many times 'function_regular()' can be executed in 5 seconds...\n");
+	si_printLn("Now let's see how many times 'function_regular()' can be executed in 5 seconds...");
 	si_benchmarkExecutesPerMs(5000, function_regular());
 
-	si_print("The average performance:\n");
+	si_printLn("The average performance:");
 	si_benchmarkLoopsAvg(1000000, function_regular());
 
-	si_print("Now we will compare the performance stats between 'function_regular()' and 'function_simd()':\n");
+	si_printLn("Now we will compare the performance stats between 'function_regular()' and 'function_simd()':");
 	si_benchmarkLoopsAvgCmp(100000, function_regular(), function_simd());
 }
 

@@ -52,10 +52,10 @@ int main(void) {
 		}
 		TEST_EQ_I64(x, INT16_MIN);
 
-		u64 src = 0x00FF00FF00FF00FF;
-		u32 dst;
-		si_memcopy_s(SI_BUF_LEN(&dst, 1), &src, si_sizeof(src));
-		TEST_EQ_H64(dst, 0x00FF00FF);
+		u8 src[8] = {0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF};
+		u32 dst = 0;
+		si_memcopy_s(SI_BUF_LEN((u8*)&dst, 4), &src, si_sizeof(src));
+		TEST_EQ_H64(dst, si_swap32be(0x00FF00FF));
 
 		TEST_EQ_H64(0x44434241, si_swap32le(value));
 		TEST_EQ_H64(0xFF00FF00FF00FF00, si_swap64(0x00FF00FF00FF00FF));

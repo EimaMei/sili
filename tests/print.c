@@ -76,27 +76,27 @@ int main(void) {
 	TEST_PRINT("qwertyuiop\n", "%S\n", SI_STR("qwertyuiop"));
 #endif
 
-	si_print("================\nPrint colour tests:\nANSI/3-bit colour:\n");
-	for_range (id, siPrintColor3bit_Black, (siPrintColor3bit)(siPrintColor3bit_White + 1)) {
+	si_printLn("================\nPrint colour tests:\nANSI/3-bit colour:");
+	for_rangeEx (u8, id, siPrintColor3bit_Black, siPrintColor3bit_White + 1) {
 		siPrintColor clr = si_printColor3bit(id),
 					 bold = si_printColor3bitEx(id, true, false),
 					 light = si_printColor3bitEx(id, false, true),
 					 both = si_printColor3bitEx(id, true, true);
-		si_printf("\t%CColor %i:%C %CBold%C %CLight%C %CAll%C\n", clr, id, bold, light, both);
+		si_printfLn("\t%CColor %i:%C %CBold%C %CLight%C %CAll%C", clr, id, bold, light, both);
 	}
 
-	si_print("\n8-bit colour:\n\t");
+	si_printLn("\n8-bit colour:\n\t");
 	for_range (i, 0, UINT8_MAX + 1) {
 		siPrintColor clr = si_printColor8bit((u8)i);
 		si_printf("%C% 3i%C ", clr, i);
 
         if (i == 15 || (i > 15 && (i - 15) % 6 == 0)) {
-            si_printf("\n\t");
+            si_print("\n\t");
         }
 	}
 	si_printf("\n24-bit colour (%B):\n\t", si_printHas24bitColor());
 
-    for_range (column, 0, 77) {
+    for_rangeEx (i32, column, 0, 77) {
         i32 r = 255 - (column * 255 / 76);
         i32 g = (column * 510 / 76);
         i32 b = (column * 255 / 76);
@@ -108,7 +108,7 @@ int main(void) {
 		/* TODO(EimaMei): On Windows a newline appears after each print for whatever reason. */
 		si_printf("%C0%C", si_printColor24bit((u8)r, (u8)g, (u8)b));
     }
-    si_printf("\n\n");
+    si_print("\n\n");
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, 0));
+	si_printfLn("%CTest '" __FILE__ "' has been completed!%C", si_printColor3bitEx(siPrintColor3bit_Yellow, true, 0));
 }

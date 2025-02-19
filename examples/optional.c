@@ -52,11 +52,11 @@ siOption(cstring) create(b32 value);
 
 void example1(void) {
 	/* Based on https://en.cppreference.com/w/cpp/utility/optional. */
-	si_print("==============\n\n==============\nExample 1:\n");
+	si_printLn("==============\n\n==============\nExample 1:");
 
 	siOption(cstring) str = create(false);
-	si_printf(
-		"create(false) returned '%s' (hasValue: %B)\n",
+	si_printfLn(
+		"create(false) returned '%s' (hasValue: %B)",
 		si_optionalGetOrDefault(str, "empty"), str.hasValue
 	);
 
@@ -68,20 +68,20 @@ void example1(void) {
 	 * your code C99 compliant, you can use '.data.value' for it to work on
 	 * multiple standards. */
 #if SI_STANDARD_CHECK_MAX(C, C99)
-	si_printf("create2(true) returned '%s'\n", str.data.value);
+	si_printfLn("create2(true) returned '%s'", str.data.value);
 
 #else
-	si_printf("create2(true) returned '%s'\n", str.value);
+	si_printfLn("create2(true) returned '%s'", str.value);
 
 #endif
 }
 
 /* Creates an optional object from the specified type and writes it into the
  * given raw pointer.*/
-void createOptional(Type type, void* out);
+void createOptional(Type type, void* out, siAllocator alloc);
 
 void example2(void) {
-	si_print("==============\n\n==============\nExample 2:\n");
+	si_printLn("==============\n\n==============\nExample 2:");
 
 	siOption(i32) opt_i32;
 	siOption(siString) opt_string;
@@ -93,16 +93,20 @@ void example2(void) {
 	void* opt_array[Type_len] = {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
+
 	for_range (i, 0, Type_len) {
-		createOptional((Type)i, opt_array[i]);
+		createOptional((Type)i, opt_array[i], si_allocatorHeap());
 	}
 
-	si_printf("Element 1: '%X'\n", opt_i32.data.value);
-	si_printf("Element 2: '%S'\n", opt_string.data.value);
-	si_printf("Element 3: '%S'\n", si_stringFromBuffer(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
-	si_printf("Element 4: '0x%016lX|%016lX'\n", opt_u128.data.value.high, opt_u128.data.value.low);
-	si_printf("Element 5: '%zd'\n", opt_type.data.value);
-	si_printf("Element 6: '%p'\n", opt_ptr.data.value);
+	si_printfLn("Element 1: '%X'", opt_i32.data.value);
+	si_printfLn("Element 2: '%S'", opt_string.data.value);
+	si_printfLn("Element 3: '%S'", si_stringFromBuffer(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
+	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.data.value.high, opt_u128.data.value.low);
+	si_printfLn("Element 5: '%zd'", opt_type.data.value);
+	si_printfLn("Element 6: '%p'", opt_ptr.data.value);
+
+
+	si_mfree(opt_buffer.data.value.data);
 }
 
 #define INVALID_ID 1
@@ -120,13 +124,13 @@ void example3(void) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
-			si_printf("ID %u: %S moneis - %u cents\n", id, res.data.value.name, res.data.value.moneis);
+			si_printfLn("ID %u: %S moneis - %u cents", id, res.data.value.name, res.data.value.moneis);
 		}
 		else {
 			siError err = res.data.error;
 			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_BUF_STACK(64));
-			si_printf(
-				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')\n",
+			si_printfLn(
+				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')",
 				id, err.code, err.filename, err.line, time
 			);
 		}
@@ -138,7 +142,7 @@ siOption(cstring) create(b32 value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 
-void createOptional(Type type, void* out) {
+void createOptional(Type type, void* out, siAllocator alloc) {
 	switch (type) {
 		case Type_i32: {
 			siOption(i32)* res = out;
@@ -152,7 +156,7 @@ void createOptional(Type type, void* out) {
 
 		case Type_buffer: {
 			siOption(siBuffer(i32))* res = out;
-			*res = SI_OPT(siBuffer(i32), SI_BUF(i32, 1, 2, 4, 6, 8));
+			*res = SI_OPT(siBuffer(i32), SI_BUF_ARR(si_arrayMake(alloc, i32, 1, 2, 4, 6, 8)));
 		} break;
 
 		case Type_struct: {
@@ -166,7 +170,7 @@ void createOptional(Type type, void* out) {
 		} break;
 
 		case Type_funcPtr: {
-			typedef void (create_optional_type)(Type, void*);
+			typedef void (create_optional_type)(Type, void*, siAllocator);
 
 			siOption(rawptr)* res = out;
 			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));

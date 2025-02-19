@@ -30,14 +30,14 @@ void example1(void) {
 		si_print("Even though 'thread' is sleeping, the main thread is running independently.\n");
 		si_sleep(1000);
 	}
-	si_printf("thread_test(false) returned a '%i'\n", si_threadGetReturn(thread, i16));
+	si_printfLn("thread_test(false) returned a '%i'", si_threadGetReturn(thread, i16));
 	si_sleep(2000);
 
 	loopState = true;
 	si_threadRun(&thread);
 	si_threadJoin(&thread); /* Now we wait... */
 
-	si_printf("thread_test(true) returned a '%i'.\n", si_threadGetReturn(thread, i16));
+	si_printfLn("thread_test(true) returned a '%i'", si_threadGetReturn(thread, i16));
 	si_threadDestroy(&thread);
 }
 
@@ -89,7 +89,7 @@ void example2(void) {
 			SI_ASSERT_MSG(res1[i * SIZE + j] == res2[i * SIZE + j], "Results are incorrect!");
 		}
 	}
-	si_printf("Results are correct.\n");
+	si_printLn("Results are correct.");
 
 	si_freeAll(alloc);
 }
@@ -133,16 +133,16 @@ void* thread_test(void* arg) {
 	i16 count = INT16_MIN;
 
 	if (loop) {
-		si_printf("The function will increment 'count' from %d to %d:\n", INT16_MIN, INT16_MAX);
+		si_printfLn("The function will increment 'count' from %d to %d:", INT16_MIN, INT16_MAX);
 		si_sleep(2000);
 		while (count < INT16_MAX) {
 			count += 1;
 		}
 	}
 	else {
-		si_print("'arg' equals to 'false', so the function will do nothing and sleep for 3 seconds.\n");
+		si_printLn("'arg' equals to 'false', so the function will do nothing and sleep for 3 seconds.");
 		si_sleep(3000);
-		si_print("Exiting the thread now.\n");
+		si_printLn("Exiting the thread now.");
 	}
 
 	return si_transmute(void*, count, i16);

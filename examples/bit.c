@@ -71,38 +71,38 @@ int main(void) {
 		SI_ENDIAN_STR, SI_COMPILER_STR, SI_LANGUAGE_STR, standard()
 	);
 
-	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", sizeof(usize) * 8);
+	si_printfLn("'usize' contains '%zi' bits on this CPU architecture.", si_sizeof(usize) * 8);
 
 	u16 adr = 0xFFFE;
 	i32 numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
-	si_printf(
-		"Number of 1s in 'adr': '%zi', number of 0s: '%zd'\n",
+	si_printfLn(
+		"Number of 1s in 'adr': '%zi', number of 0s: '%zd'",
 		numBits, si_sizeof(adr) * 8 - numBits
 	);
 
 	u8 leadTrailNum = 248;
-	si_printf(
-		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
+	si_printfLn(
+		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'",
 		 leadTrailNum,
 		 si_numLeadingOnes(u8, leadTrailNum), si_numTrailingBit(u8, leadTrailNum, SI_BIT_ZERO)
 	);
 
 	u32 rotateAdr = si_numRotateLeft(u32, 0x00001234, 24);
-	si_printf("Rotating '0x00001234' left by 24 bits: '%#08X'\n", rotateAdr);
+	si_printfLn("Rotating '0x00001234' left by 24 bits: '%#08X'", rotateAdr);
 
 	rotateAdr = si_numRotateRight(u32, rotateAdr, 24);
-	si_printf("Rotating '0x34000012' right by 24 bits: '%#08X'\n", rotateAdr);
+	si_printfLn("Rotating '0x34000012' right by 24 bits: '%#08X'", rotateAdr);
 
-	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
+	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_numReverseBits(u32, 0x1234567890123456));
 
 	siBuffer(u8) buffer = si_numToBytes(u32, 0xFF00EEAA, alloc);
-	si_printf("buffer: %S, (len: %zd)\n", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
+	si_printfLn("buffer: %S, (len: %zd)", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
 
 	u32 newNum = (u32)si_numFromBytes(buffer);
-	si_printf("Combining them all back, we get '%#X'\n", newNum);
+	si_printfLn("Combining them all back, we get '%#X'", newNum);
 
 	adr = si_swap16(adr);
-	si_printf("Changing the endian of '0xFFFE' gives us '%#X'\n", adr);
+	si_printfLn("Changing the endian of '0xFFFE' gives us '%#X'", adr);
 
 	return 0;
 }

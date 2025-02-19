@@ -61,23 +61,24 @@ void example1(siAllocator alloc) {
 
 	{
 		siFile file = si_fileOpen(file_examples_file);
-		si_printf(
+		si_printfLn(
 			"About 'examples/file.c':\n\t"
 				"Full path - '%S'\n\t"
-				"Size - '%zu' bytes\n",
+				"Size - '%zu' bytes",
 			si_optionalGetOrDefault(si_pathGetFullName(file_examples_file, stack), unknown),
 			file.size
 		);
 
 		siBuffer(siString) lines = si_fileReadlines(file, alloc);
-		si_printf(
-			"Contents of '%S' ('%zd' lines in total):\n",
+		si_printfLn(
+			"Contents of '%S' ('%zd' lines in total):",
 			si_pathBaseName(file_examples_file), lines.len
 		);
 
+
 		siString line;
 		for_eachBufEx (line, i, lines) {
-			si_printf("\tLine %zu (%zu bytes): '%S'\n", i + 1, line.len, line);
+			si_printfLn("\tLine %zu (%zu bytes): '%S'", i + 1, line.len, line);
 		}
 		si_fileClose(&file);
 	}
@@ -87,8 +88,7 @@ void example2(void)	{
 	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator stack = si_allocatorArena(&aData);
 
-	si_printf("==============\n\n==============\nExample 2:\n");
-
+	si_printLn("==============\n\n==============\nExample 2:");
 	{
 		siString str_random = SI_STR("random.txt"),
 				 str_random2 = SI_STR("random-2.txt"),
@@ -117,14 +117,14 @@ void example2(void)	{
 		);
 
 		res = si_pathRemove(str_random2);
-		si_printf(
-			"Does 'random-2.txt' exist: '%B' (res: '%i')\n",
+		si_printfLn(
+			"Does 'random-2.txt' exist: '%B' (res: '%i')",
 			si_pathExists(str_random2), res.code
 		);
 
 		res = si_pathRemove(str_renamed);
-		si_printf(
-			"Does 'renamed.txt' exist: '%B' (res: '%i')\n",
+		si_printfLn(
+			"Does 'renamed.txt' exist: '%B' (res: '%i')",
 			si_pathExists(str_renamed), res.code
 		);
 	}
@@ -132,12 +132,12 @@ void example2(void)	{
 	{
 		siString path = SI_STR("example.c");
 		siOption(siString) fullPath = si_pathGetFullName(path, stack);
-		si_printf(
+		si_printfLn(
 			"Information about '%S':\n\t"
 				"Base name - '%S'\n\t"
 				"Extension - '%S'\n\t"
 				"Full path - '%S'\n\t"
-				"Is relative: %B\n",
+				"Is relative: %B",
 			path, si_pathBaseName(path), si_pathExtension(path),
 			si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), si_pathIsRelative(path)
 		);
@@ -145,14 +145,14 @@ void example2(void)	{
 }
 
 void example3(void)	{
-	si_printf("==============\n\n==============\nExample 3:\n");
+	si_printLn("==============\n\n==============\nExample 3:");
 
 	{
 		siError res = si_pathRemove(SI_STR("SI_FILE_THAT_DOESNT_EXIST"));
 #ifndef SI_NO_ERROR_STRUCT
-		si_printf("Error '%S' occurred at \"%s:%i\": '%S'\n", si_systemErrorName(res.code), res.filename, res.line, si_systemErrorDesc(res.code));
+		si_printfLn("Error '%S' occurred at \"%s:%i\": '%S'", si_systemErrorName(res.code), res.filename, res.line, si_systemErrorDesc(res.code));
 #else
-		si_printf("Error '%S' occurred: '%S'\n", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
+		si_printfLn("Error '%S' occurred: '%S'", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
 #endif
 	}
 
@@ -163,14 +163,14 @@ void example3(void)	{
 		siFile file_handle = si_fileCreate(file_path);
 
 		lastWriteTime = si_fileLastWriteTime(file_handle);
-		si_printf("Last write time: %lu\n", lastWriteTime);
+		si_printfLn("Last write time: %lu", lastWriteTime);
 
 		si_sleep(1000);
 		si_fileWriteStr(&file_handle, SI_STR("random garbage"));
 
 		curWriteTime = si_pathLastWriteTime(file_path);
-		si_printf(
-			"Has the file been changed?: %B (%lu difference)\n",
+		si_printfLn(
+			"Has the file been changed?: %B (%lu difference)",
 			lastWriteTime != curWriteTime,
 			curWriteTime - lastWriteTime
 		);
@@ -191,12 +191,12 @@ void example3(void)	{
 		si_pathRemove(str_hard);
 		si_pathRemove(str_file);
 
-		si_printf("Temporary path of the system: %S\n", si_pathGetTmp());
+		si_printfLn("Temporary path of the system: %S", si_pathGetTmp());
 	}
 }
 
 void example4(void) {
-	si_printf("==============\n\n==============\nExample 4:\n");
+	si_printLn("==============\n\n==============\nExample 4:");
 	#define ROOT_PATH "Česnakaujančio-убийца-世界"
 
 	/* Preparing a make-shift directory. */
@@ -216,8 +216,8 @@ void example4(void) {
 
 	usize count = 0;
 	while (si_directoryPollEntry(&dir, &entry)) {
-		si_printf(
-			"%zu: %S ('%zu' bytes, type '%i')\n",
+		si_printfLn(
+			"%zu: %S ('%zu' bytes, type '%i')",
 			count, entry.path, entry.path.len, entry.type
 		);
 		count += 1;
@@ -227,28 +227,28 @@ void example4(void) {
 }
 
 void example5(siAllocator* alloc) {
-	si_printf("==============\n\n==============\nExample 5:\n");
+	si_printLn("==============\n\n==============\nExample 5:\n");
 
-	si_printf("Characters: %c %c\n", 'a', 65);
-	si_printf("Decimals: %d %d %lu\n", 1977, 65000L, UINT64_MAX);
-	si_printf("Preceding with blanks: %10d\n", 1977);
-	si_printf("Preceding with zeros: %010d \n", 1977);
-	si_printf("Some different radices: %d %x %o %#x %#o\n", 100, 100, 100, 100, 100);
-	si_printf("Floats: %4.2f %+.0e %E %g\n", 3.1416, 3333333333333.1416, 3.1416, 1234.062400);
-	si_printf("Width trick: %*d \n", 5, 10);
-	si_printf("%.5s\n", "A string");
-	si_printf("%B - %B (%#b, %#b)\n", true, false, true, false);
-	si_printf("Pointer to the heap: %p\n", alloc);
-	si_printf("This will print nothing: '%n', 100%%.\n", nil);
-	si_printf(
+	si_printfLn("Characters: %c %c", 'a', 65);
+	si_printfLn("Decimals: %d %d %lu", 1977, 65000L, UINT64_MAX);
+	si_printfLn("Preceding with blanks: %10d", 1977);
+	si_printfLn("Preceding with zeros: %010d", 1977);
+	si_printfLn("Some different radices: %d %x %o %#x %#o", 100, 100, 100, 100, 100);
+	si_printfLn("Floats: %4.2f %+.0e %E %g", 3.1416, 3333333333333.1416, 3.1416, 1234.062400);
+	si_printfLn("Width trick: %*d", 5, 10);
+	si_printfLn("%.5s", "A string");
+	si_printfLn("%B - %B (%#b, %#b)", true, false, true, false);
+	si_printfLn("Pointer to the heap: %p", alloc);
+	si_printfLn("This will print nothing: '%n', 100%%.", nil);
+	si_printfLn(
 		"%CThis text will be displayed in red%C, while this - %Cin blue%C!\n"
-		"%CSome terminals might support 8-bit color%C, %Csome may even have 24-bit color support.%C\n",
+		"%CSome terminals might support 8-bit color%C, %Csome may even have 24-bit color support.%C",
 		si_printColor3bit(siPrintColor3bit_Red), si_printColor3bitEx(siPrintColor3bit_Blue, true, true),
 		si_printColor8bit(202), si_printColor24bit(90, 242, 166)
 	);
-	si_fprintf(
+	si_fprintfLn(
 		si_stdout,
-		"Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%C* - Works as long as the font supports the codepoint, which for some reason isn't common.%C\n",
+		"Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%C* - Works as long as the font supports the codepoint, which for some reason isn't common.%C",
 		si_printColor3bit(siPrintColor3bit_Yellow)
 	);
 }
