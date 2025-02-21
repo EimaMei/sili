@@ -54,7 +54,7 @@ cstring standard(void) {
 SI_STATIC_ASSERT(SI_BIT(8) == 256);
 
 int main(void) {
-	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator alloc = si_allocatorArena(&aData);
 
 	si_printf(

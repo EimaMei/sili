@@ -8,7 +8,7 @@ void example1(siAllocator alloc);
 void example2(siAllocator alloc);
 
 int main(void) {
-	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_KILO(1));
+	siArena aData = si_arenaMake(si_allocatorHeap(), SI_KILO(1));
 	siAllocator alloc = si_allocatorArena(&aData);
 
 	example1(alloc);

@@ -99,7 +99,7 @@ int main(void) {
 	si_print("Test 3 has been completed.\n");
 
 	{
-		siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
+		siArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
 		TEST_EQ_PTR(aData.alloc.proc, si_allocator_heap_proc);
 		TEST_EQ_USIZE(aData.offset, 0);
 		TEST_EQ_USIZE(aData.capacity, SI_MEGA(1));
@@ -127,46 +127,6 @@ int main(void) {
 	}
 	si_print("Test 4 has been completed.\n");
 
-#if 0
-		char x[128];
-		siAllocator tmp = si_allocatorMakeTmp(x, countof(x));
-		TEST_EQ_H64(tmp.ptr, (siByte*)x);
-		TEST_EQ_U64(tmp.capacity, countof(x));
-
-		si_malloc(&alloc, si_alignCeil(234));
-		TEST_EQ_U64(si_allocatorAvailable(alloc), alloc.capacity - si_alignCeil(234));
-
-		si_allocatorResetFrom(&alloc, 444);
-		TEST_EQ_U64(alloc.offset, 444);
-		si_allocatorFree(&alloc);
-		TEST_EQ_H64(alloc.ptr, 0);
-#endif
-#if 0
-		{
-			siAllocator stack = si_allocatorMakeStack(32);
-			char* x = si_alloc(stack, 1);
-			*x = 'Q';
-		}
-
-		{
-			usize* ptr1 = si_sallocItem(usize);
-			*ptr1 = USIZE_MAX;
-			TEST_EQ_H64(*ptr1, USIZE_MAX);
-
-			alloc = si_allocatorMakeArena(SI_KILO(1), &aData);
-			si_allocItem(alloc, randomStruct);
-			si_allocArray(alloc, randomStruct, 3);
-
-			TEST_EQ_U64(
-				aData.offset,
-				si_alignForward(si_sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
-				+ si_alignForward(3 * si_sizeof(randomStruct), SI_DEFAULT_MEMORY_ALIGNMENT)
-			);
-
-			si_freeAll(alloc);
-		}
-	si_print("Test 2 has been completed.\n");
-
 	{
 		siPoint p1 = SI_POINT(50, 50),
 				p2 = (siPoint){28, 28};
@@ -193,7 +153,7 @@ int main(void) {
 		TEST_EQ_F64(v2.x, 2);
 		TEST_EQ_F64(v2.y, 2);
 	}
-	si_print("Test 4 has been completed.\n");
+	si_print("Test 5 has been completed.\n");
 
 	{
 		siOption(u64) opt = SI_OPT(u64, 19920216ULL);
@@ -216,11 +176,10 @@ int main(void) {
 			tmp.code = 40;
 			opt = SI_OPT_ERR(u64, tmp);
 			TEST_EQ_I64(opt.error.code, 40);
-
 		#endif
+
 	}
-#endif
-	si_print("Test 5 has been completed.\n");
+	si_print("Test 6 has been completed.\n");
 
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));

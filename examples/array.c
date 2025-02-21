@@ -10,7 +10,7 @@
 
 
 int main(void) {
-	siAllocatorArena arena = si_arenaMakePtr(si_stackAlloc(256), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena arena = si_arenaMakePtr(si_stackAlloc(256), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator alloc = si_allocatorArena(&arena);
 
 	si_printLn("Scope 1:");

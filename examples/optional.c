@@ -130,8 +130,8 @@ void example3(void) {
 			siError err = res.data.error;
 			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_BUF_STACK(64));
 			si_printfLn(
-				"Couldn't get info on ID '%u': Error '%u' ('%s:%i', occurred on '%S')",
-				id, err.code, err.filename, err.line, time
+				"Couldn't get info on ID '%u': Error '%u' ('%L', occurred on '%S')",
+				id, err.code, err.location, time
 			);
 		}
 	}

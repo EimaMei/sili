@@ -62,7 +62,7 @@ typedef struct matrixData {
 
 
 void example2(void) {
-	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), 4 * (SIZE * SIZE * sizeof(f32)));
+	siArena aData = si_arenaMake(si_allocatorHeap(), 4 * (SIZE * SIZE * sizeof(f32)));
 	siAllocator alloc = si_allocatorArena(&aData);
 
 	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */

@@ -16,7 +16,7 @@ void example5(siAllocator* alloc);
 
 
 int main(void) {
-	siAllocatorArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
+	siArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
 	siAllocator alloc = si_allocatorArena(&aData);
 
 	example1(alloc);
@@ -30,7 +30,7 @@ int main(void) {
 
 
 void example1(siAllocator alloc) {
-	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator stack = si_allocatorArena(&aData);
 
 	si_printf("==============\n\n==============\nExample 1:\n");
@@ -85,7 +85,7 @@ void example1(siAllocator alloc) {
 }
 
 void example2(void)	{
-	siAllocatorArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator stack = si_allocatorArena(&aData);
 
 	si_printLn("==============\n\n==============\nExample 2:");
@@ -150,7 +150,7 @@ void example3(void)	{
 	{
 		siError res = si_pathRemove(SI_STR("SI_FILE_THAT_DOESNT_EXIST"));
 #ifndef SI_NO_ERROR_STRUCT
-		si_printfLn("Error '%S' occurred at \"%s:%i\": '%S'", si_systemErrorName(res.code), res.filename, res.line, si_systemErrorDesc(res.code));
+		si_printfLn("Error '%S' occurred at \"%L\": '%S'", si_systemErrorName(res.code), res.location, si_systemErrorDesc(res.code));
 #else
 		si_printfLn("Error '%S' occurred: '%S'", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
 #endif
@@ -248,7 +248,7 @@ void example5(siAllocator* alloc) {
 	);
 	si_fprintfLn(
 		si_stdout,
-		"Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%C* - Works as long as the font supports the codepoint, which for some reason isn't common.%C",
+		SI_STR("Unicode works both on Unix and Windows* (ąčęėįšųū„“)\n\t%C* - Works as long as the font supports the codepoint, which for some reason isn't common.%C"),
 		si_printColor3bit(siPrintColor3bit_Yellow)
 	);
 }

@@ -6,10 +6,10 @@
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
 		siBuffer(u8) buffer = SI_BUF_STACK(1024); \
-		isize expectedLen = si_cstrLen(expectedStr); \
+		isize expectedLen = countof_str(expectedStr); \
 		SI_ASSERT(expectedLen <= buffer.len); \
 		\
-		isize len = si_bprintf(buffer, input, __VA_ARGS__).len; \
+		isize len = si_bprintf(buffer, SI_STR(input), __VA_ARGS__).len; \
 		\
 		if (expectedLen != len) { \
 			si_printf( \
@@ -19,7 +19,7 @@
 			); \
 		} \
 		i32 res = si_memcompare(buffer.data, expectedStr, len); \
-		SI_ASSERT_FMT(res == 0, "Wrong character at index %i: '%S'", res, buffer); \
+		SI_ASSERT_FMT(res == 0, SI_STR("Wrong character at index %i: '%S'"), res, buffer); \
 		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
 	} while(0)
 

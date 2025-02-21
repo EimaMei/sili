@@ -1,7 +1,7 @@
 #define TEST_EQ(arg1, arg2, format) \
-	SI_ASSERT_FMT((arg1) == (arg2), format" | "format, arg1, arg2)
+	SI_ASSERT_FMT((arg1) == (arg2), SI_STR(format " | " format), arg1, arg2)
 #define TEST_N_EQ(arg1, arg2, format) \
-	SI_ASSERT_FMT((arg1) != (arg2), format" | "format, arg1, arg2)
+	SI_ASSERT_FMT((arg1) != (arg2), SI_STR(format " | " format), arg1, arg2)
 
 
 #define TEST_EQ_U64(arg1, arg2) \
