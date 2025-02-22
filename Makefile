@@ -4,13 +4,13 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -std=c99 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -O3 -std=c99 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
 	\
-	-Wswitch-enum -Wcast-align -Wstrict-overflow=5 \
-	-Wstrict-prototypes -Winline -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
+	-Wswitch-enum -Wcast-align -Wstrict-overflow \
+	-Wstrict-prototypes -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
 	-Wold-style-definition \
 	\
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \

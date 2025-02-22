@@ -72,6 +72,7 @@ int main(void) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 		test(u64, 0, UINT64_MAX);
 		test(usize, 0, USIZE_MAX);
 #pragma GCC diagnostic pop
