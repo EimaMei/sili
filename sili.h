@@ -1750,12 +1750,11 @@ typedef struct siBufferAny {
 #define siBuffer(type) siBufferAny
 
 /* name - NAME | buffer - siBufferAny
- * Iterates through every element in the buffer and writes it to the same-type
- * 'name' variable. */
+ * Loops through the elements of the buffer, writes the element to 'name'. */
 #define for_eachBuf(name, buffer) for_eachBufEx(name, si__i, buffer)
 /* name - NAME | indexName - NAME | buffer - siBufferAny
- * Iterates through every element in the buffer with the option to obtain the index.
- * Each element is written to the specified same-type 'name' variable. */
+ * Loops through the elements of the buffer with the option to specify the index,
+ writes the element to 'name'. */
 #define for_eachBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
@@ -1764,23 +1763,24 @@ typedef struct siBufferAny {
 		 si_memcopy(&name, (u8*)(buffer).data + indexName * si_sizeof(name), si_sizeof(name)))
 
 /* name - NAME | buffer - siBufferAny
- * Iterates through every element in the buffer and writes the pointer of it to
- * the specified same-type pointer 'name' variable. */
+ * Loops through the elements of the buffer, writes the element pointer to 'name'. */
 #define for_eachRefBuf(name, buffer) for_eachRefBufEx(name, si__i, buffer)
 /* name - NAME | indexName - NAME | buffer - siBufferAny
- * Iterates through every element in the buffer with the option to obtain the index.
- * Each pointer to the element is written to the specified same-type pointer 'name'
- * variable. */
-#define for_eachRefbufEx(name, indexName, buffer) \
+ * Loops through the elements of the buffer with the option to specify the index,
+ writes the pointer element to 'name'. */
+#define for_eachRefBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
 	if ((buffer).len != 0) { si_memcopy(&name, (buffer).data, si_sizeof(void*)); } \
 	for (isize indexName = 0; indexName < (buffer).len; indexName += 1, name += 1) \
 
 
-/* TODO */
+/* name - NAME | buffer - siBufferAny
+ * Loops through the elements of the buffer, writes the element to 'name'. */
 #define for_eachRevBuf(name, buffer) for_eachRevBufEx(name, si__i, buffer)
-/* TODO */
+/* name - NAME | indexName - NAME | buffer - siBufferAny
+ * Loops through the elements of the buffer in reverse with the option to specify
+ * the index, writes the element to 'name'. */
 #define for_eachRevBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
@@ -1788,9 +1788,13 @@ typedef struct siBufferAny {
 	for (isize indexName = (buffer).len - 1; indexName >= 0; indexName -= 1, \
 		si_memcopy(&name, (u8*)((buffer).data) + indexName * si_sizeof(name), si_sizeof(name)))
 
-/* TODO */
+/* name - NAME | buffer - siBufferAny
+ * Loops through the elements of the buffer in reverse, writes the element pointer
+ * to 'name'. */
 #define for_eachRevRefBuf(name, buffer) for_eachRevRefBufEx(name, si__i, buffer)
-/* TODO */
+/* name - NAME | indexName - NAME | buffer - siBufferAny
+ * Loops through the elements of the buffer in reverse with the option to specify
+ * the index, writes the element to 'name'. */
 #define for_eachRevRefBufEx(name, indexName, buffer) \
 	SI_ASSERT_NOT_NIL(buffer.data); \
 	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
@@ -2045,15 +2049,21 @@ typedef struct siString {
 } siString;
 
 
-/* TODO */
-#define for_eachStr(charName, str) for_eachStrEx(charName, si__i, str)
-/* TODO */
-#define for_eachStrEx(charName, indexName, str) __for_eachStrImpl1(charName, indexName, str, __LINE__)
+/* rune - NAME | str - siString
+ * Loops through the runes of the string, writes the rune to 'name'. */
+#define for_eachStr(rune, str) for_eachStrEx(rune, si__i, str)
+/* name - NAME | indexName - NAME | str - siString
+ * Loops through the runes of the string with the option to specify the index,
+ * writes the element to 'name'. */
+#define for_eachStrEx(rune, indexName, str) __for_eachStrImpl1(rune, indexName, str, __LINE__)
 
-/* TODO */
-#define for_eachRevStr(charName, str) for_eachRevStrEx(charName, si__i, str)
-/* TODO */
-#define for_eachRevStrEx(charName, indexName, str) __for_eachRevStrImpl1(charName, indexName, str, __LINE__)
+/* rune - NAME | str - siString
+ * Loops through the runes of the string in reverse, writes the rune to 'name'. */
+#define for_eachRevStr(rune, str) for_eachRevStrEx(rune, si__i, str)
+/* name - NAME | indexName - NAME | str - siString
+ * Loops through the runes of the string in reverse with the option to specify
+ * the index, writes the rune to 'name'. */
+#define for_eachRevStrEx(rune, indexName, str) __for_eachRevStrImpl1(rune, indexName, str, __LINE__)
 
 
 /* str - cstring
@@ -2415,20 +2425,16 @@ typedef struct siCallerLoc {
 	i32 line;
 } siCallerLoc;
 
-/* TODO */
+/* Creates a 'siCallerLoc' structure from the current filename, line and function. */
 #define SI_CALLER_LOC (siCallerLoc){SI_STR(__FILE__), SI_STR(__func__), __LINE__}
 
 
-/* A struct containing information about an error that was declared in a function. */
 typedef struct siError {
-	/* Error code. */
 	i32 code;
 
 #ifndef SI_NO_ERROR_STRUCT
-	/* The location where the error was declared. */
 	siCallerLoc location;
-	/* The time when the error was declared (in UTC+0). */
-	i64 time;
+	i64 time; /* The time is in UTC+0. */
 #endif
 } siError;
 
@@ -2932,18 +2938,18 @@ SIDEF u32 si_swap32le(u32 x);
 SIDEF u64 si_swap64le(u64 x);
 
 
-/* Returns the length of a base 10 unsigned number. */
-SIDEF isize si_numLen(u64 num);
-/* Returns the length of a specified base unsigned number. */
-SIDEF isize si_numLenEx(u64 num, i32 base);
-/* Returns the length of a base 10 signed number. */
+/* Returns the length of a number. */
 SIDEF isize si_numLenInt(i64 num);
-/* Returns the length of a specified base signed number. */
+/* Returns the length of a specified base number. */
 SIDEF isize si_numLenIntEx(i64 num, i32 base);
+/* Returns the length of an unsigned number. */
+SIDEF isize si_numLenUint(u64 num);
+/* Returns the length of a specified base unsigned number. */
+SIDEF isize si_numLenUintEx(u64 num, i32 base);
 
-/* TODO */
+/* Returns the length of a float. */
 SIDEF isize si_numLenFloat(f64 num);
-/* TODO */
+/* Returns the length of a specified-base and afterPoint float. */
 SIDEF isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint);
 
 /* type - TYPE | a - TYPE | b - TYPE | res - TYPE*
@@ -3000,6 +3006,12 @@ typedef struct {
 	i32 nanoseconds;
 } siTimeCalendar;
 
+typedef struct { 
+	/* This takes nanoseconds. For example, this field is 1e+9 for seconds. */
+	u64 threshold; 
+	siString str; 
+} siTimeUnit;
+
 
 /* An array of full month names. Used for 'si_timeToString'.  */
 extern siString* SI_NAMES_MONTHS_FULL;
@@ -3036,13 +3048,14 @@ SIDEF u64 si_RDTSCP(i32* proc);
 /* Returns the current clock (in nanoseconds). */
 SIDEF u64 si_clock(void);
 
-/* Starts a timestamp locally. */
+/* Starts a timestamp locally. NOT THREAD-SAFE. */
 SIDEF void si_timeStampStart(void);
-/* Prints the time since the start. */
-SIDEF void si_timeStampPrintSince(void);
-/* TODO */
+/* Starts a timestamp. */
 SIDEF u64 si_timeStampStartEx(void);
-/* TODO */
+
+/* Prints the time since the start. NOT THREAD-SAFE. */
+SIDEF void si_timeStampPrintSince(void);
+/* Prints the time since the start. */
 SIDEF void si_timeStampPrintSinceEx(u64 t);
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
@@ -3071,6 +3084,10 @@ SIDEF siTimeCalendar si_timeToCalendar(i64 time);
  * - 's'/'ss' - seconds without/with padding, 'n'/'nn' - nanoseconds without/with padding.
  * - 'AP/ap' - uppercased/lowercased am/pm display. */
 SIDEF siString si_timeToString(siTimeCalendar calendar, siString fmt, siBuffer(u8) out);
+
+/* Takes nanoseconds and returns the appriopraite time unit for it. An input of 
+ * '2.5+e9' nanoseconds would return (siTimeUnit){1+e9, SI_STR("s")}.  */
+SIDEF siTimeUnit si_timeGetUnit(u64 ns);
 
 #endif /* SI_NO_TIME */
 
@@ -3147,11 +3164,10 @@ SIDEF siString si_bprintfVa(siBuffer(u8) out, siString fmt, va_list va);
 SIDEF siString si_bprintfLn(siBuffer(u8) out, siString fmt, ...);
 SIDEF siString si_bprintfLnVa(siBuffer(u8) out, siString fmt, va_list va);
 
-
-/* TODO */
+/* Helper function to print each byte of a pointer in hexdecimal format. */
 SIDEF void si_printMemory(const rawptr ptr, isize amount);
-/* TODO */
-SIDEF void si_printMemoryEx(const rawptr ptr, isize amount, i32 base, i32 indent);
+/* Helper function to print each byte of a pointer in a specified format and indent. */
+SIDEF void si_printMemoryEx(const rawptr ptr, isize amount, i32 base, i32 stride);
 
 
 /* Terminates the program immediately with a string message. 'strMessage' is ignored if its length is zero.
@@ -3412,8 +3428,6 @@ SIDEF i32 si_float64IsInf(f64 num);
 		si_benchmarkLoopsAvgCmpPrint((cstring[]){#function1, #function2}, arrays, len1, (usize[]){start, end}); \
 	} while(0)
 
-typedef struct { u64 duration; cstring unit; } siBenchmarkLimit;
-
 #define SI_PERFORMANCE_MSG \
 	"====== BENCHMARK DATA ======\n" \
 	"General:\n" \
@@ -3515,11 +3529,14 @@ SI_ENUM(i32, siUnixDE) {
 };
 
 
-/* TODO */
+/* Declares a system error in the function. */
 #define SI_ERROR_SYS() SI_ERROR_SYS_EX(si_systemGetError())
-/* TODO */
+/* code - i32
+ * Declares a specific system error in the function. */
 #define SI_ERROR_SYS_EX(code) SI_ERROR_EX(code, si_systemErrorLog, nil);
-/* TODO */
+/* condition - b32 | action - ANYTHING
+ * If condition evaluates to true, a system error is declared in the function and
+ * executes the specified actions. */
 #define SI_ERROR_SYS_CHECK(condition, .../*action*/) \
 	SI_ERROR_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, __VA_ARGS__)
 /* TODO */
@@ -4261,10 +4278,6 @@ SI_CHECK_ARITHMETIC_DEC_ALL(Mul, SIDEF, ;)
 #endif
 
 #ifndef SI_NO_BENCHMARK
-extern const siBenchmarkLimit siBenchLimit[];
-
-const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time);
-
 SIDEF void si_benchmarkLoopsAvgPrint(cstring name, u64 cycles[20], isize len, usize range[2]);
 SIDEF void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 cycles[2][20], isize len, usize range[2]);
 SIDEF void* si__benchmarkThread(void* arg);
@@ -5598,7 +5611,7 @@ b32 si_builderWriteUInt(siBuilder* b, u64 num) {
 }
 SIDEF
 b32 si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base) {
-	isize numLen = si_numLenEx(num, base);
+	isize numLen = si_numLenUintEx(num, base);
 	b32 allocated = si_builderMakeSpaceFor(b, numLen);
 
 	si_stringFromUIntEx(num, base, SI_BUF_LEN(&b->data, b->len));
@@ -6125,7 +6138,7 @@ siString si_stringFromUIntEx(u64 num, i32 base, siBuffer(u8) out) {
 	SI_ASSERT_BUF(out);
 	SI_ASSERT_NOT_NEG(base);
 
-	isize len = si_min(isize, si_numLenEx(num, base), out.len);
+	isize len = si_min(isize, si_numLenUintEx(num, base), out.len);
 	u8* res = (u8*)out.data;
 
 	/* NOTE(EimaMei): We build the string from the back (not the front) so that
@@ -7748,7 +7761,47 @@ inline u64 si_swap64le(u64 x) { return si_swap64(x); }
 
 
 SIDEF
-isize si_numLen(u64 num) {
+isize si_numLenInt(i64 num) {
+	isize len;
+	if (num < 0) {
+		num = -num;
+		len = 1;
+	}
+	else {
+		len = 0;
+	}
+
+	if (num < 10) return 1 + len;
+	if (num < 100) return 2 + len;
+	if (num < 1000) return 3 + len;
+	if (num < 10000) return 4 + len;
+	if (num < 100000) return 5 + len;
+	if (num < 1000000) return 6 + len;
+	if (num < 10000000) return 7 + len;
+	if (num < 100000000) return 8 + len;
+	if (num < 1000000000) return 9 + len;
+	if (num < 10000000000) return 10 + len;
+	if (num < 100000000000) return 11 + len;
+	if (num < 1000000000000) return 12 + len;
+	if (num < 10000000000000) return 13 + len;
+	if (num < 100000000000000) return 14 + len;
+	if (num < 1000000000000000) return 15 + len;
+	if (num < 10000000000000000) return 16 + len;
+	if (num < 100000000000000000) return 17 + len;
+	if (num < 1000000000000000000) return 18 + len;
+	return 19 + len;
+}
+inline
+isize si_numLenIntEx(i64 num, i32 base) {
+	if (num < 0) {
+		num = -num;
+		return 1 + si_numLenUintEx((u64)num, base);
+	}
+	return si_numLenUintEx((u64)num, base);
+}
+
+SIDEF
+isize si_numLenUint(u64 num) {
 	if (num < 10) return 1;
 	if (num < 100) return 2;
 	if (num < 1000) return 3;
@@ -7772,7 +7825,7 @@ isize si_numLen(u64 num) {
 }
 
 inline
-isize si_numLenEx(u64 num, i32 base) {
+isize si_numLenUintEx(u64 num, i32 base) {
 	SI_ASSERT_NOT_NEG(base);
 
 	isize count = 0;
@@ -7782,20 +7835,6 @@ isize si_numLenEx(u64 num, i32 base) {
 	} while (num != 0);
 
 	return count;
-}
-
-inline
-isize si_numLenInt(i64 num) {
-	return si_numLenIntEx(num, 10);
-}
-
-inline
-isize si_numLenIntEx(i64 num, i32 base) {
-	if (num < 0) {
-		num = -num;
-		return 1 + si_numLenEx((u64)num, base);
-	}
-	return si_numLenEx((u64)num, base);
 }
 
 
@@ -8147,10 +8186,10 @@ void si_timeStampPrintSinceEx(u64 ts) {
 	u64 end = si_RDTSC();
 	u64 diff = (end - ts) / (u32)si_cpuClockSpeed() * 1000;
 
-	const siBenchmarkLimit* time = si_benchmarkLimitLoop(diff);
+	const siTimeUnit unit = si_timeGetUnit(diff);
 	si_printf(
-		"si_timeStampPrintSince: TIME: %.2f %s\n",
-		(f32)diff / (f32)time->duration, time->unit
+		"si_timeStampPrintSince: TIME: %.2f %2S\n",
+		(f32)diff / (f32)unit.threshold, unit.str
 	);
 }
 
@@ -8462,6 +8501,28 @@ AM_code:
 	}
 
 	return SI_STR_LEN(out.data, len);
+}
+
+SIDEF 
+siTimeUnit si_timeGetUnit(u64 ns) {
+	const static siTimeUnit arr[] = {
+		{(u64)0001, SI_STR("ns")},
+		{(u64)1000, SI_STR("μs")},
+		{(u64)1000 * 1000, SI_STR("ms")},
+		{(u64)1000 * 1000 * 1000, SI_STR("s")},
+		{(u64)1000 * 1000 * 1000 * 60, SI_STR("min")},
+		{(u64)1000 * 1000 * 1000 * 60 * 60, SI_STR("h")},
+		{(u64)1000 * 1000 * 1000 * 60 * 60 * 24, SI_STR("d")}
+	};
+
+	for_range (i, 1, countof(arr)) {
+		u64 converted = ns / arr[i].threshold;
+		if (converted == 0) {
+			return arr[i - 1];
+		}
+	}
+
+	return arr[countof(arr) - 1];
 }
 
 #endif /* SI_IMPLEMENTATION_TIME */
@@ -9181,7 +9242,7 @@ void si_printMemory(const rawptr ptr, isize amount) {
 }
 
 SIDEF
-void si_printMemoryEx(const rawptr ptr, isize amount, i32 base, i32 indent) {
+void si_printMemoryEx(const rawptr ptr, isize amount, i32 base, i32 stride) {
 	SI_ASSERT_NOT_NIL(ptr);
 	SI_ASSERT_NOT_NEG(amount);
 
@@ -9193,7 +9254,7 @@ void si_printMemoryEx(const rawptr ptr, isize amount, i32 base, i32 indent) {
 
 	const u8* buf = ptr;
 	for_range (i, 0, amount) {
-		si_printfStr(fmt, buf[i], ((i + 1) % indent == 0) ? '\n' : ' ');
+		si_printfStr(fmt, buf[i], ((i + 1) % stride == 0) ? '\n' : ' ');
 	}
 	si_print("\n");
 }
@@ -9357,21 +9418,20 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 		name
 	);
 
-	const siBenchmarkLimit* element = nil;
 	f64 freq = (f64)si_cpuClockSpeed() / 1000.0;
-	isize padRuns = si_numLen(range[1]);
+	isize padRuns = si_numLenUint(range[1]);
 
 	usize arrayI = 0, runs;
 	for (runs = range[0]; runs <= range[1]; runs *= 10) {
 		u64 cycles = array[arrayI];
 		f64 time = (f64)cycles / freq;
 
-		element = si_benchmarkLimitLoop((u64)time);
-		time /= (f64)element->duration;
+		siTimeUnit unit = si_timeGetUnit((u64)time);
+		time /= (f64)unit.threshold;
 		si_printf(
-			"\t%*zu %s - %C%9.4f%C %s (%lu cycles)\n",
+			"\t%*zu %s - %C%9.4f%C %2S (%lu cycles)\n",
 			padRuns, runs, (runs != 1) ? "runs" : "run ",
-			si_printColor3bit(siPrintColor3bit_Green), time, element->unit, cycles
+			si_printColor3bit(siPrintColor3bit_Green), time, unit.str, cycles
 		);
 
 		arrayI += 1;
@@ -9385,16 +9445,16 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 	f64 cyclesMedian = (f64)cyclesTotal / (f64)len;
 	f64 time = cyclesMedian / freq;
 
-	element = si_benchmarkLimitLoop((u64)time);
-	time /= (f64)element->duration;
+	siTimeUnit unit = si_timeGetUnit((u64)time);
+	time /= (f64)unit.threshold;
 
-	isize padCycles = si_numLen((u64)cyclesMedian);
+	isize padCycles = si_numLenUint((u64)cyclesMedian);
 	si_printf(
 		"Final result:\n"
-			"\tTime average   - %C%*.4f%C %s\n"
+			"\tTime average   - %C%*.4f%C %2S\n"
 			"\tCycles average - %*lu cycles\n",
 		si_printColor3bit(siPrintColor3bit_Green),
-		padCycles, time, element->unit, padCycles, (u64)cyclesMedian
+		padCycles, time, unit.str, padCycles, (u64)cyclesMedian
 	);
 }
 
@@ -9409,12 +9469,12 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 		"Runs:\n",
 		names[0], names[1]
 	);
-	const siBenchmarkLimit* elements[2];
+	siTimeUnit units[2];
 	f64 freq = (f64)si_cpuClockSpeed() / 1000.0;
 
-	isize padRuns = si_numLen(range[1]);
+	isize padRuns = si_numLenUint(range[1]);
 	isize padCycles[2] = {
-		si_numLen(arrays[0][len - 1]), si_numLen(arrays[1][len - 1])
+		si_numLenUint(arrays[0][len - 1]), si_numLenUint(arrays[1][len - 1])
 	};
 
 	usize arrayI = 0, runs;
@@ -9439,15 +9499,15 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 			clr[0] = clr[1] = si_printColor3bit(siPrintColor3bit_Yellow);
 		}
 
-		for_range (j, 0, countof(elements)) {
-			elements[j] = si_benchmarkLimitLoop((u64)time[j]);
-			time[j] /= (f64)elements[j]->duration;
+		for_range (j, 0, countof(units)) {
+			units[j] = si_timeGetUnit((u64)time[j]);
+			time[j] /= (f64)units[j].threshold;
 		}
 
 		si_printf(
-			"\t%*zu %s - %C%9.4f%C %s vs %C%9.4f%C %s (%4.4f ratio, %*lu vs %*lu cycles)\n",
+			"\t%*zu %s - %C%9.4f%C %2S vs %C%9.4f%C %2S (%4.4f ratio, %*lu vs %*lu cycles)\n",
 			padRuns, runs, (runs != 1) ? "runs" : "run ",
-			clr[0], time[0], elements[0]->unit, clr[1], time[1], elements[1]->unit,
+			clr[0], time[0], units[0].str, clr[1], time[1], units[1].str,
 			ratio, padCycles[0], cycles[0], padCycles[1], cycles[1]
 		);
 
@@ -9468,7 +9528,7 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 	f64 time[] = {cyclesMedian[0] / freq, cyclesMedian[1] / freq};
 
 	for_range (i, 0, countof(padCycles)) {
-		padCycles[i] = si_numLen((u64)cyclesMedian[i]);
+		padCycles[i] = si_numLenUint((u64)cyclesMedian[i]);
 	}
 
 	f64 ratio;
@@ -9488,17 +9548,17 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 		clr[0] = clr[1] = si_printColor3bit(siPrintColor3bit_Yellow);
 	}
 
-	for_range (j, 0, countof(elements)) {
-		elements[j] = si_benchmarkLimitLoop((u64)time[j]);
-		time[j] /= (f64)elements[j]->duration;
+	for_range (j, 0, countof(units)) {
+		units[j] = si_timeGetUnit((u64)time[j]);
+		time[j] /= (f64)units[j].threshold;
 	}
 
 	si_printf(
 		"Final result:\n"
 			"\tTime average   - %C%*.4f%C %s vs %C%*.4f%C %s (%4.4f ratio)\n"
 			"\tCycles average - %*lu cycles vs %*lu cycles\n",
-		clr[0], padCycles[0], time[0], elements[0]->unit,
-		clr[1], padCycles[1], time[1], elements[1]->unit,
+		clr[0], padCycles[0], time[0], units[0].str,
+		clr[1], padCycles[1], time[1], units[1].str,
 		ratio,
 		padCycles[0], (u64)cyclesMedian[0], padCycles[1], (u64)cyclesMedian[1]
 	);
@@ -9509,30 +9569,6 @@ void* si__benchmarkThread(void* arg) {
 	return nil;
 }
 
-const siBenchmarkLimit siBenchLimit[] = {
-	{(u64)0001, "ns"},
-	{(u64)1000, "μs"},
-	{(u64)1000 * 1000, "ms"},
-	{(u64)1000 * 1000 * 1000, " s"},
-	{(u64)1000 * 1000 * 1000 * 60, "min"},
-	{(u64)1000 * 1000 * 1000 * 60 * 60, " h"},
-	{(u64)1000 * 1000 * 1000 * 60 * 60 * 24, " d"},
-	{0, nil}
-};
-
-const siBenchmarkLimit* si_benchmarkLimitLoop(u64 time) {
-	const siBenchmarkLimit* element = siBenchLimit;
-	const siBenchmarkLimit* end = &siBenchLimit[countof(siBenchLimit)];
-
-	while (element != end) {
-		if (si_between(u64, time, element->duration, (element + 1)->duration)) {
-			break;
-		}
-		element += 1;
-	}
-
-	return element;
-}
 
 #endif /* SI_IMPLEMENTATION_BENCHMARK */
 
