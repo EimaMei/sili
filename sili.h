@@ -3006,10 +3006,10 @@ typedef struct {
 	i32 nanoseconds;
 } siTimeCalendar;
 
-typedef struct { 
+typedef struct {
 	/* This takes nanoseconds. For example, this field is 1e+9 for seconds. */
-	u64 threshold; 
-	siString str; 
+	u64 threshold;
+	siString str;
 } siTimeUnit;
 
 
@@ -3085,7 +3085,7 @@ SIDEF siTimeCalendar si_timeToCalendar(i64 time);
  * - 'AP/ap' - uppercased/lowercased am/pm display. */
 SIDEF siString si_timeToString(siTimeCalendar calendar, siString fmt, siBuffer(u8) out);
 
-/* Takes nanoseconds and returns the appriopraite time unit for it. An input of 
+/* Takes nanoseconds and returns the appriopraite time unit for it. An input of
  * '2.5+e9' nanoseconds would return (siTimeUnit){1+e9, SI_STR("s")}.  */
 SIDEF siTimeUnit si_timeGetUnit(u64 ns);
 
@@ -5434,7 +5434,6 @@ isize si_memmove_s(siBufferAny dst, const void* src, isize sizeSrc) {
 
 inline
 siUtf32Char si__stringLastRune(siString str) {
-	SI_ASSERT_STR(str);
 	SI_ASSERT_MSG(str.len == 0, "This function doesn't check for if the length is zero. Fix your function.");
 
 	isize i;
@@ -5599,7 +5598,7 @@ b32 si_builderWriteIntEx(siBuilder* b, i64 num, i32 base) {
 	isize numLen = si_numLenIntEx(num, base);
 	b32 allocated = si_builderMakeSpaceFor(b, numLen);
 
-	si_stringFromIntEx(num, base, SI_BUF_LEN(&b->data, b->len));
+	si_stringFromIntEx(num, base, SI_BUF_LEN(&b->data[b->len], numLen));
 	b->len += numLen;
 
 	return allocated;
@@ -5614,7 +5613,7 @@ b32 si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base) {
 	isize numLen = si_numLenUintEx(num, base);
 	b32 allocated = si_builderMakeSpaceFor(b, numLen);
 
-	si_stringFromUIntEx(num, base, SI_BUF_LEN(&b->data, b->len));
+	si_stringFromUIntEx(num, base, SI_BUF_LEN(&b->data[b->len], numLen));
 	b->len += numLen;
 
 	return allocated;
@@ -5629,7 +5628,7 @@ b32 si_builderWriteFloatEx(siBuilder* b, f64 num, i32 base, i32 afterPoint) {
 	isize numLen = si_numLenFloatEx(num, base, afterPoint);
 	b32 allocated = si_builderMakeSpaceFor(b, numLen);
 
-	si_stringFromFloatEx(num, base, afterPoint, SI_BUF_LEN(b->data, b->len));
+	si_stringFromFloatEx(num, base, afterPoint, SI_BUF_LEN(&b->data[b->len], numLen));
 	b->len += numLen;
 
 	return allocated;
@@ -6571,7 +6570,9 @@ back:
 				case si_sizeof(u16):  length += si_bprintf(si_sliceEnd(out, length), substr, *(u16*)base).len; break;
 				case si_sizeof(u32):  length += si_bprintf(si_sliceEnd(out, length), substr, *(u32*)base).len; break;
 				case si_sizeof(u64):  length += si_bprintf(si_sliceEnd(out, length), substr, *(u64*)base).len; break;
+				#if SI_ARCH_IS_64BIT
 				case si_sizeof(siString): length += si_bprintf(si_sliceEnd(out, length), substr, *(siString*)base).len; break;
+				#endif
 				case si_sizeof(siCallerLoc): length += si_bprintf(si_sliceEnd(out, length), substr, *(siCallerLoc*)base).len; break;
 				default: SI_PANIC();
 			}
@@ -8503,16 +8504,16 @@ AM_code:
 	return SI_STR_LEN(out.data, len);
 }
 
-SIDEF 
+SIDEF
 siTimeUnit si_timeGetUnit(u64 ns) {
 	const static siTimeUnit arr[] = {
-		{(u64)0001, SI_STR("ns")},
-		{(u64)1000, SI_STR("μs")},
-		{(u64)1000 * 1000, SI_STR("ms")},
-		{(u64)1000 * 1000 * 1000, SI_STR("s")},
-		{(u64)1000 * 1000 * 1000 * 60, SI_STR("min")},
-		{(u64)1000 * 1000 * 1000 * 60 * 60, SI_STR("h")},
-		{(u64)1000 * 1000 * 1000 * 60 * 60 * 24, SI_STR("d")}
+		{(u64)0001, SI_STRC("ns")},
+		{(u64)1000, SI_STRC("μs")},
+		{(u64)1000 * 1000, SI_STRC("ms")},
+		{(u64)1000 * 1000 * 1000, SI_STRC("s")},
+		{(u64)1000 * 1000 * 1000 * 60, SI_STRC("min")},
+		{(u64)1000 * 1000 * 1000 * 60 * 60, SI_STRC("h")},
+		{(u64)1000 * 1000 * 1000 * 60 * 60 * 24, SI_STRC("d")}
 	};
 
 	for_range (i, 1, countof(arr)) {

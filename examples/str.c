@@ -55,7 +55,6 @@ void example1(siAllocator alloc) {
 		i32 front = si_stringAtFront(str);
 		i32 back = si_stringAtBack(str);
 		si_printfLn("\tfront: '%lc', back: '%lc'", front, back);
-
 	}
 
 	si_printfLn("Scope 3:");
