@@ -2851,11 +2851,6 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
 	========================
 */
 
-SI_ENUM(usize, siBitType) {
-	SI_BIT_ZERO,
-	SI_BIT_ONE
-};
-
 
 /* variable - VARIABLE | flag - UINT | condition - EXPRESSION
  * TODO */
@@ -2872,34 +2867,26 @@ SI_ENUM(usize, siBitType) {
 	#define SI_ENDIAN_VALUE(little, big) end
 #endif
 
-/* Returns how many 1 bits are in an 8-bit number. */
-i32 si_numCountBitsU8(u8 num);
-/* Returns how many 1 bits are in a 32-bit number. */
-i32 si_numCountBitsU32(u32 num);
-/* Returns how many 1 bits are in a 64-bit number. */
-i32 si_numCountBitsU64(u64 num);
+/* x - INT/UINT
+ * Returns the number of set bits. */
+#define si_countOnes(type, x) SI_BIT_FUNC(type, countOnes, x)
+/* x - INT/UINT
+ * Returns the number of unset bits. */
+#define si_countZeros(type, x) ((si_sizeof(type) * 8) - SI_BIT_FUNC(type, countOnes, x))
 
-#if SI_STANDARD_CHECK_MIN(C, C11)
-	#define si_numCountBits(num) \
-		_Generic((num), \
-			u8  : si_numCountBitsU8(num), \
-			u16 : si_numCountBitsU32(num), \
-			u32 : si_numCountBitsU32(num), \
-			u64 : si_numCountBitsU64(num), \
-			default: si_numCountBitsU64(num) \
-		)(X)
-#endif
+/* type - TYPE | x - INT/UINT
+ * Returns the number of leading set bits until an unset bit or the end is reached. */
+#define si_countLeadingOnes(type, x) SI_BIT_FUNC(type, countLeadingOnes, x)
+/* type - TYPE | x - INT/UINT
+ * Returns the number of leading unset bits until a set bit or the end is reached. */
+#define si_countLeadingZeros(type, x) SI_BIT_FUNC(type, countLeadingZeros, x)
 
-/* type - TYPE | num - UINT
- * Returns the amount of leading zeros in a number. */
-#define si_numLeadingZeros(type, num) si_numLeadingZerosEx(num, si_sizeof(type) * 8)
-/* type - TYPE | num - UINT
- * Returns the amount of leading ones in a number. */
-#define si_numLeadingOnes(type, num) si_numLeadingOnesEx(num, si_sizeof(type) * 8)
+/* TODO */
+#define si_countTrailingOnes(type, x) SI_BIT_FUNC(type, countTrailingOnes, x)
+/* TODO */
+#define si_countTrailingZeros(type, x) SI_BIT_FUNC(type, countTrailingZeros, x)
 
-/* type - TYPE | num - UINT | bitType - siBitType
- * Returns the amount of trailing bits of the specified bit type (0 or 1). */
-#define si_numTrailingBit(type, num, bitType) (type)si_numTrailingBitEx(num, si_sizeof(type) * 8, bitType)
+
 /* type - TYPE | num - UINT | bits - usize
  * Rotates the bits of the number left by 'bits' amount. */
 #define si_numRotateLeft(type, num, bits) (type)si_numRotateLeftEx(num, si_sizeof(type) * 8, bits)
@@ -2964,6 +2951,21 @@ SIDEF isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint);
  * Returns true if the multiplication of two integers resulted in an overflow.
  * The mulitplication result is written to the given pointer. */
 #define si_checkMul(type, a, b, res) SI_CHECK_ARITHMETIC_FUNC(type, Mul, a, b, res)
+
+#if 1
+
+#define SI_BIT_FUNC(type, name, x) si__impl_##name((u64)(x), si_sizeof(x) * 8)
+
+#define SI_BIT_PROC(name) \
+	i32 si__impl_##name(u64 x, i32 bits)
+
+SIDEF SI_BIT_PROC(countOnes);
+SIDEF SI_BIT_PROC(countLeadingOnes);
+SIDEF SI_BIT_PROC(countLeadingZeros);
+SIDEF SI_BIT_PROC(countTrailingOnes);
+SIDEF SI_BIT_PROC(countTrailingZeros);
+
+#endif
 
 #endif /* SI_NO_BIT */
 
@@ -3539,13 +3541,17 @@ SI_ENUM(i32, siUnixDE) {
  * executes the specified actions. */
 #define SI_ERROR_SYS_CHECK(condition, .../*action*/) \
 	SI_ERROR_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, __VA_ARGS__)
-/* TODO */
+/* condition - b32
+ * If condition evaluates to true, a system error is declared in the function and
+ * then gets returned. */
 #define SI_ERROR_SYS_CHECK_RET(condition) SI_ERROR_CHECK_EX_RET(condition, si_systemGetError(), si_systemErrorLog, nil)
-/* TODO */
+/* condition - b32 | type - TYPE
+ * If condition evaluates to true, an optional system error is declared in the
+ * function and then gets returned. */
 #define SI_OPTION_SYS_CHECK(condition, type) SI_OPTION_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, type)
 
 
-/* TODO */
+/* Returns the most recent system error. */
 SIDEF siErrorSystem si_systemGetError(void);
 
 /* Returns the name of a system error. */
@@ -3583,7 +3589,7 @@ SIDEF b32 si_unixIsX11(void);
  * desktop environment isn't recognized by Sili, 0 is returned. */
 SIDEF siUnixDE si_unixGetDE(void);
 
-/* TODO */
+/* Default error procedure when a system error is declared. */
 SIDEF SI_ERROR_PROC(si_systemErrorLog);
 
 #endif /* SI_NO_SYSTEM */
@@ -3616,12 +3622,13 @@ typedef struct siVirtualMemory {
 
 si_optional_define(siVirtualMemory);
 
-/* TODO */
+/* Requests memory from the OS, where the new mapping is specified in the given
+ * pointer. If the pointer is nil, the OS choices a page-aligned mapping itself. */
 SIDEF siResult(siVirtualMemory) si_vmAlloc(void* address, isize size);
-/* TODO */
+/* Discards the page by marking it as "not in use" for later use. */
+SIDEF siError si_vmDiscard(siVirtualMemory vm);
+/* Frees the allocated memory by the OS. */
 SIDEF siError si_vmFree(siVirtualMemory vm);
-/* TODO */
-SIDEF siError si_vmPurge(siVirtualMemory vm);
 
 
 #endif /* SI_NO_VIRTUAL_MEMORY */
@@ -3748,9 +3755,9 @@ SIDEF b32 si_pathIsAbsolute(siString path);
 /* Checks if the specified path is relative. */
 SIDEF b32 si_pathIsRelative(siString path);
 
-/* TODO */
+/* Converts a string into an OS string path. Returns the length. */
 SIDEF isize si_pathToOS(siString path, siOsChar* out, isize capacity);
-/* TODO */
+/* Converts two strings into OS string paths. Returns the strings and lengths. */
 SIDEF siOsString_2x si_pathToOSMul(siString first, siString second, siOsChar* out,
 		isize capacity);
 
@@ -3804,15 +3811,15 @@ SIDEF siError si_fileReadContentsBuf(siFile file, siBuffer(u8)* out);
 SIDEF siBuffer(siString) si_fileReadlines(siFile file, siAllocator alloc);
 
 
-/* TODO */
+/* Writes a buffer into the file at the current offset. Returns the written bytes. */
 SIDEF isize si_fileWrite(siFile* file, siBuffer(u8) data);
-/* TODO */
+/* Writes a buffer into the file at the specified offset. Returns the written bytes. */
 SIDEF isize si_fileWriteAt(siFile* file, siBuffer(u8) data, isize offset);
-/* TODO */
+/* Writes a byte into the file. Return the written bytes. */
 SIDEF isize si_fileWriteByte(siFile* file, u8 byte);
-/* TODO */
+/* Writes a pointer into the file. Returns the written bytes. */
 SIDEF isize si_fileWritePtr(siFile* file, const void* ptr, isize len);
-/* TODO */
+/* Writes a string into the file. Returns the written bytes. */
 SIDEF isize si_fileWriteStr(siFile* file, siString str);
 
 
@@ -4180,10 +4187,6 @@ SIDEF isize si__forEachRevStr(const u8* data, siRune* rune, siUtf32Char* tmp, is
 #endif
 
 #ifndef SI_NO_BIT
-
-SIDEF u32 si_numLeadingZerosEx(u64 num, u32 totalBits);
-SIDEF u32 si_numLeadingOnesEx(u64 num, u32 totalBits);
-SIDEF u32 si_numTrailingBitEx(u64 num, usize totalBits, siBitType bit);
 
 u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
 u64 si_numRotateRightEx(u64 num, usize num_sizeof, usize n);
@@ -5434,7 +5437,7 @@ isize si_memmove_s(siBufferAny dst, const void* src, isize sizeSrc) {
 
 inline
 siUtf32Char si__stringLastRune(siString str) {
-	SI_ASSERT_MSG(str.len == 0, "This function doesn't check for if the length is zero. Fix your function.");
+	SI_ASSERT_MSG(str.len > 0, "This function doesn't check for if the length is zero. Fix your function.");
 
 	isize i;
 	for (i = str.len - 1; i >= 0; i -= 1) {
@@ -7567,97 +7570,108 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valuePtr,
 
 #ifdef SI_IMPLEMENTATION_BIT
 
-SIDEF
-i32 si_numCountBitsU8(u8 num) {
-	return (i32)(((u64)num * 01001001001L & 042104210421) % 017);
+#if 1 /* si_countOnes */
+
+i32 si__countOnes_u8(u8 x);
+i32 si__countOnes_u32(u32 x);
+i32 si__countOnes_u64(u64 x);
+
+i32 si__countOnes_u8(u8 x) {
+	return (i32)(((u64)x * 01001001001L & 042104210421) % 017);
 }
 
-
-SIDEF
-i32 si_numCountBitsU32(u32 num) {
-	 num -= ((num >> 1) & 0x55555555);
-	 num = (num & 0x33333333) + ((num >> 2) & 0x33333333);
-	 num = (num + (num >> 4)) & 0x0F0F0F0F;
-	 return (i32)((num * 0x01010101) >> 24);
+i32 si__countOnes_u32(u32 x) {
+	 x -= ((x >> 1) & 0x55555555);
+	 x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+	 x = (x + (x >> 4)) & 0x0F0F0F0F;
+	 return (i32)((x * 0x01010101) >> 24);
 }
 
-
-SIDEF
-i32 si_numCountBitsU64(u64 num) {
-	num = num - ((num >> 1) & 0x5555555555555555);
-	num = (num & 0x3333333333333333) + ((num >> 2) & 0x3333333333333333);
-	num = (num + (num >> 4)) & 0xF0F0F0F0F0F0F0F;
-	return (i32)((num * 0x101010101010101) >> 56);
-}
-
-SIDEF
-u32 si_numLeadingZerosEx(u64 num, u32 totalBits) {
-	SI_STOPIF(totalBits >= 64, totalBits = 63);
-	u32 count = 0;
-
-	u64 i;
-	for (i = SI_BIT(totalBits); i != 0; i >>= 1) {
-		if ((num & i) == 0) {
-			count += 1;
-		}
-		else {
-			return count;
-		}
-	}
-
-	return count;
-}
-
-SIDEF
-u32 si_numLeadingOnesEx(u64 num, u32 totalBits) {
-	SI_STOPIF(totalBits >= 64, totalBits = 63);
-	u32 count = 0;
-
-	u64 i;
-	for (i = SI_BIT(totalBits); i != 0; i >>= 1) {
-		if ((num & i) != 0) {
-			count += 1;
-		}
-		else {
-			return count;
-		}
-	}
-
-	return count;
-}
-
-SIDEF
-u32 si_numTrailingBitEx(u64 num, usize totalBits, siBitType bit) {
-	u32 count = 0;
-
-	for_rangeEx (u64, i, 0, totalBits) {
-		if ((num & i) == bit) {
-			count += 1;
-		}
-		else {
-			return count;
-		}
-	}
-
-	return count;
+i32 si__countOnes_u64(u64 x) {
+	x = x - ((x >> 1) & 0x5555555555555555);
+	x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
+	x = (x + (x >> 4)) & 0xF0F0F0F0F0F0F0F;
+	return (i32)((x * 0x101010101010101) >> 56);
 }
 
 inline
-u64 si_numRotateLeftEx(u64 num, usize totalBits, usize bits) {
-	return (num << bits) | (num >> (totalBits - bits));
+SI_BIT_PROC(countOnes) {
+	switch (bits) {
+		case 8: return si__countOnes_u8((u8)x);
+		case 16: return si__countOnes_u32((u32)x);
+		case 32: return si__countOnes_u32((u32)x);
+		case 64: return si__countOnes_u64((u64)x);
+	}
+	SI_PANIC();
+}
+
+
+#endif
+
+inline
+SI_BIT_PROC(countLeadingOnes) {
+	bits -= 1;
+	i32 ogBits = bits;
+
+	while (bits >= 0 && x & SI_BIT(bits)) {
+		bits -= 1;
+	}
+
+	return (ogBits - bits);
 }
 
 inline
-u64 si_numRotateRightEx(u64 num, usize totalBits, usize bits) {
-	return (num >> bits) | (num << (totalBits - bits));
+SI_BIT_PROC(countLeadingZeros) {
+	bits -= 1;
+	i32 ogBits = bits;
+
+	while (bits >= 0 && (x & SI_BIT(bits)) == 0) {
+		bits -= 1;
+	}
+
+	return (ogBits - bits);
+}
+
+inline
+SI_BIT_PROC(countTrailingOnes) {
+	i32 ogBits = bits;
+	bits = 0;
+
+	while (bits < ogBits && x & SI_BIT(bits)) {
+		bits += 1;
+	}
+
+	return bits;
+}
+
+inline
+SI_BIT_PROC(countTrailingZeros) {
+	i32 ogBits = bits;
+	bits = 0;
+
+	while (bits < ogBits && (x & SI_BIT(bits)) == 0) {
+		bits += 1;
+	}
+
+	return bits;
+}
+
+inline
+u64 si_numRotateLeftEx(u64 num, usize bits, usize totalbits) {
+	return (num << bits) | (num >> (totalbits - bits));
+}
+
+inline
+u64 si_numRotateRightEx(u64 num, usize bits, usize totalbits) {
+	return (num >> bits) | (num << (totalbits - bits));
 }
 
 
 inline
-u64 si_numReverseBitsEx(u64 num, isize totalBits) {
+u64 si_numReverseBitsEx(u64 num, isize bits) {
 	u64 res = 0;
 
-	for_range (i, 0, totalBits) {
+	for_range (i, 0, bits) {
 		res <<= 1;
 		res |= (num & 1);
 		num >>= 1;
@@ -8506,7 +8520,7 @@ AM_code:
 
 SIDEF
 siTimeUnit si_timeGetUnit(u64 ns) {
-	const static siTimeUnit arr[] = {
+	static const siTimeUnit arr[] = {
 		{(u64)0001, SI_STRC("ns")},
 		{(u64)1000, SI_STRC("μs")},
 		{(u64)1000 * 1000, SI_STRC("ms")},
@@ -9823,7 +9837,7 @@ siString si_envVarGetData(siString name, siBuffer(u8) out) {
 SIDEF
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
-	OSVERSIONINFOEXW info;
+	OSVERSIONINFOEXW info = {0};
 	{
 		siDllHandle ntdll = si_dllLoad("ntdll.dll");
 
@@ -9839,15 +9853,15 @@ siWindowsVersion si_windowsGetVersion(void) {
 	if (info.dwMajorVersion == 10 && info.dwMinorVersion == 0) {
 		return (info.dwBuildNumber >= 22000) ? siWindowsVersion_11 : siWindowsVersion_10;
 	}
-
 	/* Windows 8.1, 8, 7 and Vista. */
-	if (info.dwMajorVersion == 6) {
+	else if (info.dwMajorVersion == 6) {
 		return siWindowsVersion_Vista + (i32)info.dwMinorVersion;
 	}
 
 	return (info.dwMajorVersion == 5 && (info.dwMinorVersion == 1 || info.dwMinorVersion == 2))
 		? siWindowsVersion_XP
 		: 0;
+
 #else
 	return -1;
 #endif
@@ -9954,7 +9968,7 @@ siError si_vmFree(siVirtualMemory vm) {
 }
 
 SIDEF
-siError si_vmPurge(siVirtualMemory vm) {
+siError si_vmDiscard(siVirtualMemory vm) {
 	SI_ASSERT_NOT_NIL(vm.data);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -10646,26 +10660,32 @@ siError si_fileReadUnsafe(siFile file, isize offset, isize len, siBuffer(u8)* ou
 	SI_ASSERT_NOT_NEG(file.handle);
 	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NEG(len);
-	SI_ASSERT_NOT_NIL(out->data);
+	SI_ASSERT_BUF_TYPE(*out, u8);
 
 	si_fileSeek(file, offset, siSeekWhere_Begin);
+	isize bytesRead;
 
 #if SI_SYSTEM_IS_WINDOWS
-	DWORD bytesRead;
-	DWORD toRead = (len <= UINT32_MAX)
-		? (DWORD)len
-		: UINT32_MAX;
-	SI_ASSERT_MSG(len <= UINT32_MAX, "TODO: Fix this.");
 
-	i32 res = ReadFile((HANDLE)file.handle, out->data, toRead, &bytesRead, NULL);
-	SI_ERROR_SYS_CHECK_RET(res == 0)
+	bytesRead = 0;
+	do {
+		DWORD read;
+		i32 res = ReadFile(
+			(HANDLE)file.handle, out->data, (u32)si_min(usize, (usize)len, UINT32_MAX),
+			&read, nil
+		);
+		SI_ERROR_SYS_CHECK_RET(res == 0);
+
+		len -= UINT32_MAX;
+		bytesRead += read;
+	} while (len > UINT32_MAX);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	isize bytesRead = pread((int)file.handle, out->data, (usize)len, offset);
+	bytesRead = pread((int)file.handle, out->data, (usize)len, offset);
 	SI_ERROR_SYS_CHECK_RET(bytesRead == -1)
 
 #else
-	isize bytesRead = 0;
+	bytesRead = 0;
 
 #endif
 
@@ -10713,22 +10733,28 @@ inline
 isize si_fileWriteAt(siFile* file, siBuffer(u8) content, isize offset) {
 	SI_ASSERT_NOT_NIL(file);
 	SI_ASSERT_NOT_NEG(file->handle);
-	SI_ASSERT(content.typeSize == si_sizeof(u8));
+	SI_ASSERT_BUF_TYPE(content, u8);
 
+	isize bytesWritten;
 #if SI_SYSTEM_IS_WINDOWS
 	si_fileSeek(*file, offset, siSeekWhere_Begin);
 
-	/* TODO(EimaMei): Fix this. */
-	DWORD bytesWritten;
-	DWORD length = (content.len < UINT32_MAX)
-		? (DWORD)content.len
-		: UINT32_MAX;
-	i32 res = WriteFile((HANDLE)file->handle, content.data, length, &bytesWritten, nil);
-	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_RES; return -1);
+	bytesWritten = 0;
+	do {
+		DWORD count;
+		i32 res = WriteFile(
+			(HANDLE)file->handle, content.data, (u32)si_min(usize, (usize)content.len, UINT32_MAX),
+			&count, nil
+		);
+		SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_RES; return -1);
+
+		content.len -= UINT32_MAX;
+		bytesWritten += count;
+	} while (content.len > UINT32_MAX);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	isize curOffset = si_fileSeek(*file, 0, siSeekWhere_Current);
-	isize bytesWritten = (curOffset == offset)
+	bytesWritten = (curOffset == offset)
 		? write((int)file->handle, content.data, (usize)content.len)
 		: pwrite((int)file->handle, content.data, (usize)content.len, offset);
 	SI_ERROR_SYS_CHECK(bytesWritten == -1, file->error = SI_ERROR_RES; return -1);
@@ -10738,16 +10764,16 @@ isize si_fileWriteAt(siFile* file, siBuffer(u8) content, isize offset) {
 	iov.buf = content.data;
 	iov.buf_len = (__wasi_size_t)content.len;
 
-	__wasi_size_t written;
-	__wasi_errno_t err = __wasi_fd_write((__wasi_fd_t)file->handle, &iov, 1, &written);
+	__wasi_size_t count;
+	__wasi_errno_t err = __wasi_fd_write((__wasi_fd_t)file->handle, &iov, 1, &count);
 	si__wasmSetLastError(err);
 	SI_ERROR_SYS_CHECK(err != 0, file->error = SI_ERROR_RES; return -1);
 
 
-	isize bytesWritten = (isize)written;
+	bytesWritten = (isize)count;
 
 #else
-	isize bytesWritten = 0;
+	bytesWritten = 0;
 
 #endif
 
@@ -11228,7 +11254,7 @@ i32 si_cpuProcessorCount(void) {
 	for_range (i, 0, (isize)len) {
 		SYSTEM_LOGICAL_PROCESSOR_INFORMATION processor = processors[i];
 		if (processor.Relationship == RelationProcessorCore) {
-			procCount += si_numCountBitsU64(processor.ProcessorMask);
+			procCount += si_countOnes(u64, processor.ProcessorMask);
 		}
 	}
 

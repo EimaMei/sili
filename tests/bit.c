@@ -25,45 +25,71 @@
 	#define test(type, min, max)
 #endif
 
+#define bit__test(func, check, bit) { \
+	u64 tests[] = {UINT64_MAX, SI_BIT(63), 1, 0xAAAAAAA, 0x22041}; \
+	for_range (j, 0, countof(tests)) { \
+		for_range (k, 0, 2) { \
+			u64 test_in = tests[j]; \
+			for_range (i, 0, 65) { \
+				i32 result = func(u64, test_in); \
+				i32 correct = check(test_in, bit); \
+				if (result != correct) { \
+					si_printfLn("%L: %S: %064#lb: result = %i, correct = %i (j = %zi, k = %zi)", SI_CALLER_LOC, SI_STR(#func), test_in, result, correct, j, k); \
+					SI_PANIC(); \
+				} \
+				if (k == 0) { \
+					test_in >>= 1; \
+				} \
+				else { \
+					test_in <<= 1; \
+				} \
+			} \
+		} \
+	} \
+}
+
+
+siIntern
+i32 bits_count(u64 n, u32 bit) {
+    i32 count = 0;
+    for_range (i, 0, 64) {
+        count += (n & 1) == bit;
+        n >>= 1;
+    }
+    return count;
+}
+
+siIntern
+i32 bits_countLeading(u64 n, u32 bit) {
+    i32 count = 0;
+    for (i32 i = 63; i >= 0; i -= 1) {
+        u32 current_bit = (n >> i) & 1;
+        if (current_bit != bit) break;
+        count += 1;
+    }
+    return count;
+}
+
+siIntern
+i32 bits_countTrailing(u64 n, u32 bit) {
+    i32 count = 0;
+	for_range (i, 0, 64) {
+        u32 current_bit = (n & SI_BIT(i)) != 0;
+        if (current_bit != bit) break;
+        count += 1;
+    }
+    return count;
+}
+
+
+#define BIT_TEST(function) \
+	bit__test(si_##function##Ones, bits_##function, 1) \
+	bit__test(si_##function##Zeros, bits_##function, 0)
 
 int main(void) {
-	{
-		u64 value_in  = 1;
-		u32 value_out = 63;
-		b32 check;
-
-		for_range (i, 0, 65) {
-			u32 ans1 = si_numLeadingZeros(u64, value_in),
-				ans2 = si_numLeadingOnes(u64, value_in);
-			check = (value_in & SI_BIT(63)) != 0;
-			si_printf("%064#lb: (%u, %u); (%u, %u)\n", value_in, ans1, value_out, ans2, check);
-			SI_ASSERT(ans1 == value_out);
-			SI_ASSERT(ans2 == check);
-
-			value_in <<= 1;
-			value_out -= 1;
-			if (value_out == UINT32_MAX) { value_out = 64; }
-		}
-		si_print("\n");
-
-		value_in  = UINT64_MAX;
-		value_out = 64;
-		check = 0;
-
-		for_range (i, 0, 65) {
-			u32 ans1 = si_numLeadingOnes(u64, value_in),
-				ans2 = si_numLeadingZeros(u64, value_in);
-			si_printf("%064#lb: (%u, %u); (%u, %u)\n", value_in, ans1, value_out, ans2, check);
-
-			SI_ASSERT(ans1 == value_out);
-			SI_ASSERT(ans2 == check);
-
-			value_in <<= 1;
-			value_out -= 1;
-			if (value_out == 0) { check = 64; }
-		}
-
-	}
+	BIT_TEST(count)
+	BIT_TEST(countLeading)
+	BIT_TEST(countTrailing)
 
 	{
 		test(u8, 0, UINT8_MAX);
