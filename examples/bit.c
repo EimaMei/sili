@@ -86,18 +86,18 @@ int main(void) {
 		 si_countLeadingOnes(u8, leadTrailNum), si_countTrailingZeros(u8, leadTrailNum)
 	);
 
-	u32 rotateAdr = si_numRotateLeft(u32, 0x00001234, 24);
+	u32 rotateAdr = si_bitsRotateLeft(u32, 0x00001234, 24);
 	si_printfLn("Rotating '0x00001234' left by 24 bits: '%#08X'", rotateAdr);
 
-	rotateAdr = si_numRotateRight(u32, rotateAdr, 24);
+	rotateAdr = si_bitsRotateRight(u32, rotateAdr, 24);
 	si_printfLn("Rotating '0x34000012' right by 24 bits: '%#08X'", rotateAdr);
 
-	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_numReverseBits(u32, 0x1234567890123456));
+	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_bitsReverseBits(u32, 0x1234567890123456));
 
-	siBuffer(u8) buffer = si_numToBytes(u32, 0xFF00EEAA, alloc);
+	siBuffer(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
 	si_printfLn("buffer: %S, (len: %zd)", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
 
-	u32 newNum = (u32)si_numFromBytes(buffer);
+	u32 newNum = (u32)si_bytesFromArray(buffer);
 	si_printfLn("Combining them all back, we get '%#X'", newNum);
 
 	adr = si_swap16(adr);

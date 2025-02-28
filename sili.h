@@ -2867,12 +2867,13 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
 	#define SI_ENDIAN_VALUE(little, big) end
 #endif
 
+
 /* x - INT/UINT
  * Returns the number of set bits. */
-#define si_countOnes(type, x) SI_BIT_FUNC(type, countOnes, x)
+#define si_countOnes(type, x) si__countOnes_##type(x)
 /* x - INT/UINT
  * Returns the number of unset bits. */
-#define si_countZeros(type, x) ((si_sizeof(type) * 8) - SI_BIT_FUNC(type, countOnes, x))
+#define si_countZeros(type, x) ((si_sizeof(type) * 8) - si_countOnes(type, x))
 
 /* type - TYPE | x - INT/UINT
  * Returns the number of leading set bits until an unset bit or the end is reached. */
@@ -2887,20 +2888,22 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
 #define si_countTrailingZeros(type, x) SI_BIT_FUNC(type, countTrailingZeros, x)
 
 
-/* type - TYPE | num - UINT | bits - usize
- * Rotates the bits of the number left by 'bits' amount. */
-#define si_numRotateLeft(type, num, bits) (type)si_numRotateLeftEx(num, si_sizeof(type) * 8, bits)
-/* type - TYPE | num - UINT | bits - usize
- * Rotates the bits of the number right by 'bits' amount. */
-#define si_numRotateRight(type, num, bits) (type)si_numRotateRightEx(num, si_sizeof(type) * 8, bits)
-/* type - TYPE | num - UINT
- * Reverses the bits of the number. */
-#define si_numReverseBits(type, num) (type)si_numReverseBitsEx(num, si_sizeof(type) * 8 )
-/* allocator - siAllocator* | type - TYPE | num - UINT
- * Creates a 'siArray(u8)' from the specified number and writes it into the allocator. */
-#define si_numToBytes(type, num, allocator) si_numToBytesEx(num, si_sizeof(type), allocator)
-/* TODO */
-SIDEF u64 si_numFromBytes(siBuffer(u8) bytes);
+/* type - TYPE | x - INT/UINT | bits - i32
+ * Rotates the bits left by the specified amount. */
+#define si_bitsRotateLeft(type, x, bits) (type)SI_BIT_FUNC_EX(type, bitsRotateLeft, x, bits)
+/* type - TYPE | x - INT/UINT | bits - i32
+ * Rotates the bits right by 'bits' amount. */
+#define si_bitsRotateRight(type, x, bits) (type)SI_BIT_FUNC_EX(type, bitsRotateRight, x, bits)
+/* type - TYPE | x - INT/UINT | alloc - siAllocator
+ * Reverses the bits. */
+#define si_bitsReverseBits(type, x) (type)SI_BIT_FUNC(type, bitsReverse, x)
+
+
+/* type - TYPE | x - UINT/INT | alloc - siAllocator
+ * Creates an array from the specified number. */
+#define si_bytesToArray(type, x, alloc) SI_BIT_FUNC_EX(type, bytesToArray, x, alloc)
+/* Creates an integer from a buffer. */
+SIDEF u64 si_bytesFromArray(siBuffer(u8) bytes);
 
 
 /* Swaps the endianess of a 16-bit number. */
@@ -2952,20 +2955,6 @@ SIDEF isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint);
  * The mulitplication result is written to the given pointer. */
 #define si_checkMul(type, a, b, res) SI_CHECK_ARITHMETIC_FUNC(type, Mul, a, b, res)
 
-#if 1
-
-#define SI_BIT_FUNC(type, name, x) si__impl_##name((u64)(x), si_sizeof(x) * 8)
-
-#define SI_BIT_PROC(name) \
-	i32 si__impl_##name(u64 x, i32 bits)
-
-SIDEF SI_BIT_PROC(countOnes);
-SIDEF SI_BIT_PROC(countLeadingOnes);
-SIDEF SI_BIT_PROC(countLeadingZeros);
-SIDEF SI_BIT_PROC(countTrailingOnes);
-SIDEF SI_BIT_PROC(countTrailingZeros);
-
-#endif
 
 #endif /* SI_NO_BIT */
 
@@ -3041,8 +3030,8 @@ extern siString* SI_NAMES_AM_PM;
 
 
 /* Reads the current value of the processor’s time-stamp counter.
- * NOTE: Only natively works for AMD64, i386, ARM64, WASI and PPC CPUs. On other CPUs
- * the function relies on OS functions like 'gettimeofday'. */
+ * NOTE: Only natively works for AMD64, i386, ARM64, RISC-V, WASI and PPC architectures.
+ * On other architectures or CPUs the function relies on OS functions. */
 SIDEF u64 si_RDTSC(void);
 /* Reads the current value of the processor’s time-stamp counter and writes the
  * current processor ID to the pointer. */
@@ -3731,8 +3720,10 @@ SIDEF siError si_pathCreateSoftLink(siString path, siString linkPath);
 
 /* Returns a string view of the specified path's base name. */
 SIDEF siString si_pathBaseName(siString path);
-/* Returns a string view of the specified path's extension. */
+/* Returns the path's extension. */
 SIDEF siString si_pathExtension(siString path);
+/* Returns the path without an extension. */
+SIDEF siString si_pathWithoutExtension(siString path);
 /* Returns a string view of the specified path's unrooted path. */
 SIDEF siString si_pathUnrooted(siString path);
 /* Finds the full, rooted path of the specified path and creates a string from
@@ -4188,12 +4179,30 @@ SIDEF isize si__forEachRevStr(const u8* data, siRune* rune, siUtf32Char* tmp, is
 
 #ifndef SI_NO_BIT
 
-u64 si_numRotateLeftEx(u64 num, usize num_sizeof, usize bits);
-u64 si_numRotateRightEx(u64 num, usize num_sizeof, usize n);
-u64 si_numReverseBitsEx(u64 num, isize num_sizeof);
+#define SI_BIT_FUNC(type, name, x) si__##name((u64)(x), si_sizeof((type)(x)) * 8)
+#define SI_BIT_FUNC_EX(type, name, x, ...) si__##name((u64)(x), si_sizeof((type)(x)) * 8, __VA_ARGS__)
 
-siBuffer(u8) si_numToBytesEx(u64 num, isize num_sizeof, siAllocator alloc);
+SIDEF i32 si__countOnes_u8(u8 x);
+SIDEF i32 si__countOnes_u16(u16 x);
+SIDEF i32 si__countOnes_u32(u32 x);
+SIDEF i32 si__countOnes_u64(u64 x);
+SIDEF i32 si__countOnes_usize(usize x);
+SIDEF i32 si__countOnes_i8(i8 x);
+SIDEF i32 si__countOnes_i16(i16 x);
+SIDEF i32 si__countOnes_i32(i32 x);
+SIDEF i32 si__countOnes_i64(i64 x);
+SIDEF i32 si__countOnes_isize(isize x);
 
+SIDEF i32 si__countLeadingOnes(u64 x, i32 bitSize);
+SIDEF i32 si__countLeadingZeros(u64 x, i32 bitSize);
+SIDEF i32 si__countTrailingOnes(u64 x, i32 bitSize);
+SIDEF i32 si__countTrailingZeros(u64 x, i32 bitSize);
+
+SIDEF u64 si__bitsRotateLeft(u64 x, i32 bitSize, i32 amount);
+SIDEF u64 si__bitsRotateRight(u64 x, i32 bitSize, i32 amount);
+SIDEF u64 si__bitsReverse(u64 x, i32 bitSize);
+
+SIDEF siBuffer(u8) si__bytesToArray(u64 x, i32 bitSize, siAllocator alloc);
 
 #define SI_CHECK_ARITHMETIC_FUNC(type, func, a, b, res) si__check##func##_##type(a, b, res)
 
@@ -7570,16 +7579,14 @@ siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valuePtr,
 
 #ifdef SI_IMPLEMENTATION_BIT
 
-#if 1 /* si_countOnes */
-
-i32 si__countOnes_u8(u8 x);
-i32 si__countOnes_u32(u32 x);
-i32 si__countOnes_u64(u64 x);
-
+SIDEF
 i32 si__countOnes_u8(u8 x) {
 	return (i32)(((u64)x * 01001001001L & 042104210421) % 017);
 }
 
+inline i32 si__countOnes_u16(u16 x) { return si_countOnes(u32, x); }
+
+SIDEF
 i32 si__countOnes_u32(u32 x) {
 	 x -= ((x >> 1) & 0x55555555);
 	 x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
@@ -7587,6 +7594,7 @@ i32 si__countOnes_u32(u32 x) {
 	 return (i32)((x * 0x01010101) >> 24);
 }
 
+SIDEF
 i32 si__countOnes_u64(u64 x) {
 	x = x - ((x >> 1) & 0x5555555555555555);
 	x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
@@ -7594,50 +7602,59 @@ i32 si__countOnes_u64(u64 x) {
 	return (i32)((x * 0x101010101010101) >> 56);
 }
 
-inline
-SI_BIT_PROC(countOnes) {
-	switch (bits) {
-		case 8: return si__countOnes_u8((u8)x);
-		case 16: return si__countOnes_u32((u32)x);
-		case 32: return si__countOnes_u32((u32)x);
-		case 64: return si__countOnes_u64((u64)x);
-	}
-	SI_PANIC();
-}
-
-
+#if SI_ARCH_IS_64BIT
+inline i32 si__countOnes_usize(usize x) { return si__countOnes_u64(x); }
+#else
+inline i32 si__countOnes_usize(usize x) { return si__countOnes_u32(x); }
 #endif
 
-inline
-SI_BIT_PROC(countLeadingOnes) {
-	bits -= 1;
-	i32 ogBits = bits;
+inline i32 si__countOnes_i8(i8 x) { return si__countOnes_u8((u8)x); }
+inline i32 si__countOnes_i16(i16 x) { return si__countOnes_u16((u16)x); }
+inline i32 si__countOnes_i32(i32 x) { return si__countOnes_u32((u32)x); }
+inline i32 si__countOnes_i64(i64 x) { return si__countOnes_u64((u64)x); }
+inline i32 si__countOnes_isize(isize x) { return si__countOnes_usize((usize)x); }
+
+
+SIDEF
+i32 si__countLeadingOnes(u64 x, i32 bitSize) {
+	bitSize -= 1;
+	i32 bits = bitSize;
 
 	while (bits >= 0 && x & SI_BIT(bits)) {
 		bits -= 1;
 	}
 
-	return (ogBits - bits);
+	return bitSize - bits;
 }
 
-inline
-SI_BIT_PROC(countLeadingZeros) {
-	bits -= 1;
-	i32 ogBits = bits;
+SIDEF
+i32 si__countLeadingZeros(u64 x, i32 bitSize) {
+	bitSize -= 1;
+	i32 bits = bitSize;
 
 	while (bits >= 0 && (x & SI_BIT(bits)) == 0) {
 		bits -= 1;
 	}
 
-	return (ogBits - bits);
+	return bitSize - bits;
 }
 
-inline
-SI_BIT_PROC(countTrailingOnes) {
-	i32 ogBits = bits;
-	bits = 0;
+SIDEF
+i32 si__countTrailingOnes(u64 x, i32 bitSize) {
+	i32 bits = 0;
 
-	while (bits < ogBits && x & SI_BIT(bits)) {
+	while (bits < bitSize && x & SI_BIT(bits)) {
+		bits += 1;
+	}
+
+	return bits;
+}
+
+SIDEF
+i32 si__countTrailingZeros(u64 x, i32 bitSize) {
+	i32 bits = 0;
+
+	while (bits < bitSize && (x & SI_BIT(bits)) == 0) {
 		bits += 1;
 	}
 
@@ -7645,55 +7662,47 @@ SI_BIT_PROC(countTrailingOnes) {
 }
 
 inline
-SI_BIT_PROC(countTrailingZeros) {
-	i32 ogBits = bits;
-	bits = 0;
-
-	while (bits < ogBits && (x & SI_BIT(bits)) == 0) {
-		bits += 1;
-	}
-
-	return bits;
+u64 si__bitsRotateLeft(u64 x, i32 bitSize, i32 amount) {
+	return (x << amount) | (x >> (bitSize - amount));
 }
 
 inline
-u64 si_numRotateLeftEx(u64 num, usize bits, usize totalbits) {
-	return (num << bits) | (num >> (totalbits - bits));
-}
-
-inline
-u64 si_numRotateRightEx(u64 num, usize bits, usize totalbits) {
-	return (num >> bits) | (num << (totalbits - bits));
+u64 si__bitsRotateRight(u64 x, i32 bitSize, i32 amount) {
+	return (x >> amount) | (x << (bitSize - amount));
 }
 
 
-inline
-u64 si_numReverseBitsEx(u64 num, isize bits) {
+SIDEF
+u64 si__bitsReverse(u64 x, i32 bitSize) {
 	u64 res = 0;
 
-	for_range (i, 0, bits) {
+	for_range (i, 0, bitSize) {
 		res <<= 1;
-		res |= (num & 1);
-		num >>= 1;
+		res |= (x & 1);
+		x >>= 1;
 	}
 
 	return res;
 }
 
 SIDEF
-siBuffer(u8) si_numToBytesEx(u64 num, isize num_sizeof, siAllocator alloc) {
-	u8* res = si_allocArray(alloc, u8, num_sizeof);
+siBuffer(u8) si__bytesToArray(u64 x, i32 bitSize, siAllocator alloc) {
+	isize len = bitSize / 8;
+	u8* res = si_allocArray(alloc, u8, len);
 
-	for_range (i, 0, num_sizeof) {
-		res[i] = num & 0xFF;
-		num >>= 8;
+	for_range (i, 0, len) {
+		res[i] = x & 0xFF;
+		x >>= 8;
 	}
 
-	return SI_BUF_LEN(res, num_sizeof);
+	return SI_BUF_LEN(res, len);
 }
 
 SIDEF
-u64 si_numFromBytes(siBuffer(u8) bytes) {
+u64 si_bytesFromArray(siBuffer(u8) bytes) {
+	SI_ASSERT_BUF_TYPE(bytes, u8);
+	SI_ASSERT(bytes.len <= si_sizeof(u64));
+
 	u64 res = 0;
 	u8 byte;
 	for_eachBuf (byte, bytes) {
@@ -8019,86 +8028,102 @@ siString* SI_NAMES_DAYS_FULL = si__timeWeekNames;
 siString* SI_NAMES_DAYS_SHRT = si__timeWeekNamesShrt;
 siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
 
+/* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. */
+#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
+
 inline
 u64 si_RDTSC(void) {
-	/* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. (https://github.com/gingerBill/gb/blob/master/gb.h#L8682C1-L8715C7). */
-#if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
 	return __rdtsc();
-#elif !defined(SI_NO_INLINE_ASM)
-	#if SI_ARCH_I386
-		u64 res;
-		si_asm (".byte 0x0f, 0x31", : "=A" (res));
-		return res;
+}
 
-	#elif SI_ARCH_AMD64
-		u64 res;
-		si_asm(
-			"rdtsc"           SI_ASM_NL
-			"shl rdx, 0x20"   SI_ASM_NL
-			"or rax, rdx",
-			SI_ASM_OUTPUT("=a"(res))
-		);
-		return res;
+#elif defined(SI_NO_INLINE_ASM)
 
-	#elif SI_ARCH_IS_PPC
-		u32 high, low, tmp;
-		si_asm (
-			"0:"            SI_ASM_NL
-			"mftbu %0"      SI_ASM_NL
-			"mftb %1"       SI_ASM_NL
-			"mftbu %2"      SI_ASM_NL
-			"cmpw %2, %0"   SI_ASM_NL
-			"bne 0b",
-			SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
-		);
-		return ((u64)high << 32) | low;
+inline
+u64 si_RDTSC(void) {
+#if SI_SYSTEM_IS_WINDOWS
+	LARGE_INTEGER count;
+	QueryPerformanceCounter(&count);
+	return (u64)count.QuadPart;
 
-	#elif SI_ARCH_ARM64
-		u64 res;
-		si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
-		return res;
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	struct timespec tv = {0};
+	clock_gettime(CLOCK_MONOTONIC, &tv);
+	return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
 
-	#elif SI_ARCH_IS_WASM
-		__wasi_timestamp_t time;
-		__wasi_errno_t res = __wasi_clock_time_get(__WASI_CLOCKID_PROCESS_CPUTIME_ID, 1, &time);
+#elif SI_SYSTEM_IS_WASM
+	__wasi_timestamp_t time;
+	__wasi_errno_t res = __wasi_clock_time_get(__WASI_CLOCKID_PROCESS_CPUTIME_ID, 1, &time);
 
-		return (res == 0) ? time : 0;
-
-	#elif SI_SYSTEM_IS_WINDOWS
-		LARGE_INTEGER count;
-		QueryPerformanceCounter(&count);
-		return (u64)count.QuadPart;
-
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-		struct timespec tv = {0};
-		clock_gettime(CLOCK_MONOTONIC, &tv);
-		return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
-
-	#else
-		return 0;
-	#endif
+	return (res == 0) ? time : 0;
+#else
+	return 0;
+#endif
+}
 
 #else
-	#if SI_SYSTEM_IS_WINDOWS
-		LARGE_INTEGER count;
-		QueryPerformanceCounter(&count);
-		return (u64)count.QuadPart;
 
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-		struct timespec tv = {0};
-		clock_gettime(CLOCK_MONOTONIC, &tv);
-		return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
+inline
+u64 si_RDTSC(void) {
+#if SI_ARCH_I386
+	u64 res;
+	si_asm (".byte 0x0f, 0x31", : "=A" (res));
+	return res;
 
-	#elif SI_SYSTEM_IS_WASM
-		__wasi_timestamp_t time;
-		__wasi_errno_t res = __wasi_clock_time_get(__WASI_CLOCKID_PROCESS_CPUTIME_ID, 1, &time);
+#elif SI_ARCH_AMD64
+	u64 res;
+	si_asm(
+		"rdtsc"           SI_ASM_NL
+		"shl rdx, 0x20"   SI_ASM_NL
+		"or rax, rdx",
+		SI_ASM_OUTPUT("=a"(res))
+	);
+	return res;
 
-		return (res == 0) ? time : 0;
-	#else
-		return 0;
-	#endif
-#endif /* SI_NO_INLINE_ASM */
+#elif SI_ARCH_IS_PPC
+	u32 high, low, tmp;
+	si_asm (
+		"0:"            SI_ASM_NL
+		"mftbu %0"      SI_ASM_NL
+		"mftb %1"       SI_ASM_NL
+		"mftbu %2"      SI_ASM_NL
+		"cmpw %2, %0"   SI_ASM_NL
+		"bne 0b",
+		SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
+	);
+	return ((u64)high << 32) | low;
+
+#elif SI_ARCH_ARM64
+	u64 res;
+	si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
+	return res;
+
+#elif SI_ARCH_IS_WASM
+	__wasi_timestamp_t time;
+	__wasi_errno_t res = __wasi_clock_time_get(__WASI_CLOCKID_PROCESS_CPUTIME_ID, 1, &time);
+
+	return (res == 0) ? time : 0;
+
+#elif SI_ARCH_IS_RISC
+	u64 res = 0;
+	si_asm ("rdcycle %0", SI_ASM_OUTPUT("=r"(res)));
+	return res;
+
+#elif SI_SYSTEM_IS_WINDOWS
+	LARGE_INTEGER count;
+	QueryPerformanceCounter(&count);
+	return (u64)count.QuadPart;
+
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	struct timespec tv = {0};
+	clock_gettime(CLOCK_MONOTONIC, &tv);
+	return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
+
+#else
+	return 0;
+#endif
 }
+
+#endif
 
 inline
 u64 si_RDTSCP(i32* proc) {
@@ -10248,14 +10273,13 @@ siString si_pathUnrooted(siString path) {
 	#else
 		isize offset = (isize)si_pathIsAbsolute(path);
 	#endif
-	path = si_substrEnd(path, offset);
 
-	for_range (i, 0, path.len) {
+	for_range (i, offset, path.len) {
 		if (path.data[i] == SI_PATH_SEPARATOR) {
 			return si_substrEnd(path, i);
 		}
 	}
-	return path;
+	return si_substrEnd(path, offset);
 }
 
 SIDEF
@@ -10273,8 +10297,27 @@ siString si_pathExtension(siString path) {
 		}
 	}
 
-	return SI_STR("");
+	return SI_STR_EMPTY;
 }
+
+SIDEF
+siString si_pathWithoutExtension(siString path) {
+	SI_ASSERT_STR(path);
+	SI_ASSERT(path.len <= SI_PATH_MAX);
+
+	isize i;
+	for (i = path.len - 1; i >= 1; i -= 1) {
+		if (path.data[i] == '.') {
+			return si_substrEnd(path, i - 1);
+		}
+		else if (path.data[i] == SI_PATH_SEPARATOR) {
+			break;
+		}
+	}
+
+	return path;
+}
+
 
 SIDEF
 siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {

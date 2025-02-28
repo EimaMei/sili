@@ -81,6 +81,10 @@ i32 bits_countTrailing(u64 n, u32 bit) {
     return count;
 }
 
+siIntern
+u64 bits_bitsRotateLeft(u64 n, u32 shift) {
+    return (n << shift) | (n >> (64 - shift));
+}
 
 #define BIT_TEST(function) \
 	bit__test(si_##function##Ones, bits_##function, 1) \
