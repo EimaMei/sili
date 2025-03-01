@@ -11291,11 +11291,11 @@ i32 si_cpuProcessorCount(void) {
 
 #elif SI_SYSTEM_IS_WINDOWS
 	i32 len = 0;
-	i32 res = GetLogicalProcessorInformation(nil, (i32*)&len);
+	i32 res = GetLogicalProcessorInformation(nil, (DWORD*)&len);
 	SI_STOPIF(res != 0 || len <= 0, return 0);
 
 	SYSTEM_LOGICAL_PROCESSOR_INFORMATION* processors = si_mallocArray(SYSTEM_LOGICAL_PROCESSOR_INFORMATION, len);
-	res = GetLogicalProcessorInformation(&processors[0], (i32*)&len);
+	res = GetLogicalProcessorInformation(&processors[0], (DWORD*)&len);
 	SI_STOPIF(res == 0, len = 0);
 
 	procCount = 0;
