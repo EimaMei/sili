@@ -2048,6 +2048,9 @@ typedef struct siString {
 	const u8* data;
 } siString;
 
+/* A UTF-32 codepoint.*/
+typedef i32 siRune;
+
 
 /* rune - NAME | str - siString
  * Loops through the runes of the string, writes the rune to 'name'. */
@@ -2064,6 +2067,7 @@ typedef struct siString {
  * Loops through the runes of the string in reverse with the option to specify
  * the index, writes the rune to 'name'. */
 #define for_eachRevStrEx(rune, indexName, str) __for_eachRevStrImpl1(rune, indexName, str, __LINE__)
+
 
 
 /* str - cstring
@@ -2086,22 +2090,16 @@ typedef struct siString {
 /* Returns a nil string. */
 #define SI_STR_NIL SI_STR_LEN(nil, 0)
 
-/* A UTF-32 codepoint.*/
-typedef i32 siRune;
-
-
-/* str - siString | index - isize
- * Returns a character at the specified index of the string. */
-#define si_stringGet(str, index) si_arrayGet(str, index, u8)
 
 /* Allocates a duplicated string. */
 SIDEF siString si_stringCopy(siString from, siAllocator alloc);
+
 /* Allocates a string from a given null-terminated C-string. */
-SIDEF siString si_stringCopyFromCstr(cstring from, siAllocator alloc);
+SIDEF siString si_stringFromCStr(cstring from, siAllocator alloc);
 /* Allocates a NULL-terminated C-string from a string. */
-SIDEF char* si_stringCopyToCstr(siString from, siAllocator alloc);
+SIDEF char* si_stringToCStr(siString from, siAllocator alloc);
 /* Allocates a NULL-terminated C-string with a specified capacity from a string. */
-SIDEF char* si_stringCloneToCstrEx(siString from, isize capacity, siAllocator alloc);
+SIDEF char* si_stringToCStrEx(siString from, isize capacity, siAllocator alloc);
 
 
 /* Gets the string's first character. */
@@ -2852,10 +2850,12 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
 */
 
 
-/* variable - VARIABLE | flag - UINT | condition - EXPRESSION
- * TODO */
-#define SI_BIT_SET(variable, flag, condition) \
-	(condition) ? ((variable) |= (flag)) : ((variable) &= ~(flag))
+/* var - VARIABLE | set - b32 | mask - UINT
+ * Sets/unsets the mask for the variable. */
+#define SI_MASK_SET(var, set, mask) do { \
+	if (set) (var) |=  (mask); \
+	else     (var) &= ~(mask); \
+} while (0)
 
 #if SI_ENDIAN_IS_LITTLE
 	/* little - EXPRESSION | big - EXPRESSION
@@ -2882,9 +2882,11 @@ SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valu
  * Returns the number of leading unset bits until a set bit or the end is reached. */
 #define si_countLeadingZeros(type, x) SI_BIT_FUNC(type, countLeadingZeros, x)
 
-/* TODO */
+/* type - TYPE | x - INT/UINT
+ * Returns the number of trailing set bits until an unset bit or the front is reached. */
 #define si_countTrailingOnes(type, x) SI_BIT_FUNC(type, countTrailingOnes, x)
-/* TODO */
+/* type - TYPE | x - INT/UINT
+ * Returns the number of trailing unset bits until a set bit or the front is reached. */
 #define si_countTrailingZeros(type, x) SI_BIT_FUNC(type, countTrailingZeros, x)
 
 
@@ -4027,26 +4029,29 @@ typedef void* siDllHandle;
 typedef void* siDllProc;
 
 /* Loads the specified DLL. */
-SIDEF siDllHandle si_dllLoad(cstring path);
+SIDEF siDllHandle si_dllLoad(siString path);
 /* Unloads the specified DLL. */
 SIDEF void si_dllUnload(siDllHandle dll);
 
-/* Returns a pointer to the specified processor name. */
-SIDEF siDllProc si_dllProcAddress(siDllHandle dll, cstring name);
+/* Returns a pointer to the specified processor. */
+SIDEF siDllProc si_dllProcAddress(siDllHandle dll, siString name);
 
-/* dll - siDllHandle | function - FUNCTION |  type - TYPE
- * Loads the specified function's name as a processor and returns it as an ISO-C
- * friendly function. */
-#define si_dllProcAddressFunc(dll, function, type) \
-	si_transmute(type, si_dllProcAddress(dll, #function), siDllProc)
 
-#ifdef SI_TYPEOF_USED
-/* dll - siDllHandle | function - FUNCTION
- * Loads the specified function's name as a processor and returns it as an ISO-C
- * friendly function. */
-	#define si_dllProcAddressFuncType(dll, function) \
-		si_dllProcAddressFunc(dll, function, typeof(function))
+#ifndef siDllProcType
+	/* function - FUNCTION
+	 * The type format used for 'si_dllProcAddressFunc'. */
+	#define siDllProcType(function) si__##function##_Proc
 #endif
+
+/* dll - siDllHandle | function - FUNCTION
+ * Returns a pointer to the specified processor and casts it to the set function
+ * load format type in a ISO-C comapatible way. */
+#define si_dllProcAddressFunc(dll, function) si_dllProcAddressFuncEx(dll, SI_STR(#function), siDllProcType(function))
+/* dll - siDllHandle | function - siString | type - TYPE
+ * Returns a pointer to the specified processor and casts it to the specified
+ * type in a ISO-C comapatible way. */
+#define si_dllProcAddressFuncEx(dll, function, type) \
+	si_transmute(type, si_dllProcAddress(dll, function), siDllProc)
 
 #endif /* SI_NO_DLL */
 
@@ -4233,7 +4238,6 @@ SI_CHECK_ARITHMETIC_DEC_ALL(Mul, SIDEF, ;)
 #ifndef SI_NO_MATH
 	#define SI_MATH_FUNC(type, name, ...) si__##name##_##type(__VA_ARGS__)
 
-
 	#define SI_MATH_FUNC_DECLARE_1X_SIGNED(name, def, body) \
 		def i8    si__##name##_i8(i8 a) body \
 		def i16   si__##name##_i16(i16 a) body \
@@ -4286,6 +4290,9 @@ SI_CHECK_ARITHMETIC_DEC_ALL(Mul, SIDEF, ;)
 
 	SI_MATH_FUNC_DECLARE_1X_FLOAT(sin, SIDEF, ;)
 	SI_MATH_FUNC_DECLARE_1X_FLOAT(cos, SIDEF, ;)
+
+	#undef SI_MATH_FUNC_DECLARE_1X_SIGNED
+	#undef SI_MATH_FUNC_DECLARE_1X_FLOAT
 
 #endif
 
@@ -5690,16 +5697,16 @@ siString si_stringCopy(siString from, siAllocator alloc) {
 }
 
 inline
-siString si_stringCopyFromCstr(cstring from, siAllocator alloc) {
+siString si_stringFromCStr(cstring from, siAllocator alloc) {
 	return si_stringCopy(SI_CSTR(from), alloc);
 }
 
 inline
-char* si_stringCopyToCstr(siString from, siAllocator alloc) {
-	return si_stringCloneToCstrEx(from, from.len, alloc);
+char* si_stringToCStr(siString from, siAllocator alloc) {
+	return si_stringToCStrEx(from, from.len, alloc);
 }
 SIDEF
-char* si_stringCloneToCstrEx(siString from, isize capacity, siAllocator alloc) {
+char* si_stringToCStrEx(siString from, isize capacity, siAllocator alloc) {
 	char* str = si_allocArray(alloc, char, capacity + 1);
 	si_memcopyStr(str, from);
 	str[from.len] = '\0';
@@ -6282,7 +6289,6 @@ siString si_stringFromIntEx(i64 num, i32 base, siBuffer(u8) out) {
 	SI_ASSERT_NOT_NEG(base);
 	SI_ASSERT_BUF_TYPE(out, u8);
 
-	b32 isNegative = (num < 0);
 	isize len = si_min(isize, si_numLenIntEx(num, base), out.len);
 	u8* res = (u8*)out.data;
 
@@ -6290,7 +6296,7 @@ siString si_stringFromIntEx(i64 num, i32 base, siBuffer(u8) out) {
 	 * we wouldn't have to reverse the string after we make the string. */
 	isize i = len - 1;
 
-	if (isNegative) {
+	if (num < 0) {
 		num = -num;
 		res[0] = '-';
 	}
@@ -9328,6 +9334,9 @@ SI_MATH_FUNC_DECLARE_2X       (min,     inline, { return (a < b) ? a : b;  })
 SI_MATH_FUNC_DECLARE_2X       (max,     inline, { return (a > b) ? a : b;  })
 SI_MATH_FUNC_DECLARE_3X_B32   (between, inline, { return b <= a && a <= c; })
 
+#undef SI_MATH_FUNC_DECLARE_2X
+#undef SI_MATH_FUNC_DECLARE_3X_B32
+
 inline i8 si__abs_i8(i8 a)    { return a < 0 ?  (i8)-a : (i8)a; }
 inline i16 si__abs_i16(i16 a) { return a < 0 ? (i16)-a : (i16)a; }
 inline i32 si__abs_i32(i32 a) { return a < 0 ? -a : a; }
@@ -9864,10 +9873,10 @@ siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	OSVERSIONINFOEXW info = {0};
 	{
-		siDllHandle ntdll = si_dllLoad("ntdll.dll");
+		siDllHandle ntdll = si_dllLoad(SI_STR("ntdll.dll"));
 
-		typedef LONG(WINAPI* RtlGetVersionProc)(POSVERSIONINFOEXW);
-		RtlGetVersionProc _RtlGetVersion = si_transmute(RtlGetVersionProc, si_dllProcAddress(ntdll, "RtlGetVersion"), siDllProc);
+		typedef LONG(WINAPI* siDllProcType(RtlGetVersion))(POSVERSIONINFOEXW);
+		siDllProcType(RtlGetVersion) _RtlGetVersion = si_dllProcAddressFunc(ntdll, RtlGetVersion);
 
 		info.dwOSVersionInfoSize = si_sizeof(OSVERSIONINFOEXW);
 		_RtlGetVersion(&info);
@@ -10342,7 +10351,7 @@ siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
 	out = realpath(stack, out);
 	SI_OPTION_SYS_CHECK(out == nil, siString);
 
-	return SI_OPT(siString, si_stringCopyFromCstr(out, alloc));
+	return SI_OPT(siString, si_stringFromCStr(out, alloc));
 #else
 	return SI_OPT_NIL(siString);
 	SI_UNUSED(pathLen); SI_UNUSED(alloc);
@@ -11329,12 +11338,17 @@ i32 si_cpuProcessorCount(void) {
 #ifdef SI_IMPLEMENTATION_DLL
 
 inline
-siDllHandle si_dllLoad(cstring path) {
-	SI_ASSERT_NOT_NIL(path);
+siDllHandle si_dllLoad(siString path) {
 #if SI_SYSTEM_IS_WINDOWS
-	return (siDllHandle)LoadLibraryA(path);
+	siOsChar src[SI_PATH_MAX];
+	si_pathToOS(path, src, countof(src));
+
+	return (siDllHandle)LoadLibraryW(src);
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	return (siDllHandle)dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+	siOsChar src[SI_PATH_MAX];
+	si_pathToOS(path, src, countof(src));
+
+	return (siDllHandle)dlopen(src, RTLD_LAZY | RTLD_GLOBAL);
 #else
 	return nil;
 #endif
@@ -11351,22 +11365,30 @@ void si_dllUnload(siDllHandle dll) {
 }
 
 inline
-siDllProc si_dllProcAddress(siDllHandle dll, cstring name) {
+siDllProc si_dllProcAddress(siDllHandle dll, siString name) {
 	SI_ASSERT_NOT_NIL(dll);
-	SI_ASSERT_NOT_NIL(name);
 
 #if SI_SYSTEM_IS_WINDOWS
-	PROC proc = GetProcAddress((HMODULE)dll, name);
+	SI_ASSERT(name.len <= SI_PATH_MAX);
+
+	char src[SI_PATH_MAX];
+	isize len = si_memcopyStr(src, name);
+	src[len] = '\0';
+
+	PROC proc = GetProcAddress((HMODULE)dll, src);
 	return si_transmute(siDllProc, *proc, PROC);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	return (siDllProc)dlsym(dll, name);
+	siBuffer(siOsChar) src = SI_BUF_STACK_EX(siOsChar, SI_PATH_MAX);
+
+	return dlsym(dll, si_stringToOsStr(name, src));
 
 #else
 	return nil;
 
 #endif
 }
+
 #endif /* SI_IMPLEMENTATION_DLL */
 
 #if !defined(SI_COMPILER_MSVC) && defined(SI_USE_ATT_SYNTAX)
