@@ -5105,8 +5105,8 @@ siBufferAny si_sliceLen(siBufferAny array, isize start, isize length) {
 inline
 void* si_bufferGet(siBufferAny buffer, isize index) {
 	SI_ASSERT_BUF(buffer);
-	SI_ASSERT_NOT_NEG(index);
 	SI_ASSERT(index < buffer.len);
+	SI_ASSERT_NOT_NEG(index);
 
 	return (u8*)buffer.data + index * buffer.typeSize;
 }
@@ -5159,8 +5159,6 @@ b32 si_bufferAtBack(siBufferAny buffer, void* out) {
 
 SIDEF
 isize si_bufferFind(siBufferAny buffer, void* valuePtr) {
-	SI_ASSERT_BUF(buffer);
-
 	for_range (i, 0, buffer.len) {
 		void* dst = si_bufferGet(buffer, i);
 		if (si_memcompare(dst, valuePtr, buffer.typeSize) == 0) {
@@ -5173,8 +5171,6 @@ isize si_bufferFind(siBufferAny buffer, void* valuePtr) {
 
 SIDEF
 isize si_bufferFindLast(siBufferAny buffer, void* valuePtr) {
-	SI_ASSERT_BUF(buffer);
-
 	isize i;
 	for (i = buffer.len - 1; i >= 0; i -= 1) {
 		void* dst = si_bufferGet(buffer, i);
