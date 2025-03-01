@@ -11290,16 +11290,16 @@ i32 si_cpuProcessorCount(void) {
 	procCount = (i32)sysconf(_SC_NPROCESSORS_ONLN);
 
 #elif SI_SYSTEM_IS_WINDOWS
-	DWORD len;
-	i32 res = GetLogicalProcessorInformation(nil, &len);
-	SI_STOPIF(res != 0 || len == 0, return 0);
+	i32 len = 0;
+	i32 res = GetLogicalProcessorInformation(nil, (i32*)&len);
+	SI_STOPIF(res != 0 || len <= 0, return 0);
 
 	SYSTEM_LOGICAL_PROCESSOR_INFORMATION* processors = si_mallocArray(SYSTEM_LOGICAL_PROCESSOR_INFORMATION, len);
-	res = GetLogicalProcessorInformation(&processors[0], &len);
+	res = GetLogicalProcessorInformation(&processors[0], (i32*)&len);
 	SI_STOPIF(res == 0, len = 0);
 
 	procCount = 0;
-	for_range (i, 0, (isize)len) {
+	for_range (i, 0, len) {
 		SYSTEM_LOGICAL_PROCESSOR_INFORMATION processor = processors[i];
 		if (processor.Relationship == RelationProcessorCore) {
 			procCount += si_countOnes(u64, processor.ProcessorMask);
