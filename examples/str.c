@@ -2,132 +2,142 @@
 #include <sili.h>
 
 
-void example1(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\nExample 1:\n");
-
-	siString str = si_stringMake(heap, "Labas, Pasauli!");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringAppend(&str, " Lithuanian, more like Russian amirite.");
-	si_printf("str: \"%s\"\n", str);
-
-	char front = si_stringFront(str);
-	char back = si_stringBack(str);
-	usize length = si_stringLen(str);
-	si_printf("front: '%c', back: '%c', len: '%zd'\n", front, back, length);
-
-	si_stringSet(&str, "Different sentence");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringPush(&str, '.');
-	si_printf("str: \"%s\"\n", str);
-
-	siString str2 = si_stringCopy(heap, str);
-	b32 result = si_cstrEqual(str, str2);
-	si_printf("(\"%s\" == \"%s\") returns a '%B' boolean\n", str, str2, result);
-
-	isize pos = si_stringFind(str, "sentence");
-	si_printf("The word 'sentence' was found at position '%zd' (Starting with the letter '%c')\n", pos, str[pos]);
-
-	pos = si_stringFind(str, "random");
-	si_printf("However, the word 'random' was not found, thus 'pos' equals to %zd\n", pos);
-
-	si_stringReplace(&str, "Different", "Completely new");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringReplace(&str2, "Different", "The same");
-	si_printf("str2: \"%s\"\n", str2);
-
-	si_stringTrim(str, " sentence.");
-	si_printf("str: \"%s\"\n", str);
-
-	si_stringClear(str);
-	si_printf("Length of str: '%zd'\n", si_stringLen(str));
-
-	si_stringSet(&str2, "one.two.three.four.five");
-	si_printf("Current str2: \"%s\"\n", str2);
-
-	siArray(siString) list = si_stringSplit(str2, heap, ".");
-
-	for_range (i, 0, si_arrayLen(list)) {
-		si_printf("\tElement %zd: \"%s\"\n", i, list[i]);
-	}
-}
-
-void example2(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\n\n==============\nExample 2:\n");
-
-	siString str;
-	
-	{
-		siAllocator* stack = si_allocatorMake(32);
-		usize len;
-
-		char* num = si_i64ToCstr(stack, -342, &len);
-		str = si_stringMakeLen(heap, num, len);
-		si_printf("str: \"%s\"\n", str);
-	}
-
-	{
-		isize num = si_cstrToU64("9300");
-		si_printf("num: %zd\n\n", num);
-
-		char buf[1024];
-		usize len;
-		siAllocator alloc = si_allocatorMakeTmp(buf, sizeof(buf));
-		
-		char* str = si_f64ToCstr(&alloc, FLOAT32_MAX, &len);
-		si_printf("%.*s\n", len, str);
-	}
-
-	{
-		si_stringSet(&str, "/home");
-		si_printf("Original str: \"%s\"\n", str);
-
-		si_stringJoin(&str, "random.txt", "/");
-		si_printf("Joined str: \"%s\"\n", str);
-
-		si_cstrUpper(str);
-		si_printf("Upper str: \"%s\"\n", str);
-
-		si_stringSet(&str, "I'VE COME TO MAKE AN ANNOUNCEMENT");
-		si_printf("Original str: \"%s\"\n", str);
-
-		si_cstrLower(str);
-		si_printf("Lower str: \"%s\"\n", str);
-
-		si_cstrTitle(str);
-		si_printf("Titled str: \"%s\"\n", str);
-
-		si_cstrCapitalize(str);
-		si_printf("Capitalized str: \"%s\"\n", str);
-	}
-}
-
-void example3(siAllocator* heap) {
-	si_allocatorReset(heap);
-	si_printf("==============\n\n==============\nExample 3:\n");
-
-	siString str = si_stringMake(heap, "\t       dnuora gniliart        ");
-	si_printf("Before: '%s' (len: '%zd')\n", str, si_stringLen(str));
-
-	si_stringStrip(str);
-	si_printf("After: '%s' (len: '%zd')\n", str, si_stringLen(str));
-
-	si_stringReverse(str);
-	si_printf("'str' in reverse: '%s'\n", str);
-}
-
+/* Shows the primary functions for making, reading and manipulating string data. */
+void example1(siAllocator alloc);
+/* Shows the secondary functions for converting and manipulating strings. */
+void example2(siAllocator alloc);
 
 int main(void) {
-	siAllocator* heap = si_allocatorMake(SI_KILO(1));
+	siArena aData = si_arenaMake(si_allocatorHeap(), SI_KILO(1));
+	siAllocator alloc = si_allocatorArena(&aData);
 
-	example1(heap);
-	example2(heap);
-	example3(heap);
+	example1(alloc);
+	example2(alloc);
 
-	si_allocatorFree(heap);
-	return 0;
+	si_arenaFree(&aData);
+}
+
+
+void example1(siAllocator alloc) {
+	si_printLn("==============\nExample 1:");
+
+	si_printLn("Scope 1:");
+	{
+		siString strStatic = SI_STR("Hello, world!");
+		si_printfLn("\tstr: \"%S\" or \"%.*s\"", strStatic, strStatic.len, strStatic.data);
+
+		siString str = si_stringCopy(strStatic, alloc);
+		si_printfLn("\t(str == strStatic) returns a '%B' boolean", si_stringEqual(str, strStatic));
+
+	}
+
+	si_printfLn("Scope 2:");
+	{
+		siBuilder b = si_builderMake(256, alloc);
+		si_printfLn("\tcapacity: '%zi' len: '%zi' grow: '%zi'", b.capacity, b.len, b.grow);
+
+		si_builderWriteStr(&b, SI_STR("Dynamically allocated string"));
+		si_printfLn("\tstr: '%.*s', len: '%zi'", b.len, b.data, b.len);
+
+		si_builderWriteByte(&b, '.');
+		si_printfLn("\tstr: '%.*s', len: '%zi'", b.len, b.data, b.len);
+
+		si_builderWriteRune(&b, 0x00000439); // UTF-32 'й'
+		si_printfLn("\tstr: '%.*s', len: '%zi'", b.len, b.data, b.len);
+
+		si_builderWriteStrQuoted(&b, SI_STR("Hello world."));
+		si_printfLn("\tstr: '%.*s', len: '%zi'", b.len, b.data, b.len);
+
+		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"), 0x0000201E, 0x0000201C); // '„' and '“' characters
+		si_printfLn("\tstr: '%.*s', len: '%zi'", b.len, b.data, b.len);
+
+		siString str = si_builderToStr(b);
+		i32 front = si_stringAtFront(str);
+		i32 back = si_stringAtBack(str);
+		si_printfLn("\tfront: '%lc', back: '%lc'", front, back);
+	}
+
+	si_printfLn("Scope 3:");
+	{
+		siString str = SI_STR("Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: geriems vyrams geroj girioj gerą girą gera gert.");
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+		siString str_ger = SI_STR("ger");
+		isize posFirst = si_stringFind(str, str_ger),
+			  posLast = si_stringFindLast(str, str_ger);
+		isize occurences = si_stringFindCount(str, str_ger);
+
+		si_printfLn(
+			"\tThe substring '%S' was first found at index '%zi', last found at index '%zi', with '%zi' occurences in total.",
+			str_ger, posFirst, posLast, occurences
+		);
+
+		isize pos = si_stringFind(str, SI_STR("Žąsys"));
+		si_printfLn("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zi'", pos);
+	}
+
+	si_printfLn("Scope 4:");
+	{
+		siString str = SI_STR("smaug giganteus");
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+		str = si_stringTrim(str, SI_STR("s"));
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+		str = si_stringInsert(str, SI_STR("the "), countof_str("maug "), alloc);
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+		str = si_stringRemoveAll(str, SI_STR("gigant"), alloc);
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+	}
+
+	si_printfLn("Scope 5:");
+	{
+		siString str = SI_STR("one.two.three.four.five");
+		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
+
+		siBuffer(siString) list = si_stringSplit(str, SI_STR("."), alloc);
+		si_printfLn("\tElements: %S", si_stringFromBuffer(list, "%S", SI_BUF_STACK(64)));
+	}
+
+	si_printfLn("Scope 6:");
+	{
+		siString str = SI_STR("\t       dnuora gniliart        ");
+		si_printfLn("\tBefore: '%S' (len: '%zi')", str, str.len);
+
+		str = si_stringStrip(str);
+		si_printfLn("\tAfter: '%S' (len: '%zi')", str, str.len);
+
+		siString reverse = si_stringReverse(str, alloc);
+		si_printfLn("\t'str' in reverse: '%S'", reverse);
+	}
+}
+
+void example2(siAllocator alloc) {
+	si_printfLn("==============\n\n==============\nExample 2:\n");
+
+	siString str;
+	{
+		siBuffer(u8) buf = SI_BUF_ALLOC(u8, 4, alloc);
+		str = si_stringFromInt(-342, buf);
+		si_printfLn("str: \"%S\"", str);
+
+		i64 num = si_stringToInt(SI_STR("  9300  "));
+		si_printfLn("num: %li", num);
+
+		str = si_stringFromFloat(FLOAT32_MAX, SI_BUF_ALLOC(u8, 128, alloc));
+		si_printfLn("str: %S", str);
+
+		siBuffer(siString) arr = SI_BUF(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));
+		str = si_stringJoin(arr, SI_STR("/"), alloc);
+		si_printfLn("Joined str: \"%S\"", str);
+	}
+
+
+	str = si_stringUpper(str, alloc);
+	si_printfLn("Upper str: \"%S\"", str);
+
+	str = si_stringLower(str, alloc);
+	si_printfLn("Lower str: \"%S\"", str);
 }

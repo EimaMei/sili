@@ -1,105 +1,22 @@
 #define SI_IMPLEMENTATION
 #include <sili.h>
 
-cstring operatingSystem(void) {
-	static char res[] =
-		#if defined(SI_SYSTEM_WINDOWS)
-			"Windows"
-		#elif defined(SI_SYSTEM_OSX)
-			"MacOS"
-		#elif defined(SI_SYSTEM_LINUX)
-			"Linux"
-		#elif defined(SI_SYSTEM_ANDROID)
-			"Android"
-		#elif defined(SI_SYSTEM_IOS)
-			"iOS"
-		#elif defined(SI_SYSTEM_WASM)
-			"WebAssembly"
-		#else 
-			"N/A"
-		#endif
-	;
-
-	return res;
-}
-
-
-cstring cpuArch(void) {
-	static char res[] =
-		#if defined(SI_CPU_X86)
-			"x86"
-		#elif defined(SI_CPU_PPC)
-			"PPC"
-		#elif defined(SI_CPU_ARM64)
-			"ARM64"
-		#elif defined(SI_CPU_ARM)
-			"ARM"
-		#elif defined(SI_CPU_MIPS)
-			"MIPS"
-		#elif defined (SI_CPU_SPARC)
-			"SPARC"
-		#elif defined(SI_CPU_RISC_V)
-			"RISC-V"
-		#elif defined(SI_CPU_ALPHA)
-			"Alpha"
-		#else
-			"N/A"
-		#endif
-	;
-
-	return res;
-}
-
-usize cpu_arch_bit(void) {
-	#if defined(SI_ARCH_64_BIT)
+force_inline
+usize cpu_archBit(void) {
+	#if SI_ARCH_IS_64BIT
 		return 64;
-	#elif defined(SI_ARCH_32_BIT)
+	#elif SI_ARCH_IS_32BIT
 		return 32;
-	#elif 
+	#elif
 		return 0;
 	#endif
 }
 
-cstring cpuEndian(void) {
-	return (SI_HOST_IS_LITTLE_ENDIAN == true) ? "little-endian" : "big-endian";
-}
 
-cstring compiler(void) {
-	static char res[] =
-		#if defined(SI_COMPILER_GCC)
-			"GCC"
-		#elif defined(SI_COMPILER_CLANG)
-			"clang"
-		#elif defined(SI_COMPILER_MSVC)
-			"msvc"
-		#else
-			"N/A"
-		#endif
-	;
-
-	return res;
-}
-
-cstring language(void) {
-	static char res[] =
-		#if defined(SI_LANGUAGE_C)
-			"C"
-		#elif defined(SI_LANGUAGE_CPP)
-			"C++"
-		#elif defined(SI_LANGUAGE_OBJ_CPP)
-			"Objective-C++"
-		#elif defined(SI_LANGUAGE_OBJ_C) /* NOTE(EimaMei): SI_LANGUAGE_OBJ_C is defined for both Objective-C and Objective-C++. */
-			"Objective-C"
-		#elif defined(SI_LANGUAGE_CPLUS)
-			"C-plus"
-		#endif
-	;
-	return res;
-}
-
+force_inline
 cstring standard(void) {
 	static char res[] =
-		#if !defined(SI_LANGUAGE_CPP)
+		#if SI_LANGUAGE_IS_C
 			#if SI_STANDARD_VERSION == SI_STANDARD_C89
 				"C89"
 			#elif SI_STANDARD_VERSION == SI_STANDARD_C94
@@ -113,7 +30,7 @@ cstring standard(void) {
 			#elif SI_STANDARD_VERSION > SI_STANDARD_C17
 				"C2x"
 			#endif
-		#elif defined(SI_LANGUAGE_CPP)
+		#elif SI_LANGUAGE_IS_CPP
 			#if SI_STANDARD_VERSION == SI_STANDARD_CPP98
 				"C++98"
 			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP11
@@ -137,69 +54,54 @@ cstring standard(void) {
 SI_STATIC_ASSERT(SI_BIT(8) == 256);
 
 int main(void) {
-	siAllocator* alloc = si_allocatorMakeStack(SI_KILO(1));
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siAllocator alloc = si_allocatorArena(&aData);
 
 	si_printf(
 		"Information about the system:\n\t"
 			"Operating System - '%s'\n\t"
 			"CPU Architecture - '%s' (%zd-bit)\n\t"
-			"Target endian - '%s'\n\t"
-			"CPU cache line size - '%i'\n"
+			"Target endian - '%s'\n"
 		"Compilation info:\n\t"
 			"Compiler - '%s'\n\t"
 			"Language - '%s' (%s)\n\n"
 		,
-		operatingSystem(),
-		cpuArch(), cpu_arch_bit(),
-		cpuEndian(), SI_CACHE_LINE_SIZE,
-		compiler(), language(), standard()
+		SI_SYSTEM_STR,
+		SI_ARCH_STR, cpu_archBit(),
+		SI_ENDIAN_STR, SI_COMPILER_STR, SI_LANGUAGE_STR, standard()
 	);
+
+	si_printfLn("'usize' contains '%zi' bits on this CPU architecture.", si_sizeof(usize) * 8);
 
 	u16 adr = 0xFFFE;
-	si_printf(
-		"0xFFFE (%#b):\n\t"
-			"High bits: '%#b', low bits: '%#b'\n\t"
-			"MSB: '%#b', LSB: '%#b'\n",
-		adr,
-		SI_NUM_HIGH_BITS(adr), SI_NUM_LOW_BITS(adr),
-		SI_BIT_MSB(adr), SI_BIT_LSB(adr)
-	);
-
-	si_printf("Bit 0 of '%#b': '%i'\n", 2, SI_NUM_BIT_GET(2, 0));
-	si_printf("'usize' contains '%zd' bits on this CPU architecture.\n", SI_BYTE_TO_BIT(sizeof(usize)));
-
-	usize numBits = si_numCountBitsU32(adr); /* NOTE(EimaMei): On C11 and above, you can just do 'si_numCountBits' and it picks the function for you depending on the number's type. */
-	si_printf(
-		"Number of 1s in 'adr': '%zd', number of 0s: '%zd'\n",
-		numBits, SI_BYTE_TO_BIT(sizeof(adr)) - numBits
+	si_printfLn(
+		"Number of 1s in 'adr': '%i', number of 0s: '%d'",
+		si_countOnes(u32, adr), si_countZeros(u32, adr)
 	);
 
 	u8 leadTrailNum = 248;
-	si_printf(
-		 "Leading 1s of '%#b': '%zd', trailing 0s: '%zd'\n",
+	si_printfLn(
+		 "Leading 1s of '%#b': '%i', trailing 0s: '%i'",
 		 leadTrailNum,
-		 si_numLeadingBit(u8, leadTrailNum, SI_BIT_ONE), si_numTrailingBit(u8, leadTrailNum, SI_BIT_ZERO)
+		 si_countLeadingOnes(u8, leadTrailNum), si_countTrailingZeros(u8, leadTrailNum)
 	);
 
-	u32 rotateAdr = si_numRotateLeft(u32, 0x00001234, 24);
-	si_printf("Rotating '0x00001234' left by 24 bits: '%#08X'\n", rotateAdr);
+	u32 rotateAdr = si_bitsRotateLeft(u32, 0x00001234, 24);
+	si_printfLn("Rotating '0x00001234' left by 24 bits: '%#08X'", rotateAdr);
 
-	rotateAdr = si_numRotateRight(u32, rotateAdr, 24);
-	si_printf("Rotating '0x34000012' right by 24 bits: '%#08X'\n", rotateAdr);
+	rotateAdr = si_bitsRotateRight(u32, rotateAdr, 24);
+	si_printfLn("Rotating '0x34000012' right by 24 bits: '%#08X'", rotateAdr);
 
-	si_printf("Reversing the bits of '0x1234567890123456' gives us: '%#lX'\n", si_numReverseBits(u32, 0x1234567890123456));
+	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_bitsReverseBits(u32, 0x1234567890123456));
 
-	siArray(u8) array = si_numToBytes(alloc, u32, 0xFF00EEAA);
-	si_printf("All of the elements in 'array' (len - '%zd'):\n", si_arrayLen(array));
-	for_range (i, 0, si_arrayLen(array)) {
-		si_printf("\tElement %zd: '0x%02X'\n", i, array[i]);
-	}
+	siBuffer(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
+	si_printfLn("buffer: %S, (len: %zd)", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
 
-	u32 newNum = (u32)si_bytesToNumSiArr(array);
-	si_printf("Combining them all back, we get '%#X'\n", newNum);
+	u32 newNum = (u32)si_bytesFromArray(buffer);
+	si_printfLn("Combining them all back, we get '%#X'", newNum);
 
 	adr = si_swap16(adr);
-	si_printf("Changing the endian of '0xFFFE' gives us '%#X'\n", adr);
+	si_printfLn("Changing the endian of '0xFFFE' gives us '%#X'", adr);
 
 	return 0;
 }

@@ -29,10 +29,14 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        compiler: [mingw-w64]
+        compiler: [mingw-w64, msvc16]
         bits: [64]
         include:
         - compiler: mingw-w64
+          bits: 64
+          ARCH: "x86_64"
+          WINDRES_ARCH: pe-x86-64
+        - compiler: msvc16
           bits: 64
           ARCH: "x86_64"
           WINDRES_ARCH: pe-x86-64
@@ -48,7 +52,7 @@ jobs:
     - name: Setup Release Version
       run: |
         echo "RELEASE_NAME=sili-${{ github.event.release.tag_name }}_win${{ matrix.bits }}_${{ matrix.compiler }}" >> $GITHUB_ENV
-      shell: bash
+      shell: cmd
       if: github.event_name == 'release' && github.event.action == 'published'
 
     - name: Setup Environment
@@ -67,26 +71,72 @@ jobs:
       uses: microsoft/setup-msbuild@v2
       if: matrix.compiler == 'msvc16'
 
-    - name: Tests
-      run: |
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_tests
+    - name: Add MSVC
+      uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Examples
+    - name: Build app for release
       run: |
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe compile_examples
+        set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
-    - name: Build Library (MinGW-w64 64bit)
+
+    - name: Tests (MinGW-w64 64-bit)
+      run: |
+        make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc
+      shell: cmd
+      if: |
+        matrix.compiler == 'mingw-w64' &&
+        matrix.bits == 64
+  
+    - name: Tests (MSVC16 64-bit)
+      run: |
+        make compile_tests CC=cl.exe
+      shell: cmd
+      if: |
+        matrix.compiler == 'msvc16' &&
+        matrix.bits == 64
+
+
+    - name: Examples (MinGW-w64 64-bit)
+      run: |
+        make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc
+      shell: cmd
+      if: |
+        matrix.compiler == 'mingw-w64' &&
+        matrix.bits == 64
+
+    - name: Examples (MSVC16 64-bit)
+      run: |
+        make compile_examples CC=cl.exe
+      shell: cmd
+      if: |
+        matrix.compiler == 'msvc16' &&
+        matrix.bits == 64
+
+
+    - name: Build Library (MSVC16 64-bit)
+      run: |
+        windres.exe --version
+        make static CC=cl.exe AR=lib
+        make dynamic CC=cl.exe
+        copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
+      shell: cmd
+      if: |
+        matrix.compiler == 'msvc16' &&
+        matrix.bits == 64
+
+    - name: Build Library (MinGW-w64 64-bit)
       run: |
         ${{ matrix.ARCH }}-w64-mingw32-gcc.exe --version
         windres.exe --version
         dir C:\msys64\mingw64\bin
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe static
-        make CC=${{ matrix.ARCH }}-w64-mingw32-gcc.exe dynamic
+        make static CC=${{ matrix.ARCH }}-w64-mingw32-gcc
+        make dynamic CC=${{ matrix.ARCH }}-w64-mingw32-gcc
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |
         matrix.compiler == 'mingw-w64' &&
         matrix.bits == 64
+
 
     - name: Generate Artifacts
       run: |
