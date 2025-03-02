@@ -7629,7 +7629,7 @@ u32 si_murmur32Ex(const void* data, isize len, u32 seed) {
     }
 
 	hash ^= si__murmur32Scramble(key);
-	hash ^= len;
+	hash ^= (u32)len;
 	hash ^= hash >> 16;
 	hash *= 0x85EBCA6B;
 	hash ^= hash >> 13;
