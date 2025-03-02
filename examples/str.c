@@ -17,6 +17,8 @@ int main(void) {
 	si_arenaFree(&aData);
 }
 
+/* Prints the specified integer map. */
+void print_map(siString comment, siMap(i32) map);
 
 void example1(siAllocator alloc) {
 	si_printLn("==============\nExample 1:");
@@ -114,6 +116,18 @@ void example1(siAllocator alloc) {
 	}
 }
 
+
+void print_map(siString comment, siMap(i32) map) {
+	si_printfStr(comment);
+
+	siString key;
+	i32 value;
+    for_eachMapEx (key, value, map) {
+		si_printf("[%S] = %i; ", key, value);
+	}
+	si_print("\n");
+}
+
 void example2(siAllocator alloc) {
 	si_printfLn("==============\n\n==============\nExample 2:\n");
 
@@ -132,12 +146,31 @@ void example2(siAllocator alloc) {
 		siBuffer(siString) arr = SI_BUF(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));
 		str = si_stringJoin(arr, SI_STR("/"), alloc);
 		si_printfLn("Joined str: \"%S\"", str);
+
+		str = si_stringUpper(str, alloc);
+		si_printfLn("Upper str: \"%S\"", str);
+
+		str = si_stringLower(str, alloc);
+		si_printfLn("Lower str: \"%S\"", str);
 	}
 
+	/* Based on: https://en.cppreference.com/w/cpp/container/map */
+	{
+		siMap(i32) m = si_mapMake(alloc, i32, {SI_STRC("CPU"), 10}, {SI_STRC("GPU"), 15}, {SI_STRC("RAM"), 20});
+		print_map(SI_STR("1) Initial map: "), m);
 
-	str = si_stringUpper(str, alloc);
-	si_printfLn("Upper str: \"%S\"", str);
+		si_mapSetType(&m, SI_STR("CPU"), 25, i32);
+		si_mapSet(&m, SI_STR("SSD"), &(i32){30});
+		print_map(SI_STR("2) Updated map: "), m);
 
-	str = si_stringLower(str, alloc);
-	si_printfLn("Lower str: \"%S\"", str);
+		si_printfLn("Key 'UPS' exists: %B", (si_mapGet(m, SI_STR("UPS")) != nil));
+
+		si_mapErase(&m, SI_STR("GPU"));
+		print_map(SI_STR("3) After erase: "), m);
+
+		si_mapClear(&m);
+		print_map(SI_STR("4) After clear: "), m);
+
+		si_mapFree(m); /* Calls the needed free. */
+	}
 }

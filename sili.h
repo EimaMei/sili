@@ -17,7 +17,8 @@ sili.h - v0.2.0 - a general-purpose programming library to replace the C/C++ sta
 		- #define SI_NO_OPTIONAL
 		- #define SI_NO_UNICODE
 		- #define SI_NO_CHAR
-		- #define SI_NO_HASHTABLE
+		- #define SI_NO_HASHING
+		- #define SI_NO_MAP
 		- #define SI_NO_TIME
 		- #define SI_NO_BIT
 		- #define SI_NO_PRINT
@@ -104,13 +105,6 @@ MACROS
 
 	- SI_NO_TYPEOF - disables the usage of the 'typeof' operator inside the header,
 	alongside undefining macros that utilize it.
-
-	- SI_USE_CUSTOM_HASH_FUNCTION - undefines the base implementation of
-	'si__hashKey' inside this file, allowing the user to define their own hash
-	key function.
-
-	- SI_NO_HASH_OVERWRITE - disables the ovewrite of a pre-existing entry's
-	value when using 'si_hashtableSet/WithHash'.
 
 ===========================================================================
 CREDITS
@@ -1299,7 +1293,10 @@ typedef struct { f32 x, y, z, w; } siVec4;
 /* Checks if the given alignment is in power of two. */
 SIDEF b32 si_isPowerOfTwo(isize x);
 /* Aligns the number to the specified alignment. */
-SIDEF usize si_alignForward(usize num, isize alignment);
+SIDEF isize si_alignForward(isize num, isize alignment);
+SIDEF usize si_alignForwardU(usize num, isize alignment);
+/* TODO */
+SIDEF isize si_nextPow2(isize num);
 
 
 /* Adds a specified amount of bytes to the pointer. */
@@ -1378,13 +1375,13 @@ SI_ENUM(i32, siAllocatorFuncEnum) {
 
 typedef struct siAllocatorDataResize {
 	void* src;
-	usize sizeOld, sizeNew;
+	isize sizeOld, sizeNew;
 } siAllocatorDataResize;
 
 typedef struct siAllocatorFunc {
 	siAllocatorFuncEnum type;
 	union_anonymous(data,
-		usize alloc;
+		isize alloc;
 		void* free;
 		siAllocatorDataResize resize;
 	);
@@ -2058,7 +2055,8 @@ typedef i32 siRune;
 /* name - NAME | indexName - NAME | str - siString
  * Loops through the runes of the string with the option to specify the index,
  * writes the element to 'name'. */
-#define for_eachStrEx(rune, indexName, str) __for_eachStrImpl1(rune, indexName, str, __LINE__)
+#define for_eachStrEx(rune, indexName, str) \
+	for (isize indexName = 0, indexName##len; si__forEachStr(indexName, str, &(rune), &indexName##len); indexName += indexName##len)
 
 /* rune - NAME | str - siString
  * Loops through the runes of the string in reverse, writes the rune to 'name'. */
@@ -2066,7 +2064,10 @@ typedef i32 siRune;
 /* name - NAME | indexName - NAME | str - siString
  * Loops through the runes of the string in reverse with the option to specify
  * the index, writes the rune to 'name'. */
-#define for_eachRevStrEx(rune, indexName, str) __for_eachRevStrImpl1(rune, indexName, str, __LINE__)
+#define for_eachRevStrEx(rune, indexName, str) \
+	for (isize indexName##len = si__forEachRevStr((str).len - 1, str, &(rune)), indexName = str.len - 1 - indexName##len; \
+		indexName >= 0; indexName -= si__forEachRevStr(indexName, str, &(rune)))
+
 
 
 
@@ -2758,7 +2759,7 @@ SIDEF i32 si_charHexToInt(char c);
 
 #endif /* SI_NO_CHAR */
 
-#ifndef SI_NO_HASHTABLE
+#ifndef SI_NO_HASHING
 /*
 *
 *
@@ -2775,58 +2776,119 @@ SIDEF i32 si_charHexToInt(char c);
 *
 *
 	========================
-	| siHashTable          |
+	| siHashing            |
 	========================
 */
 
+/* TODO */
+SIDEF u32 si_fnv32(const void* data, isize len);
+/* TODO */
+SIDEF u32 si_fnv32a(const void* data, isize len);
 
-typedef struct siHashEntry {
-	/* Key of the value. */
-	u64 key;
-	/* Pointer to the value. */
-	void* value;
-	/* Points to the next valid item. */
-	struct siHashEntry* next;
-} siHashEntry;
+/* TODO */
+SIDEF u64 si_fnv64(const void* data, isize len);
+/* TODO */
+SIDEF u64 si_fnv64a(const void* data, isize len);
 
-typedef siArray(siHashEntry) siHashTable;
+/* TODO */
+SIDEF u32 si_murmur32(const void* data, isize len);
+/* TODO */
+SIDEF u32 si_murmur32Ex(const void* data, isize len, u32 seed);
 
-/* type - TYPE
- * Denotes that this is a 'siHashTable' variable. */
-#define siHt(type) siHashTable
+/* TODO */
+SIDEF u64 si_murmur64(const void* data, isize len);
+/* TODO */
+SIDEF u64 si_murmur64Ex(const void* data, isize len, u64 seed);
+
+#endif /* SI_NO_HASHING */
+
+#ifndef SI_NO_MAP
+/*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+*
+	========================
+	| siMap                |
+	========================
+*/
+
+typedef struct siMapEntry {
+	siString key;
+	u32 hash;
+	u32 next;
+} siMapEntry;
+
+
+typedef struct siMapAny {
+	siAllocator alloc;
+	isize len;
+	isize capacity;
+	isize typeSize;
+	siMapEntry* entries;
+	void* values;
+	u32* hashes;
+} siMapAny;
+
+/* TODO */
+#define siMap(type) siMapAny
 
 
 
-/* Creates a hash table using the given names and data. */
-SIDEF siHashTable si_hashtableMake(const void** keyArray, isize keyLen, void** dataArray,
-		isize len, siAllocator alloc);
-/* Reserves a 'capacity' amount of items for the hash table. */
-SIDEF siHashTable si_hashtableMakeReserve(isize capacity, siAllocator alloc);
+/* TODO */
+#define for_eachMap(key, map) \
+	for (isize si__mapI = 0; si__forEachMap(si__mapI, map, &(key)); si__mapI += 1)
+/* TODO */
+#define for_eachMapEx(key, value, map) \
+	for (isize si__mapI = 0; si__forEachMapEx(si__mapI, map, &(key), &(value)); si__mapI += 1)
 
 
-/* Returns the key entry's value pointer from the hash table. If not found, nil
- * is returned. */
-SIDEF void* si_hashtableGet(siHashTable ht, const void* key, isize keyLen);
-/* Returns the key entry's value pointer from the hash table. If not found, nil
- * is returned. */
-SIDEF void* si_hashtableGetWithHash(siHashTable ht, u64 hash);
-/* ht - siHashTable* | key - cstring | type - TYPE
- * Returns the key entry's value as the specified type. If the item does not exist,
- * this will cause a crash, as the return of 'si_hashtableGet' will be nil. */
-#define si_hashtableGetItem(ht, key, type) (*((type*)si_hashtableGet(ht, key)))
+/* TODO */
+#define si_mapMake(alloc, type, ...) si_mapMakeEx(alloc, type, countof((si__mapS(type)){__VA_ARGS__}), __VA_ARGS__)
+/* TODO */
+#define si_mapMakeEx(alloc, type, capacity, ...) si_mapMakeFull((si__mapS(type)){__VA_ARGS__}, si_sizeof(type), si_sizeof(struct { siString n; type m; }), countof((si__mapS(type)){__VA_ARGS__}), capacity, alloc);
+/* TODO */
+#define si_mapMakeReserve(type, capacity, alloc) si_mapReserve(si_sizeof(type), capacity, alloc);
+/* TODO */
+SIDEF siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc);
 
 
-/* Adds a 'key' entry to the hash table and returns the entry pointer, regardless
- * if it's a new or pre-existing one. 'outSuccess' is set to true if the hash
- * didn't exist before the set, otherwise it's set to 'false' and the entry's
- * value's gets overwritten either way (unless disabled via a macro). 'outSuccess'
- * can be nullable.*/
-SIDEF siHashEntry* si_hashtableSet(siHashTable* ht, const void* key, isize keyLen,
-		void* valuePtr, b32* outSuccess);
-SIDEF siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valuePtr,
-		b32* outSuccess);
+/* TODO */
+SIDEF void* si_mapGet(siMapAny map, siString name);
+SIDEF void* si_mapGetHash(siMapAny map, siString name, u32 hash);
 
-#endif /* SI_NO_HASHTABLE */
+/* TODO */
+SIDEF siMapEntry* si_mapSet(siMapAny* map, siString name, const void* value);
+SIDEF siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
+		u32 hash);
+
+/* */
+#define si_mapGetType(map, name, type) *(type*)si_mapGet(map, name)
+/* */
+#define si_mapSetType(map, name, value, type) si_mapSet(map, name, &(type){value})
+
+/* TODO */
+SIDEF void si_mapErase(siMapAny* map, siString name);
+SIDEF void si_mapEraseHash(siMapAny* map, siString name, u32 hash);
+
+/* TODO */
+SIDEF void si_mapClear(siMapAny* map);
+
+
+/* TODO */
+SIDEF void si_mapFree(siMapAny map);
+
+#endif /* SI_NO_MAP */
 
 #ifndef SI_NO_BIT
 /*
@@ -4111,8 +4173,11 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, siString name);
 	#ifndef SI_NO_CHAR
 		#define SI_IMPLEMENTATION_CHAR 1
 	#endif
-	#ifndef SI_NO_HASHTABLE
-		#define SI_IMPLEMENTATION_HASHTABLE 1
+	#ifndef SI_NO_HASHING
+		#define SI_IMPLEMENTATION_HASHING 1
+	#endif
+	#ifndef SI_NO_MAP
+		#define SI_IMPLEMENTATION_MAP 1
 	#endif
 	#ifndef SI_NO_TIME
 		#define SI_IMPLEMENTATION_TIME 1
@@ -4155,30 +4220,56 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, siString name);
  * with the language to make it more usable and pretty... Do not enjoy. */
 #if 1
 
-#ifndef SI_NO_STRING
-
-#define __for_eachStrImpl1(charName, indexName, str, __line) __for_eachStrImpl2(charName, indexName, str, __line)
-#define __for_eachStrImpl2(charName, indexName, str, __line) \
-	SI_ASSERT_NOT_NIL(str.data); \
-	siUtf32Char si__tmp##__line; \
-	for (isize indexName = 0; si__forEachStr(str.data, &charName, &si__tmp##__line, indexName) < (str).len; indexName += (si__tmp##__line).len)
-
-#define __for_eachRevStrImpl1(charName, indexName, str, __line) __for_eachRevStrImpl2(charName, indexName, str, __line)
-#define __for_eachRevStrImpl2(charName, indexName, str, __line) \
-	SI_ASSERT_NOT_NIL(str.data); \
-	siUtf32Char si__tmp##__line; \
-	si__forEachRevStr(str.data, &charName, &si__tmp##__line, str.len - 1); \
-	for (isize indexName = str.len - 1 - (si__tmp##__line).len; indexName >= 0; indexName -= si__forEachRevStr(str.data, &charName, &si__tmp##__line, indexName))
-
-
 #ifndef SI_NO_UNICODE
 
 SIDEF siUtf32Char si__stringLastRune(siString str);
-SIDEF isize si__forEachStr(const u8* data, siRune* rune, siUtf32Char* tmp, isize i);
-SIDEF isize si__forEachRevStr(const u8* data, siRune* rune, siUtf32Char* tmp, isize i);
+
+force_inline
+b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
+	if (i < str.len) {
+		siUtf32Char res = si_utf8Decode(&str.data[i]);
+		*rune = res.codepoint;
+		*codepointSize = res.len;
+		return true;
+	}
+
+	return false;
+}
+
+force_inline
+isize si__forEachRevStr(isize i, siString str, siRune* rune) {
+	siUtf32Char res = si__stringLastRune(si_substrStart(str, i));
+	*rune = res.codepoint;
+	return res.len;
+}
 
 #endif
 
+#ifndef SI_NO_MAP
+
+force_inline
+b32 si__forEachMap(isize i, siMapAny map, siString* key) {
+	if (i < map.len) {
+		*key = map.entries[i].key;
+		return true;
+	}
+
+	return false;
+}
+
+force_inline
+b32 si__forEachMapEx(isize i, siMapAny map, siString* key, void* value) {
+	if (i < map.len) {
+		*key = map.entries[i].key;
+		si_memcopy(value, si_pointerAdd(map.values, i * map.typeSize), map.typeSize);
+		return true;
+	}
+
+	return false;
+}
+
+#define si__mapS(type) struct { siString n; type m; }[]
+SIDEF siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity, siAllocator alloc);
 
 #endif
 
@@ -4312,11 +4403,33 @@ b32 si_isPowerOfTwo(isize x) {
 }
 
 inline
-usize si_alignForward(usize num, isize alignment) {
+isize si_alignForward(isize num, isize alignment) {
+	return (isize)si_alignForwardU((usize)num, alignment);
+}
+inline
+usize si_alignForwardU(usize num, isize alignment) {
 	SI_ASSERT(si_isPowerOfTwo(alignment));
 	usize align = (usize)alignment;
 	return (num + align - 1) & ~(align - 1);
 }
+
+SIDEF
+isize si_nextPow2(isize num) {
+	SI_ASSERT_NOT_NEG(num);
+
+	num -= 1;
+	num |= num >> 1;
+	num |= num >> 2;
+	num |= num >> 4;
+	num |= num >> 8;
+	num |= num >> 16;
+	#if SI_ARCH_IS_64BIT
+	num |= num >> 32;
+	#endif
+
+	return num + 1;
+}
+
 
 inline void* si_pointerAdd(void* ptr, isize bytes)                  { return si_cast(void*, (u8*)ptr + bytes); }
 inline void* si_pointerSub(void* ptr, isize bytes)                  { return si_cast(void*, (u8*)ptr - bytes); }
@@ -4472,7 +4585,7 @@ void* si_alloc(siAllocator alloc, isize bytes) {
 
 	siAllocatorFunc func;
 	func.type = siAllocatorFunc_Alloc;
-	func.data.alloc = (usize)bytes;
+	func.data.alloc = bytes;
 
 	return alloc.proc(func, alloc.data);
 }
@@ -4503,7 +4616,7 @@ void* si_realloc(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew) {
 
 	siAllocatorFunc func;
 	func.type = siAllocatorFunc_Resize;
-	func.data.resize = (siAllocatorDataResize){ptr, (usize)sizeOld, (usize)sizeNew};
+	func.data.resize = (siAllocatorDataResize){ptr, sizeOld, sizeNew};
 
 	return alloc.proc(func, alloc.data);
 }
@@ -4534,7 +4647,7 @@ void* si_allocator_heap_proc(siAllocatorFunc func, void* data) {
 	void* out;
 	switch (func.type) {
 		case siAllocatorFunc_Alloc: {
-			out = malloc(func.data.alloc);
+			out = malloc((usize)func.data.alloc);
 			SI_ASSERT_NOT_NIL(out);
 		} break;
 
@@ -4549,7 +4662,7 @@ void* si_allocator_heap_proc(siAllocatorFunc func, void* data) {
 
 		case siAllocatorFunc_Resize: {
 			siAllocatorDataResize resize = func.data.resize;
-			out = realloc(resize.src, resize.sizeNew);
+			out = realloc(resize.src, (usize)resize.sizeNew);
 			SI_ASSERT_NOT_NIL(out);
 		} break;
 
@@ -4624,7 +4737,7 @@ void* si_allocator_arena_proc(siAllocatorFunc func, void* data) {
 	void* out;
 	switch (func.type) {
 		case siAllocatorFunc_Alloc: {
-			isize bytes = (isize)si_alignForward(func.data.alloc, alloc->alignment);
+			isize bytes = si_alignForward(func.data.alloc, alloc->alignment);
 			out = &alloc->ptr[alloc->offset];
 
 			alloc->offset += bytes;
@@ -5460,24 +5573,6 @@ siUtf32Char si__stringLastRune(siString str) {
 
 	return si_utf8Decode(&str.data[i]);
 }
-
-inline
-isize si__forEachStr(const u8* data, siRune* rune, siUtf32Char* tmp, isize i) {
-	*tmp = si_utf8Decode(&data[i]);
-	*rune = tmp->codepoint;
-
-	return i;
-}
-
-inline
-isize si__forEachRevStr(const u8* data, siRune* rune, siUtf32Char* tmp, isize i) {
-	isize oldSize = tmp->len;
-	*tmp = si__stringLastRune(SI_STR_LEN(data, i));
-	*rune = tmp->codepoint;
-
-	return oldSize;
-}
-
 
 inline
 siBuilder si_builderMake(isize capacity, siAllocator alloc) {
@@ -7441,143 +7536,383 @@ i32 si_charHexToInt(char c) {
 
 #endif /* SI_IMPLEMENTATION_CHAR */
 
-#ifdef SI_IMPLEMENTATION_HASHTABLE
+#ifdef SI_IMPLEMENTATION_HASHING
 
-force_inline
-u64 si__hashKey(u8* key, isize len);
+SIDEF
+u32 si_fnv32(const void* data, isize len) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
 
-#ifndef SI_USE_CUSTOM_HASH_FUNCTION
-#define SI__FNV_OFFSET 14695981039346656037UL
-#define SI__FNV_PRIME 1099511628211UL
-
-force_inline
-u64 si__hashKey(u8* key, isize len) {
-	u64 hash = SI__FNV_OFFSET;
-
+	u32 hash = 0x811C9DC5;
+	const u8* ptr = (u8*)data;
 	for_range (i, 0, len) {
-		hash ^= (u64)key[i];
-		hash *= SI__FNV_PRIME;
+		hash = (hash * 0x01000193) ^ ptr[i];
 	}
+
 	return hash;
 }
-#undef SI__FNV_OFFSET
-#undef SI__FNV_PRIME
 
+SIDEF
+u32 si_fnv32a(const void* data, isize len) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
+
+	u32 hash = 0x811C9DC5;
+	const u8* ptr = (u8*)data;
+	for_range (i, 0, len) {
+		hash = (hash ^ ptr[i]) * 0x01000193;
+	}
+
+	return hash;
+}
+
+SIDEF
+u64 si_fnv64(const void* data, isize len) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
+
+	u64 hash = 0xCBF29CE484222325;
+	const u8* ptr = (u8*)data;
+	for_range (i, 0, len) {
+		hash = (hash * 0x100000001B3) ^ ptr[i];
+	}
+
+	return hash;
+}
+
+SIDEF
+u64 si_fnv64a(const void* data, isize len) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
+
+	u64 hash = 0xCBF29CE484222325;
+	const u8* ptr = (u8*)data;
+	for_range (i, 0, len) {
+		hash = (hash ^ ptr[i]) * 0x100000001B3;
+	}
+
+	return hash;
+}
+
+inline
+u32 si_murmur32(const void* data, isize len) {
+	return si_murmur32Ex(data, len, 0x9747B28C);
+}
+
+
+force_inline
+u32 si__murmur32Scramble(u32 key) {
+    key *= 0xCC9E2D51;
+    key = (key << 15) | (key >> 17);
+    key *= 0x1B873593;
+    return key;
+}
+
+SIDEF
+u32 si_murmur32Ex(const void* data, isize len, u32 seed) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
+
+	u32 hash = seed;
+	const u32* blocks = (const u32*)data;
+
+	for_range (i, 0, len / 4) {
+		u32 key = blocks[i];
+		hash ^= si__murmur32Scramble(key);
+		hash = ((hash << 13) | (hash >> 19)) * 5 + 0xE6546B64;
+	}
+
+	u32 key = 0;
+    for (isize i = len & 3u; i >= 0; i -= 1) {
+        key <<= 8;
+        key |= ((const u8*)data)[i - 1];
+    }
+
+	hash ^= si__murmur32Scramble(key);
+	hash ^= len;
+	hash ^= hash >> 16;
+	hash *= 0x85EBCA6B;
+	hash ^= hash >> 13;
+	hash *= 0xC2B2AE35;
+	hash ^= hash >> 16;
+	return hash;
+}
+
+#if SI_ARCH_IS_32BIT
+force_inline
+void si__murmur64Scramble(u32* h, const u32* d) {
+	u32 k = *d;
+	k *= 0x5BD1E995;
+	k ^= k >> 24;
+	k *= 0x5BD1E995;
+	*h *= 0x5BD1E995;
+	*h ^= k;
+}
 #endif
 
 
+SIDEF
+u64 si_murmur64(const void* data, isize len) {
+	return si_murmur64Ex(data, len, 0x9747B28C);
+}
+SIDEF
+u64 si_murmur64Ex(const void* data, isize len, u64 seed) {
+	SI_ASSERT_NOT_NIL(data);
+	SI_ASSERT_NOT_NEG(len);
+
+#if SI_ARCH_IS_64BIT
+	const u64 m = 0xC6A4A7935BD1E995;
+	const i32 r = 47;
+
+	u64 hash = seed ^ ((u64)len * m);
+
+
+	for_range (i, 0, len / 8) {
+		u64 k = ((const u64*)data)[i];
+
+		k *= m;
+		k ^= k >> r;
+		k *= m;
+
+		hash ^= k;
+		hash *= m;
+	}
+
+	isize i = (len & 7u) - 1;
+	hash ^= si_cast(u64, ((const u8*)data)[i] << (i * 8));
+
+	hash ^= hash >> r;
+	hash *= m;
+	hash ^= hash >> r;
+
+	return hash;
+#else
+
+	u32 h[2] = {(u32)seed ^ (u32)len, seed >> 32};
+
+	const u32* d = (const u32*)data;
+
+	while (len >= 8) {
+		for_range (i, 0, 2) {
+			si__murmur64Scramble(&h[i], d);
+			d += 1;
+			len -= 4;
+		}
+	}
+
+	if (len >= 4) {
+		si__murmur64Scramble(&h[0], d);
+		d += 1;
+		len -= 4;
+	}
+
+	u32 const m = 0x5BD1E995;
+	isize i = len - 1;
+	h[0] ^= si_cast(u32, ((const u8*)data)[i] << (i * 8));
+	h[1] *= m;
+
+	h[0] ^= h[1] >> 18;
+	h[0] *= m;
+	h[1] ^= h[0] >> 22;
+	h[1] *= m;
+	h[0] ^= h[1] >> 17;
+	h[0] *= m;
+	h[1] ^= h[0] >> 19;
+	h[1] *= m;
+
+	return ((u64)h[0] << 32) | h[1];
+#endif
+}
+
+#endif /* SI_IMPLEMENTATION_HASHING */
+
+
+
+#ifdef SI_IMPLEMENTATION_MAP
+
 
 SIDEF
-siHashTable si_hashtableMake(const void** keyArray, isize keyLen, void** dataArray,
-		isize len, siAllocator alloc) {
-	SI_ASSERT_NOT_NIL(keyArray);
-	SI_ASSERT_NOT_NIL(dataArray);
-	SI_ASSERT(keyLen != 0);
+siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity,
+		siAllocator alloc) {
+	siMapAny map = si_mapReserve(typeSize, capacity, alloc);
 
-	siHashTable table = si_hashtableMakeReserve(len, alloc);
 	for_range (i, 0, len) {
-		si_hashtableSet(&table, keyArray[i], keyLen, dataArray[i], nil);
+		const void* entry = si_pointerAddConst(input, i * fullSize);
+		si_mapSet(&map, *(siString*)entry, si_pointerAddConst(entry, si_sizeof(siString)));
 	}
 
-	return table;
+	return map;
 }
 
-SIDEF
-siHashTable si_hashtableMakeReserve(isize capacity, siAllocator alloc) {
-	/* NOTE(EimaMei): A power of 2 capacity is enforced so that truncating a hash
-	 * into a valid index would only require a 'hash & (capacity - 1)', which
-	 * basically takes no time in comparison to the usual modulo operator. */
-	SI_ASSERT_MSG(si_isPowerOfTwo(capacity), "The specified capacity must be a power of 2 number.");
-
-	siHashTable table = si_arrayMakeReserve(si_sizeof(siHashEntry), 0, capacity, alloc);
-	si_memset(table.data, 0, si_sizeof(siHashEntry) * table.capacity);
-
-	return table;
-}
-
+#define SI_HASH_NONE UINT32_MAX
 
 SIDEF
-void* si_hashtableGet(siHashTable ht, const void* key, isize keyLen) {
-	SI_ASSERT_ARR_TYPE(ht, siHashEntry);
-	SI_ASSERT_NOT_NIL(key);
-	SI_ASSERT_NOT_NEG(keyLen);
-	SI_ASSERT(keyLen != 0);
-	SI_STOPIF(ht.len == 0, return nil);
+siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc) {
+	SI_ASSERT_NOT_NEG(typeSize);
+	SI_ASSERT_NOT_NEG(capacity);
 
-	u64 hash = si__hashKey((u8*)key, keyLen);
-	return si_hashtableGetWithHash(ht, hash);
-}
+	siMapAny map;
+	map.alloc = alloc;
+	map.len = 0;
+	map.capacity = si_nextPow2(capacity);
+	map.typeSize = typeSize;
 
-SIDEF
-void* si_hashtableGetWithHash(siHashTable ht, u64 hash) {
-	SI_ASSERT_ARR_TYPE(ht, siHashEntry);
+	isize lenEntries = si_alignForward(si_sizeof(*map.entries) * map.capacity, SI_DEFAULT_MEMORY_ALIGNMENT),
+		  lenHashes = si_alignForward(si_sizeof(*map.hashes) * map.capacity, SI_DEFAULT_MEMORY_ALIGNMENT);
 
-	isize index = (isize)(hash & (usize)(ht.capacity - 1));
-	siHashEntry* entry = si_arrayGet(ht, index);
-	goto skip; /* NOTE(EimaMei):	We skip the 'entry->next' line so that the
-									first entry can get checked. */
+	rawptr ptr = si_alloc(alloc, lenEntries + lenHashes + map.typeSize * map.capacity);
+	map.entries = ptr;
+	map.hashes = si_pointerAdd(map.entries, lenEntries);
+	map.values = si_pointerAdd(map.hashes, lenHashes);
 
-	while (entry->next != 0) {
-		entry = entry->next;
-skip:
-		if (hash == entry->key) {
-			return entry->value;
-		}
+	for_range (i, 0, map.capacity) {
+		map.entries[i].hash = SI_HASH_NONE;
+		map.entries[i].next = SI_HASH_NONE;
+		map.hashes[i] = SI_HASH_NONE;
 	}
 
-	return nil;
+	return map;
 }
 
-
-SIDEF
-siHashEntry* si_hashtableSet(siHashTable* ht, const void* key, isize keyLen,
-		void* valuePtr, b32* outSuccess) {
-	SI_ASSERT_NOT_NIL(key);
-	SI_ASSERT_NOT_NEG(keyLen);
-	SI_ASSERT(keyLen != 0);
-
-	u64 hash = si__hashKey((u8*)key, keyLen);
-	return si_hashtableSetWithHash(ht, hash, valuePtr, outSuccess);
+force_inline
+u32 si__mapHash(siString name) {
+	return si_fnv32a(name.data, name.len) & 0x7FFFFFFF;
 }
 
-SIDEF
-siHashEntry* si_hashtableSetWithHash(siHashTable* ht, u64 hash, void* valuePtr,
-		b32* outSuccess) {
-	SI_ASSERT_NOT_NIL(ht);
-	SI_ASSERT_BUF_TYPE(*ht, siHashEntry);
-	SI_ASSERT_MSG(ht->len < ht->capacity, "The capacity of the hash table has been surpassed.");
+typedef struct { u32 hashIndex, entryIndex, entryPrev; } __siMapSearch;
 
-	isize index = (isize)(hash & (usize)(ht->capacity - 1));
-	siHashEntry* entry = si_arrayGet(*ht, index);
-	siHashEntry* original = entry;
+siIntern
+__siMapSearch si__mapFind(siMapAny map, u32 hash, siString key) {
+	__siMapSearch res = {SI_HASH_NONE, SI_HASH_NONE, SI_HASH_NONE};
+	SI_STOPIF(map.capacity == 0, return res);
 
-	while (entry->key != 0) {
-		if (hash == entry->key) {
-			SI_STOPIF(outSuccess != nil, *outSuccess = false);
-			#ifndef SI_NO_HASH_OVERWRITE
-				entry->value = valuePtr;
-			#endif
-			return entry;
+	res.hashIndex = hash & (u32)(map.capacity - 1);
+	res.entryIndex = map.hashes[res.hashIndex];
+
+	while (res.entryIndex != SI_HASH_NONE) {
+		siMapEntry entry = map.entries[res.entryIndex];
+		if (entry.hash == hash && si_stringEqual(entry.key, key)) {
+			return res;
 		}
 
-		entry = entry->next ? entry->next : (entry + 1);
+		res.entryPrev = res.entryIndex;
+		res.entryIndex = entry.next;
 	}
-	SI_ASSERT(entry->key == 0);
 
-	entry->key = hash;
-	entry->value = valuePtr;
-
-	if (entry != original) {
-		while (original->next != 0) { original = original->next; }
-		original->next = entry;
-	}
-	SI_STOPIF(outSuccess != nil, *outSuccess = true);
-
-	ht->len += 1;
-	return entry;
+	return res;
 }
 
-#endif /* SI_IMPLEMENTATION_HASHTABLE */
+
+SIDEF
+void* si_mapGet(siMapAny map, siString name) {
+	return si_mapGetHash(map, name, si__mapHash(name));
+}
+SIDEF
+void* si_mapGetHash(siMapAny map, siString name, u32 hash) {
+	__siMapSearch search = si__mapFind(map, hash, name);
+	return (search.entryIndex != SI_HASH_NONE)
+		? si_pointerAdd(map.values, search.entryIndex * map.typeSize)
+		: nil;
+}
+
+SIDEF
+siMapEntry* si_mapSet(siMapAny* map, siString name, const void* value) {
+	return si_mapSetHash(map, name, value, si__mapHash(name));
+}
+
+SIDEF
+siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
+		u32 hash) {
+	SI_ASSERT_NOT_NIL(map);
+	SI_ASSERT_STR(name);
+	SI_ASSERT_NOT_NIL(value);
+	SI_ASSERT_MSG(map->len < map->capacity, "The capacity of the map has been surpassed.");
+
+	__siMapSearch find = si__mapFind(*map, hash, name);
+
+	u32 index;
+	if (find.entryIndex != SI_HASH_NONE) {
+		index = find.entryIndex;
+	}
+	else {
+		index = (u32)map->len;
+
+		siMapEntry* entry = &map->entries[index];
+		entry->key = name;
+		entry->hash = hash;
+		entry->next = SI_HASH_NONE;
+		map->len += 1;
+
+		if (find.entryPrev != SI_HASH_NONE) {
+			map->entries[find.entryPrev].next = index;
+		}
+		else {
+			map->hashes[find.hashIndex] = index;
+		}
+	}
+	si_memcopy((u8*)map->values + index * map->typeSize, value, map->typeSize);
+
+
+	return &map->entries[index];
+}
+
+SIDEF
+void si_mapErase(siMapAny* map, siString name) {
+	si_mapEraseHash(map, name, si__mapHash(name));
+}
+
+SIDEF
+void si_mapEraseHash(siMapAny* map, siString name, u32 hash) {
+	SI_ASSERT_NOT_NIL(map);
+	SI_ASSERT_STR(name);
+	SI_STOPIF(map->capacity == 0, return);
+
+	__siMapSearch find = si__mapFind(*map, hash, name);
+	SI_STOPIF(find.entryIndex == SI_HASH_NONE, return);
+
+	if (find.entryPrev == SI_HASH_NONE) {
+		map->hashes[find.hashIndex] = map->entries[find.entryIndex].next;
+	}
+	else {
+		map->entries[find.entryPrev].next = map->entries[find.entryIndex].next;
+	}
+
+	map->len -= 1;
+	if (find.entryIndex == map->len) {
+		return;
+	}
+
+	siMapEntry* entryLast = &map->entries[map->len];
+	map->entries[find.entryIndex] = *entryLast;
+
+	__siMapSearch last = si__mapFind(*map, entryLast->hash, entryLast->key);
+	if (last.entryPrev != SI_HASH_NONE) {
+		map->entries[last.entryPrev].next = find.entryIndex;
+	}
+	else {
+		map->hashes[last.hashIndex] = find.entryIndex;
+	}
+}
+
+SIDEF
+void si_mapClear(siMapAny* map) {
+	SI_ASSERT_NOT_NIL(map);
+	for_range (i, 0, map->len) {
+		siMapEntry entry = map->entries[i];
+		__siMapSearch find = si__mapFind(*map, entry.hash, entry.key);
+		map->hashes[find.entryIndex] = SI_HASH_NONE;
+	}
+	map->len = 0;
+}
+
+inline
+void si_mapFree(siMapAny map) {
+	si_free(map.alloc, map.entries);
+}
+
+#undef SI_HASH_NONE
+
+#endif /* SI_IMPLEMENTATION_MAP */
 
 #ifdef SI_IMPLEMENTATION_BIT
 

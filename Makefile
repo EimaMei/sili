@@ -117,7 +117,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = tests/bit.c
+SRC = examples/str.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -142,7 +142,7 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h
+$(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
 
 # Compiles and runs every example.
