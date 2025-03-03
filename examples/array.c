@@ -18,6 +18,13 @@ int main(void) {
 		siBuffer(i32) buffer = SI_BUF(i32, 1, 2, 4, 8, 16, 32);
 		si_printfLn("\tbuffer: \"%S\"", si_stringFromBuffer(buffer, "%i", SI_BUF_STACK(256)));
 
+		si_print("\tyou can also print a buffer through a loop: {");
+		i32 value;
+		for_eachBuf (value, buffer) {
+			si_printf("%i ", value);
+		}
+		si_print("}\n");
+
 		siArray(i32) array = si_arrayCopy(buffer, alloc);
 		b32 res = si_bufferEqual(SI_BUF_ARR(array), buffer);
 		si_printfLn("\t(array == buffer) returns a '%B' boolean", res);

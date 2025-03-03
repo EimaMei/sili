@@ -141,7 +141,7 @@ extern "C" {
 
 #ifndef SI_VERSION_MAJOR
 	#define SI_VERSION_MAJOR 0
-	#define SI_VERSION_MINOR 2
+	#define SI_VERSION_MINOR 3
 	#define SI_VERSION_PATCH 0
 #endif
 #define SI_VERSION_CURRENT SI_VERSION(SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_PATCH)
@@ -1295,7 +1295,7 @@ SIDEF b32 si_isPowerOfTwo(isize x);
 /* Aligns the number to the specified alignment. */
 SIDEF isize si_alignForward(isize num, isize alignment);
 SIDEF usize si_alignForwardU(usize num, isize alignment);
-/* TODO */
+/* Rounds up the number to the next power of 2. */
 SIDEF isize si_nextPow2(isize num);
 
 
@@ -1746,57 +1746,32 @@ typedef struct siBufferAny {
  * Represents a buffer with a specific type. */
 #define siBuffer(type) siBufferAny
 
+
 /* name - NAME | buffer - siBufferAny
  * Loops through the elements of the buffer, writes the element to 'name'. */
 #define for_eachBuf(name, buffer) for_eachBufEx(name, si__i, buffer)
-/* name - NAME | indexName - NAME | buffer - siBufferAny
- * Loops through the elements of the buffer with the option to specify the index,
- writes the element to 'name'. */
 #define for_eachBufEx(name, indexName, buffer) \
-	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	if ((buffer).len != 0) { si_memcopy(&name, (buffer).data, si_sizeof(name)); } \
-	for (isize indexName = 0; indexName < (buffer).len; indexName += 1, \
-		 si_memcopy(&name, (u8*)(buffer).data + indexName * si_sizeof(name), si_sizeof(name)))
+	for (isize indexName = 0; si__forEachBuf(indexName, buffer, &(name)); indexName += 1)
 
 /* name - NAME | buffer - siBufferAny
  * Loops through the elements of the buffer, writes the element pointer to 'name'. */
 #define for_eachRefBuf(name, buffer) for_eachRefBufEx(name, si__i, buffer)
-/* name - NAME | indexName - NAME | buffer - siBufferAny
- * Loops through the elements of the buffer with the option to specify the index,
- writes the pointer element to 'name'. */
 #define for_eachRefBufEx(name, indexName, buffer) \
-	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
-	if ((buffer).len != 0) { si_memcopy(&name, (buffer).data, si_sizeof(void*)); } \
-	for (isize indexName = 0; indexName < (buffer).len; indexName += 1, name += 1) \
+	for (isize indexName = 0; si__forEachBuf(indexName, buffer, &(name)); indexName += 1, name += 1)
 
 
 /* name - NAME | buffer - siBufferAny
  * Loops through the elements of the buffer, writes the element to 'name'. */
 #define for_eachRevBuf(name, buffer) for_eachRevBufEx(name, si__i, buffer)
-/* name - NAME | indexName - NAME | buffer - siBufferAny
- * Loops through the elements of the buffer in reverse with the option to specify
- * the index, writes the element to 'name'. */
 #define for_eachRevBufEx(name, indexName, buffer) \
-	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(name) == (buffer).typeSize, "Invalid type specified."); \
-	if ((buffer).len != 0) { si_memcopy(&name, (u8*)(buffer).data + ((buffer).len - 1) * si_sizeof(name), si_sizeof(name)); } \
-	for (isize indexName = (buffer).len - 1; indexName >= 0; indexName -= 1, \
-		si_memcopy(&name, (u8*)((buffer).data) + indexName * si_sizeof(name), si_sizeof(name)))
+	for (isize indexName = (buffer).len - 1; si__forEachRevBuf(indexName, buffer, &(name)); indexName -= 1)
 
 /* name - NAME | buffer - siBufferAny
  * Loops through the elements of the buffer in reverse, writes the element pointer
  * to 'name'. */
 #define for_eachRevRefBuf(name, buffer) for_eachRevRefBufEx(name, si__i, buffer)
-/* name - NAME | indexName - NAME | buffer - siBufferAny
- * Loops through the elements of the buffer in reverse with the option to specify
- * the index, writes the element to 'name'. */
 #define for_eachRevRefBufEx(name, indexName, buffer) \
-	SI_ASSERT_NOT_NIL(buffer.data); \
-	SI_ASSERT_MSG(si_sizeof(*name) == (buffer).typeSize, "Invalid type specified."); \
-	if ((buffer).len != 0) { si_copyAny(name, ((u8*)(buffer).data)[(buffer).len - 1 * si_sizeof(name)], si_sizeof(void*)); } \
-	for (isize indexName = (buffer).len - 1; indexName >= 0; indexName += 1, name -= 1) \
+	for (isize indexName = (buffer).len - 1; si__forEachRevRefBuf(indexName, buffer, &(name)); indexName -= 1)
 
 
 
@@ -2052,18 +2027,12 @@ typedef i32 siRune;
 /* rune - NAME | str - siString
  * Loops through the runes of the string, writes the rune to 'name'. */
 #define for_eachStr(rune, str) for_eachStrEx(rune, si__i, str)
-/* name - NAME | indexName - NAME | str - siString
- * Loops through the runes of the string with the option to specify the index,
- * writes the element to 'name'. */
 #define for_eachStrEx(rune, indexName, str) \
 	for (isize indexName = 0, indexName##len; si__forEachStr(indexName, str, &(rune), &indexName##len); indexName += indexName##len)
 
 /* rune - NAME | str - siString
  * Loops through the runes of the string in reverse, writes the rune to 'name'. */
 #define for_eachRevStr(rune, str) for_eachRevStrEx(rune, si__i, str)
-/* name - NAME | indexName - NAME | str - siString
- * Loops through the runes of the string in reverse with the option to specify
- * the index, writes the rune to 'name'. */
 #define for_eachRevStrEx(rune, indexName, str) \
 	for (isize indexName##len = si__forEachRevStr((str).len - 1, str, &(rune)), indexName = str.len - 1 - indexName##len; \
 		indexName >= 0; indexName -= si__forEachRevStr(indexName, str, &(rune)))
@@ -2604,9 +2573,9 @@ typedef siString siUtf8String;
 typedef siBuffer(u16) siUtf16String;
 
 
-/* A UTF-32 encoded '�' character for reporting invalid states. */
+/* A UTF-32 encoded '?' character for reporting invalid states. */
 #define SI_UNICODE_INVALID_UTF32 (siUtf32Char){0xFFFD, 3}
-/* A UTF-8 encoded '�' character for reporting invalid states. */
+/* A UTF-8 encoded '?' character for reporting invalid states. */
 #define SI_UNICODE_INVALID_UTF8 (siUtf8Char){{0xEF, 0xBF, 0xBD}, 3}
 
 
@@ -2780,24 +2749,24 @@ SIDEF i32 si_charHexToInt(char c);
 	========================
 */
 
-/* TODO */
+/* Creates a 32-bit FNV hash. */
 SIDEF u32 si_fnv32(const void* data, isize len);
-/* TODO */
+/* Creates a 32-bit FNV-a hash */
 SIDEF u32 si_fnv32a(const void* data, isize len);
 
-/* TODO */
+/* Creates a 64-bit FNV hash. */
 SIDEF u64 si_fnv64(const void* data, isize len);
-/* TODO */
+/* Creates a 64-bit FNV-a hash. */
 SIDEF u64 si_fnv64a(const void* data, isize len);
 
-/* TODO */
+/* Creates a 32-bit MurmurHash3 hash. */
 SIDEF u32 si_murmur32(const void* data, isize len);
-/* TODO */
+/* Creates a 32-bit MurmurHash3 hash with a custom seed. */
 SIDEF u32 si_murmur32Ex(const void* data, isize len, u32 seed);
 
-/* TODO */
+/* Creates a 64-bit MurmurHash3 hash. */
 SIDEF u64 si_murmur64(const void* data, isize len);
-/* TODO */
+/* Creates a 64-bit MurmurHash3 hash with a custom seed. */
 SIDEF u64 si_murmur64Ex(const void* data, isize len, u64 seed);
 
 #endif /* SI_NO_HASHING */
@@ -2829,7 +2798,6 @@ typedef struct siMapEntry {
 	u32 next;
 } siMapEntry;
 
-
 typedef struct siMapAny {
 	siAllocator alloc;
 	isize len;
@@ -2840,52 +2808,68 @@ typedef struct siMapAny {
 	u32* hashes;
 } siMapAny;
 
-/* TODO */
+/* type - TYPE
+ * Represents a map with a specific type. */
 #define siMap(type) siMapAny
 
 
 
-/* TODO */
+/* key - siString | map - siMapAny
+ * Loops through the elements of the map, writes the key name to 'key'. */
 #define for_eachMap(key, map) \
 	for (isize si__mapI = 0; si__forEachMap(si__mapI, map, &(key)); si__mapI += 1)
-/* TODO */
+/* key - siString | value - TYPE | map - siMap(TYPE)
+ * Loops through the elements of the map, writes the key name to 'key', the key
+ * value to 'value'. */
 #define for_eachMapEx(key, value, map) \
 	for (isize si__mapI = 0; si__forEachMapEx(si__mapI, map, &(key), &(value)); si__mapI += 1)
+/* key - siString | value - TYPE | map - siMap(TYPE)
+ * Loops through the elements of the map, writes the key name to 'key', the key
+ * value's pointer to 'value'. */
+#define for_eachRefMap(key, value, map) \
+	for (isize si__mapI = 0; si__forEachRefMap(si__mapI, map, &(key), &(value)); si__mapI += 1)
 
 
-/* TODO */
-#define si_mapMake(alloc, type, ...) si_mapMakeEx(alloc, type, countof((si__mapS(type)){__VA_ARGS__}), __VA_ARGS__)
-/* TODO */
+
+/* alloc - siAllocator | type - TYPE | ...map - struct {siString, key}
+ * Creates a map from the specified contents. Map keys are seperated by commas. */
+#define si_mapMake(alloc, type, .../* map */) si_mapMakeEx(alloc, type, countof((si__mapS(type)){__VA_ARGS__}), __VA_ARGS__)
+/* alloc - siAllocator | type - TYPE | capcity - isize | map - struct {siString, key}
+ * Creates a map from the specified contents and capacity. Map keys are seperated
+ * by commas. */
 #define si_mapMakeEx(alloc, type, capacity, ...) si_mapMakeFull((si__mapS(type)){__VA_ARGS__}, si_sizeof(type), si_sizeof(struct { siString n; type m; }), countof((si__mapS(type)){__VA_ARGS__}), capacity, alloc);
-/* TODO */
+/* type - TYPE | capacity - isize | alloc - siAllocator
+ * Reserves a map with the specified type and capacity. */
 #define si_mapMakeReserve(type, capacity, alloc) si_mapReserve(si_sizeof(type), capacity, alloc);
-/* TODO */
+/* Reserves a map with the specified type size and capacity. */
 SIDEF siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc);
 
 
-/* TODO */
+/* Returns the pointer of an existing key's value, other 'nil' is returned. */
 SIDEF void* si_mapGet(siMapAny map, siString name);
 SIDEF void* si_mapGetHash(siMapAny map, siString name, u32 hash);
 
-/* TODO */
+/* Sets the specified's key value to the given pointer's value. */
 SIDEF siMapEntry* si_mapSet(siMapAny* map, siString name, const void* value);
 SIDEF siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
 		u32 hash);
 
-/* */
+/* Gets the existing key's pointer value, dereferences it and casts it to the
+ * specified type. NOTE 1: The function doesn.t check if the given type is correct.
+  * NOTE 2: If the key doesn't exist, this function crashes. */
 #define si_mapGetType(map, name, type) *(type*)si_mapGet(map, name)
-/* */
+/* Sets the specified's key value to the given value. */
 #define si_mapSetType(map, name, value, type) si_mapSet(map, name, &(type){value})
 
-/* TODO */
+/* Removes the specified key from the map. */
 SIDEF void si_mapErase(siMapAny* map, siString name);
 SIDEF void si_mapEraseHash(siMapAny* map, siString name, u32 hash);
 
-/* TODO */
+/* Empties the map. */
 SIDEF void si_mapClear(siMapAny* map);
 
 
-/* TODO */
+/* Frees the allocated memory by the map. */
 SIDEF void si_mapFree(siMapAny map);
 
 #endif /* SI_NO_MAP */
@@ -4220,12 +4204,66 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, siString name);
  * with the language to make it more usable and pretty... Do not enjoy. */
 #if 1
 
+#ifndef SI_NO_ARRAY
+
+force_inline
+b32 si__forEachBuf(isize i, siBufferAny buffer, void* value) {
+	SI_ASSERT_STR(buffer);
+
+	if (i < buffer.len) {
+		si_memcopy(value, si_bufferGet(buffer, i), buffer.typeSize);
+		return true;
+	}
+
+	return false;
+}
+
+force_inline
+b32 si__forEachRefBuf(isize i, siBufferAny buffer, void* value) {
+	SI_ASSERT_STR(buffer);
+
+	if (i < buffer.len) {
+		*(void**)value = si_bufferGet(buffer, i);
+		return true;
+	}
+
+	return false;
+}
+
+force_inline
+b32 si__forEachRevBuf(isize i, siBufferAny buffer, void* value) {
+	SI_ASSERT_STR(buffer);
+
+	if (i >= 0) {
+		si_memcopy(value, si_bufferGet(buffer, i), buffer.typeSize);
+		return true;
+	}
+
+	return false;
+}
+
+force_inline
+b32 si__forEachRevRefBuf(isize i, siBufferAny buffer, void* value) {
+	SI_ASSERT_STR(buffer);
+
+	if (i >= 0) {
+		*(void**)value = si_bufferGet(buffer, i);
+		return true;
+	}
+
+	return false;
+}
+
+
+#endif
+
 #ifndef SI_NO_UNICODE
 
 SIDEF siUtf32Char si__stringLastRune(siString str);
 
 force_inline
 b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
+	SI_ASSERT_STR(str);
 	if (i < str.len) {
 		siUtf32Char res = si_utf8Decode(&str.data[i]);
 		*rune = res.codepoint;
@@ -4238,6 +4276,7 @@ b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
 
 force_inline
 isize si__forEachRevStr(isize i, siString str, siRune* rune) {
+	SI_ASSERT_STR(str);
 	siUtf32Char res = si__stringLastRune(si_substrStart(str, i));
 	*rune = res.codepoint;
 	return res.len;
@@ -4249,6 +4288,9 @@ isize si__forEachRevStr(isize i, siString str, siRune* rune) {
 
 force_inline
 b32 si__forEachMap(isize i, siMapAny map, siString* key) {
+	SI_ASSERT_STR(*key);
+	SI_ASSERT_NOT_NIL(map.entries);
+
 	if (i < map.len) {
 		*key = map.entries[i].key;
 		return true;
@@ -4259,6 +4301,10 @@ b32 si__forEachMap(isize i, siMapAny map, siString* key) {
 
 force_inline
 b32 si__forEachMapEx(isize i, siMapAny map, siString* key, void* value) {
+	SI_ASSERT_STR(*key);
+	SI_ASSERT_NOT_NIL(map.entries);
+	SI_ASSERT_NOT_NIL(map.values);
+
 	if (i < map.len) {
 		*key = map.entries[i].key;
 		si_memcopy(value, si_pointerAdd(map.values, i * map.typeSize), map.typeSize);
@@ -4267,6 +4313,22 @@ b32 si__forEachMapEx(isize i, siMapAny map, siString* key, void* value) {
 
 	return false;
 }
+
+force_inline
+b32 si__forEachRefMap(isize i, siMapAny map, siString* key, void* value) {
+	SI_ASSERT_STR(*key);
+	SI_ASSERT_NOT_NIL(map.entries);
+	SI_ASSERT_NOT_NIL(map.values);
+
+	if (i < map.len) {
+		*key = map.entries[i].key;
+		*(void**)value = si_pointerAdd(map.values, i * map.typeSize);
+		return true;
+	}
+
+	return false;
+}
+
 
 #define si__mapS(type) struct { siString n; type m; }[]
 SIDEF siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity, siAllocator alloc);
@@ -7734,6 +7796,7 @@ u64 si_murmur64Ex(const void* data, isize len, u64 seed) {
 SIDEF
 siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity,
 		siAllocator alloc) {
+	SI_ASSERT(len <= capacity);
 	siMapAny map = si_mapReserve(typeSize, capacity, alloc);
 
 	for_range (i, 0, len) {
