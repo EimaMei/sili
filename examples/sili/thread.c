@@ -14,7 +14,7 @@ void example2(void);
 
 
 int main(void) {
-	example1();
+	//example1();
 	example2();
 }
 
@@ -91,7 +91,7 @@ void example2(void) {
 	}
 	si_printLn("Results are correct.");
 
-	si_freeAll(alloc);
+	si_arenaFree(&aData);
 }
 
 void matrix_singlethreaded(f32* a, f32* b, f32* result) {

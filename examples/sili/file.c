@@ -35,7 +35,7 @@ void example1(siAllocator alloc) {
 
 	si_printf("==============\n\n==============\nExample 1:\n");
 	siString file_random = SI_STR("random.txt");
-	siString file_examples_file = SI_STR("examples/file.c");
+	siString file_examples_file = SI_STR("examples/sili/file.c");
 	siString unknown = SI_STRC("N/A");
 
 	/* If the file doesn't exist or fails to open in any other way, then we will
@@ -62,7 +62,7 @@ void example1(siAllocator alloc) {
 	{
 		siFile file = si_fileOpen(file_examples_file);
 		si_printfLn(
-			"About 'examples/file.c':\n\t"
+			"About 'examples/sili/file.c':\n\t"
 				"Full path - '%S'\n\t"
 				"Size - '%zu' bytes",
 			si_optionalGetOrDefault(si_pathGetFullName(file_examples_file, stack), unknown),
@@ -135,10 +135,11 @@ void example2(void)	{
 		si_printfLn(
 			"Information about '%S':\n\t"
 				"Base name - '%S'\n\t"
+				"Without extension - '%S'\n\t"
 				"Extension - '%S'\n\t"
 				"Full path - '%S'\n\t"
 				"Is relative: %B",
-			path, si_pathBaseName(path), si_pathExtension(path),
+			path, si_pathBaseName(path), si_pathWithoutExtension(path), si_pathExtension(path),
 			si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), si_pathIsRelative(path)
 		);
 	}

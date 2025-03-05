@@ -117,7 +117,7 @@ else ifeq ($(DETECTED_OS),Linux)
 endif
 
 # For testing
-SRC = examples/str.c
+SRC = src/main.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -147,7 +147,7 @@ $(EXE): $(SRC) sili.h
 
 # Compiles and runs every example.
 compile_examples:
-	@for f in $(shell ls examples/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+	@for f in $(shell ls examples/sili/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 # Compiles and runs every test.
 compile_tests:

@@ -112,19 +112,19 @@ CREDITS
 	make the Sili Toolchain, as well as certain features were taken from the
 	library and implemented here.
 
-LICENSE:
+LICENSE
 	- This software is licensed under the zlib license (see the LICENSE at the
 	bottom of the file).
 
 WARNING
-	- Sili is designed to be a library that's fast, modern, but also experimental.
-	Because of that, some unwarranted results may occur when using the library,
-	those being:
+	- Sili and its supplementary libraries are designed to be fast, modern, but
+	also experimental. As a result some unwarranted results may occur during use,
+	such as:
 		1) Features not working as expected;
-		2) Functions not being documented or only containing incomplete documentation;
-		3) API breaking changes between releases;
-		4) Little to no security checks for malicious code attempting to exploit
-		parts of the code
+		2) Functions having no or incompleted documentation;
+		3) API breaking changes between releases (especially before v1.0.0 release);
+		4) Little to no security checks for malicious code that attempt to exploit
+		parts of the code.
 
 */
 
@@ -1757,7 +1757,7 @@ typedef struct siBufferAny {
  * Loops through the elements of the buffer, writes the element pointer to 'name'. */
 #define for_eachRefBuf(name, buffer) for_eachRefBufEx(name, si__i, buffer)
 #define for_eachRefBufEx(name, indexName, buffer) \
-	for (isize indexName = 0; si__forEachBuf(indexName, buffer, &(name)); indexName += 1, name += 1)
+	for (isize indexName = 0; si__forEachRefBuf(indexName, buffer, &(name)); indexName += 1, name += 1)
 
 
 /* name - NAME | buffer - siBufferAny
@@ -2082,14 +2082,12 @@ SIDEF const u8* si_stringBegin(siString str);
 SIDEF const u8* si_stringEnd(siString str);
 
 
-/* Returns a substring from the specified start to the specified index end. */
-SIDEF siString si_substr(siString str, isize start, isize end);
-/* Returns a substring from the specified start to the end. */
-SIDEF siString si_substrEnd(siString str, isize start);
-/* Returns a substring from index 0 to the specified end. */
-SIDEF siString si_substrStart(siString str, isize end);
-/* Returns a substring from the specified start with a length. */
-SIDEF siString si_substrLen(siString str, isize start, isize length);
+/* TODO */
+SIDEF siString si_substr(siString str, isize i, isize len);
+/* TODO */
+SIDEF siString si_substrFrom(siString str, isize offset1);
+/* TODO */
+SIDEF siString si_substrTo(siString str, isize offset2);
 
 
 /* Searches for the specified substring in the string (from the beginning). If
@@ -2134,6 +2132,12 @@ SIDEF siString si_stringTrimLeft(siString str, siString cutSet);
 SIDEF siString si_stringTrimRight(siString str, siString cutSet);
 /* Removes any leading or trailing spaces and newlines in the string. */
 SIDEF siString si_stringStrip(siString str);
+/* TODO */
+SIDEF siString si_stringStripLeft(siString str);
+/* TODO */
+SIDEF siString si_stringStripRight(siString str);
+/* TODO */
+SIDEF siString si_stringUnquote(siString str);
 
 
 /* Creates a string builder structure. */
@@ -2201,12 +2205,14 @@ SIDEF b32 si_builderMakeSpaceFor(siBuilder* b, isize addLen);
  * string at the specified index. */
 SIDEF siString si_stringInsert(siString str, siString subStr, isize index,
 		siAllocator alloc);
+
 /* Allocates a string, which has all mentions of the substring removed from the
  * primary string. */
 SIDEF siString si_stringRemoveAll(siString str, siString subStr, siAllocator alloc);
 /* Allocates a string, which has a specified amount of mentions of the substring
  * removed from the primary string. */
 siString si_stringRemove(siString str, siString subStr, i32 amount, siAllocator alloc);
+
 /* Allocates a string, which has all mentions of the old substring replaced with
  * the new one. */
 SIDEF siString si_stringReplaceAll(siString str, siString strOld, siString strNew,
@@ -2215,22 +2221,22 @@ SIDEF siString si_stringReplaceAll(siString str, siString strOld, siString strNe
  * replaced with the new one. */
 SIDEF siString si_stringReplace(siString str, siString strOld, siString strNew,
 		isize amount, siAllocator alloc);
-/* Splits the string into multiple _substrings_ based on the separator. Returns
- * nil if the specified delimiter wasn't found in the string.
- *
- * NOTE: The elements of the array are all substrings, not newly allocated strings.
- * This means that if the original string gets freed, the elements would then
- * point to a freed memory region. */
+
+
+/* Splits the string into _string views_ based on the separator. */
 SIDEF siBuffer(siString) si_stringSplit(siString str, siString delimiter,
 	siAllocator alloc);
-/* Splits the string into a specified amount _substrings_ based on the separator.
- * Returns nil if the specified delimiter wasn't found in the string.
- *
- * NOTE: The elements of the array are all substrings, not newly allocated strings.
- * This means that if the original string gets freed, the elements would then
- * point to a freed memory region. */
+/* Splits the string into a specified amount _string views_ based on the separator. */
 SIDEF siBuffer(siString) si_stringSplitEx(siString str, siString delimiter,
 	isize amount, siAllocator alloc);
+/* Splits lines into _string views_. */
+SIDEF siBuffer(siString) si_stringSplitLines(siString str, siAllocator alloc);
+
+/* TODO */
+SIDEF b32 si_stringSplitIterate(siString* str, siString delimiter, siString* outStr);
+/* TODO */
+SIDEF b32 si_stringSplitLinesIterate(siString* str, siString* outStr);
+
 /* Allocates a string, which is the reversed specified string. */
 SIDEF siString si_stringReverse(siString str, siAllocator alloc);
 
@@ -2837,10 +2843,10 @@ typedef struct siMapAny {
 /* alloc - siAllocator | type - TYPE | capcity - isize | map - struct {siString, key}
  * Creates a map from the specified contents and capacity. Map keys are seperated
  * by commas. */
-#define si_mapMakeEx(alloc, type, capacity, ...) si_mapMakeFull((si__mapS(type)){__VA_ARGS__}, si_sizeof(type), si_sizeof(struct { siString n; type m; }), countof((si__mapS(type)){__VA_ARGS__}), capacity, alloc);
+#define si_mapMakeEx(alloc, type, capacity, ...) si_mapMakeFull((si__mapS(type)){__VA_ARGS__}, si_sizeof(type), si_sizeof(struct { siString n; type m; }), countof((si__mapS(type)){__VA_ARGS__}), capacity, alloc)
 /* type - TYPE | capacity - isize | alloc - siAllocator
  * Reserves a map with the specified type and capacity. */
-#define si_mapMakeReserve(type, capacity, alloc) si_mapReserve(si_sizeof(type), capacity, alloc);
+#define si_mapMakeReserve(type, capacity, alloc) si_mapReserve(si_sizeof(type), capacity, alloc)
 /* Reserves a map with the specified type size and capacity. */
 SIDEF siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc);
 
@@ -2849,9 +2855,10 @@ SIDEF siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc);
 SIDEF void* si_mapGet(siMapAny map, siString name);
 SIDEF void* si_mapGetHash(siMapAny map, siString name, u32 hash);
 
-/* Sets the specified's key value to the given pointer's value. */
-SIDEF siMapEntry* si_mapSet(siMapAny* map, siString name, const void* value);
-SIDEF siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
+/* Sets the specified's key value to the given pointer's value. Returns the
+ * set value's pointer inside the map. */
+SIDEF void* si_mapSet(siMapAny* map, siString name, const void* value);
+SIDEF void* si_mapSetHash(siMapAny* map, siString name, const void* value,
 		u32 hash);
 
 /* Gets the existing key's pointer value, dereferences it and casts it to the
@@ -2859,7 +2866,7 @@ SIDEF siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
   * NOTE 2: If the key doesn't exist, this function crashes. */
 #define si_mapGetType(map, name, type) *(type*)si_mapGet(map, name)
 /* Sets the specified's key value to the given value. */
-#define si_mapSetType(map, name, value, type) si_mapSet(map, name, &(type){value})
+#define si_mapSetType(map, name, value, type) (type*)si_mapSet(map, name, &(type){value})
 
 /* Removes the specified key from the map. */
 SIDEF void si_mapErase(siMapAny* map, siString name);
@@ -3787,6 +3794,7 @@ SIDEF u64 si_pathLastWriteTime(siString path);
 
 /* Writes the contents of the specified path to the out parameter. Returns an
  * error, if failed. */
+SIDEF siString si_pathReadContents(siString path, siAllocator alloc);
 SIDEF siError si_pathReadContentsBuf(siString path, siBuffer(u8)* out);
 
 /* Checks if the specified path is absolute. */
@@ -4264,6 +4272,7 @@ SIDEF siUtf32Char si__stringLastRune(siString str);
 force_inline
 b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
 	SI_ASSERT_STR(str);
+
 	if (i < str.len) {
 		siUtf32Char res = si_utf8Decode(&str.data[i]);
 		*rune = res.codepoint;
@@ -4277,7 +4286,8 @@ b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
 force_inline
 isize si__forEachRevStr(isize i, siString str, siRune* rune) {
 	SI_ASSERT_STR(str);
-	siUtf32Char res = si__stringLastRune(si_substrStart(str, i));
+
+	siUtf32Char res = si__stringLastRune(si_substrTo(str, i));
 	*rune = res.codepoint;
 	return res.len;
 }
@@ -4288,7 +4298,6 @@ isize si__forEachRevStr(isize i, siString str, siRune* rune) {
 
 force_inline
 b32 si__forEachMap(isize i, siMapAny map, siString* key) {
-	SI_ASSERT_STR(*key);
 	SI_ASSERT_NOT_NIL(map.entries);
 
 	if (i < map.len) {
@@ -4301,7 +4310,6 @@ b32 si__forEachMap(isize i, siMapAny map, siString* key) {
 
 force_inline
 b32 si__forEachMapEx(isize i, siMapAny map, siString* key, void* value) {
-	SI_ASSERT_STR(*key);
 	SI_ASSERT_NOT_NIL(map.entries);
 	SI_ASSERT_NOT_NIL(map.values);
 
@@ -4316,7 +4324,6 @@ b32 si__forEachMapEx(isize i, siMapAny map, siString* key, void* value) {
 
 force_inline
 b32 si__forEachRefMap(isize i, siMapAny map, siString* key, void* value) {
-	SI_ASSERT_STR(*key);
 	SI_ASSERT_NOT_NIL(map.entries);
 	SI_ASSERT_NOT_NIL(map.values);
 
@@ -5636,6 +5643,17 @@ siUtf32Char si__stringLastRune(siString str) {
 	return si_utf8Decode(&str.data[i]);
 }
 
+siIntern
+siString si__stringTrimCr(siString str) {
+	isize i = str.len;
+	if (i > 0 && str.data[i - 1] == '\r') {
+		str.len -= 1;
+	}
+
+	return str;
+}
+
+
 inline
 siBuilder si_builderMake(isize capacity, siAllocator alloc) {
 	return si_builderMakeLen(0, capacity, alloc);
@@ -5896,30 +5914,27 @@ const u8* si_stringEnd(siString str) {
 
 
 inline
-siString si_substr(siString str, isize start, isize end) {
+siString si_substr(siString str, isize offset1, isize offset2) {
 	SI_ASSERT_STR(str);
-	SI_ASSERT_NOT_NEG(end);
-	SI_ASSERT(start < str.len && end < str.len);
-	SI_ASSERT(start <= end);
+	SI_ASSERT_NOT_NEG(offset1);
+	SI_ASSERT_NOT_NEG(offset2);
+	SI_ASSERT(offset1 <= str.len && offset2 <= str.len);
+	SI_ASSERT(offset1 <= offset2);
 
 	siString res;
-	res.data = &str.data[start];
-	res.len = (end - start) + 1;
+	res.data = &str.data[offset1];
+	res.len = offset2 - offset1;
 
 	return res;
 }
 
 inline
-siString si_substrEnd(siString str, isize start) {
-	return si_substr(str, start, str.len - 1);
+siString si_substrFrom(siString str, isize offset1) {
+	return si_substr(str, offset1, str.len);
 }
 inline
-siString si_substrStart(siString str, isize end) {
-	return si_substr(str, 0, end);
-}
-inline
-siString si_substrLen(siString str, isize start, isize length) {
-	return si_substr(str, start, start + length);
+siString si_substrTo(siString str, isize offset2) {
+	return si_substr(str, 0, offset2);
 }
 
 SIDEF
@@ -6093,6 +6108,9 @@ siString si_stringTrim(siString str, siString cutSet) {
 
 SIDEF
 siString si_stringTrimLeft(siString str, siString cutSet) {
+	SI_ASSERT_STR(str);
+	SI_STOPIF(str.len == 0, return str);
+
 	const u8* posStart = si_stringBegin(str);
 	const u8* posEnd = si_stringEnd(str);
 
@@ -6119,8 +6137,28 @@ siString si_stringTrimRight(siString str, siString cutSet) {
 
 inline
 siString si_stringStrip(siString str) {
-	return si_stringTrim(str, SI_STR(" \t\r\n\v\f"));
+	return si_stringTrimRight(si_stringTrimLeft(str, SI_STR(" \t\r\n\v\f")), SI_STR(" \t\r\n\v\f"));
 }
+
+inline
+siString si_stringStripLeft(siString str) {
+	return si_stringTrimLeft(str, SI_STR(" \t\r\n\v\f"));
+}
+
+inline
+siString si_stringStripRight(siString str) {
+	return si_stringTrimRight(str, SI_STR(" \t\r\n\v\f"));
+}
+
+SIDEF
+siString si_stringUnquote(siString str) {
+	SI_STOPIF(str.len < 2, return str);
+	if (str.data[0] == '\"') { str.data += 1; str.len -= 1; }
+	if (str.data[str.len - 1] == '\"') { str.len -= 1; }
+
+	return str;
+}
+
 
 
 SIDEF
@@ -6133,9 +6171,9 @@ siString si_stringInsert(siString str, siString subStr, isize index, siAllocator
 	u8* res = si_allocArray(alloc, u8, len);
 
 	isize i = 0;
-	i += si_memcopyStr(&res[i], si_substrStart(str, index - 1));
+	i += si_memcopyStr(&res[i], si_substrTo(str, index));
 	i += si_memcopyStr(&res[i], subStr);
-	i += si_memcopyStr(&res[i], si_substrEnd(str, index));
+	i += si_memcopyStr(&res[i], si_substrFrom(str, index));
 
 	return SI_STR_LEN(res, len);
 }
@@ -6190,7 +6228,7 @@ siString si_stringReplace(siString str, siString strOld, siString strNew, isize 
 	u8* res = si_allocArray(alloc, u8, len);
 
 	while (amount) {
-		siString subStr = si_substrEnd(str, lineStart);
+		siString subStr = si_substrFrom(str, lineStart);
 		subStr.len = si_stringFind(subStr, strOld);
 
 		i += si_memcopyStr(&res[i], subStr);
@@ -6199,7 +6237,7 @@ siString si_stringReplace(siString str, siString strOld, siString strNew, isize 
 		lineStart += subStr.len + strOld.len;
 		amount -= 1;
 	}
-	si_memcopyStr(&res[i], si_substrEnd(str, lineStart));
+	si_memcopyStr(&res[i], si_substrFrom(str, lineStart));
 
 	return SI_STR_LEN(res, len);
 }
@@ -6227,7 +6265,7 @@ siBuffer(siString) si_stringSplitEx(siString str, siString delimiter, isize amou
 
 	isize lineStart = 0;
 	for_range (i, 0, amount) {
-		siString subStr = si_substrEnd(str, lineStart);
+		siString subStr = si_substrFrom(str, lineStart);
 		subStr.len = si_stringFind(subStr, delimiter);
 
 		data[i] = subStr;
@@ -6238,10 +6276,64 @@ siBuffer(siString) si_stringSplitEx(siString str, siString delimiter, isize amou
 		res.len -= 1;
 		return SI_BUF_ARR(res);
 	}
-	data[amount] = si_substrEnd(str, lineStart);
+	data[amount] = si_substrFrom(str, lineStart);
 
 	return SI_BUF_ARR(res);
 }
+
+SIDEF
+siBuffer(siString) si_stringSplitLines(siString str, siAllocator alloc) {
+	siBuffer(siString) arr = si_stringSplit(str, SI_STR("\n"), alloc);
+
+	siString* line;
+	for_eachRefBuf (line, arr) {
+		*line = si__stringTrimCr(*line);
+	}
+
+	return arr;
+}
+
+
+SIDEF
+b32 si_stringSplitIterate(siString* str, siString delimiter, siString* outStr) {
+	SI_ASSERT_NOT_NIL(str);
+	SI_ASSERT_NOT_NIL(outStr);
+	SI_ASSERT_STR(*str);
+	SI_ASSERT_STR(delimiter);
+	SI_STOPIF(delimiter.len == 0, *outStr = SI_STR_EMPTY; return false);
+
+	siString res = *str;
+	isize i = si_stringFind(res, delimiter);
+
+	if (i > -1) {
+		res.len = i;
+		*str = si_substrFrom(*str, i + delimiter.len);
+		*outStr = res;
+		return true;
+	}
+	else {
+		*outStr = res;
+		*str = si_substrFrom(*str, str->len);
+
+		return res.len != 0;
+	}
+}
+
+SIDEF
+b32 si_stringSplitLinesIterate(siString* str, siString* outStr) {
+	SI_ASSERT_NOT_NIL(outStr);
+
+	siString out;
+	b32 res = si_stringSplitIterate(str, SI_STR("\n"), &out);
+
+	if (res) {
+		out = si__stringTrimCr(out);
+	}
+	*outStr = out;
+
+	return res;
+}
+
 
 
 #ifdef SI_IMPLEMENTATION_MEMORY
@@ -6345,7 +6437,7 @@ u64 si_stringToUIntBase(siString str, i32 base, i32* outRes) {
 	siRune r;
 	for_eachStrEx (r, i, str) {
 		if (!si_runeIsSpace(r)) {
-			str = si_substrEnd(str, i);
+			str = si_substrFrom(str, i);
 			break;
 		}
 	}
@@ -6380,10 +6472,10 @@ u64 si_stringToUIntBase(siString str, i32 base, i32* outRes) {
 	i32 maxDigits;
 	if (base > -1) {
 		switch (str.data[1]) {
-			case 'X': base = 16; str = si_substrEnd(str, 2); maxDigits = 16 + 2; break;
-			case 'O': base =  8; str = si_substrEnd(str, 2); maxDigits = 22 + 2; break;
-			case 'B': base =  2; str = si_substrEnd(str, 2); maxDigits = 64 + 2; break;
-			default:  base =  8; str = si_substrEnd(str, 1); maxDigits = 22 + 1; break;
+			case 'X': base = 16; str = si_substrFrom(str, 2); maxDigits = 16 + 2; break;
+			case 'O': base =  8; str = si_substrFrom(str, 2); maxDigits = 22 + 2; break;
+			case 'B': base =  2; str = si_substrFrom(str, 2); maxDigits = 64 + 2; break;
+			default:  base =  8; str = si_substrFrom(str, 1); maxDigits = 22 + 1; break;
 		}
 	}
 	else {
@@ -6806,10 +6898,10 @@ i64 si_stringToInt(siString str) {
 
 	switch (*(u8*)str.data) {
 		case '-':
-			str = si_substrEnd(str, 1);
+			str = si_substrFrom(str, 1);
 			return -(i64)si_stringToUInt(str);
 		case '+':
-			str = si_substrEnd(str, 1);
+			str = si_substrFrom(str, 1);
 			break;
 	}
 
@@ -7879,12 +7971,12 @@ void* si_mapGetHash(siMapAny map, siString name, u32 hash) {
 }
 
 SIDEF
-siMapEntry* si_mapSet(siMapAny* map, siString name, const void* value) {
+void* si_mapSet(siMapAny* map, siString name, const void* value) {
 	return si_mapSetHash(map, name, value, si__mapHash(name));
 }
 
 SIDEF
-siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
+void* si_mapSetHash(siMapAny* map, siString name, const void* value,
 		u32 hash) {
 	SI_ASSERT_NOT_NIL(map);
 	SI_ASSERT_STR(name);
@@ -7913,10 +8005,12 @@ siMapEntry* si_mapSetHash(siMapAny* map, siString name, const void* value,
 			map->hashes[find.hashIndex] = index;
 		}
 	}
-	si_memcopy((u8*)map->values + index * map->typeSize, value, map->typeSize);
+
+	void* res = (u8*)map->values + index * map->typeSize;
+	si_memcopy(res, value, map->typeSize);
 
 
-	return &map->entries[index];
+	return res;
 }
 
 SIDEF
@@ -7960,6 +8054,7 @@ void si_mapEraseHash(siMapAny* map, siString name, u32 hash) {
 SIDEF
 void si_mapClear(siMapAny* map) {
 	SI_ASSERT_NOT_NIL(map);
+
 	for_range (i, 0, map->len) {
 		siMapEntry entry = map->entries[i];
 		__siMapSearch find = si__mapFind(*map, entry.hash, entry.key);
@@ -9996,10 +10091,10 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 		time[j] /= (f64)units[j].threshold;
 	}
 
-	si_printf(
+	si_printfLn(
 		"Final result:\n"
-			"\tTime average   - %C%*.4f%C %s vs %C%*.4f%C %s (%4.4f ratio)\n"
-			"\tCycles average - %*lu cycles vs %*lu cycles\n",
+			"\tTime average   - %C%*.4f%C %S vs %C%*.4f%C %S (%4.4f ratio)\n"
+			"\tCycles average - %*lu cycles vs %*lu cycles",
 		clr[0], padCycles[0], time[0], units[0].str,
 		clr[1], padCycles[1], time[1], units[1].str,
 		ratio,
@@ -10663,7 +10758,7 @@ siString si_pathBaseName(siString path) {
 	isize i;
 	for (i = path.len - 1; i >= 0; i -= 1) {
 		if (path.data[i] == SI_PATH_SEPARATOR) {
-			return si_substrEnd(path, i);
+			return si_substrFrom(path, i);
 		}
 	}
 	return path;
@@ -10679,10 +10774,10 @@ siString si_pathUnrooted(siString path) {
 
 	for_range (i, offset, path.len) {
 		if (path.data[i] == SI_PATH_SEPARATOR) {
-			return si_substrEnd(path, i);
+			return si_substrFrom(path, i);
 		}
 	}
-	return si_substrEnd(path, offset);
+	return si_substrFrom(path, offset);
 }
 
 SIDEF
@@ -10693,7 +10788,7 @@ siString si_pathExtension(siString path) {
 	isize i;
 	for (i = path.len - 1; i >= 0; i -= 1) {
 		if (path.data[i] == '.') {
-			return si_substrStart(path, i + 1);
+			return si_substrFrom(path, i + 1);
 		}
 		else if (path.data[i] == SI_PATH_SEPARATOR) {
 			break;
@@ -10711,7 +10806,7 @@ siString si_pathWithoutExtension(siString path) {
 	isize i;
 	for (i = path.len - 1; i >= 1; i -= 1) {
 		if (path.data[i] == '.') {
-			return si_substrEnd(path, i - 1);
+			path = si_substrTo(path, i);
 		}
 		else if (path.data[i] == SI_PATH_SEPARATOR) {
 			break;
@@ -11164,7 +11259,7 @@ siError si_fileReadContentsBuf(siFile file, siBuffer(u8)* out) {
 SIDEF
 siBuffer(siString) si_fileReadlines(siFile file, siAllocator alloc) {
 	siString str = si_fileReadContents(file, alloc);
-	siBuffer(siString) res = si_stringSplit(str, SI_STR("\n"), alloc);
+	siBuffer(siString) res = si_stringSplitLines(str, alloc);
 	si_free(alloc, (void*)str.data);
 
 	return res;

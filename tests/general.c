@@ -73,8 +73,8 @@ int main(void) {
 	si_print("Test 1 has been completed.\n");
 
 	{
-		usize ceil = si_alignForward(12, 8);
-		TEST_EQ_U64(ceil, 16);
+		isize ceil = si_alignForward(12, 8);
+		TEST_EQ_USIZE(ceil, 16);
 
 		for_range (i, 0, si_sizeof(usize) * 8 - 1) {
 			SI_ASSERT(si_isPowerOfTwo((isize)SI_BIT(i)));
