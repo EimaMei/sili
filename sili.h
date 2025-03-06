@@ -3737,11 +3737,8 @@ SI_ENUM(i32, siStdFile) {
 #define si_stderr si_fileGetStdFile(siStdFile_Error)
 
 
-#if SI_SYSTEM_IS_WINDOWS
-	const u8 SI_PATH_SEPARATOR = '\\';
-#else
-	const u8 SI_PATH_SEPARATOR = '/';
-#endif
+/* TODO */
+extern const u8 SI_PATH_SEPARATOR;
 
 /*
 	========================
@@ -10514,6 +10511,12 @@ siError si_vmDiscard(siVirtualMemory vm) {
 #if SI_COMPILER_MSVC
 	#pragma comment(lib, "shell32")
 	#pragma comment(lib, "Advapi32")
+#endif
+
+#if SI_SYSTEM_IS_WINDOWS
+	const u8 SI_PATH_SEPARATOR = '\\';
+#else
+	const u8 SI_PATH_SEPARATOR = '/';
 #endif
 
 inline
