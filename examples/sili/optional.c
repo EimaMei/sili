@@ -85,7 +85,7 @@ void example2(void) {
 
 	siOption(i32) opt_i32;
 	siOption(siString) opt_string;
-	siOption(siBuffer(i32)) opt_buffer;
+	siOption(siArray(i32)) opt_buffer;
 	siOption(u128Struct) opt_u128;
 	siOption(Type) opt_type;
 	siOption(rawptr) opt_ptr;
@@ -94,19 +94,18 @@ void example2(void) {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
 
+	siArena arena = si_arenaMakePtr(si_stackAlloc(64), 1);
+	siAllocator alloc = si_allocatorArena(&arena);
 	for_range (i, 0, Type_len) {
-		createOptional((Type)i, opt_array[i], si_allocatorHeap());
+		createOptional((Type)i, opt_array[i], alloc);
 	}
 
 	si_printfLn("Element 1: '%X'", opt_i32.data.value);
 	si_printfLn("Element 2: '%S'", opt_string.data.value);
-	si_printfLn("Element 3: '%S'", si_stringFromBuffer(opt_buffer.data.value, "%i", SI_BUF_STACK(64)));
+	si_printfLn("Element 3: '%S'", si_stringFromArray(opt_buffer.data.value, "%i", SI_ARR_STACK(64)));
 	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printfLn("Element 5: '%zd'", opt_type.data.value);
 	si_printfLn("Element 6: '%p'", opt_ptr.data.value);
-
-
-	si_mfree(opt_buffer.data.value.data);
 }
 
 #define INVALID_ID 1
@@ -128,7 +127,7 @@ void example3(void) {
 		}
 		else {
 			siError err = res.data.error;
-			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_BUF_STACK(64));
+			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64));
 			si_printfLn(
 				"Couldn't get info on ID '%u': Error '%u' ('%L', occurred on '%S')",
 				id, err.code, err.location, time
@@ -155,8 +154,8 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 		} break;
 
 		case Type_buffer: {
-			siOption(siBuffer(i32))* res = out;
-			*res = SI_OPT(siBuffer(i32), SI_BUF_ARR(si_arrayMake(alloc, i32, 1, 2, 4, 6, 8)));
+			siOption(siArray(i32))* res = out;
+			*res = SI_OPT(siArray(i32), si_arrayMake(alloc, i32, 1, 2, 4, 6, 8));
 		} break;
 
 		case Type_struct: {

@@ -54,7 +54,7 @@ int main(void) {
 
 		u8 src[8] = {0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF};
 		u32 dst = 0;
-		si_memcopy_s(SI_BUF_LEN((u8*)&dst, 4), &src, si_sizeof(src));
+		si_memcopy_s(SI_ARR_LEN((u8*)&dst, 4), &src, si_sizeof(src));
 		TEST_EQ_H64(dst, si_swap32be(0x00FF00FF));
 
 		TEST_EQ_H64(0x44434241, si_swap32le(value));

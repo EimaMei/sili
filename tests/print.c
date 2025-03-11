@@ -5,7 +5,7 @@
 
 #define TEST_PRINT(expectedStr, input, ...) \
 	do { \
-		siBuffer(u8) buffer = SI_BUF_STACK(1024); \
+		siArray(u8) buffer = SI_ARR_STACK(1024); \
 		isize expectedLen = countof_str(expectedStr); \
 		SI_ASSERT(expectedLen <= buffer.len); \
 		\

@@ -69,7 +69,7 @@ void example1(siAllocator alloc) {
 			file.size
 		);
 
-		siBuffer(siString) lines = si_fileReadlines(file, alloc);
+		siArray(siString) lines = si_fileReadlines(file, alloc);
 		si_printfLn(
 			"Contents of '%S' ('%zd' lines in total):",
 			si_pathBaseName(file_examples_file), lines.len
@@ -77,7 +77,7 @@ void example1(siAllocator alloc) {
 
 
 		siString line;
-		for_eachBufEx (line, i, lines) {
+		for_eachArrEx (line, i, lines) {
 			si_printfLn("\tLine %zu (%zu bytes): '%S'", i + 1, line.len, line);
 		}
 		si_fileClose(&file);

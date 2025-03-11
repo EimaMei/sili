@@ -1,4 +1,4 @@
-#define SI_IMPLEMENTATION
+#define SI_IMPLEMENTATION 1
 #include <sili.h>
 
 force_inline
@@ -94,8 +94,8 @@ int main(void) {
 
 	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_bitsReverseBits(u32, 0x1234567890123456));
 
-	siBuffer(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
-	si_printfLn("buffer: %S, (len: %zd)", si_stringFromBuffer(buffer, "%#hhX", SI_BUF_STACK(64)), buffer.len);
+	siArray(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
+	si_printfLn("buffer: %S, (len: %zd)", si_stringFromArray(buffer, "%#hhX", SI_ARR_STACK(64)), buffer.len);
 
 	u32 newNum = (u32)si_bytesFromArray(buffer);
 	si_printfLn("Combining them all back, we get '%#X'", newNum);

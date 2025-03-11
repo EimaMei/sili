@@ -99,8 +99,8 @@ void example1(siAllocator alloc) {
 		siString str = SI_STR("one.two.three.four.five");
 		si_printfLn("\tstr: '%S', len: '%zi'", str, str.len);
 
-		siBuffer(siString) list = si_stringSplit(str, SI_STR("."), alloc);
-		si_printfLn("\tElements: %S", si_stringFromBuffer(list, "%S", SI_BUF_STACK(64)));
+		siArray(siString) list = si_stringSplit(str, SI_STR("."), alloc);
+		si_printfLn("\tElements: %S", si_stringFromArray(list, "%S", SI_ARR_STACK(64)));
 	}
 
 	si_printfLn("Scope 6:");
@@ -133,17 +133,17 @@ void example2(siAllocator alloc) {
 
 	siString str;
 	{
-		siBuffer(u8) buf = SI_BUF_ALLOC(u8, 4, alloc);
+		siArray(u8) buf = si_arrayMakeReserve(u8, 4, alloc);
 		str = si_stringFromInt(-342, buf);
 		si_printfLn("str: \"%S\"", str);
 
 		i64 num = si_stringToInt(SI_STR("  9300  "));
 		si_printfLn("num: %li", num);
 
-		str = si_stringFromFloat(FLOAT32_MAX, SI_BUF_ALLOC(u8, 128, alloc));
+		str = si_stringFromFloat(FLOAT32_MAX, si_arrayMakeReserve(u8, 128, alloc));
 		si_printfLn("str: %S", str);
 
-		siBuffer(siString) arr = SI_BUF(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));
+		siArray(siString) arr = SI_ARR(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));
 		str = si_stringJoin(arr, SI_STR("/"), alloc);
 		si_printfLn("Joined str: \"%S\"", str);
 
