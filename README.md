@@ -28,9 +28,8 @@ whilst adhering to the main principles and appeals of C: simplicity, performance
 # Libraries
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
-|  [sili.h](sili.h)    | v0.2.0  | A general-purpose library meant for modern day C development. An alternative to C/C++ standard libraries.
-|----------------------|:-------:|:-----------:|
-|  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration files.
+|  [sili.h](sili.h)    | v0.3.0  | A general-purpose library meant for modern day C development. An alternative to C/C++ standard libraries.
+|  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration (.ini).
 
 # Contact
 You can join the [semi-offical Discord server](https://discord.gg/MSfSmNanF2) for 
