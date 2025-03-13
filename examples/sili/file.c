@@ -158,7 +158,7 @@ void example3(void)	{
 	}
 
 	{
-		u64 lastWriteTime, curWriteTime;
+		siTime lastWriteTime, curWriteTime;
 		siString file_path = SI_STR("randomSiFile.silitxt");
 
 		siFile file_handle = si_fileCreate(file_path);
@@ -171,7 +171,7 @@ void example3(void)	{
 
 		curWriteTime = si_pathLastWriteTime(file_path);
 		si_printfLn(
-			"Has the file been changed?: %B (%lu difference)",
+			"Has the file been changed?: %B (%li difference)",
 			lastWriteTime != curWriteTime,
 			curWriteTime - lastWriteTime
 		);
@@ -213,13 +213,13 @@ void example4(void) {
 	}
 
 	siDirectory dir = si_directoryOpen(SI_STR(ROOT_PATH));
-	siDirectoryEntry entry;
+	siDirectoryIterator it;
 
 	usize count = 0;
-	while (si_directoryPollEntry(&dir, &entry)) {
+	while (si_directoryIterate(&dir, &it)) {
 		si_printfLn(
 			"%zu: %S ('%zu' bytes, type '%i')",
-			count, entry.path, entry.path.len, entry.type
+			count, it.path, it.path.len, it.type
 		);
 		count += 1;
 	}

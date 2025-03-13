@@ -29,8 +29,8 @@ int main(void) {
 		b32 res = si_arrayEqual(SI_ARR_DYN(array), buffer);
 		si_printfLn("\t(array == buffer) returns a '%B' boolean", res);
 
-		b32 allocated = si_dynamicArrayAppend(&array, &(i32){64});
-		si_printfLn("\tarray: \"%S\" (Was allocated: %B)", si_dynamicArrayPrintInt(array), allocated);
+		i64* lastElement = si_dynamicArrayAppend(&array, &(i32){64});
+		si_printfLn("\tarray: \"%S\" (pointer to the lement: %p)", si_dynamicArrayPrintInt(array), lastElement);
 
 		i32 front, middle, back;
 		si_dynamicArrayAtFront(array, &front);

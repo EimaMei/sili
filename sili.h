@@ -251,6 +251,13 @@ extern "C" {
 
 	#define SI_COMPILER_VERSION	SI_VERSION(__clang_major__, __clang_minor__, __clang_patchlevel__)
 
+#elif defined(__TINYC__)
+	#define SI_COMPILER_TCC 1
+	#define SI_COMPILER_STR "Tiny C Compiler"
+	#define SI_COMPILER_TYPEOF_SUPPORTS 1
+
+	#define SI_COMPILER_VERSION	SI_VERSION(0, __TINYC__ / 100, __TINYC__ % 100)
+
 #else
 	#define SI_COMPILER_UNKNOWN 1
 	#define SI_COMPILER_STR "Unknown"
@@ -426,7 +433,7 @@ extern "C" {
 #endif
 
 #if !defined(SI_ENDIAN_STR) && (!defined(SI_ENDIAN_IS_LITTLE) || !defined(SI_ENDIAN_IS_BIG))
-	#if SI_COMPILER_CHECK_MIN(GCC, 4, 6, 0) || SI_COMPILER_CHECK_MIN(CLANG, 3, 0, 0)
+	#if SI_COMPILER_CHECK_MIN(GCC, 4, 6, 0) || SI_COMPILER_CHECK_MIN(CLANG, 3, 0, 0) || SI_COMPILER_TCC
 		#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 			#define SI_ENDIAN_IS_LITTLE 1
 			#define SI_ENDIAN_STR "Little-endian"
@@ -1461,6 +1468,9 @@ SIDEF siAllocator si_allocatorHeap(void);
 	/* bytes - isize
 	 * Heap allocates the specified amount of bytes of storage. */
 	#define si_malloc(bytes) si_alloc(si_allocatorHeap(), bytes)
+	/* ptr - void* | newSize - isize
+	 * Heap reallocates the specified amount of bytes of storage. */
+	#define si_mrealloc(ptr, newSize) si_realloc(si_allocatorHeap(), ptr, 0, newSize)
 	/* ptr - void*
 	 * Deallocates a previously allocated memory block from 'si_malloc'. */
 	#define si_mfree(ptr) si_free(si_allocatorHeap(), ptr)
@@ -1952,12 +1962,10 @@ SIDEF isize si_dynamicArrayFindCount(siDynamicArrayAny array, void* valuePtr);
 SIDEF b32 si_dynamicArrayEqual(siDynamicArrayAny lhs, siDynamicArrayAny rhs);
 
 
-/* Appends the specified pointer's value to the array. Returns true if the array
- * was reallocated. */
-SIDEF b32 si_dynamicArrayAppend(siDynamicArrayAny* array, void* valuePtr);
-/* Appends the specified list of items to the array. Returns true if the array
- * was reallocated. */
-SIDEF b32 si_dynamicArrayAppendEx(siDynamicArrayAny* array, void* valueArray, isize count);
+/* Appends the specified pointer's value to the array and returns the element's pointer. */
+SIDEF void* si_dynamicArrayAppend(siDynamicArrayAny* array, void* valuePtr);
+/* Appends the specified list of items to the array and returns the elements' pointer. */
+SIDEF void* si_dynamicArrayAppendEx(siDynamicArrayAny* array, void* valueArray, isize count);
 /* Erases the last item in the array. */
 SIDEF void si_dynamicArrayPop(siDynamicArrayAny* array);
 /* Sets the array's length to zero. */
@@ -3052,6 +3060,9 @@ SIDEF isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint);
 	========================
 */
 
+/* TODO */
+typedef i64 siTime;
+
 typedef struct {
 	/* Years (1677-2262). */
 	i32 years;
@@ -3071,8 +3082,7 @@ typedef struct {
 } siTimeCalendar;
 
 typedef struct {
-	/* This takes nanoseconds. For example, this field is 1e+9 for seconds. */
-	u64 threshold;
+	siTime threshold;
 	siString str;
 } siTimeUnit;
 
@@ -3089,46 +3099,60 @@ extern siString* SI_NAMES_DAYS_SHRT;
  * last two are lowercased. Used for 'si_timeToString'. */
 extern siString* SI_NAMES_AM_PM;
 
-
+/* One nanosecond in nanoseconds */
+#define SI_NANOSECOND (siTime)(1)
 /* One microsecond in nanoseconds */
-#define SI_CLOCKS_MICRO (1000)
+#define SI_MICROSECOND (SI_NANOSECOND * 1000)
 /* One milisecond in nanoseconds */
-#define SI_CLOCKS_MILI  (1000000)
+#define SI_MILISECOND  (SI_MICROSECOND * 1000)
 /* One second in nanoseconds */
-#define SI_CLOCKS_SECS  (1000000000)
+#define SI_SECOND (SI_MILISECOND * 1000)
+/* One minute in nanoseconds */
+#define SI_MINUTE (SI_SECOND * 60)
 
-/* time - UINT
- * Converts Windows time into sili's Unix time. */
-#define si_timeToUnix(time) (((time) - 116444736000000000) * 100)
+
+/* x - INT
+ * Converts microseconds into nanoseconds. */
+#define SI_TIME_US(x) ((x) * SI_MICROSECOND)
+/* x - INT
+ * Converts miliseconds into nanoseconds. */
+#define SI_TIME_MS(x) ((x) * SI_MILISECOND)
+/* x - INT
+ * Converts seconds into nanoseconds. */
+#define SI_TIME_S(x) ((x) * SI_SECOND)
+/* x - INT
+ * Converts minutes into nanoseconds. */
+#define SI_TIME_MIN(x) ((x) * SI_MINUTE)
+
 
 
 /* Reads the current value of the processor’s time-stamp counter.
  * NOTE: Only natively works for AMD64, i386, ARM64, RISC-V, WASI and PPC architectures.
  * On other architectures or CPUs the function relies on OS functions. */
-SIDEF u64 si_RDTSC(void);
+SIDEF i64 si_RDTSC(void);
 /* Reads the current value of the processor’s time-stamp counter and writes the
  * current processor ID to the pointer. */
-SIDEF u64 si_RDTSCP(i32* proc);
-/* Returns the current clock (in nanoseconds). */
-SIDEF u64 si_clock(void);
+SIDEF i64 si_RDTSCP(i32* proc);
+/* Returns the current clock. */
+SIDEF siTime si_clock(void);
 
 /* Starts a timestamp locally. NOT THREAD-SAFE. */
 SIDEF void si_timeStampStart(void);
 /* Starts a timestamp. */
-SIDEF u64 si_timeStampStartEx(void);
+SIDEF siTime si_timeStampStartEx(void);
 
 /* Prints the time since the start. NOT THREAD-SAFE. */
 SIDEF void si_timeStampPrintSince(void);
-/* Prints the time since the start. */
-SIDEF void si_timeStampPrintSinceEx(u64 t);
+/* Prints the time since the start. NOT THREAD-SAFE. */
+SIDEF void si_timeStampPrintSinceEx(siTime tiemstamp);
 
 /* Makes the CPU sleep for a certain amount of miliseconds. */
-SIDEF void si_sleep(i32 miliseconds);
+SIDEF void si_sleep(siTime time);
 
-/* Returns the number of seconds since 1970-01-01 UTC-0. */
-SIDEF i64 si_timeNowUTC(void);
-/* Returns the number of seconds since 1970-01-01 local time.*/
-SIDEF i64 si_timeNowLocal(void);
+/* TODO */
+SIDEF siTime si_timeNowUTC(void);
+/* TODO */
+SIDEF siTime si_timeNowLocal(void);
 
 /* Checks if the specified year is a leap year. */
 SIDEF b32 si_timeYearIsLeap(i32 year);
@@ -3151,7 +3175,7 @@ SIDEF siString si_timeToString(siTimeCalendar calendar, siString fmt, siArray(u8
 
 /* Takes nanoseconds and returns the appriopraite time unit for it. An input of
  * '2.5+e9' nanoseconds would return (siTimeUnit){1+e9, SI_STR("s")}.  */
-SIDEF siTimeUnit si_timeGetUnit(u64 ns);
+SIDEF siTimeUnit si_timeGetUnit(siTime time);
 
 #endif /* SI_NO_TIME */
 
@@ -3424,30 +3448,28 @@ SIDEF i32 si_float64IsInf(f64 num);
  * Runs the function 'timesToLoop' times and prints how long it took to finish. */
 #define si_benchmarkRunsPerLoop(timesToLoop, function) \
 	do { \
-		u64 timeSince = si_RDTSC(); \
+		i64 timeSince = si_RDTSC(); \
 		volatile usize i; \
 		for (i = 0; i < (timesToLoop); i += 1) { \
 			function; \
 		} \
 		timeSince = si_RDTSC() - timeSince; \
-		f64 timeTaken = (f64)timeSince / ((f64)si_cpuClockSpeed() / 1000.0) / (f64)SI_CLOCKS_MILI; \
+		f64 timeTaken = (f64)timeSince / ((f64)si_cpuClockSpeed() / 1000.0) / (f64)SI_MILISECOND; \
 		si_printf(SI_PERFORMANCE_MSG, #function, timeTaken, timesToLoop / 1000000.0); \
 	} while(0)
 
-/* timesToLoop - usize | function - NAME
- * Runs the function 'timesToLoop' for 'ms' miliseconds and prints how many times
- * the function got executed.  */
-#define si_benchmarkExecutesPerMs(ms, function) \
+/* TODO */
+#define si_benchmarkExecutesPerTime(time, function) \
 	do { \
 		u64 counter = 0; \
-		u32 miliseconds = (u32)ms; \
+		i64 si_time = time; \
 		siThread thread; \
-		si_threadMakeAndRun(si__benchmarkThread, &miliseconds, &thread); \
+		si_threadMakeAndRun(si__benchmarkThread, &si_time, &thread); \
 		while (thread.state == siThreadState_Running) { \
 			function; \
 			counter += 1; \
 		} \
-		si_printf(SI_PERFORMANCE_MSG, #function, (f64)miliseconds, (f64)counter / 1000000.0); \
+		si_printf(SI_PERFORMANCE_MSG, #function, (f64)si_time, (f64)counter / 1000000.0); \
 	} while(0)
 
 /* multiplesOf10 - usize | function - NAME
@@ -3463,7 +3485,7 @@ SIDEF i32 si_float64IsInf(f64 num);
  * average of all of the runs. */
 #define si_benchmarkLoopsAvgRange(start, end, function) \
 	do { \
-		u64 array[20]; \
+		i64 array[20]; \
 		isize len = 0; \
 		si_benchmarkLoop(function, array, &len, start, end); \
 		si_benchmarkLoopsAvgPrint(#function, array, len, (usize[]){start, end}); \
@@ -3484,7 +3506,7 @@ SIDEF i32 si_float64IsInf(f64 num);
  * function1 vs function2 (ON UNIX: green text - faster, red text - slower). */
 #define si_benchmarkLoopsAvgCmpRange(start, end, function1, function2) \
 	do { \
-		u64 arrays[2][20]; \
+		i64 arrays[2][20]; \
 		isize len1 = 0, len2 = 0; \
 		si_benchmarkLoop(function1, arrays[0], &len1, start, end); \
 		si_benchmarkLoop(function2, arrays[1], &len2, start, end); \
@@ -3508,7 +3530,7 @@ SIDEF i32 si_float64IsInf(f64 num);
 			si_printf("%n", medianIndex); \
 			\
 			volatile u64 index; \
-			u64 t1, t2; \
+			i64 t1, t2; \
 			\
 			t1 = si_RDTSC(); \
 			for (index = 0; index < medianIndex; index++) { (void)function;  } \
@@ -3805,7 +3827,7 @@ SIDEF siString si_pathGetTmp(void);
 
 /* Returns the specified path's last write time in UNIX time. Zero is returned
  * if the time couldn't be found. */
-SIDEF u64 si_pathLastWriteTime(siString path);
+SIDEF siTime si_pathLastWriteTime(siString path);
 
 /* Writes the contents of the specified path to the out parameter. Returns an
  * error, if failed. */
@@ -3898,7 +3920,7 @@ SIDEF b32 si_fileSeekBack(siFile file);
 /* Truncates the file to the specified size and returns 'true' if it succeded. */
 SIDEF b32 si_fileTruncate(siFile* file, isize size);
 /* Returns the last time the file was written. */
-SIDEF u64 si_fileLastWriteTime(siFile file);
+SIDEF siTime si_fileLastWriteTime(siFile file);
 
 /* Closes the file. */
 SIDEF void si_fileClose(siFile* file);
@@ -3921,10 +3943,10 @@ SI_ENUM(i32, siIoType) {
 	siIoType_Fifo,
 };
 
-typedef struct siDirectoryEntry {
+typedef struct siDirectoryIterator {
 	siString path;
 	siIoType type;
-} siDirectoryEntry;
+} siDirectoryIterator;
 
 typedef struct siDirectory {
 	siError error;
@@ -3937,27 +3959,26 @@ typedef struct siDirectory {
 /* Opens a directory and creates a directory stream. */
 SIDEF siDirectory si_directoryOpen(siString path);
 
-/* Polls the next file, folder or link inside the directory. If one is found,
- * information about it will be written into the specified out pointer and 'true'
- * is returned. If there is nothing else left to inquiry, the function automatically
- * closes the stream and returns false.
+/* Iterates through the next file, folder or link inside the directory. Information
+ * about it is written into the specified 'out' and true is returned, otherwise
+ * the _stream automatically gets closed_ and false is returned.
+ *
+ * NOTE 1: If an error occurred, 'false' is returned, the stream is closed and an
+ * error is written into 'dir->error'.
+ * NOTE 2: If you decide to end the iteration process early, you mustcall
+ * 'si_directoryClose'. */
+SIDEF b32 si_directoryIterate(siDirectory* dir, siDirectoryIterator* out);
+
+/* Iterates through the next file, folder or link inside the directory. Information
+ * about it is written into the specified 'out' and true is returned, otherwise
+ * the _stream automatically gets closed_ and false is returned. There is also
+ * the option for the returned path to contain the base directory.
  *
  * NOTE 1: If an error occurred, 'false' is returned, the stream is closed and an
  * error is written into 'dir->error'.
  * NOTE 2: If you decide to end the polling process early, make sure to call
  * 'si_directoryClose'. */
-SIDEF b32 si_directoryPollEntry(siDirectory* dir, siDirectoryEntry* out);
-/* Polls the next file, folder or link inside the directory. If one is found,
- * information about it will be written into the specified out pointer and 'true'
- * is returned. If there is nothing else left to inquiry, the function automatically
- * closes the stream and returns false. You can also specify if you want the
- * returned path to contain the base directory path as well.
- *
- * NOTE 1: If an error occurred, 'false' is returned, the stream is closed and an
- * error is written into 'dir->error'.
- * NOTE 2: If you decide to end the polling process early, make sure to call
- * 'si_directoryClose'. */
-SIDEF b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* out);
+SIDEF b32 si_directoryIterateEx(siDirectory* dir, b32 fullPath, siDirectoryIterator* out);
 
 /* Closes the directory stream. */
 SIDEF void si_directoryClose(siDirectory* dir);
@@ -4479,8 +4500,8 @@ SI_CHECK_ARITHMETIC_DEC_ALL(Mul, SIDEF, ;)
 #endif
 
 #ifndef SI_NO_BENCHMARK
-SIDEF void si_benchmarkLoopsAvgPrint(cstring name, u64 cycles[20], isize len, usize range[2]);
-SIDEF void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 cycles[2][20], isize len, usize range[2]);
+SIDEF void si_benchmarkLoopsAvgPrint(cstring name, i64 cycles[20], isize len, usize range[2]);
+SIDEF void si_benchmarkLoopsAvgCmpPrint(cstring names[2], i64 cycles[2][20], isize len, usize range[2]);
 SIDEF void* si__benchmarkThread(void* arg);
 #endif
 
@@ -5473,20 +5494,19 @@ inline b32 si_dynamicArrayEqual(siDynamicArrayAny lhs, siDynamicArrayAny rhs) { 
 
 
 inline
-b32 si_dynamicArrayAppend(siDynamicArrayAny* array, void* valuePtr) {
+void* si_dynamicArrayAppend(siDynamicArrayAny* array, void* valuePtr) {
 	return si_dynamicArrayAppendEx(array, valuePtr, 1);
 }
 SIDEF
-b32 si_dynamicArrayAppendEx(siDynamicArrayAny* array, void* valueArray, isize count) {
+void* si_dynamicArrayAppendEx(siDynamicArrayAny* array, void* valueArray, isize count) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_NOT_NIL(valueArray);
 	SI_ASSERT_NOT_NEG(count);
 
 	isize oldLen = array->len;
-	b32 allocated = si_dynamicArrayMakeSpaceFor(array, count);
+	si_dynamicArrayMakeSpaceFor(array, count);
 
-	si_memcopy(si_dynamicArrayGet(*array, oldLen), valueArray, count * array->typeSize);
-	return allocated;
+	return si_memcopy_ptr(si_dynamicArrayGet(*array, oldLen), valueArray, count * array->typeSize);
 }
 
 inline
@@ -8554,33 +8574,41 @@ siString* SI_NAMES_DAYS_FULL = si__timeWeekNames;
 siString* SI_NAMES_DAYS_SHRT = si__timeWeekNamesShrt;
 siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
 
+#if SI_SYSTEM_IS_WINDOWS
+siIntern
+siTime si__win32ToSili(u64 time) {
+	return (siTime)(((time) - 116444736000000000) * 100);
+}
+#endif
+
+
 /* NOTE(EimaMei): Credit goes to gb.h for the i386 and PPC code. */
 #if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
 
 inline
-u64 si_RDTSC(void) {
+i64 si_RDTSC(void) {
 	return __rdtsc();
 }
 
 #elif defined(SI_NO_INLINE_ASM)
 
 inline
-u64 si_RDTSC(void) {
+i64 si_RDTSC(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	LARGE_INTEGER count;
 	QueryPerformanceCounter(&count);
-	return (u64)count.QuadPart;
+	return count.QuadPart;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec tv = {0};
 	clock_gettime(CLOCK_MONOTONIC, &tv);
-	return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
+	return SI_TIME_S(tv.tv_sec) + (u64)tv.tv_nsec;
 
 #elif SI_SYSTEM_IS_WASM
 	__wasi_timestamp_t time;
 	__wasi_errno_t res = __wasi_clock_time_get(__WASI_CLOCKID_PROCESS_CPUTIME_ID, 1, &time);
 
-	return (res == 0) ? time : 0;
+	return (res == 0) ? (i64)time : 0;
 #else
 	return 0;
 #endif
@@ -8589,24 +8617,22 @@ u64 si_RDTSC(void) {
 #else
 
 inline
-u64 si_RDTSC(void) {
+i64 si_RDTSC(void) {
 #if SI_ARCH_I386
-	u64 res;
+	i64 res;
 	si_asm (".byte 0x0f, 0x31", : "=A" (res));
 	return res;
 
 #elif SI_ARCH_AMD64
-	u64 res;
+	i64 high, low;
 	si_asm(
-		"rdtsc"           SI_ASM_NL
-		"shl rdx, 0x20"   SI_ASM_NL
-		"or rax, rdx",
-		SI_ASM_OUTPUT("=a"(res))
+		"rdtsc",
+		SI_ASM_OUTPUT("=a"(low), "=d"(high))
 	);
-	return res;
+	return (high << 32) | low;
 
 #elif SI_ARCH_IS_PPC
-	u32 high, low, tmp;
+	i32 high, low, tmp;
 	si_asm (
 		"0:"            SI_ASM_NL
 		"mftbu %0"      SI_ASM_NL
@@ -8616,10 +8642,10 @@ u64 si_RDTSC(void) {
 		"bne 0b",
 		SI_ASM_OUTPUT("=r"(high), "=r"(low), "=r"(tmp))
 	);
-	return ((u64)high << 32) | low;
+	return ((i64)high << 32) | low;
 
 #elif SI_ARCH_ARM64
-	u64 res;
+	i64 res;
 	si_asm ("mrs %0, cntvct_el0", SI_ASM_OUTPUT("=r"(res)));
 	return res;
 
@@ -8630,19 +8656,19 @@ u64 si_RDTSC(void) {
 	return (res == 0) ? time : 0;
 
 #elif SI_ARCH_IS_RISC
-	u64 res = 0;
+	i64 res = 0;
 	si_asm ("rdcycle %0", SI_ASM_OUTPUT("=r"(res)));
 	return res;
 
 #elif SI_SYSTEM_IS_WINDOWS
 	LARGE_INTEGER count;
 	QueryPerformanceCounter(&count);
-	return (u64)count.QuadPart;
+	return count.QuadPart;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec tv = {0};
 	clock_gettime(CLOCK_MONOTONIC, &tv);
-	return (u64)tv.tv_sec * SI_CLOCKS_SECS + (u64)tv.tv_nsec;
+	return SI_TIME_S(tv.tv_sec) + tv.tv_nsec;
 
 #else
 	return 0;
@@ -8652,19 +8678,22 @@ u64 si_RDTSC(void) {
 #endif
 
 inline
-u64 si_RDTSCP(i32* proc) {
+i64 si_RDTSCP(i32* proc) {
 	SI_ASSERT_NOT_NIL(proc);
 
 #if SI_COMPILER_CHECK_MIN(MSVC, 12, 0, 0)
 	return __rdtscp((u32*)proc);
-#elif !defined(SI_NO_INLINE_ASM)
+#elif !defined(SI_NO_INLINE_ASM) && !SI_COMPILER_TCC
 	#if SI_ARCH_I386
-		u64 res;
-		si_asm (".byte 0x0f, 0x31", : "=A" (res));
-		return res;
+		i32 high, low;
+		si_asm(
+			"rdtscp"
+			SI_ASM_OUTPUT("=a"(high), "=d"(low), "=c"(*proc))
+		);
+		return ((i64)high << 32) | (i64)low;
 
 	#elif SI_ARCH_AMD64
-		u64 res;
+		i64 res;
 		si_asm(
 			"rdtscp"          SI_ASM_NL
 			"shl rdx, 0x20"   SI_ASM_NL
@@ -8728,19 +8757,20 @@ u64 si_RDTSCP(i32* proc) {
 
 
 inline
-u64 si_clock(void) {
-	return si_RDTSC() / (u32)si_cpuClockSpeed() * 1000;
+siTime si_clock(void) {
+	i32 proc = si_cpuClockSpeed(); /* TODO(EimaMei): Remove this later. */
+	return si_RDTSC() * 1000 / proc;
 }
 
-u64 si__timecountLocal = 0;
+siTime si__timecountLocal = 0;
 
 inline
 void si_timeStampStart(void) {
 	si__timecountLocal = si_timeStampStartEx();
 }
 inline
-u64 si_timeStampStartEx(void) {
-	return si_RDTSC();
+siTime si_timeStampStartEx(void) {
+	return si_clock();
 }
 
 inline
@@ -8748,9 +8778,9 @@ void si_timeStampPrintSince(void) {
 	si_timeStampPrintSinceEx(si__timecountLocal);
 }
 SIDEF
-void si_timeStampPrintSinceEx(u64 ts) {
-	u64 end = si_RDTSC();
-	u64 diff = (end - ts) / (u32)si_cpuClockSpeed() * 1000;
+void si_timeStampPrintSinceEx(i64 timestamp) {
+	siTime end = si_clock();
+	siTime diff = (end - timestamp);
 
 	const siTimeUnit unit = si_timeGetUnit(diff);
 	si_printf(
@@ -8760,17 +8790,20 @@ void si_timeStampPrintSinceEx(u64 ts) {
 }
 
 inline
-void si_sleep(i32 miliseconds) {
-	SI_ASSERT_NOT_NEG(miliseconds);
-	SI_STOPIF(miliseconds == 0, return);
+void si_sleep(siTime time) {
+	SI_ASSERT_NOT_NEG(time);
+	SI_STOPIF(time == 0, return);
 
 #if SI_SYSTEM_IS_WINDOWS
-	Sleep((u32)miliseconds);
+	if (time < SI_MILISECOND) { return; }
+
+	u32 ms = (u32)(time / SI_MILISECOND);
+	Sleep(ms);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec ts = {
-		miliseconds / 1000,
-		(miliseconds % 1000) * SI_CLOCKS_MILI
+		time / SI_SECOND,
+		(time % SI_SECOND)
 	};
 	nanosleep(&ts, &ts);
 
@@ -8778,8 +8811,8 @@ void si_sleep(i32 miliseconds) {
 	__wasi_subscription_t in = {0};
 	in.u.tag = __WASI_EVENTTYPE_CLOCK;
 	in.u.u.clock.id = __WASI_CLOCKID_MONOTONIC;
-	in.u.u.clock.timeout = miliseconds;
-	in.u.u.clock.precision = SI_CLOCKS_MILI;
+	in.u.u.clock.timeout = time;
+	in.u.u.clock.precision = SI_NANOSECOND;
 
 	__wasi_event_t events;
 	size_t nevents;
@@ -8787,7 +8820,8 @@ void si_sleep(i32 miliseconds) {
 	__wasi_errno_t result = __wasi_poll_oneoff(&in, &events, 1, &nevents);
 	SI_UNUSED(result);
 #elif SI_SYSTEM_EMSCRIPTEN
-	emscripten_sleep(miliseconds);
+	if (time < SI_MILISECOND) { return; }
+	emscripten_sleep(time / SI_MILISECOND);
 #endif
 }
 
@@ -8798,15 +8832,13 @@ i64 si_timeNowUTC(void) {
 	FILETIME time;
 	GetSystemTimePreciseAsFileTime(&time);
 
-	return si_timeToUnix((i64)time.dwHighDateTime << 32 | time.dwLowDateTime);
+	return si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec spec;
 	i32 res = clock_gettime(CLOCK_REALTIME, &spec);
 
-	return (res == 0)
-		? spec.tv_sec * 1000000000u + spec.tv_nsec
-		: 0;
+	return (res == 0) ? SI_TIME_S(spec.tv_sec) + spec.tv_nsec : 0;
 
 #else
 	return 0;
@@ -8823,7 +8855,7 @@ i64 si_timeNowLocal(void) {
 	int res = FileTimeToLocalFileTime(&utc, &time);
 
 	return (res)
-		? si_timeToUnix((i64)time.dwHighDateTime << 32 | time.dwLowDateTime)
+		? si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime)
 		: 0;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
@@ -8833,7 +8865,7 @@ i64 si_timeNowLocal(void) {
 	}
 
 	return (timezone != 0)
-		? timeNow - timezone * 1000000000 + daylight * 3600000000000
+		? timeNow - SI_TIME_S(timezone) + daylight * 3600000000000
 		: 0;
 #else
 	return 0;
@@ -9070,19 +9102,19 @@ AM_code:
 }
 
 SIDEF
-siTimeUnit si_timeGetUnit(u64 ns) {
+siTimeUnit si_timeGetUnit(siTime time) {
 	static const siTimeUnit arr[] = {
-		{(u64)0001, SI_STRC("ns")},
-		{(u64)1000, SI_STRC("μs")},
-		{(u64)1000 * 1000, SI_STRC("ms")},
-		{(u64)1000 * 1000 * 1000, SI_STRC("s")},
-		{(u64)1000 * 1000 * 1000 * 60, SI_STRC("min")},
-		{(u64)1000 * 1000 * 1000 * 60 * 60, SI_STRC("h")},
-		{(u64)1000 * 1000 * 1000 * 60 * 60 * 24, SI_STRC("d")}
+		{SI_NANOSECOND, SI_STRC("ns")},
+		{SI_MICROSECOND, SI_STRC("μs")},
+		{SI_MILISECOND, SI_STRC("ms")},
+		{SI_SECOND, SI_STRC("s")},
+		{SI_MINUTE, SI_STRC("min")},
+		{SI_MINUTE * 60, SI_STRC("h")},
+		{SI_MINUTE * 60 * 24, SI_STRC("d")}
 	};
 
 	for_range (i, 1, countof(arr)) {
-		u64 converted = ns / arr[i].threshold;
+		siTime converted = time / arr[i].threshold;
 		if (converted == 0) {
 			return arr[i - 1];
 		}
@@ -9978,7 +10010,7 @@ b32 si_float64IsNan(f64 num) {
 #ifdef SI_IMPLEMENTATION_BENCHMARK
 
 SIDEF
-void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize range[2]) {
+void si_benchmarkLoopsAvgPrint(cstring name, i64 array[20], isize len, usize range[2]) {
 	si_printf(
 		"====== BENCHMARK DATA ======\n"
 		"General:\n"
@@ -9992,10 +10024,10 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 
 	usize arrayI = 0, runs;
 	for (runs = range[0]; runs <= range[1]; runs *= 10) {
-		u64 cycles = array[arrayI];
+		i64 cycles = array[arrayI];
 		f64 time = (f64)cycles / freq;
 
-		siTimeUnit unit = si_timeGetUnit((u64)time);
+		siTimeUnit unit = si_timeGetUnit((i64)time);
 		time /= (f64)unit.threshold;
 		si_printf(
 			"\t%*zu %s - %C%9.4f%C %2S (%lu cycles)\n",
@@ -10006,7 +10038,7 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 		arrayI += 1;
 	}
 
-	u64 cyclesTotal = 0;
+	i64 cyclesTotal = 0;
 	for_range (i, 0, len) {
 		cyclesTotal += array[i];
 	}
@@ -10014,7 +10046,7 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 	f64 cyclesMedian = (f64)cyclesTotal / (f64)len;
 	f64 time = cyclesMedian / freq;
 
-	siTimeUnit unit = si_timeGetUnit((u64)time);
+	siTimeUnit unit = si_timeGetUnit((siTime)time);
 	time /= (f64)unit.threshold;
 
 	isize padCycles = si_numLenUint((u64)cyclesMedian);
@@ -10028,7 +10060,7 @@ void si_benchmarkLoopsAvgPrint(cstring name, u64 array[20], isize len, usize ran
 }
 
 SIDEF
-void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len,
+void si_benchmarkLoopsAvgCmpPrint(cstring names[2], i64 arrays[2][20], isize len,
 		usize range[2]) {
 	si_printf(
 		"====== BENCHMARK DATA ======\n"
@@ -10043,12 +10075,12 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 
 	isize padRuns = si_numLenUint(range[1]);
 	isize padCycles[2] = {
-		si_numLenUint(arrays[0][len - 1]), si_numLenUint(arrays[1][len - 1])
+		si_numLenUint((u64)arrays[0][len - 1]), si_numLenUint((u64)arrays[1][len - 1])
 	};
 
 	usize arrayI = 0, runs;
 	for (runs = range[0]; runs <= range[1]; runs *= 10) {
-		u64 cycles[2] = {arrays[0][arrayI], arrays[1][arrayI]};
+		i64 cycles[2] = {arrays[0][arrayI], arrays[1][arrayI]};
 		f64 time[2] = {(f64)cycles[0] / freq, (f64)cycles[1] / freq};
 
 		f64 ratio;
@@ -10069,12 +10101,12 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 		}
 
 		for_range (j, 0, countof(units)) {
-			units[j] = si_timeGetUnit((u64)time[j]);
+			units[j] = si_timeGetUnit((i64)time[j]);
 			time[j] /= (f64)units[j].threshold;
 		}
 
 		si_printf(
-			"\t%*zu %s - %C%9.4f%C %2S vs %C%9.4f%C %2S (%4.4f ratio, %*lu vs %*lu cycles)\n",
+			"\t%*zu %s - %C%9.4f%C %2S vs %C%9.4f%C %2S (%4.4f ratio, %*li vs %*li cycles)\n",
 			padRuns, runs, (runs != 1) ? "runs" : "run ",
 			clr[0], time[0], units[0].str, clr[1], time[1], units[1].str,
 			ratio, padCycles[0], cycles[0], padCycles[1], cycles[1]
@@ -10083,7 +10115,7 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 		arrayI += 1;
 	}
 
-	u64 cyclesTotal[2] = {0, 0};
+	i64 cyclesTotal[2] = {0, 0};
 	for_range (i, 0, len) {
 		for_range (j, 0, 2) {
 			cyclesTotal[j] += arrays[j][i];
@@ -10118,7 +10150,7 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 	}
 
 	for_range (j, 0, countof(units)) {
-		units[j] = si_timeGetUnit((u64)time[j]);
+		units[j] = si_timeGetUnit((i64)time[j]);
 		time[j] /= (f64)units[j].threshold;
 	}
 
@@ -10134,7 +10166,7 @@ void si_benchmarkLoopsAvgCmpPrint(cstring names[2], u64 arrays[2][20], isize len
 }
 
 void* si__benchmarkThread(void* arg) {
-	si_sleep((i32)SI_TO_U32(arg));
+	si_sleep(*(siTime*)arg);
 	return nil;
 }
 
@@ -10629,8 +10661,8 @@ siResult(i32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
 	dst[pathDst.len] = SI_PATH_SEPARATOR;
 	dstBuffer = &dst[pathDst.len + 1];
 
-	siDirectoryEntry entry;
-	while (si_directoryPollEntryEx(&dir, false, &entry)) {
+	siDirectoryIterator entry;
+	while (si_directoryIterateEx(&dir, false, &entry)) {
 		siString path = si_pathBaseName(entry.path);
 		si_memcopyStr(dstBuffer, path);
 
@@ -10706,9 +10738,9 @@ siError si_pathRemove(siString path) {
 
 		i32 res;
 		if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-			siDirectoryEntry entry;
+			siDirectoryIterator entry;
 			siDirectory dir = si_directoryOpen(path);
-			while (si_directoryPollEntry(&dir, &entry)) {
+			while (si_directoryIterate(&dir, &entry)) {
 				siError err = si_pathRemove(entry.path);
 				SI_STOPIF(err.code != 0, return err);
 			}
@@ -10726,9 +10758,9 @@ siError si_pathRemove(siString path) {
 		SI_ERROR_SYS_CHECK_RET(res != 0);
 
 		if (S_ISDIR(tmp.st_mode)) {
-			siDirectoryEntry entry;
+			siDirectoryIterator entry;
 			siDirectory dir = si_directoryOpen(path);
-			while (si_directoryPollEntry(&dir, &entry)) {
+			while (si_directoryIterate(&dir, &entry)) {
 				siError err = si_pathRemove(entry.path);
 				SI_STOPIF(err.code != 0, return err);
 			}
@@ -10950,7 +10982,7 @@ siOsString_2x si_pathToOSMul(siString first, siString second, siOsChar* out, isi
 
 
 SIDEF
-u64 si_pathLastWriteTime(siString path) {
+siTime si_pathLastWriteTime(siString path) {
 	siOsChar stack[SI_PATH_MAX];
 	si_pathToOS(path, stack, countof(stack));
 
@@ -10966,13 +10998,13 @@ u64 si_pathLastWriteTime(siString path) {
 	res.LowPart = lastWriteTime.dwLowDateTime;
 	res.HighPart = lastWriteTime.dwHighDateTime;
 
-	return si_timeToUnix(res.QuadPart);
+	return si__win32ToSili(res.QuadPart);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	/* TODO(EimaMei): Check if the output is correct. */
 	struct stat fs;
 	int res = stat(stack, &fs);
-	return (res == 0) ? (u64)fs.st_mtime : 0;
+	return (res == 0) ? SI_TIME_S(fs.st_mtim.tv_sec) + fs.st_mtim.tv_nsec : 0;
 
 #else
 	return 0;
@@ -11446,7 +11478,7 @@ b32 si_fileTruncate(siFile* file, isize size) {
 }
 
 SIDEF
-u64 si_fileLastWriteTime(siFile file) {
+siTime si_fileLastWriteTime(siFile file) {
 #if SI_SYSTEM_IS_WINDOWS
 	FILETIME lastWriteTime = {0};
 
@@ -11459,12 +11491,12 @@ u64 si_fileLastWriteTime(siFile file) {
 	res.HighPart = lastWriteTime.dwHighDateTime;
 	res.LowPart = lastWriteTime.dwLowDateTime;
 
-	return si_timeToUnix(res.QuadPart);
+	return si__win32ToSili(res.QuadPart);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct stat fs;
 	int res = fstat((int)file.handle, &fs);
-	return (res == 0) ? (u64)fs.st_mtime : 0;
+	return (res == 0) ? SI_TIME_S(fs.st_mtim.tv_sec) + fs.st_mtim.tv_nsec : 0;
 #else
 	return 0;
 	SI_UNUSED(file);
@@ -11532,12 +11564,12 @@ siDirectory si_directoryOpen(siString path) {
 }
 
 inline
-b32 si_directoryPollEntry(siDirectory* dir, siDirectoryEntry* out) {
-	return si_directoryPollEntryEx(dir, true, out);
+b32 si_directoryIterate(siDirectory* dir, siDirectoryIterator* out) {
+	return si_directoryIterateEx(dir, true, out);
 }
 
 SIDEF
-b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* out) {
+b32 si_directoryIterateEx(siDirectory* dir, b32 fullPath, siDirectoryIterator* out) {
 	SI_ASSERT_NOT_NIL(dir);
 	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NIL(dir->handle);
@@ -11576,9 +11608,7 @@ b32 si_directoryPollEntryEx(siDirectory* dir, b32 fullPath, siDirectoryEntry* ou
 	);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	struct dirent* dirEntry;
-back:
-	dirEntry = readdir((DIR*)dir->handle);
+	struct dirent* dirEntry = readdir((DIR*)dir->handle);
 	if (dirEntry == nil) {
 		errno = 0;
 		siErrorSystem code = si_systemGetError();
@@ -11588,8 +11618,7 @@ back:
 		return false;
 	}
 
-
-	static u8 IO_types[] = {
+	static const u8 IO_types[] = {
 		[DT_REG]  = siIoType_File,
 		[DT_DIR]  = siIoType_Directory,
 		[DT_LNK]  = siIoType_Link,
@@ -11601,11 +11630,13 @@ back:
 	out->type = IO_types[dirEntry->d_type];
 
 	isize len = si_cstrLen(dirEntry->d_name);
-	if (len <= 2) {
-		u16 front = SI_TO_U16(dirEntry->d_name);
-		if (front == SI_TO_U16(".\0") || front == SI_TO_U16("..")) {
-			goto back;
-		}
+	switch (len) {
+		case 1:
+			if (dirEntry->d_name[0] == '.') { return si_directoryIterateEx(dir, fullPath, out); }
+			break;
+		case 2:
+			if (dirEntry->d_name[0] == '.' && dirEntry->d_name[1] == '.') { return si_directoryIterateEx(dir, fullPath, out); }
+			break;
 	}
 
 	u8* data = &dir->buffer[dir->directoryLen];
@@ -11618,6 +11649,7 @@ back:
 	return false;
 
 #endif
+	/* TODO(EimaMei): Make this use a substr instead. */
 	if (fullPath) {
 		out->path.data = dir->buffer;
 		out->path.len += dir->directoryLen;
@@ -11660,7 +11692,7 @@ DWORD WINAPI si__threadProc(LPVOID arg) {
 siIntern
 void* si__threadProc(void* arg) {
 	#if SI_SYSTEM_EMSCRIPTEN
-	si_sleep(1);
+	si_sleep(SI_TIME_MS(1));
 	#endif
 
 	siThread* t = (siThread*)arg;
@@ -11792,7 +11824,7 @@ void si_CPUID(u32 ID, u32 registers[4]) {
 
 SIDEF
 i32 si_cpuClockSpeed(void) {
-	/* TODO(EimaMei): Not sure if this is a good solution. */
+	/* TODO(EimaMei): Add OS-Specific functions, add an option to specify processor. */
 	static i32 SI_CPU_FREQ_MHZ = -1;
 	SI_STOPIF(SI_CPU_FREQ_MHZ != -1, return SI_CPU_FREQ_MHZ);
 
@@ -11802,11 +11834,11 @@ i32 si_cpuClockSpeed(void) {
 	 * We can somewhat mitigate this by only waiting 100 ms, convert it into mHz
 	 * by dividing _integers_ (this specifically "rounds" up the errors), then
 	 * multiply by 10. */
-	u64 begin = si_RDTSC();
-	si_sleep(100);
-	u64 end = si_RDTSC();
+	siTime begin = si_RDTSC();
+	si_sleep(SI_TIME_MS(100));
+	siTime end = si_RDTSC();
 
-	SI_CPU_FREQ_MHZ = (i32)(end - begin) / SI_CLOCKS_MILI * 10;
+	SI_CPU_FREQ_MHZ = (i32)((end - begin) / SI_MILISECOND) * 10;
 
 	return SI_CPU_FREQ_MHZ;
 }

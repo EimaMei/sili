@@ -73,7 +73,7 @@ void example2(void) {
 
 
 	/* Fill out both matrix A and B with random data. */
-	srand((u32)(si_clock() / SI_CLOCKS_MILI));
+	srand((u32)(si_clock() / SI_MILISECOND));
 	for_range (i, 0, SIZE) {
 		for_range (j, 0, SIZE) {
 			A[i * SIZE + j] = (f32)(rand() % 10);
