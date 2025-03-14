@@ -186,8 +186,9 @@ extern "C" {
 #elif defined(__APPLE__) && defined(__MACH__)
 	#include <TargetConditionals.h>
 	#define SI_SYSTEM_IS_APPLE 1
+	#define SI_SYSTEM_IS_BSD 1
 
-	#if TARGET_IPHONE_SIMULATOR == 1 || TARGET_OS_IPHONE == 1
+	#if TARGET_OS_SIMULATOR == 1 || TARGET_OS_IPHONE == 1
 		#define SI_SYSTEM_IOS 1
 		#define SI_SYSTEM_STR "iOS"
 	#elif TARGET_OS_MAC == 1
@@ -209,12 +210,14 @@ extern "C" {
 	#define SI_SYSTEM_FREEBSD
 	#define SI_SYSTEM_STR "FreeBSD"
 	#define SI_SYSTEM_IS_UNIX 1
+	#define SI_SYSTEM_IS_BSD 1
 
 
 #elif defined(__OpenBSD__)
 	#define SI_SYSTEM_OPENBSD
 	#define SI_SYSTEM_STR "OpenBSD"
 	#define SI_SYSTEM_IS_UNIX 1
+	#define SI_SYSTEM_IS_BSD 1
 
 #elif defined(unix) || defined(__unix__) || defined(__unix)
 	#define SI_SYSTEM_UNIX_OTHER 1
@@ -508,6 +511,10 @@ extern "C" {
 
 
 #if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
+	#ifndef _GNU_SOURCE
+	#define _GNU_SOURCE 1
+	#endif
+
 	#include <stdlib.h>
 	#include <unistd.h>
 
@@ -11000,11 +11007,16 @@ siTime si_pathLastWriteTime(siString path) {
 
 	return si__win32ToSili(res.QuadPart);
 
-#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	/* TODO(EimaMei): Check if the output is correct. */
+#elif SI_SYSTEM_IS_UNIX
 	struct stat fs;
 	int res = stat(stack, &fs);
 	return (res == 0) ? SI_TIME_S(fs.st_mtim.tv_sec) + fs.st_mtim.tv_nsec : 0;
+
+#elif SI_SYSTEM_IS_BSD
+	struct stat fs;
+	int res = stat(stack, &fs);
+	return (res == 0) ? SI_TIME_S(fs.st_mtimespec.tv_sec) + fs.st_mtimespec.tv_nsec : 0;
+
 
 #else
 	return 0;
@@ -11493,10 +11505,16 @@ siTime si_fileLastWriteTime(siFile file) {
 
 	return si__win32ToSili(res.QuadPart);
 
-#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+#elif SI_SYSTEM_IS_UNIX
 	struct stat fs;
 	int res = fstat((int)file.handle, &fs);
 	return (res == 0) ? SI_TIME_S(fs.st_mtim.tv_sec) + fs.st_mtim.tv_nsec : 0;
+
+#elif SI_SYSTEM_IS_BSD
+	struct stat fs;
+	int res = fstat((int)file.handle, &fs);
+	return (res == 0) ? SI_TIME_S(fs.st_mtimespec.tv_sec) + fs.st_mtimespec.tv_nsec : 0;
+
 #else
 	return 0;
 	SI_UNUSED(file);

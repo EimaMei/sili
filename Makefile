@@ -15,8 +15,7 @@ GNU_FLAGS = -O3 -std=c99 -Wall -Wextra -Wpedantic \
 	\
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
 	\
-	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
-	-D _GNU_SOURCE -D _LARGEFILE64_SOURCE -D __USE_POSIX199506
+	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn
 GNU_INCLUDES = -I"." -I"include"
 
 GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
