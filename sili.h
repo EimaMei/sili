@@ -3200,8 +3200,10 @@ SIDEF b32 si_timeYearIsLeap(i32 year);
  * based on the specified date. */
 SIDEF i32 si_timeGetDayOfWeek(i32 year, i32 month, i32 day);
 
-/* Converts raw Unix time into human-readable time components. */
+/* Converts sili time into human-readable time components. */
 SIDEF siTimeCalendar si_timeToCalendar(i64 time);
+/* TODO */
+SIDEF siTime si_calendarToTime(siTimeCalendar calendar);
 
 /* Creates a string in the specified buffer from the specified format.
  * Specifiers:
@@ -3832,6 +3834,7 @@ extern const u8 SI_PATH_SEPARATOR;
 /* Checks if the specified path exists. */
 SIDEF b32 si_pathExists(siString path);
 SIDEF b32 si_pathExistsOS(siOsString path);
+
 /* Copies the specified source path to the destination. Returns the size of the
  * file if the copy was succesful. */
 SIDEF siResult(isize) si_pathCopy(siString pathSrc, siString pathDst);
@@ -3842,11 +3845,13 @@ SIDEF siResult(i32) si_pathItemsCopy(siString pathSrc, siString pathDst);
 SIDEF siError si_pathMove(siString pathSrc, siString pathDst);
 /* Renames the specified path to the given new path. Returns an error if failed. */
 SIDEF siError si_pathRename(siString path, siString newPath);
+
 /* Creates a new folder at the specified path. Returns an error if failed. */
 SIDEF siError si_pathCreateFolder(siString path);
 /* Removes the specified path, including the files and folders within in. Returns
  * an error if failed. */
 SIDEF siError si_pathRemove(siString path);
+
 /* Creates a hard link of the specified path. Returns an error if failed. */
 SIDEF siError si_pathCreateHardLink(siString path, siString linkPath);
 /* Creates a soft link of the specified path. Returns an error if failed. */
@@ -3860,12 +3865,13 @@ SIDEF siString si_pathExtension(siString path);
 SIDEF siString si_pathWithoutExtension(siString path);
 /* Returns a string view of the specified path's unrooted path. */
 SIDEF siString si_pathUnrooted(siString path);
+
 /* Finds the full, rooted path of the specified path and creates a string from
  * it. Returns an error if finding the full path failed. */
 SIDEF siResult(siString) si_pathGetFullName(siString path, siAllocator alloc);
-
-/* Returns a static string of the OS's default temporary path. */
-SIDEF siString si_pathGetTmp(void);
+/* TODO */
+SIDEF siString si_pathJoin(siString path, siString subPath, siAllocator alloc);
+SIDEF siString si_pathJoinEx(siArray(siString) strs, siAllocator alloc);
 
 /* Returns the specified path's last write time in UNIX time. Zero is returned
  * if the time couldn't be found. */
@@ -3880,6 +3886,11 @@ SIDEF siError si_pathReadContentsBuf(siString path, siArray(u8)* out);
 SIDEF b32 si_pathIsAbsolute(siString path);
 /* Checks if the specified path is relative. */
 SIDEF b32 si_pathIsRelative(siString path);
+
+
+/* Returns a static string of the OS's default temporary path. */
+SIDEF siString si_pathGetTmp(void);
+
 
 /* Converts a string into an OS string path. Returns the length. */
 SIDEF isize si_pathToOS(siString path, siOsChar* out, isize capacity);
@@ -8924,6 +8935,10 @@ i32 si_timeGetDayOfWeek(i32 year, i32 month, i32 day) {
 	return (year + year / 4 - year / 100 + year / 400 + t[month - 1] + day) % 7;
 }
 
+static i8 SI__LUT_DAYS_IN_MONTH[2][12] = {
+	{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+	{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+};
 
 SIDEF
 siTimeCalendar si_timeToCalendar(i64 time) {
@@ -8951,13 +8966,10 @@ siTimeCalendar si_timeToCalendar(i64 time) {
 	}
 
 	{
-		static i8 daysInMonths[12] = {
-			31, -1, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-		};
-		daysInMonths[1] = 28 + (i8)si_timeYearIsLeap(calendar.years);
+		i8* daysInMonths = SI__LUT_DAYS_IN_MONTH[si_timeYearIsLeap(calendar.years)];
 
 		daysSinceEpoch = si_abs(i32, daysSinceEpoch);
-		for_rangeRef (calendar.months, 0, countof(daysInMonths)) {
+		for_rangeRef (calendar.months, 0, 12) {
 			i32 days = daysInMonths[calendar.months];
 			SI_STOPIF(daysSinceEpoch < days, break);
 
@@ -8983,6 +8995,32 @@ siTimeCalendar si_timeToCalendar(i64 time) {
 	}
 
 	return calendar;
+}
+
+
+SIDEF
+siTime si_calendarToTime(siTimeCalendar calendar) {
+	siTime res = 0;
+	res += calendar.nanoseconds;
+	res += calendar.seconds * SI_SECOND;
+	res += calendar.minutes * SI_MINUTE;
+	res += calendar.hours * SI_HOUR;
+	res += calendar.days * SI_DAY;
+
+	i8* daysInMonths = SI__LUT_DAYS_IN_MONTH[si_timeYearIsLeap(calendar.years)];
+	for_range (i, 0, calendar.months - 1) {
+		res += daysInMonths[i] * SI_DAY;
+	}
+
+	isize amountOfYears = si_abs(i32, calendar.years - 1970);
+	i32 direction = (calendar.years > 1970) ? 1 : -1;
+	i32 year = 1970;
+	for_range (i, 0, amountOfYears) {
+		res += (365 + si_timeYearIsLeap(year - 1)) * SI_DAY;
+		year += direction;
+	}
+
+	return res;
 }
 
 siIntern
@@ -9420,7 +9458,7 @@ siString si_bprintfVa(siArray(u8) out, siString fmt, va_list va) {
 		SI_STOPIF(fmtPtr >= &fmt.data[fmt.len], break);
 
 		isize xLen = SI_SET_FMT_PTR(&x, &fmtPtr);
-		if (x != '%') { 
+		if (x != '%') {
 			if (info.index + xLen <= info.capacity) {
 				info.index += si_memcopy(&info.data[info.index], fmtPtr - xLen, xLen);
 				continue;
@@ -10970,6 +11008,15 @@ siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
 #endif
 }
 
+inline
+siString si_pathJoin(siString path, siString subPath, siAllocator alloc) {
+	return si_pathJoinEx(SI_ARR(siString, path, subPath), alloc);
+}
+
+inline
+siString si_pathJoinEx(siArray(siString) strs, siAllocator alloc) {
+	return si_stringJoin(strs, SI_STR_LEN(&SI_PATH_SEPARATOR, 1), alloc);
+}
 
 inline
 b32 si_pathIsAbsolute(siString path) {
