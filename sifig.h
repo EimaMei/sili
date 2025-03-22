@@ -128,7 +128,7 @@ siIniFile sifig_iniMakeStr(siString content, siAllocator alloc) {
 SIDEF 
 siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator alloc) {
 	siIniFile ini = si_mapMakeReserve(siIniSection, 16, alloc);
-	siIniSection* curIni;
+	siIniSection* curIni = nil;
 
 	siString curSection = SI_STR_EMPTY;
 	siIniIterator it = sifig_iniIterator(content);
@@ -193,8 +193,15 @@ b32 sifig_iniIterateEx(siIniIterator* it, siString comment) {
 	return false;
 }
 
-/* TODO */
-SIDEF void sifig_iniFree(siIniFile ini);
+SIDEF 
+void sifig_iniFree(siIniFile ini) {
+	siString name; siIniSection section;
+	for_eachMapEx (name, section, ini) {
+		si_free(section.alloc, section.entries);
+	}
+
+	si_free(ini.alloc, ini.entries);
+}
 
 #endif /* SIFIG_IMPLEMENTATION_INI */
 

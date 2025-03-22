@@ -88,7 +88,7 @@ void example2(void) {
 	siOption(siArray(i32)) opt_buffer;
 	siOption(u128Struct) opt_u128;
 	siOption(Type) opt_type;
-	siOption(rawptr) opt_ptr;
+	siOptionPtr(void) opt_ptr;
 
 	void* opt_array[Type_len] = {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
@@ -171,8 +171,8 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 		case Type_funcPtr: {
 			typedef void (create_optional_type)(Type, void*, siAllocator);
 
-			siOption(rawptr)* res = out;
-			*res = SI_OPT(rawptr, si_transmute(rawptr, createOptional, create_optional_type*));
+			siOptionPtr(void)* res = out;
+			*res = SI_OPT_PTR(void, si_transmute(void*, createOptional, create_optional_type*));
 		} break;
 
 		default: SI_PANIC();

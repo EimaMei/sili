@@ -130,17 +130,22 @@ void example2(void)	{
 	}
 
 	{
-		siString path = SI_STR("example.c");
+		siString path = SI_STR("example.tar.gz");
 		siOption(siString) fullPath = si_pathGetFullName(path, stack);
 		si_printfLn(
 			"Information about '%S':\n\t"
 				"Base name - '%S'\n\t"
-				"Without extension - '%S'\n\t"
-				"Extension - '%S'\n\t"
 				"Full path - '%S'\n\t"
+				"Stem - '%S'\n\t"
+				"Short stem - '%S'\n\t"
+				"Extension - '%S'\n\t"
+				"Long extension - '%S'\n\t"
 				"Is relative: %B",
-			path, si_pathBaseName(path), si_pathWithoutExtension(path), si_pathExtension(path),
-			si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), si_pathIsRelative(path)
+			path,
+			si_pathBaseName(path),  si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), 
+			si_pathStem(path), si_pathShortStem(path), 
+			si_pathExtension(path), si_pathLongExtension(path), 
+			si_pathIsRelative(path)
 		);
 	}
 }

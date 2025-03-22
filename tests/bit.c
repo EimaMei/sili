@@ -4,7 +4,7 @@
 #if SI_COMPILER_GCC || SI_COMPILER_CLANG
 #define test(type, min, max) \
 	do { \
-		si_timeStampStart(); \
+		siTime ts = si_timeStampStart(); \
 		for (i64 a = min; a < max - max / 16; a += max / 16) { \
 			type limit = si_max(type, 1, max / UINT16_MAX / 64); \
 			for (i64 b = min; b < max - limit; b += limit) { \
@@ -19,7 +19,7 @@
 				SI_ASSERT(res[0] == res[1]); \
 			} \
 		} \
-		si_timeStampPrintSince(); \
+		si_timeStampPrintSince(ts); \
 	} while (0)
 #else
 	#define test(type, min, max)

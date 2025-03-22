@@ -18,6 +18,8 @@
 	TEST_EQ(arg1, arg2, "%p")
 #define TEST_EQ_USIZE(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%zu")
+#define TEST_EQ_ISIZE(arg1, arg2) \
+	TEST_EQ(arg1, arg2, "%zi")
 #define TEST_EQ_U32(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%u")
 

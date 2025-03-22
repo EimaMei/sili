@@ -3,15 +3,13 @@
 #include <sili.h>
 #include <sifig.h>
 
+siString path = SI_STRC("examples/sifig/res/mod.ini");
 
-int main(int argc, char* argv[]) {
-    SI_ASSERT(argc > 1);
-
+int main(void) {
 	siDynamicArena arena = si_dynamicArenaMake(si_allocatorHeap(), SI_KILO(1), SI_KILO(2));
 	siAllocator alloc = si_allocatorDynamicArena(&arena);
 
-	siIniFile ini = sifig_iniMake(SI_CSTR(argv[1]), alloc);
-
+	siIniFile ini = sifig_iniMake(path, alloc);
 	siString name; siIniSection section;
 	for_eachMapEx (name, section, ini) {
 		si_printfLn("[%S] - %i", name, section.len);
@@ -21,7 +19,6 @@ int main(int argc, char* argv[]) {
 			si_printfLn("\t\"%S\" = \"%S\"", key, value);
 		}
 	}
-
 
 	si_dynamicArenaFree(&arena);
 }

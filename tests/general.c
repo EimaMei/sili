@@ -93,8 +93,8 @@ int main(void) {
 		ptr = si_realloc(alloc, ptr, 0, SI_KILO(4));
 		si_free(alloc, ptr);
 
-		isize avail = si_allocatorAvailable(alloc);
-		TEST_EQ_USIZE(avail, ISIZE_MAX);
+		isize avail = si_allocatorGetAvailableMem(alloc);
+		TEST_EQ_ISIZE(avail, -1);
 	}
 	si_print("Test 3 has been completed.\n");
 
@@ -114,7 +114,7 @@ int main(void) {
 		TEST_EQ_USIZE(aData.offset, SI_KILO(1));
 		TEST_EQ_PTR(ptr, aData.ptr);
 
-		isize avail = si_allocatorAvailable(alloc);
+		isize avail = si_allocatorGetAvailableMem(alloc);
 		TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
 
 		si_freeAll(alloc);
@@ -126,6 +126,51 @@ int main(void) {
 		TEST_EQ_USIZE(aData.capacity, 0);
 	}
 	si_print("Test 4 has been completed.\n");
+
+	{
+		siPool pData = si_poolMake(si_allocatorHeap(), 3, 32);
+		TEST_EQ_PTR(pData.alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_U32(pData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
+		TEST_EQ_USIZE(pData.chunkSize, 32);
+		TEST_EQ_USIZE(pData.numChunks, 3);
+		SI_ASSERT_NOT_NIL(pData.ptr);
+		SI_ASSERT_NOT_NIL(pData.head);
+
+		siAllocator alloc = si_allocatorPool(&pData);
+		TEST_EQ_PTR(alloc.proc, si_allocator_pool_proc);
+		TEST_EQ_PTR(alloc.data, &pData);
+
+		void* previousHead = pData.head;
+		u8* ptr = si_allocArray(alloc, u8, 24);
+		TEST_EQ_PTR(ptr, si_pointerAdd(previousHead, si_sizeof(void*)));
+		for_range (i, 0, 24) {
+			TEST_EQ_CHAR(ptr[i], 0);
+		}
+
+		previousHead = pData.head;
+		void* ptr2 = si_allocNonZeroed(alloc, 24);
+		TEST_EQ_PTR(ptr2, si_pointerAdd(previousHead, si_sizeof(void*)));
+
+		isize avail = si_allocatorGetAvailableMem(alloc);
+		TEST_EQ_USIZE(avail, 32);
+
+		si_allocNonZeroed(alloc, 24);
+
+		avail = si_allocatorGetAvailableMem(alloc);
+		TEST_EQ_USIZE(avail, 0);
+
+		si_freeAll(alloc);
+		avail = si_allocatorGetAvailableMem(alloc);
+		TEST_EQ_USIZE(avail, 32);
+
+		u8 features = si_allocatorGetFeatures(alloc);
+		SI_ASSERT(features == 0x73); /* NOTE(EimaMei): '0b01110011' in hex. */
+
+		si_poolFree(&pData);
+		TEST_EQ_PTR(pData.ptr, nil);
+		TEST_EQ_USIZE(pData.numChunks, 0);
+	}
+	si_print("Test 5 has been completed.\n");
 
 	{
 		siPoint p1 = SI_POINT(50, 50),
@@ -153,7 +198,7 @@ int main(void) {
 		TEST_EQ_F64(v2.x, 2);
 		TEST_EQ_F64(v2.y, 2);
 	}
-	si_print("Test 5 has been completed.\n");
+	si_print("Test 6 has been completed.\n");
 
 	{
 		siOption(u64) opt = SI_OPT(u64, 19920216ULL);
@@ -179,7 +224,7 @@ int main(void) {
 		#endif
 
 	}
-	si_print("Test 6 has been completed.\n");
+	si_print("Test 7 has been completed.\n");
 
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
