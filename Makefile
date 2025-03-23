@@ -1,10 +1,10 @@
-CC = clang++
+CC = clang
 AR = ar
 
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -O3 -std=c++20 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -O3 -std=c11 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
