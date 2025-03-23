@@ -1091,18 +1091,6 @@ extern "C++" {
 	#endif
 #endif
 
-#ifndef SI_COMP_LIT
-	#if SI_LANGUAGE_IS_C
-		/* TODO */
-		#define SI_COMP_LIT(type, ...) (type){__VA_ARGS__}
-	#else
-		/* TODO */
-		#define SI_COMP_LIT(type, ...) type{__VA_ARGS__}
-	#endif
-	/* */
-	#define SI_COMP_LIT_DEFAULT(type) type SI_DEFAULT_STRUCT
-#endif
-
 #ifndef SI_DEFAULT_STRUCT
 	#if SI_LANGUAGE_IS_C
 		/* TODO */
@@ -1114,6 +1102,18 @@ extern "C++" {
 
 #endif
 
+#ifndef SI_COMP_LIT
+	#if SI_LANGUAGE_IS_C
+		/* TODO */
+		#define SI_COMP_LIT(type, ...) (type){__VA_ARGS__}
+		#define SI_COMP_LIT_DEFAULT(type) (type)SI_DEFAULT_STRUCT
+	#else
+		/* TODO */
+		#define SI_COMP_LIT(type, ...) type{__VA_ARGS__}
+		#define SI_COMP_LIT_DEFAULT(type) type SI_DEFAULT_STRUCT
+	#endif
+	/* */
+#endif
 
 #ifndef SI_NO_ASSERTIONS
 	/* condition - EXPRESSION
@@ -1513,7 +1513,7 @@ SIDEF siAllocator si_allocatorHeap(void);
 	#ifdef SI_LANGUAGE_IS_C
 		/* bytes - usize
 		 * Stack allocates the specified amount of bytes of storage. */
-		#define si_stack(bytes) si_cast(void*, SI_COMP_LIT(u8[bytes], SI_DEFAULT_STRUCT))
+		#define si_stack(bytes) si_cast(void*, (u8[bytes]){0})
 	#else
 		/* bytes - usize
 		 * Stack allocates the specified amount of bytes of storage. */
