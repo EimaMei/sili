@@ -174,7 +174,7 @@ int main(void) {
 
 	{
 		siPoint p1 = SI_POINT(50, 50),
-				p2 = (siPoint){28, 28};
+				p2 = SI_POINT(28, 28);
 		TEST_EQ_U64(si_pointCmp(p1, p2), 0);
 
 		siColor c1 = SI_RGBA(128, 128, 128, 255),
@@ -205,7 +205,7 @@ int main(void) {
 		TEST_EQ_U64(opt.hasValue, 1);
 		TEST_EQ_U64(opt.data.value, 19920216ULL);
 
-		siError tmp = {0};
+		siError tmp = SI_DEFAULT_STRUCT;
 		tmp.code = 40;
 		opt = SI_OPT_ERR(u64, tmp);
 		TEST_EQ_I64(opt.data.error.code, 40);
