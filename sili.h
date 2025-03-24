@@ -2005,7 +2005,7 @@ typedef struct siDynamicArrayAny {
 #define si_dynamicArrayMakeReserve(type, length, capacity, alloc) \
 	si_dynamicArrayReserve(si_sizeof(type), length, capacity, alloc)
  /* type - TYPE | len - isize | alloc - siAllocator
- * Allocates an empty, non-zeroed array with a specified length and capacity. *//
+ * Allocates an empty, non-zeroed array with a specified length and capacity. */
 #define si_dynamicArrayMakeReserveNonZeroed(type, length, capacity, alloc) \
 	si_dynamicArrayReserveNonZeroed(si_sizeof(type), length, capacity, alloc)
 /* TODO(EimaMei): Remove the 'length' portion. */
