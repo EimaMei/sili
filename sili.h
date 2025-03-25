@@ -1835,6 +1835,19 @@ typedef struct siArrayAny {
 	isize len;
 	void* data;
 	isize typeSize;
+
+	#if SI_LANGUAGE_IS_CPP
+	/* TODO */
+	u8& operator[](isize index);
+	/* TODO */
+	siArrayAny operator()(isize offset1, isize offset2);
+	/* TODO */
+	siArrayAny from(isize offset1);
+	/* TODO */
+	siArrayAny to(isize offset2);
+	/* TODO */
+	siArrayAny sliceLen(isize offset1, isize len);
+	#endif
 } siArrayAny;
 
 /* type - TYPE
@@ -1895,7 +1908,7 @@ typedef struct siArrayAny {
 /* alloc - siAllocator | type - TYPE | ...values - ANYTHING
 * Allocates an array and copies the specified values to it. | TODO: Add C++ support */
 #define si_arrayMake(alloc, type, .../* values */) \
-	si__arrayMake(si_sizeof(type), (type[]){__VA_ARGS__}, countof((type[]){__VA_ARGS__}), alloc)
+	SI__ARR_ALLOC_IMPL(type, alloc, __VA_ARGS__)
 /* type - TYPE | len - isize | alloc - siAllocator
  * Allocates an empty, zeroed array with a specified length. */
 #define si_arrayMakeReserve(type, len, alloc) \
@@ -1967,8 +1980,6 @@ SIDEF isize si_memcopy_s(siArrayAny dst, const void* src, isize sizeSrc);
 * were moved. */
 SIDEF isize si_memmove_s(siArrayAny dst, const void* src, isize sizeSrc);
 
-
-
 typedef struct siDynamicArrayAny {
 	isize len;
 	void* data;
@@ -1977,12 +1988,24 @@ typedef struct siDynamicArrayAny {
 	siAllocator alloc;
 	isize capacity;
 	isize grow;
+
+	#if SI_LANGUAGE_IS_CPP
+	/* TODO */
+	u8& operator[](isize index) const;
+	/* TODO */
+	siDynamicArrayAny operator()(isize offset1, isize offset2) const;
+	/* TODO */
+	siDynamicArrayAny from(isize offset1) const;
+	/* TODO */
+	siDynamicArrayAny to(isize offset2) const;
+	/* TODO */
+	siDynamicArrayAny sliceLen(isize offset1, isize len) const;
+	#endif
 } siDynamicArrayAny;
 
 /* type - TYPE
  * Represents a dynamic array with a specific type. */
 #define siDynamicArray(type) siDynamicArrayAny
-
 
 /* array - siDynamicArrayAny
  * Makes a dynamic array structure out of a regular array. */
@@ -1999,15 +2022,15 @@ typedef struct siDynamicArrayAny {
 /* alloc - siAllocator | type - TYPE | ...values - VARIADIC
  * Allocates an array from the specified type and static items. */
 #define si_dynamicArrayMake(alloc, type, .../* values */) \
-	si_dynamicArrayMakeEx((type[]){__VA_ARGS__}, si_sizeof(type), countof((type[]){__VA_ARGS__}), alloc)
-/* type - TYPE | len - isize | alloc - siAllocator
+	SI__DYNARR_ALLOC_IMPL(type, alloc, __VA_ARGS__)
+/* type - TYPE | capacity - isize | alloc - siAllocator
  * Allocates an empty, zeroed dynamic array with a specified length and capacity. */
-#define si_dynamicArrayMakeReserve(type, length, capacity, alloc) \
-	si_dynamicArrayReserve(si_sizeof(type), length, capacity, alloc)
- /* type - TYPE | len - isize | alloc - siAllocator
+#define si_dynamicArrayMakeReserve(type, capacity, alloc) \
+	si_dynamicArrayReserve(si_sizeof(type), capacity, alloc)
+ /* type - TYPE | capacity - isize | alloc - siAllocator
  * Allocates an empty, non-zeroed array with a specified length and capacity. */
-#define si_dynamicArrayMakeReserveNonZeroed(type, length, capacity, alloc) \
-	si_dynamicArrayReserveNonZeroed(si_sizeof(type), length, capacity, alloc)
+#define si_dynamicArrayMakeReserveNonZeroed(type, capacity, alloc) \
+	si_dynamicArrayReserveNonZeroed(si_sizeof(type), capacity, alloc)
 /* TODO(EimaMei): Remove the 'length' portion. */
 
 /* Allocates 'count * typeSize' amount of bytes to make an array and copies the
@@ -2017,10 +2040,10 @@ SIDEF siDynamicArrayAny si_dynamicArrayMakeEx(void* list, isize typeSize, isize 
 		siAllocator alloc);
 /* Allocates 'capacity * typeSize' amount of bytes to make an array, whilst
  * setting the length to the specified size. */
-SIDEF siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize length,
-		isize capacity, siAllocator alloc);
-SIDEF siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize length,
-		isize capacity, siAllocator alloc);
+SIDEF siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize capacity,
+		siAllocator alloc);
+SIDEF siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize capacity,
+		siAllocator alloc);
 /* Creates a new dynamic array from a regular array. */
 SIDEF siDynamicArrayAny si_dynamicArrayCopy(siArrayAny array, siAllocator alloc);
 
@@ -2142,14 +2165,27 @@ typedef struct siBuilder {
 #endif
 
 
-typedef struct siString {
-	isize len;
-	const u8* data;
-} siString;
-
 /* A UTF-32 codepoint.*/
 typedef i32 siRune;
 
+typedef struct siString {
+	isize len;
+	const u8* data;
+
+#if SI_LANGUAGE_IS_CPP
+	/* TODO */
+	u8 operator[](isize index);
+
+	/* TODO */
+	siString operator()(isize offset1, isize offset2);
+	/* TODO */
+	siString from(isize offset1);
+	/* TODO */
+	siString to(isize offset2);
+	/* TODO */
+	siString substrLen(isize offset1, isize length);
+#endif
+} siString;
 
 /* rune - NAME | str - siString
  * Loops through the runes of the string, writes the rune to 'name'. */
@@ -3413,9 +3449,13 @@ SIDEF void si_printMemory(const void* ptr, isize amount);
 SIDEF void si_printMemoryEx(const void* ptr, isize amount, i32 base, i32 stride);
 
 
-/* Terminates the program immediately with a string message. 'strMessage' is ignored if its length is zero.
+/* Terminates the program immediately with a string message. 'strMessage' is
+ * ignored if its length is zero.
  * NOTE: Use the SI_PANIC() macros instead. */
 siNoreturn SIDEF void si_panic(siString strCondition, siCallerLoc call, siString strMessage, ...);
+/* TODO */
+siNoreturn SIDEF void si_panicVa(siString strCondition, siCallerLoc call,
+		siString strMessage, va_list va);
 
 
 SI_ENUM(u8, siPrintColorType) {
@@ -3541,10 +3581,10 @@ SIDEF b32 si_float64IsNan(f64 num);
 	/* num - f32/f64
 	 * Checks if the given float is NaN. */
 	#define si_floatIsNan(num) \
-	    _Generic((num),        \
-	        f32 : si_float32IsNan, \
-	        f64 : si_float64IsNan \
-	    )(num)
+		_Generic((num),        \
+			f32 : si_float32IsNan, \
+			f64 : si_float64IsNan \
+		)(num)
 #else
 	/* num - f32/f64
 	 * Checks if the given float is NaN. */
@@ -3565,10 +3605,10 @@ SIDEF i32 si_float64IsInf(f64 num);
 	 * Checks if the given 32-bit float is infinite. '0' - number isn't infinite,
 	 * '1' - positive infinity, '2' - negative infinity. */
 	#define si_floatIsInf(num) \
-	    _Generic((num),        \
-	        f32 : si_float32IsInf, \
-	        f64 : si_float64IsInf \
-	    )(num)
+		_Generic((num),        \
+			f32 : si_float32IsInf, \
+			f64 : si_float64IsInf \
+		)(num)
 #else
 	/* num - f32/f64
 	 * Checks if the given 32-bit float is infinite. '0' - number isn't infinite,
@@ -4433,11 +4473,49 @@ SIDEF siString si_dllError(void);
 
 #if SI_LANGUAGE_IS_C
 	#define SI__ARR_IMPL(type, ...) SI_ARR_LEN(((type[]){__VA_ARGS__}), countof((type[]){__VA_ARGS__}))
+	#define SI__ARR_ALLOC_IMPL(type, alloc, ...) si__arrayMake(si_sizeof(type), (type[]){__VA_ARGS__}, countof((type[]){__VA_ARGS__}), alloc)
+	#define SI__DYNARR_ALLOC_IMPL(type, alloc, ...) si_dynamicArrayMakeEx((type[]){__VA_ARGS__}, si_sizeof(type), countof((type[]){__VA_ARGS__}), alloc)
+
 #elif SI_LANGUAGE_IS_CPP
 	#define SI__ARR_IMPL(type, ...) ([&]() -> siArrayAny { \
-        static type temp[] = {__VA_ARGS__}; \
-        return {countof(temp), temp, sizeof(type)}; \
-    })()
+		static type temp[] = {__VA_ARGS__}; \
+		return {countof(temp), temp, sizeof(type)}; \
+	})()
+
+	#define SI__ARR_ALLOC_IMPL(type, alloc, ...) ([&]() -> siArrayAny { \
+		static type temp[] = {__VA_ARGS__}; \
+		return si__arrayMake(si_sizeof(type), temp, countof(temp), alloc);  \
+	})()
+
+	#define SI__DYNARR_ALLOC_IMPL(type, alloc, ...) ([&]() -> siDynamicArrayAny { \
+		static type temp[] = {__VA_ARGS__}; \
+		return si_dynamicArrayMakeEx(temp, si_sizeof(type), countof(temp), alloc);  \
+	})()
+
+
+
+#endif
+
+#if SI_LANGUAGE_IS_CPP
+u8& siArrayAny::operator[](isize index) {
+	return *static_cast<u8*>(si_arrayGet(*this, index));
+}
+siArrayAny siArrayAny::operator()(isize offset1, isize offset2) {
+	return si_slice(*this, offset1, offset2);
+}
+siArrayAny siArrayAny::from(isize offset1) {
+	return si_sliceFrom(*this, offset1);
+}
+siArrayAny siArrayAny::to(isize offset2) {
+	return si_sliceTo(*this, offset2);
+}
+siArrayAny siArrayAny::sliceLen(isize offset1, isize length) {
+	return si_sliceLen(*this, offset1, length);
+}
+
+u8& siDynamicArrayAny::operator[](isize index)	const {
+	return *static_cast<u8*>(si_dynamicArrayGet(*this, index));
+}
 #endif
 
 force_inline
@@ -5805,19 +5883,19 @@ void si_arrayFree(siArrayAny array, siAllocator alloc) {
 
 inline
 siDynamicArrayAny si_dynamicArrayMakeEx(void* list, isize typeSize, isize count, siAllocator alloc)  {
-	siDynamicArrayAny array = si_dynamicArrayReserve(typeSize, count, count, alloc);
-	if (array.len != 0) {
+	siDynamicArrayAny array = si_dynamicArrayReserveNonZeroed(typeSize, count, alloc);
+	if (array.capacity != 0) {
 		si_memcopy(array.data, list, typeSize * count);
+		array.len = count;
 	}
 
 	return array;
 }
 
 SIDEF
-siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize length,
-		isize capacity, siAllocator alloc) {
+siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize capacity,
+		siAllocator alloc) {
 	SI_ASSERT_NOT_NEG(typeSize);
-	SI_ASSERT_NOT_NEG(length);
 	SI_ASSERT_NOT_NEG(capacity);
 
 	void* data = si_allocNonZeroed(alloc, typeSize * capacity);
@@ -5827,7 +5905,7 @@ siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize length,
 	array.alloc = alloc;
 	array.data = data;
 	array.typeSize = typeSize;
-	array.len = length;
+	array.len = 0;
 	array.capacity = capacity;
 	array.grow = 0;
 
@@ -5835,10 +5913,8 @@ siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize length,
 }
 
 SIDEF
-siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize length,
-		isize capacity, siAllocator alloc) {
+siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize capacity, siAllocator alloc) {
 	SI_ASSERT_NOT_NEG(typeSize);
-	SI_ASSERT_NOT_NEG(length);
 	SI_ASSERT_NOT_NEG(capacity);
 
 	void* data = si_alloc(alloc, typeSize * capacity);
@@ -5851,7 +5927,7 @@ siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize length,
 	array.alloc = alloc;
 	array.data = data;
 	array.typeSize = typeSize;
-	array.len = length;
+	array.len = 0;
 	array.capacity = capacity;
 	array.grow = 0;
 
@@ -5926,7 +6002,8 @@ b32 si_dynamicArrayInsert(siDynamicArrayAny* array, isize index, const void* dat
 }
 
 SIDEF
-b32 si_dynamicArrayInsertEx(siDynamicArrayAny* array, isize index, const void* data, isize count) {
+b32 si_dynamicArrayInsertEx(siDynamicArrayAny* array, isize index, const void* data,
+		isize count) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_DYN_ARR(*array);
 	SI_ASSERT_NOT_NIL(data);
@@ -6079,6 +6156,26 @@ isize si_memmove_s(siArrayAny dst, const void* src, isize sizeSrc) {
 #endif /* SI_IMPLEMENTATION_ARRAY */
 
 #ifdef SI_IMPLEMENTATION_STRING
+
+#if SI_LANGUAGE_IS_CPP
+u8 siString::operator[](isize index) {
+	SI_ASSERT(index < len);
+	SI_ASSERT_NOT_NEG(index);
+	return this->data[index];
+}
+siString siString::operator()(isize offset1, isize offset2) {
+	return si_substr(*this, offset1, offset2);
+}
+siString siString::from(isize offset1) {
+	return si_substrFrom(*this, offset1);
+}
+siString siString::to(isize offset2) {
+	return si_substrTo(*this, offset2);
+}
+siString siString::substrLen(isize offset1, isize length) {
+	return si_substrLen(*this, offset1, length);
+}
+#endif
 
 inline
 siUtf32Char si__stringLastRune(siString str) {
@@ -6716,7 +6813,7 @@ siArray(siString) si_stringSplitEx(siString str, siString delimiter, isize amoun
 	SI_STOPIF(amount == 0, return SI_ARR_LEN((u8*)nil, 0));
 
 	isize len = amount + 1;
-	siDynamicArray(siString) res = si_dynamicArrayMakeReserve(siString, len, len, alloc);
+	siArray(siString) res = si_arrayMakeReserveNonZeroed(siString, len, alloc);
 	siString* data = (siString*)res.data;
 
 	isize lineStart = 0;
@@ -6730,11 +6827,11 @@ siArray(siString) si_stringSplitEx(siString str, siString delimiter, isize amoun
 
 	if (str.len == lineStart) {
 		res.len -= 1;
-		return SI_ARR_DYN(res);
+		return res;
 	}
 	data[amount] = si_substrFrom(str, lineStart);
 
-	return SI_ARR_DYN(res);
+	return res;
 }
 
 SIDEF
@@ -7740,7 +7837,7 @@ const u16 alphaRanges[] = {
 };
 
 const u16 alphaSingle[] = {
-    0x00AA, 0x00B5, 0x00BA, 0x03DA, 0x03DC, 0x03DE, 0x03E0, 0x06D5, 0x09B2, 0x0A5E, 0x0A8D, 0x0AE0, 0x0B9C, 0x0CDE, 0x0E4F,
+	0x00AA, 0x00B5, 0x00BA, 0x03DA, 0x03DC, 0x03DE, 0x03E0, 0x06D5, 0x09B2, 0x0A5E, 0x0A8D, 0x0AE0, 0x0B9C, 0x0CDE, 0x0E4F,
 	0x0E84, 0x0E8A, 0x0E8D, 0x0EA5, 0x0EA7, 0x0EB0, 0x0EBD, 0x1FBE, 0x207F, 0x20A8, 0x2102, 0x2107, 0x2124, 0x2126, 0x2128,
 	0xFB3E, 0xFE74
 };
@@ -8211,10 +8308,10 @@ u32 si_murmur32(const void* data, isize len) {
 
 force_inline
 u32 si__murmur32Scramble(u32 key) {
-    key *= 0xCC9E2D51;
-    key = (key << 15) | (key >> 17);
-    key *= 0x1B873593;
-    return key;
+	key *= 0xCC9E2D51;
+	key = (key << 15) | (key >> 17);
+	key *= 0x1B873593;
+	return key;
 }
 
 SIDEF
@@ -8232,10 +8329,10 @@ u32 si_murmur32Ex(const void* data, isize len, u32 seed) {
 	}
 
 	u32 key = 0;
-    for (isize i = len & 3; i >= 0; i -= 1) {
-        key <<= 8;
-        key |= ((const u8*)data)[i - 1];
-    }
+	for (isize i = len & 3; i >= 0; i -= 1) {
+		key <<= 8;
+		key |= ((const u8*)data)[i - 1];
+	}
 
 	hash ^= si__murmur32Scramble(key);
 	hash ^= (u32)len;
@@ -10289,6 +10386,12 @@ void si_printMemoryEx(const void* ptr, isize amount, i32 base, i32 stride) {
 
 siNoreturn SIDEF
 void si_panic(siString strCondition, siCallerLoc call, siString strMessage, ...) {
+	va_list va;
+	va_start(va, strMessage);
+	si_panicVa(strCondition, call, strMessage, va);
+}
+
+void si_panicVa(siString strCondition, siCallerLoc call, siString strMessage, va_list va) {
 	siPrintColor red = si_printColor3bitEx(siPrintColor3bit_Red, true, false);
 
 	si_fprintf(
@@ -10298,11 +10401,9 @@ void si_panic(siString strCondition, siCallerLoc call, siString strMessage, ...)
 	);
 
 	if (strMessage.len != 0) {
-		va_list va;
-		va_start(va, strMessage);
 		si_fprintfLnVa(si_stderr, strMessage, va);
-		va_end(va);
 	}
+	va_end(va);
 
 	SI_DEBUG_TRAP();
 }
