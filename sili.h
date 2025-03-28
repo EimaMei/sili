@@ -902,15 +902,15 @@ SI_STATIC_ASSERT(sizeof(nil) == sizeof(void*));
 #if !defined(typeof) && !defined(SI_NO_TYPEOF)
 	#if SI_STANDARD_CHECK_MIN(C, C23)
 		#define SI_TYPEOF_USED 1
-	#elif SI_COMPILER_TYPEOF_SUPPORTS
-		/* ...VALUE - TYPE/EXPRESSION
-		* Gets the value's type and expresses it as a regular type. */
-		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
-		#define SI_TYPEOF_USED 1
 	#elif SI_LANGUAGE_IS_CPP
 		/* ...VALUE - TYPE/EXPRESSION
 		* Gets the value's type and expresses it as a regular type. */
 		#define typeof(.../* VALUE */) decltype(__VA_ARGS__)
+		#define SI_TYPEOF_USED 1
+	#elif SI_COMPILER_TYPEOF_SUPPORTS
+		/* ...VALUE - TYPE/EXPRESSION
+		* Gets the value's type and expresses it as a regular type. */
+		#define typeof(.../* VALUE */) __typeof__(__VA_ARGS__)
 		#define SI_TYPEOF_USED 1
 	#endif
 
@@ -1040,12 +1040,7 @@ extern "C++" {
 
 #endif
 
-#ifdef SI_TYPEOF_USED
-	/* countvar - NAME | start - INT | end - INT
-	 * A loop with that goes through 'end' - 'start' cycles whilst incrementing 'countVar'
-	 * each time. */
-	#define for_range(countVar, start, end) for_rangeEx(typeof(end), countVar, start, end)
-#else
+#ifndef for_range
 	/* countvar - NAME | start - INT | end - INT
 	 * A loop with that goes through 'end' - 'start' cycles whilst incrementing 'countVar'
 	 * each time. */
@@ -1095,30 +1090,6 @@ extern "C++" {
 	#endif
 #endif
 
-#ifndef SI_DEFAULT_STRUCT
-	#if SI_LANGUAGE_IS_C
-		/* Default zero-initialization value on C. */
-		#define SI_DEFAULT_STRUCT {0}
-	#else
-		/* Default zero-initialization value on C++. */
-		#define SI_DEFAULT_STRUCT {}
-	#endif
-
-#endif
-
-#ifndef SI_COMP_LIT
-	#if SI_LANGUAGE_IS_C
-		/* Compound literal syntax on C. */
-		#define SI_COMP_LIT(type, ...) (type){__VA_ARGS__}
-		#define SI_COMP_LIT_DEFAULT(type) (type)SI_DEFAULT_STRUCT
-	#else
-		/* Compound literal syntax on C++. */
-		#define SI_COMP_LIT(type, ...) type{__VA_ARGS__}
-		#define SI_COMP_LIT_DEFAULT(type) type SI_DEFAULT_STRUCT
-	#endif
-	/* */
-#endif
-
 #ifndef SI_NO_ASSERTIONS
 	/* condition - EXPRESSION
 	 * Terminates the program if the condition is not met. */
@@ -1164,9 +1135,6 @@ extern "C++" {
 	 * negative or its types is incorrect. */
 	#define SI_ASSERT_DYN_ARR_TYPE(array, type) SI_ASSERT_ARR_TYPE(array, type); SI_ASSERT_NOT_NEG((array).capacity)
 
-
-
-
 #else
 	#define SI_ASSERT(condition) do { } while(0)
 	#define SI_ASSERT_MSG(condition, message) do {} while(0)
@@ -1194,6 +1162,54 @@ extern "C++" {
  * Checks if the condition is true. If it is, 'action' will be executed. */
 #define SI_STOPIF(condition, .../* ACTION */) if (condition) { __VA_ARGS__; } do {} while(0)
 
+/*
+	========================
+	| C/C++ macros         |
+	========================
+*/
+
+#if SI_LANGUAGE_IS_C
+	#ifndef SI_DEFAULT_STRUCT
+		/* Default zero-initialization value on C. */
+		#define SI_DEFAULT_STRUCT {0}
+	#endif
+
+	#ifndef SI_COMP_LIT
+		/* Compound literal syntax on C. */
+		#define SI_COMP_LIT(type, ...) (type){__VA_ARGS__}
+		#define SI_COMP_LIT_DEFAULT(type) (type)SI_DEFAULT_STRUCT
+	#endif
+
+	#ifndef SI_PTR
+		/* TODO */
+		#define SI_PTR(type, ...) (type[]){__VA_ARGS__}
+		#define SI_PTR_WITH_LEN(type, ...) (type[]){__VA_ARGS__}, countof((type[]){__VA_ARGS__})
+	#endif
+
+#else
+	#ifndef SI_DEFAULT_STRUCT
+		/* Default zero-initialization value on C++. */
+		#define SI_DEFAULT_STRUCT {}
+	#endif
+
+	#ifndef SI_COMP_LIT
+		/* Compound literal syntax on C++. */
+		#define SI_COMP_LIT(type, ...) type{__VA_ARGS__}
+		#define SI_COMP_LIT_DEFAULT(type) type SI_DEFAULT_STRUCT
+	#endif
+
+	#ifndef SI_PTR
+		/* TODO */
+		#define SI_PTR(type, ...) ([] { \
+			static type temp[] = {__VA_ARGS__}; \
+			return temp; \
+		}())
+		#define SI_PTR_WITH_LEN(type, ...) SI_PTR(type, __VA_ARGS__), ([] { \
+			static type temp[] = {__VA_ARGS__}; \
+			return countof(temp); \
+		}())
+	#endif
+#endif
 
 /*
 	========================
@@ -1837,15 +1853,15 @@ typedef struct siArrayAny {
 	isize typeSize;
 
 	#if SI_LANGUAGE_IS_CPP
-	/* TODO */
+	/* Sets/gets a specific element in the array with array and bound checking. */
 	u8& operator[](isize index);
-	/* TODO */
+	/* Creates a slice. Same as 'si_slice'. */
 	siArrayAny operator()(isize offset1, isize offset2);
-	/* TODO */
+	/* Creates a slice. Same as 'si_sliceFrom'. */
 	siArrayAny from(isize offset1);
-	/* TODO */
+	/* Creates a slice. Same as 'si_sliceTo'. */
 	siArrayAny to(isize offset2);
-	/* TODO */
+	/* Creates a slice. Same as 'si_sliceLen'. */
 	siArrayAny sliceLen(isize offset1, isize len);
 	#endif
 } siArrayAny;
@@ -1906,7 +1922,7 @@ typedef struct siArrayAny {
 
 
 /* alloc - siAllocator | type - TYPE | ...values - ANYTHING
-* Allocates an array and copies the specified values to it. | TODO: Add C++ support */
+* Allocates an array and copies the specified values to it. */
 #define si_arrayMake(alloc, type, .../* values */) \
 	SI__ARR_ALLOC_IMPL(type, alloc, __VA_ARGS__)
 /* type - TYPE | len - isize | alloc - siAllocator
@@ -1969,6 +1985,19 @@ SIDEF b32 si_arrayEqual(siArrayAny lhs, siArrayAny rhs);
 SIDEF void si_arrayFree(siArrayAny array, siAllocator alloc);
 
 
+/* TODO */
+#define si_arraySetItem(array, index, value, type) (type*)si_arraySet(array, index, SI_PTR(type, value))
+/* TODO */
+#define si_arraySetArray(array, index, type, ...) (type*)si_arraySet(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
+
+/* TODO */
+#define si_arrayFindItem(array, value, type) si_arrayFind(array, SI_PTR(type, value))
+/* TODO */
+#define si_arrayFindLastItem(array, value, type) si_arrayFindLast(array, SI_PTR(type, value))
+/* TODO */
+#define si_arrayFindCountItem(array, value, type) si_arrayFindCount(array, SI_PTR(type, value))
+
+
 /* Copies a number of bytes from the source buffer into the destination. The number
 * of copied bytes is guaranteed to be less or equal to the destination's size.
 * The memory blocks cannot overlap each other. Returns the amount of bytes that
@@ -1990,16 +2019,8 @@ typedef struct siDynamicArrayAny {
 	isize grow;
 
 	#if SI_LANGUAGE_IS_CPP
-	/* TODO */
+	/* Sets/gets a specific element in the array with array and bound checking. */
 	u8& operator[](isize index) const;
-	/* TODO */
-	siDynamicArrayAny operator()(isize offset1, isize offset2) const;
-	/* TODO */
-	siDynamicArrayAny from(isize offset1) const;
-	/* TODO */
-	siDynamicArrayAny to(isize offset2) const;
-	/* TODO */
-	siDynamicArrayAny sliceLen(isize offset1, isize len) const;
 	#endif
 } siDynamicArrayAny;
 
@@ -2031,7 +2052,6 @@ typedef struct siDynamicArrayAny {
  * Allocates an empty, non-zeroed array with a specified length and capacity. */
 #define si_dynamicArrayMakeReserveNonZeroed(type, capacity, alloc) \
 	si_dynamicArrayReserveNonZeroed(si_sizeof(type), capacity, alloc)
-/* TODO(EimaMei): Remove the 'length' portion. */
 
 /* Allocates 'count * typeSize' amount of bytes to make an array and copies the
  * same amount of bytes from the specified list to it, whilst setting the length
@@ -2060,7 +2080,7 @@ SIDEF void* si_dynamicArrayBack(siDynamicArrayAny array);
 /* Sets the element to the specified pointer's contents. The pointer must point
  * to memory with the same size as the array. */
 SIDEF void* si_dynamicArraySet(siDynamicArrayAny array, isize index, const void* data);
-/* TODO */
+/* Sets a list of elements to the specified pointer (bound or type checking isn't done). */
 SIDEF void* si_dynamicArraySetEx(siDynamicArrayAny array, isize index, const void* data, isize count);
 
 /* Copies an element at the specified index into the given pointer and returns
@@ -2125,6 +2145,40 @@ SIDEF void si_dynamicArrayReplace(siDynamicArrayAny array, void* restrict valueO
  * array was reallocated. Used internally. */
 SIDEF b32 si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize addLen);
 
+
+
+/* TODO */
+#define si_dynamicArraySetItem(array, index, value, type) (type*)si_dynamicArraySet(array, index, SI_PTR(type, value))
+/* TODO */
+#define si_dynamicArraySetArray(array, index, type, ...) (type*)si_dynamicArraySetEx(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
+
+/* TODO */
+#define si_dynamicArrayFindItem(array, value, type) si_dynamicArrayFind(array, SI_PTR(type, value))
+/* TODO */
+#define si_dynamicArrayFindLastItem(array, value, type) si_dynamicArrayFindLast(array, SI_PTR(type, value))
+/* TODO */
+#define si_dynamicArrayFindCountItem(array, value, type) si_dynamicArrayFindCount(array, SI_PTR(type, value))
+
+/* TODO */
+#define si_dynamicArrayAppendItem(array, value, type) (type*)si_dynamicArrayAppend(array, SI_PTR(type, value))
+/* TODO */
+#define si_dynamicArrayAppendArray(array, type, ...) (type*)si_dynamicArrayAppendEx(array, SI_PTR_WITH_LEN(type, __VA_ARGS__))
+
+/* TODO */
+#define si_dynamicArrayInsertItem(array, index, value, type) si_dynamicArrayInsert(array, index, SI_PTR(type, value))
+/* TODO */
+#define si_dynamicArrayInsertArray(array, index, type, ...) si_dynamicArrayInsertEx(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
+
+/* TODO */
+#define si_dynamicArrayFillItem(array, index, count, value, type) si_dynamicArrayFill(array, index, count, SI_PTR(type, value))
+
+/* TODO */
+#define si_dynamicArrayReplaceAllItem(array, valueOld, valueNew, type) si_dynamicArrayReplaceAll(array, SI_PTR(type, valueOld), SI_PTR(type, valueNew))
+/* TODO */
+#define si_dynamicArrayReplaceItem(array, valueOld, valueNew, amount, type) si_dynamicArrayReplace(array, SI_PTR(type, valueOld), SI_PTR(type, valueNew), amount)
+
+
+
 #endif /* SI_NO_ARRAY */
 
 #ifndef SI_NO_STRING
@@ -2173,16 +2227,16 @@ typedef struct siString {
 	const u8* data;
 
 #if SI_LANGUAGE_IS_CPP
-	/* TODO */
+	/* Sets/gets a specific element in the array with array and bound checking. */
 	u8 operator[](isize index);
 
-	/* TODO */
+	/* Creates a substring. Same as 'si_substr'. */
 	siString operator()(isize offset1, isize offset2);
-	/* TODO */
+	/* Creates a substring. Same as 'si_substrFrom'. */
 	siString from(isize offset1);
-	/* TODO */
+	/* Creates a substring. Same as 'si_substrTo'. */
 	siString to(isize offset2);
-	/* TODO */
+	/* Creates a substring. Same as 'si_substrLen'. */
 	siString substrLen(isize offset1, isize length);
 #endif
 } siString;
@@ -2247,13 +2301,17 @@ SIDEF const u8* si_stringBegin(siString str);
 SIDEF const u8* si_stringEnd(siString str);
 
 
-/* TODO */
+/* Returns a reference to the string from the specified start and end offsets.
+ * eg. si_substr(SI_STR("Hello"), 1, 4) -> "ell" */
 SIDEF siString si_substr(siString str, isize offset1, isize offset2);
-/* TODO */
+/* Returns a substring from the specified start to the end.
+ * Equivalent to si_substr(arr, offset1, str.len). */
 SIDEF siString si_substrFrom(siString str, isize offset1);
-/* TODO */
+/* Returns a substring from the first element to the specified end.
+ * Equivalent to si_substr(arr, 0, offset2). */
 SIDEF siString si_substrTo(siString str, isize offset2);
-/* TODO */
+/* Returns a substring with a specified start and length.
+ * Equivalent to si_substr(arr, offset1, offset1 + len). */
 SIDEF siString si_substrLen(siString str, isize offset1, isize len);
 
 
@@ -2299,11 +2357,11 @@ SIDEF siString si_stringTrimLeft(siString str, siString cutSet);
 SIDEF siString si_stringTrimRight(siString str, siString cutSet);
 /* Removes any leading or trailing spaces and newlines in the string. */
 SIDEF siString si_stringStrip(siString str);
-/* TODO */
+/* Removes any leading spaces and newlines in the string. */
 SIDEF siString si_stringStripLeft(siString str);
-/* TODO */
+/* Removes any trailing spaces and newlines in the string. */
 SIDEF siString si_stringStripRight(siString str);
-/* TODO */
+/* Removes any trailing or leading double quote. */
 SIDEF siString si_stringUnquote(siString str);
 
 
@@ -2651,7 +2709,8 @@ SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, void* userData,
 		); \
 	} siOption_##type \
 
-/* TODO */
+/* type - TYPE
+ * Defines an optional type using the specified type's pointer type. */
 #define si_optional_define_ptr(type) \
 	typedef struct siOption_##type##Ptr { \
 		b32 hasValue; \
@@ -3036,11 +3095,7 @@ typedef struct siMapAny {
 
 /* alloc - siAllocator | type - TYPE | ...map - struct {siString, key}
  * Creates a map from the specified contents. Map keys are seperated by commas. */
-#define si_mapMake(alloc, type, .../* map */) si_mapMakeEx(alloc, type, countof((si__mapS(type)){__VA_ARGS__}), __VA_ARGS__)
-/* alloc - siAllocator | type - TYPE | capcity - isize | map - struct {siString, key}
- * Creates a map from the specified contents and capacity. Map keys are seperated
- * by commas. */
-#define si_mapMakeEx(alloc, type, capacity, ...) si_mapMakeFull((si__mapS(type)){__VA_ARGS__}, si_sizeof(type), si_sizeof(struct { siString n; type m; }), countof((si__mapS(type)){__VA_ARGS__}), capacity, alloc)
+#define si_mapMake(alloc, type, .../* map */) SI__MAP_IMPL(alloc, type, __VA_ARGS__)
 /* type - TYPE | capacity - isize | alloc - siAllocator
  * Reserves a map with the specified type and capacity. */
 #define si_mapMakeReserve(type, capacity, alloc) si_mapReserve(si_sizeof(type), capacity, alloc)
@@ -3058,13 +3113,6 @@ SIDEF void* si_mapSet(siMapAny* map, siString name, const void* value);
 SIDEF void* si_mapSetHash(siMapAny* map, siString name, const void* value,
 		u32 hash);
 
-/* Gets the existing key's pointer value, dereferences it and casts it to the
- * specified type. NOTE 1: The function doesn.t check if the given type is correct.
-  * NOTE 2: If the key doesn't exist, this function crashes. */
-#define si_mapGetType(map, name, type) *(type*)si_mapGet(map, name)
-/* Sets the specified's key value to the given value. */
-#define si_mapSetType(map, name, value, type) (type*)si_mapSet(map, name, &(type){value})
-
 /* Removes the specified key from the map. */
 SIDEF void si_mapErase(siMapAny* map, siString name);
 SIDEF void si_mapEraseHash(siMapAny* map, siString name, u32 hash);
@@ -3072,9 +3120,18 @@ SIDEF void si_mapEraseHash(siMapAny* map, siString name, u32 hash);
 /* Empties the map. */
 SIDEF void si_mapClear(siMapAny* map);
 
-
 /* Frees the allocated memory by the map. */
 SIDEF void si_mapFree(siMapAny map);
+
+
+/* Gets the existing key's pointer value, dereferences it and casts it to the
+ * specified type.
+ * NOTE 1: The function doesn't check if the given type is correct.
+ * NOTE 2: If the key doesn't exist, this function crashes. */
+#define si_mapGetItem(map, name, type) *(type*)si_mapGet(map, name)
+/* Sets the specified's key value to the given value. */
+#define si_mapSetItem(map, name, value, type) (type*)si_mapSet(map, name, SI_PTR(type, value))
+
 
 #endif /* SI_NO_MAP */
 
@@ -3685,7 +3742,9 @@ SIDEF i32 si_float64IsInf(f64 num);
 		i64 array[20]; \
 		isize len = 0; \
 		si_benchmarkLoop(function, array, &len, start, end); \
-		si_benchmarkLoopsAvgPrint(#function, array, len, (usize[]){start, end}); \
+		\
+		usize range[] = {start, end}; \
+		si_benchmarkLoopsAvgPrint(#function, array, len, range); \
 	} while(0)
 
 /* multiplesOf10 - usize | function1 - NAME | function2 - NAME
@@ -3708,7 +3767,9 @@ SIDEF i32 si_float64IsInf(f64 num);
 		si_benchmarkLoop(function1, arrays[0], &len1, start, end); \
 		si_benchmarkLoop(function2, arrays[1], &len2, start, end); \
 		\
-		si_benchmarkLoopsAvgCmpPrint((cstring[]){#function1, #function2}, arrays, len1, (usize[]){start, end}); \
+		cstring funcs[] = {#function1, #function2}; \
+		usize range[] = {start, end}; \
+		si_benchmarkLoopsAvgCmpPrint(funcs, arrays, len1, range); \
 	} while(0)
 
 #define SI_PERFORMANCE_MSG \
@@ -3720,17 +3781,17 @@ SIDEF i32 si_float64IsInf(f64 num);
 
 #define si_benchmarkLoop(function, array, lenPtr, start, end) \
 	do { \
-		volatile u64 medianIndex; \
+		u64 medianIndex; \
 		for (medianIndex = start; medianIndex < 10 * end; medianIndex *= 10) { \
 			/* NOTE(EimaMei): Having a 'print' statement forces smart compilers
 			 * like GCC and Clang to become dumb, by stopping them optimzing the function out. */ \
 			si_printf("%n", medianIndex); \
 			\
-			volatile u64 index; \
+			u64 index; \
 			i64 t1, t2; \
 			\
 			t1 = si_RDTSC(); \
-			for (index = 0; index < medianIndex; index++) { (void)function;  } \
+			for (index = 0; index < medianIndex; index++) { (void)function; } \
 			t2 = si_RDTSC(); \
 			\
 			array[*(lenPtr)] = t2 - t1; \
@@ -3806,9 +3867,14 @@ SI_ENUM(i32, siWindowsVersion) {
 };
 
 SI_ENUM(i32, siUnixDE) {
-	siUnixDE_KDE = 1,
+	siUnixDE_Custom = 0,
+	siUnixDE_KDE,
 	siUnixDE_GNOME,
 	siUnixDE_Xfce,
+	siUnixDE_LXQt,
+	siUnixDE_LXDE,
+	siUnixDE_MATE,
+	siUnixDE_Cinnamon,
 };
 
 
@@ -4608,6 +4674,19 @@ isize si__forEachRevStr(isize i, siString str, siRune* rune) {
 
 #ifndef SI_NO_MAP
 
+#ifdef SI_LANGUAGE_IS_C
+	#define si__x struct
+#else
+	#define si__x struct x
+#endif
+
+#define SI__MAP_IMPL(alloc, type, ...) \
+	si_mapMakeFull( \
+		SI_PTR_WITH_LEN(si__x { siString str; type t; }, __VA_ARGS__), \
+		si_sizeof(siString) + si_sizeof(type) + (alignof(siString) - (si_sizeof(type) % alignof(siString))), \
+		si_sizeof(type), alloc \
+	)
+
 force_inline
 b32 si__forEachMap(isize i, siMapAny map, siString* key) {
 	SI_ASSERT_NOT_NIL(map.entries);
@@ -4649,8 +4728,7 @@ b32 si__forEachRefMap(isize i, siMapAny map, siString* key, void* value) {
 }
 
 
-#define si__mapS(type) struct { siString n; type m; }[]
-SIDEF siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity, siAllocator alloc);
+SIDEF siMapAny si_mapMakeFull(const void* input, isize len, isize structTypeSize, isize valueTypeSize, siAllocator alloc);
 
 #endif
 
@@ -7131,8 +7209,8 @@ siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siArray(u8) out
 	i32 isNegative;
 	{
 		union { f64 f; u64 n; } check = {num};
-		isNegative = (check.n & SI_ENDIAN_VALUE(SI_BIT(63), SI_BIT(0))) != 0;
-	   	check.n &= ~SI_ENDIAN_VALUE(SI_BIT(63), SI_BIT(0)); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
+		isNegative = (check.n >> 63) & 1;
+	   	check.n &= ~SI_BIT(63); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
 		num = check.f;
 	}
 
@@ -8436,13 +8514,12 @@ u64 si_murmur64Ex(const void* data, isize len, u64 seed) {
 
 
 SIDEF
-siMapAny si_mapMakeFull(const void* input, isize typeSize, isize fullSize, isize len, isize capacity,
-		siAllocator alloc) {
-	SI_ASSERT(len <= capacity);
-	siMapAny map = si_mapReserve(typeSize, capacity, alloc);
+siMapAny si_mapMakeFull(const void* input, isize len, isize structTypeSize, isize valueTypeSize, siAllocator alloc) {
+	siMapAny map = si_mapReserve(valueTypeSize, len, alloc);
+	if (map.entries == nil) { return map; }
 
 	for_range (i, 0, len) {
-		const void* entry = si_pointerAddConst(input, i * fullSize);
+		const void* entry = si_pointerAddConst(input, i * structTypeSize);
 		si_mapSet(&map, *(siString*)entry, si_pointerAddConst(entry, si_sizeof(siString)));
 	}
 
@@ -8466,6 +8543,8 @@ siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc) {
 		  lenHashes = si_alignForward(si_sizeof(*map.hashes) * map.capacity, SI_DEFAULT_MEMORY_ALIGNMENT);
 
 	void* ptr = si_allocNonZeroed(alloc, lenEntries + lenHashes + map.typeSize * map.capacity);
+	if (ptr == nil) { return SI_COMP_LIT_DEFAULT(siMapAny); }
+
 	map.entries = (siMapEntry*)ptr;
 	map.hashes = (u32*)si_pointerAdd(map.entries, lenEntries);
 	map.values = (void*)si_pointerAdd(map.hashes, lenHashes);
@@ -8835,9 +8914,7 @@ isize si_numLenInt(i64 num) {
 		num = -num;
 		len = 1;
 	}
-	else {
-		len = 0;
-	}
+	else { len = 0; }
 
 	if (num < 10) return 1 + len;
 	if (num < 100) return 2 + len;
@@ -11051,14 +11128,20 @@ siUnixDE si_unixGetDE(void) {
 	static siUnixDE de = -1;
 	SI_STOPIF(de != -1, return de);
 
-	siString res = si_envVarGetData(SI_STR("XDG_CURRENT_DESKTOP"), SI_ARR_STACK(8));
+	siString res = si_envVarGetData(SI_STR("XDG_CURRENT_DESKTOP"), SI_ARR_STACK(16));
 	SI_STOPIF(res.data == nil, return 0);
 
-	/* TODO(EimaMei): Hashtable? */
-	if (si_stringEqual(res, SI_STR("KDE"))) { de = siUnixDE_KDE; }
-	else if (si_stringEqual(res, SI_STR("GNOME"))) { de = siUnixDE_GNOME; }
-	else if (si_stringEqual(res, SI_STR("XFCE"))) { de = siUnixDE_Xfce; }
-	else { de = 0; }
+	siArena arena = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siMap(i32) map = si_mapMake(
+		si_allocatorArena(&arena), i32,
+		{SI_STR("KDE"), siUnixDE_KDE}, {SI_STR("GNOME"), siUnixDE_GNOME},
+		{SI_STR("XFCE"), siUnixDE_Xfce}, {SI_STR("LXQt"), siUnixDE_LXQt},
+		{SI_STR("LXDE"), siUnixDE_LXDE}, {SI_STR("MATE"), siUnixDE_MATE},
+		{SI_STR("Cinnamon"), siUnixDE_Cinnamon}
+	);
+
+	i32* result = (i32*)si_mapGet(map, res);
+	de = result ? *result : siUnixDE_Custom;
 
 	return de;
 #else
@@ -12186,10 +12269,17 @@ b32 si_directoryIterateEx(siDirectory* dir, b32 fullPath, siDirectoryIterator* o
 		out->type = siIoType_Link;
 	}
 
-	out->path = si_utf16ToUtf8Str(
+	siString out = si_utf16ToUtf8Str(
 		SI_ARR_LEN(file.cFileName, SI_PATH_MAX),
 		SI_ARR_LEN(&dir->buffer[dir->directoryLen], si_sizeof(dir->buffer) - dir->directoryLen)
 	);
+
+	out->path = (fullPath)
+		? SI_STR_LEN(dir->buffer, dir->directoryLen + out.len)
+		: out;
+
+	return true;
+
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct dirent* dirEntry = readdir((DIR*)dir->handle);
@@ -12225,22 +12315,20 @@ b32 si_directoryIterateEx(siDirectory* dir, b32 fullPath, siDirectoryIterator* o
 	}
 
 	u8* data = &dir->buffer[dir->directoryLen];
-	out->path.data = data;
-	out->path.len = si_memcopy_s(
+	len = si_memcopy_s(
 		SI_ARR_LEN(data, si_sizeof(dir->buffer) - dir->directoryLen),
 		dirEntry->d_name, len
 	);
+
+	out->path = (fullPath)
+		? SI_STR_LEN(dir->buffer, dir->directoryLen + len)
+		: SI_STR_LEN(data, len);
+
+	return true;
 #else
 	return false;
 
 #endif
-	/* TODO(EimaMei): Make this use a substr instead. */
-	if (fullPath) {
-		out->path.data = dir->buffer;
-		out->path.len += dir->directoryLen;
-	}
-
-	return true;
 }
 
 inline

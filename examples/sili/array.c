@@ -20,17 +20,14 @@ int main(void) {
 
 		si_print("\tyou can also print a buffer through a loop: {");
 		i32 value;
-		for_eachArr (value, buffer) {
-			si_printf("%i ", value);
-		}
+		for_eachArr (value, buffer) { si_printf("%i ", value); }
 		si_print("}\n");
 
 		siDynamicArray(i32) array = si_dynamicArrayCopy(buffer, alloc);
 		b32 res = si_arrayEqual(SI_ARR_DYN(array), buffer);
 		si_printfLn("\t(array == buffer) returns a '%B' boolean", res);
 
-		value = 64;
-		i64* lastElement = (i64*)si_dynamicArrayAppend(&array, &value);
+		i64* lastElement = si_dynamicArrayAppendItem(&array, 64, i64);
 		si_printfLn("\tarray: \"%S\" (pointer to the element: %p)", si_dynamicArrayPrintInt(array), lastElement);
 
 		i32 front, middle, back;
@@ -50,17 +47,16 @@ int main(void) {
 		);
 
 		i32 value = INT32_MAX;
-		isize posFirst = si_arrayFind(buffer, &value),
+		isize posFirst = si_arrayFindItem(buffer, INT32_MAX, i32),
 			  posLast = si_arrayFindLast(buffer, &value);
-		isize occurences = si_arrayFindCount(buffer, &value);
+		isize occurences = si_arrayFindCount(buffer, SI_PTR(i32, INT32_MAX));
 
 		si_printfLn(
 			"\tThe integer '%02#X' was first found at index '%zi', last found at index '%zi', with '%zi' occurences in total.",
 			value, posFirst, posLast, occurences
 		);
 
-		value = -123;
-		isize pos = si_arrayFind(buffer, &value);
+		isize pos = si_arrayFindItem(buffer, -123, i32);
 		si_printfLn("\tHowever, the integer '-123' wasn't found and so, the function returns '%zi'", pos);
 	}
 
@@ -70,14 +66,13 @@ int main(void) {
 
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
 
-		//si_dynamicArrayReplaceAll(array, &(i32){6}, &(i32){9});
+		si_dynamicArrayReplaceAllItem(array, 6, 9, i32);
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayEraseEx(&array, 1, 3);
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
 
-		i32 values[] = {0xFF, 0xFFFF, 0x1991};
-		si_dynamicArrayInsertEx(&array, 1, values, countof(values));
+		si_dynamicArrayInsertArray(&array, 1, i32, 0xFF, 0xFFFF, 0x1991);
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayEraseEx(&array, 1, 5);
@@ -96,7 +91,7 @@ int main(void) {
 		si_dynamicArrayClear(&array);
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
 
-		//si_dynamicArrayFill(&array, 0, 4, &SI_RGB(255, 255, 255));
+		si_dynamicArrayFillItem(&array, 0, 4, SI_RGB(255, 255, 255), siColor);
 		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
 	}
 }

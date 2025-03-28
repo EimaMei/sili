@@ -17,35 +17,22 @@ force_inline
 cstring standard(void) {
 	static char res[] =
 		#if SI_LANGUAGE_IS_C
-			#if SI_STANDARD_VERSION == SI_STANDARD_C89
-				"C89"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_C94
-				"C94"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_C99
-				"C99"
+			#if SI_STANDARD_VERSION == SI_STANDARD_C99
+				"C99";
 			#elif SI_STANDARD_VERSION == SI_STANDARD_C11
-				"C11"
+				"C11";
 			#elif SI_STANDARD_VERSION == SI_STANDARD_C17
-				"C17"
+				"C17";
 			#elif SI_STANDARD_VERSION > SI_STANDARD_C17
-				"C2x"
+				"C2x";
 			#endif
 		#elif SI_LANGUAGE_IS_CPP
-			#if SI_STANDARD_VERSION == SI_STANDARD_CPP98
-				"C++98"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP11
-				"C++11"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP14
-				"C++14"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP17
-				"C++17"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_C20
-				"C++20"
-			#elif SI_STANDARD_VERSION == SI_STANDARD_C23
-				"C++23"
+			#if SI_STANDARD_VERSION == SI_STANDARD_CPP20
+				"C++20";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP23
+				"C++23";
 			#endif
 		#endif
-	;
 
 	return res;
 }

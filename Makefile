@@ -105,7 +105,7 @@ endif
 EXE = $(OUTPUT)/$(NAME)$(EXE_OUT)
 
 # For testing
-SRC = examples/sili/array.c
+SRC = tests/str.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run

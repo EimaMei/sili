@@ -114,6 +114,8 @@ void example1(siAllocator alloc) {
 		siString reverse = si_stringReverse(str, alloc);
 		si_printfLn("\t'str' in reverse: '%S'", reverse);
 	}
+
+	si_freeAll(alloc);
 }
 
 
@@ -159,8 +161,8 @@ void example2(siAllocator alloc) {
 		siMap(i32) m = si_mapMake(alloc, i32, {SI_STRC("CPU"), 10}, {SI_STRC("GPU"), 15}, {SI_STRC("RAM"), 20});
 		print_map(SI_STR("1) Initial map: "), m);
 
-		si_mapSetType(&m, SI_STR("CPU"), 25, i32);
-		si_mapSet(&m, SI_STR("SSD"), &(i32){30});
+		si_mapSetItem(&m, SI_STR("CPU"), 25, i32);
+		si_mapSetItem(&m, SI_STR("SSD"), 30, i32);
 		print_map(SI_STR("2) Updated map: "), m);
 
 		si_printfLn("Key 'UPS' exists: %B", (si_mapGet(m, SI_STR("UPS")) != nil));

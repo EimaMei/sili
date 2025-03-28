@@ -2,7 +2,7 @@
 #include <sili.h>
 
 
-SI_ENUM(usize, Type) {
+SI_ENUM(isize, Type) {
 	Type_i32 = 0,
 	Type_string,
 	Type_buffer,
@@ -63,15 +63,17 @@ void example1(void) {
 	str = create(true);
 	SI_ASSERT(str.hasValue);
 
-	/* C11 and onwards, you can access the returned data from an 'siOption' variable
-	 * via '.data' (or '.error' if it's an error). However, if you need to keep
-	 * your code C99 compliant, you can use '.data.value' for it to work on
+	/* For C11 and above targets, you can access any opional variable's value
+	 * via '.data' (or '.error' if it's an error).
+	 *
+	 * However, if you need to keep your code C99/C++20 compliant, you have to
+	 * use '.data.value' internally. for it to work on
 	 * multiple standards. */
-#if SI_STANDARD_CHECK_MAX(C, C99)
-	si_printfLn("create2(true) returned '%s'", str.data.value);
+#if SI_STANDARD_CHECK_MIN(C, C11)
+	si_printfLn("create2(true) returned '%s'", str.value);
 
 #else
-	si_printfLn("create2(true) returned '%s'", str.value);
+	si_printfLn("create2(true) returned '%s'", str.data.value);
 
 #endif
 }
@@ -114,12 +116,12 @@ void example2(void) {
 /* Returns user information from the given index. If the identification is over
  * the total user count, 'INVALID_ID' is returned. If the user is an administrator,
  * 'ACCESS_DENIED' is returned. */
-siResult(userInfo) get_name(u32 identification);
+siResult(userInfo) get_name(i32 identification);
 
 void example3(void) {
 	si_print("==============\n\n==============\nExample 3:\n");
 
-	for_range (id, 0, 3u) {
+	for_range (id, 0, 3) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
@@ -144,34 +146,34 @@ siOption(cstring) create(b32 value) {
 void createOptional(Type type, void* out, siAllocator alloc) {
 	switch (type) {
 		case Type_i32: {
-			siOption(i32)* res = out;
+			siOption(i32)* res = (siOption(i32)*)out;
 			*res = SI_OPT(i32, INT32_MIN);
 		} break;
 
 		case Type_string: {
-			siOption(siString)* res = out;
+			siOption(siString)* res = (siOption(siString)*)out;
 			*res = SI_OPT(siString, SI_STR("Ayn Rand"));
 		} break;
 
 		case Type_buffer: {
-			siOption(siArray(i32))* res = out;
+			siOption(siArray(i32))* res = (siOption(siArray(i32))*)out;
 			*res = SI_OPT(siArray(i32), si_arrayMake(alloc, i32, 1, 2, 4, 6, 8));
 		} break;
 
 		case Type_struct: {
-			siOption(u128Struct)* res = out;
+			siOption(u128Struct)* res = (siOption(u128Struct)*)out;
 			*res = SI_OPT(u128Struct, {0xFF, UINT64_MAX});
 		} break;
 
 		case Type_enum: {
-			siOption(Type)* res = out;
+			siOption(Type)* res = (siOption(Type)*)out;
 			*res = SI_OPT(Type, Type_enum);
 		} break;
 
 		case Type_funcPtr: {
 			typedef void (create_optional_type)(Type, void*, siAllocator);
 
-			siOptionPtr(void)* res = out;
+			siOptionPtr(void)* res = (siOptionPtr(void)*)out;
 			*res = SI_OPT_PTR(void, si_transmute(void*, createOptional, create_optional_type*));
 		} break;
 
@@ -179,7 +181,7 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 	}
 }
 
-siResult(userInfo) get_name(u32 identification) {
+siResult(userInfo) get_name(isize identification) {
 	static userInfo database[] = {
 		{SI_STRC("Joe"), false, 4000 * 100},
 		{SI_STRC("Gitanas Nausėda"), true, UINT32_MAX}

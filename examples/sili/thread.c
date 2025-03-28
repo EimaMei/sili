@@ -149,7 +149,7 @@ void* thread_test(void* arg) {
 }
 
 void* thread_matrix(void* mData) {
-	matrixData* data = mData;
+	matrixData* data = (matrixData*)mData;
 
 	for_range (i, data->start, data->end) {
 		for_range (j, 0, SIZE) {

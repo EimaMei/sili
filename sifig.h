@@ -1,7 +1,7 @@
 /*
 sifig.h - v0.0.0 - a sili library for reading various configuration files.
 ===========================================================================
-	- YOU MUST DEFINE 'SIFIG_IMPLEMENTATION' in EXACTLY _one_ C file that 
+	- YOU MUST DEFINE 'SIFIG_IMPLEMENTATION' in EXACTLY _one_ C file that
 	includes this header, BEFORE the include like this:
 
 		#include "sili.h"
@@ -25,8 +25,8 @@ LICENSE
 	bottom of the file).
 
 WARNING
-	- Sili and its supplementary libraries are designed to be fast, modern, but 
-	also experimental. As a result some unwarranted results may occur during use, 
+	- Sili and its supplementary libraries are designed to be fast, modern, but
+	also experimental. As a result some unwarranted results may occur during use,
 	such as:
 		1) Features not working as expected;
 		2) Functions having no or incompleted documentation;
@@ -59,7 +59,7 @@ extern "C" {
 
 #ifndef SIFIG_VERSION_CURRENT
 	#define SIFIG_VERSION_CURRENT SI_VERSION(SIFIG_VERSION_MAJOR, SIFIG_VERSION_MINOR, SIFIG_VERSION_PATCH)
-#endif 
+#endif
 
 #ifndef SIFIG_NO_INI
 
@@ -105,13 +105,13 @@ SIDEF void sifig_iniFree(siIniFile ini);
 #ifdef SIFIG_IMPLEMENTATION
 	#ifndef SIFIG_IMPLEMENTATION_INI
 		#define SIFIG_IMPLEMENTATION_INI 1
-	#endif 
+	#endif
 #endif
 
 
 #ifdef SIFIG_IMPLEMENTATION_INI
 
-inline 
+inline
 siIniFile sifig_iniMake(siString path, siAllocator alloc) {
 	siString tmp = si_pathReadContents(path, si_allocatorHeap());
 	siIniFile res = sifig_iniMakeStr(tmp, alloc);
@@ -120,12 +120,13 @@ siIniFile sifig_iniMake(siString path, siAllocator alloc) {
 	return res;
 }
 
-inline 
+inline
 siIniFile sifig_iniMakeStr(siString content, siAllocator alloc) {
-	return sifig_iniMakeEx(content, (siIniOptions){SI_STR(";"), false}, alloc);
+	return sifig_iniMakeEx(content, SI_COMP_LIT(siIniOptions, SI_STR(";"), false), alloc);
 }
 
-SIDEF 
+
+SIDEF
 siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator alloc) {
 	siIniFile ini = si_mapMakeReserve(siIniSection, 16, alloc);
 	siIniSection* curIni = nil;
@@ -134,8 +135,8 @@ siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator al
 	siIniIterator it = sifig_iniIterator(content);
 
 	while (sifig_iniIterateEx(&it, options.comment)) {
-		if (curSection.data != it.section.data) {
-			curIni = si_mapSet(&ini, si_stringCopy(it.section, alloc), &curIni);
+		if (curSection.data != it.section.data) { /* NOTE(EimaMei): This always equals true on first runs. */
+			curIni = si_mapSetItem(&ini, si_stringCopy(it.section, alloc), SI_DEFAULT_STRUCT, siIniSection);
 			*curIni = si_mapMakeReserve(siString, 32, alloc);
 
 			curSection = it.section;
@@ -153,15 +154,15 @@ siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator al
 
 inline
 siIniIterator sifig_iniIterator(siString content) {
-	return (siIniIterator){SI_STR_EMPTY, SI_STR_EMPTY, SI_STR_EMPTY, content};
+	return SI_COMP_LIT(siIniIterator, SI_STR_EMPTY, SI_STR_EMPTY, SI_STR_EMPTY, content);
 }
 
-inline 
+inline
 b32 sifig_iniIterate(siIniIterator* it) {
 	return sifig_iniIterateEx(it, SI_STR(";"));
 }
 
-SIDEF 
+SIDEF
 b32 sifig_iniIterateEx(siIniIterator* it, siString comment) {
 	siString line;
 
@@ -193,7 +194,7 @@ b32 sifig_iniIterateEx(siIniIterator* it, siString comment) {
 	return false;
 }
 
-SIDEF 
+SIDEF
 void sifig_iniFree(siIniFile ini) {
 	siString name; siIniSection section;
 	for_eachMapEx (name, section, ini) {

@@ -164,7 +164,7 @@ int main(void) {
 		TEST_EQ_USIZE(avail, 32);
 
 		u8 features = si_allocatorGetFeatures(alloc);
-		SI_ASSERT(features == 0x73); /* NOTE(EimaMei): '0b01110011' in hex. */
+		SI_ASSERT(features == 0xF3); /* NOTE(EimaMei): '0b01110011' in hex. */
 
 		si_poolFree(&pData);
 		TEST_EQ_PTR(pData.ptr, nil);
