@@ -1176,13 +1176,13 @@ extern "C++" {
 
 	#ifndef SI_COMP_LIT
 		/* Compound literal syntax on C. */
-		#define SI_COMP_LIT(type, ...) (type){__VA_ARGS__}
-		#define SI_COMP_LIT_DEFAULT(type) (type)SI_DEFAULT_STRUCT
+		#define SI_COMP_LIT(type, ...) ((type){__VA_ARGS__})
+		#define SI_COMP_LIT_DEFAULT(type) ((type)SI_DEFAULT_STRUCT)
 	#endif
 
 	#ifndef SI_PTR
 		/* TODO */
-		#define SI_PTR(type, ...) (type[]){__VA_ARGS__}
+		#define SI_PTR(type, ...) ((type[]){__VA_ARGS__})
 		#define SI_PTR_WITH_LEN(type, ...) (type[]){__VA_ARGS__}, countof((type[]){__VA_ARGS__})
 	#endif
 
@@ -1194,8 +1194,8 @@ extern "C++" {
 
 	#ifndef SI_COMP_LIT
 		/* Compound literal syntax on C++. */
-		#define SI_COMP_LIT(type, ...) type{__VA_ARGS__}
-		#define SI_COMP_LIT_DEFAULT(type) type SI_DEFAULT_STRUCT
+		#define SI_COMP_LIT(type, ...) (type{__VA_ARGS__})
+		#define SI_COMP_LIT_DEFAULT(type) (type SI_DEFAULT_STRUCT)
 	#endif
 
 	#ifndef SI_PTR
@@ -2251,8 +2251,8 @@ typedef struct siString {
  * Loops through the runes of the string in reverse, writes the rune to 'name'. */
 #define for_eachRevStr(rune, str) for_eachRevStrEx(rune, si__i, str)
 #define for_eachRevStrEx(rune, indexName, str) \
-	for (isize indexName##len = si__forEachRevStr((str).len - 1, str, &(rune)), indexName = str.len - 1 - indexName##len; \
-		indexName >= 0; indexName -= si__forEachRevStr(indexName, str, &(rune)))
+	for (isize indexName##len = si__forEachRevStr((str).len, str, &(rune)), indexName = str.len - 1 - indexName##len; \
+		indexName >= 0; indexName -= si__forEachRevStr(indexName + 1, str, &(rune)))
 
 
 
@@ -6259,13 +6259,20 @@ inline
 siUtf32Char si__stringLastRune(siString str) {
 	SI_ASSERT_MSG(str.len > 0, "This function doesn't check for if the length is zero. Fix your function.");
 
+	u8 lastChar = str.data[str.len - 1];
+	if (lastChar < 0x80) {
+		return SI_COMP_LIT(siUtf32Char, lastChar, 1);
+	}
+
+	isize end = si_max(isize, str.len - 4, 0);
 	isize i;
-	for (i = str.len - 1; i >= 0; i -= 1) {
+	for (i = str.len - 1; i >= end; i -= 1) {
 		if ((str.data[i] & 0xC0) != 0x80) {
 			break;
 		}
 	}
 
+	i = si_max(isize, i, 0);
 	return si_utf8Decode(&str.data[i]);
 }
 
@@ -7209,7 +7216,7 @@ siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siArray(u8) out
 	i32 isNegative;
 	{
 		union { f64 f; u64 n; } check = {num};
-		isNegative = (check.n >> 63) & 1;
+		isNegative = (i32)(check.n >> 63) & 1;
 	   	check.n &= ~SI_BIT(63); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
 		num = check.f;
 	}
@@ -12269,14 +12276,14 @@ b32 si_directoryIterateEx(siDirectory* dir, b32 fullPath, siDirectoryIterator* o
 		out->type = siIoType_Link;
 	}
 
-	siString out = si_utf16ToUtf8Str(
+	siString data = si_utf16ToUtf8Str(
 		SI_ARR_LEN(file.cFileName, SI_PATH_MAX),
 		SI_ARR_LEN(&dir->buffer[dir->directoryLen], si_sizeof(dir->buffer) - dir->directoryLen)
 	);
 
 	out->path = (fullPath)
-		? SI_STR_LEN(dir->buffer, dir->directoryLen + out.len)
-		: out;
+		? SI_STR_LEN(dir->buffer, dir->directoryLen + data.len)
+		: data;
 
 	return true;
 

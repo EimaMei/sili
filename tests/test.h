@@ -22,7 +22,10 @@
 	TEST_EQ(arg1, arg2, "%zi")
 #define TEST_EQ_U32(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%u")
-
+#define TEST_EQ_STR(arg1, arg2) \
+	TEST_EQ_ISIZE(arg1.len, arg2.len); TEST_EQ_ISIZE(si_memcompare(arg1.data, arg2.data, arg1.len), 0)
 
 #define TEST_N_EQ_U64(arg1, arg2) \
 	TEST_N_EQ(arg1, arg2, "%lu")
+#define TEST_N_EQ_PTR(arg1, arg2) \
+	TEST_N_EQ(arg1, arg2, "%p")
