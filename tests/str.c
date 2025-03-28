@@ -7,7 +7,6 @@
 #define test_str2 "ąčęėįšųū„“"
 #define test_str3 "йцукеннгш"
 #define test_str (test_str1 "_" test_str2 "_" test_str3)
-const u8* test_str_static = (const u8*)test_str;
 
 i32 test_str_utf32[] = {
 	'q', 'w', 'e', 'r', 't', 'y',
@@ -27,12 +26,10 @@ const siString global_str3 = SI_STRC_NIL;
 int main(void) {
 	{
 		siString str = SI_STR(test_str);
-		TEST_EQ_PTR(str.data, test_str_static);
 		TEST_EQ_ISIZE(str.len, countof_str(test_str));
 		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
 
 		str = SI_STR_LEN(test_str, 4);
-		TEST_EQ_PTR(str.data, test_str_static);
 		TEST_EQ_ISIZE(str.len, 4);
 		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
 

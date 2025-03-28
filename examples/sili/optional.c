@@ -116,7 +116,7 @@ void example2(void) {
 /* Returns user information from the given index. If the identification is over
  * the total user count, 'INVALID_ID' is returned. If the user is an administrator,
  * 'ACCESS_DENIED' is returned. */
-siResult(userInfo) get_name(i32 identification);
+siResult(userInfo) get_name(isize identification);
 
 void example3(void) {
 	si_print("==============\n\n==============\nExample 3:\n");
