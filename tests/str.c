@@ -172,26 +172,41 @@ int main(void) {
 	}
 	{
 		siString str = SI_STR(test_str);
+
 		isize i = si_stringFind(str, SI_STR("ty"));
 		TEST_EQ_ISIZE(i, countof_str("qwer"));
+		i = si_stringFind(str, SI_STR("sdfdf"));
+		TEST_EQ_ISIZE(i, -1);
 		
 		i = si_stringFindByte(str, '_');
 		TEST_EQ_ISIZE(i, countof_str(test_str1));
+		i = si_stringFindByte(str, '0');
+		TEST_EQ_ISIZE(i, -1);
 
 		i = si_stringFindRune(str, 0x0433);
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+		i = si_stringFindRune(str, '\0');
+		TEST_EQ_ISIZE(i, -1);
 
 		i = si_stringFindLast(str, SI_STR("ty"));
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwer"));
+		i = si_stringFindLast(str, SI_STR("sdfdf"));
+		TEST_EQ_ISIZE(i, -1);
 		
 		i = si_stringFindLastByte(str, '_');
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“"));
+		i = si_stringFindLastByte(str, '0');
+		TEST_EQ_ISIZE(i, -1);
 
 		i = si_stringFindLastRune(str, 0x0433);
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+		i = si_stringFindLastRune(str, '\0');
+		TEST_EQ_ISIZE(i, -1);
 
 		i = si_stringFindCount(str, SI_STR("_"));
 		TEST_EQ_ISIZE(i, 2);
+		i = si_stringFindCount(str, SI_STR("dfdjkf"));
+		TEST_EQ_ISIZE(i, 0);
 	}
 	{
 		siString str = SI_STR("DWgaOtP12df0");
@@ -246,6 +261,88 @@ int main(void) {
 		res = si_stringUnquote(SI_STR("\"" test_str "\""));
 		TEST_EQ_STR(res, SI_STR(test_str));
 	}
+
+	{
+		siString res;
+		
+		res = si_stringJoin(SI_ARR(siString, SI_STR(test_str1), SI_STR(test_str2), SI_STR(test_str3)), SI_STR("_"), alloc);
+		TEST_EQ_STR(res, SI_STR(test_str));
+
+		res = si_stringInsert(res, SI_STR("_vrains"), countof_str(test_str1), alloc);
+		TEST_EQ_STR(res, SI_STR(test_str1 "_vrains_" test_str2 "_" test_str3));
+
+		res = si_stringRemove(res, SI_STR("_"), 2, alloc);
+		TEST_EQ_STR(res, SI_STR(test_str1 "vrains" test_str2 "_" test_str3));
+
+		res = si_stringRemoveAll(SI_STR(test_str), SI_STR("_"), alloc);
+		TEST_EQ_STR(res, SI_STR(test_str1 test_str2 test_str3));
+
+		res = si_stringReplaceAll(SI_STR(test_str), SI_STR("_"), SI_STR("-"), alloc);
+		TEST_EQ_STR(res, SI_STR(test_str1 "-" test_str2 "-" test_str3));
+
+		res = si_stringReplace(res, SI_STR("-"), SI_STR("~"), 1, alloc);
+		TEST_EQ_STR(res, SI_STR(test_str1 "~" test_str2 "-" test_str3));
+
+		si_freeAll(alloc);
+	}
+
+	{
+		siString str = SI_STR(test_str);
+		const char* str_arr[] = {test_str1, test_str2, test_str3};
+		siString nl = SI_STR("one\ntwo\nthree\nfour");
+		const char* nl_arr[] = {"one", "two", "three", "four"};
+
+		siArray(siString) arr = si_stringSplit(str, SI_STR("_"), alloc);
+		siString* arrv = (siString*)arr.data;
+		TEST_EQ_ISIZE(arr.len, countof(str_arr));
+		for_range (i, 0, countof(str_arr)) {
+			TEST_EQ_STR(arrv[i], SI_CSTR(str_arr[i]));
+		}
+
+		arr = si_stringSplitEx(str, SI_STR("_"), 1, alloc);
+		arrv = (siString*)arr.data;
+		TEST_EQ_ISIZE(arr.len, 2);
+		TEST_EQ_STR(arrv[0], SI_STR(test_str1));
+		TEST_EQ_STR(arrv[1], SI_STR(test_str2 "_" test_str3));
+
+		arr = si_stringSplitLines(nl, alloc);
+		arrv = (siString*)arr.data;
+		TEST_EQ_ISIZE(arr.len, countof(nl_arr));
+		for_range (i, 0, countof(nl_arr)) {
+			TEST_EQ_STR(arrv[i], SI_CSTR(nl_arr[i]));
+		}
+		i32 i = 0;
+		siString line;
+		while (si_stringSplitIterate(&str, SI_STR("_"), &line)) {
+			TEST_EQ_STR(line, SI_CSTR(str_arr[i]));
+			i += 1;
+		}
+		TEST_EQ_ISIZE(i, countof(str_arr));
+
+		i = 0;
+		while (si_stringSplitLinesIterate(&nl, &line)) {
+			TEST_EQ_STR(line, SI_CSTR(nl_arr[i]));
+			i += 1;
+		}
+		TEST_EQ_ISIZE(i, countof(nl_arr));
+	}
+
+	{
+        siString res = si_stringReverse(SI_STR("helloWORLD123"), alloc);
+        TEST_EQ_STR(res, SI_STR("321DLROWolleh"));
+
+        res = si_stringReverse(SI_STR("ĄČĘĖĮŠŲŪ„“йцук"), alloc);
+        TEST_EQ_STR(res, SI_STR("куцй“„ŪŲŠĮĖĘČĄ"));
+
+        res = si_stringUpper(SI_STR("helloĄČĘ123йц"), alloc);
+        TEST_EQ_STR(res, SI_STR("HELLOĄČĘ123ЙЦ"));
+
+        res = si_stringLower(SI_STR("helloĄČĘ123йц"), alloc);
+        TEST_EQ_STR(res, SI_STR("helloąčę123йц"));
+
+		si_freeAll(alloc);
+    }
+
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
 	SI_UNUSED(global_str1); SI_UNUSED(global_str2); SI_UNUSED(global_str3);
