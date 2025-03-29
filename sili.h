@@ -2251,8 +2251,7 @@ typedef struct siString {
  * Loops through the runes of the string in reverse, writes the rune to 'name'. */
 #define for_eachRevStr(rune, str) for_eachRevStrEx(rune, si__i, str)
 #define for_eachRevStrEx(rune, indexName, str) \
-	for (isize indexName##len = si__forEachRevStr((str).len, str, &(rune)), indexName = str.len - 1 - indexName##len; \
-		indexName >= 0; indexName -= si__forEachRevStr(indexName + 1, str, &(rune)))
+	for (isize indexName = (str).len; si__forEachRevStr(str, &(rune), &(indexName)); )
 
 
 
@@ -2292,9 +2291,9 @@ SIDEF char* si_stringToCStrEx(siString from, isize capacity, siAllocator alloc);
 
 
 /* Gets the string's first character. */
-SIDEF i32 si_stringAtFront(siString str);
+SIDEF siRune si_stringAtFront(siString str);
 /* Gets the string's last character. */
-SIDEF i32 si_stringAtBack(siString str);
+SIDEF siRune si_stringAtBack(siString str);
 /* Gets a pointer to the string's first character. */
 SIDEF const u8* si_stringBegin(siString str);
 /* Gets pointer to the string's past-the-end element. */
@@ -2341,13 +2340,10 @@ SIDEF isize si_stringFindCount(siString str, siString subStr);
 
 /* Compares two strings and returns true if they're equal. */
 SIDEF b32 si_stringEqual(siString lhs, siString rhs);
-/* Compares two strings. Returns either: A) '0' if both strings are equal;
- * B) '-1' if the largest differentiating byte is 'lhs' string's; C) '1' otherwise. */
+/* Compares two strings. Returns either: '0' if both strings are equal; a negative
+ * value if the largest differentiating byte is 'lhs'; a positive number otherwise. */
 SIDEF i32 si_stringCompare(siString lhs, siString rhs);
 
-/* Joins all specified strings into one and writes it into an allocated string. */
-SIDEF siString si_stringJoin(siArray(siString) strings, siString separator,
-		siAllocator alloc);
 
 /* Cuts every front and back occurences of the provided cut set in the string. */
 SIDEF siString si_stringTrim(siString str, siString cutSet);
@@ -2363,6 +2359,56 @@ SIDEF siString si_stringStripLeft(siString str);
 SIDEF siString si_stringStripRight(siString str);
 /* Removes any trailing or leading double quote. */
 SIDEF siString si_stringUnquote(siString str);
+
+
+/* Joins all specified strings into one and writes it into an allocated string. */
+SIDEF siString si_stringJoin(siArray(siString) strings, siString separator,
+		siAllocator alloc);
+
+/* Allocates a new, big-enough string to insert a substring into the primary
+ * string at the specified index. */
+SIDEF siString si_stringInsert(siString str, siString subStr, isize index,
+		siAllocator alloc);
+
+/* Allocates a string, which has all mentions of the substring removed from the
+ * primary string. */
+SIDEF siString si_stringRemoveAll(siString str, siString subStr, siAllocator alloc);
+/* Allocates a string, which has a specified amount of mentions of the substring
+ * removed from the primary string. */
+siString si_stringRemove(siString str, siString subStr, i32 amount, siAllocator alloc);
+
+/* Allocates a string, which has all mentions of the old substring replaced with
+ * the new one. */
+SIDEF siString si_stringReplaceAll(siString str, siString strOld, siString strNew,
+		siAllocator alloc);
+/* Allocates a string, which has a specified amount of mentions of the old substring
+ * replaced with the new one. */
+SIDEF siString si_stringReplace(siString str, siString strOld, siString strNew,
+		isize amount, siAllocator alloc);
+
+
+/* Splits the string into _string views_ based on the separator. */
+SIDEF siArray(siString) si_stringSplit(siString str, siString delimiter,
+	siAllocator alloc);
+/* Splits the string into a specified amount _string views_ based on the separator. */
+SIDEF siArray(siString) si_stringSplitEx(siString str, siString delimiter,
+	isize amount, siAllocator alloc);
+/* Splits lines into _string views_. */
+SIDEF siArray(siString) si_stringSplitLines(siString str, siAllocator alloc);
+
+/* TODO */
+SIDEF b32 si_stringSplitIterate(siString* str, siString delimiter, siString* outStr);
+/* TODO */
+SIDEF b32 si_stringSplitLinesIterate(siString* str, siString* outStr);
+
+/* Allocates a string, which is the reversed specified string. */
+SIDEF siString si_stringReverse(siString str, siAllocator alloc);
+
+/* Converts the string's letters to uppercase. */
+SIDEF siString si_stringUpper(siString str, siAllocator alloc);
+/* Converts the string's letters to lowercase. */
+SIDEF siString si_stringLower(siString str, siAllocator alloc);
+
 
 
 /* Creates a string builder structure. */
@@ -2424,51 +2470,6 @@ SIDEF void si_builderPopRune(siBuilder* b);
  * becomes the result of 'SI_BUILDER_NEW_CAP'. Returns true if the builder had
  * to reallocate. */
 SIDEF b32 si_builderMakeSpaceFor(siBuilder* b, isize addLen);
-
-
-/* Allocates a new, big-enough string to insert a substring into the primary
- * string at the specified index. */
-SIDEF siString si_stringInsert(siString str, siString subStr, isize index,
-		siAllocator alloc);
-
-/* Allocates a string, which has all mentions of the substring removed from the
- * primary string. */
-SIDEF siString si_stringRemoveAll(siString str, siString subStr, siAllocator alloc);
-/* Allocates a string, which has a specified amount of mentions of the substring
- * removed from the primary string. */
-siString si_stringRemove(siString str, siString subStr, i32 amount, siAllocator alloc);
-
-/* Allocates a string, which has all mentions of the old substring replaced with
- * the new one. */
-SIDEF siString si_stringReplaceAll(siString str, siString strOld, siString strNew,
-		siAllocator alloc);
-/* Allocates a string, which has a specified amount of mentions of the old substring
- * replaced with the new one. */
-SIDEF siString si_stringReplace(siString str, siString strOld, siString strNew,
-		isize amount, siAllocator alloc);
-
-
-/* Splits the string into _string views_ based on the separator. */
-SIDEF siArray(siString) si_stringSplit(siString str, siString delimiter,
-	siAllocator alloc);
-/* Splits the string into a specified amount _string views_ based on the separator. */
-SIDEF siArray(siString) si_stringSplitEx(siString str, siString delimiter,
-	isize amount, siAllocator alloc);
-/* Splits lines into _string views_. */
-SIDEF siArray(siString) si_stringSplitLines(siString str, siAllocator alloc);
-
-/* TODO */
-SIDEF b32 si_stringSplitIterate(siString* str, siString delimiter, siString* outStr);
-/* TODO */
-SIDEF b32 si_stringSplitLinesIterate(siString* str, siString* outStr);
-
-/* Allocates a string, which is the reversed specified string. */
-SIDEF siString si_stringReverse(siString str, siAllocator alloc);
-
-/* Converts the string's letters to uppercase. */
-SIDEF siString si_stringUpper(siString str, siAllocator alloc);
-/* Converts the string's letters to lowercase. */
-SIDEF siString si_stringLower(siString str, siAllocator alloc);
 
 
 /* TODO */
@@ -4662,12 +4663,15 @@ b32 si__forEachStr(isize i, siString str, siRune* rune, isize* codepointSize) {
 }
 
 force_inline
-isize si__forEachRevStr(isize i, siString str, siRune* rune) {
+b32 si__forEachRevStr(siString str, siRune* rune, isize* index) {
 	SI_ASSERT_STR(str);
+	if (*index <= 0) { return false; }
 
-	siUtf32Char res = si__stringLastRune(si_substrTo(str, i));
+	siUtf32Char res = si__stringLastRune(si_substrTo(str, *index));
 	*rune = res.codepoint;
-	return res.len;
+	*index -= res.len;
+	
+	return true;
 }
 
 #endif
@@ -6520,7 +6524,7 @@ char* si_stringToCStrEx(siString from, isize capacity, siAllocator alloc) {
 
 
 inline
-i32 si_stringAtFront(siString str) {
+siRune si_stringAtFront(siString str) {
 	SI_ASSERT_NOT_NIL(str.data);
 	SI_STOPIF(str.len == 0, return -1);
 
@@ -6528,7 +6532,7 @@ i32 si_stringAtFront(siString str) {
 }
 
 SIDEF
-i32 si_stringAtBack(siString str) {
+siRune si_stringAtBack(siString str) {
 	SI_ASSERT_STR(str);
 	SI_STOPIF(str.len == 0, return -1);
 
@@ -6709,7 +6713,7 @@ b32 si_stringEqual(siString lhs, siString rhs) {
 	SI_STOPIF(lhs.len != rhs.len, return false);
 	SI_STOPIF(lhs.data == rhs.data, return true);
 
-	return si_stringCompare(lhs, rhs) == 0;
+	return si_memcompare(lhs.data, rhs.data, lhs.len) == 0;
 }
 
 

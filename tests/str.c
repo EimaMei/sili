@@ -3,13 +3,13 @@
 #include <tests/test.h>
 
 
-#define test_str1 "qwerty"
+#define test_str1 "qwertyqwerty"
 #define test_str2 "ąčęėįšųū„“"
 #define test_str3 "йцукеннгш"
-#define test_str (test_str1 "_" test_str2 "_" test_str3)
+#define test_str (test_str1  "_" test_str2 "_" test_str3)
 
 i32 test_str_utf32[] = {
-	'q', 'w', 'e', 'r', 't', 'y',
+	'q', 'w', 'e', 'r', 't', 'y', 'q', 'w', 'e', 'r', 't', 'y',
 	'_',
 	0x0105, 0x010D, 0x0119, 0x0117, 0x012F, 0x0161, 0x0173, 0x016B, 0x201E, 0x201C,
 	'_',
@@ -81,7 +81,6 @@ int main(void) {
 		}
 	}
 	#endif
-
 	{
 		isize i = 0;
 		siRune rune;
@@ -95,7 +94,6 @@ int main(void) {
 			TEST_EQ_CHAR(rune, test_str_utf32[i]);
 		}
 	}
-
 	/* NOTE(EimaMei): We malloc the buffer so that we could easily write a random
 	 * value and from there figure out if said random value was overwritten. If
 	 * it was, it means the functions are working as intended. */
@@ -103,7 +101,6 @@ int main(void) {
 	siArena arena = si_arenaMakePtr(buf, SI_MEGA(1), SI_DEFAULT_MEMORY_ALIGNMENT);
 	siAllocator alloc = si_allocatorArena(&arena);
 	si_memset(buf, 0x93, SI_MEGA(1));
-
 	{
 		siString str = SI_STR(test_str);
 
@@ -119,8 +116,109 @@ int main(void) {
 
 		/* si_stringToCStrEx */
 	}
+	{
+		siString str = SI_STR(test_str);
+		
+		siRune rune = si_stringAtFront(str);
+		TEST_EQ_CHAR(rune, test_str_utf32[0]);
+		
+		rune = si_stringAtBack(str);
+		TEST_EQ_CHAR(rune, test_str_utf32[countof(test_str_utf32) - 1]);
+		
+		const u8* ptr = si_stringBegin(str);
+		TEST_EQ_PTR(ptr, str.data);
+
+		ptr = si_stringEnd(str);
+		TEST_EQ_PTR(ptr, str.data + str.len);
 
 
+		str = SI_STR_EMPTY;
+		
+		rune = si_stringAtFront(str);
+		TEST_EQ_CHAR(rune,  -1);
+		
+		rune = si_stringAtBack(str);
+		TEST_EQ_CHAR(rune, -1);
+	}
+	{
+		siString str = SI_STR(test_str);
+
+		for_range (i, 0, str.len) {
+			siString slice;
+			for_range (j, 0, str.len) {
+				SI_STOPIF(i > j, break);
+
+				slice = si_substr(str, i, j);
+				TEST_EQ_PTR(slice.data, str.data + i);
+				TEST_EQ_ISIZE(slice.len, j - i);
+			}
+
+			slice = si_substrFrom(str, i);
+			TEST_EQ_PTR(slice.data, str.data + i);
+			TEST_EQ_ISIZE(slice.len, str.len - i);
+
+			slice = si_substrTo(str, i);
+			TEST_EQ_PTR(slice.data, str.data);
+			TEST_EQ_ISIZE(slice.len, i);
+
+			for_range (j, 0, str.len) {
+				SI_STOPIF(i + j > str.len, break);
+
+				slice = si_substrLen(str, i, j);
+				TEST_EQ_PTR(slice.data, str.data + i);
+				TEST_EQ_ISIZE(slice.len, j);
+			}
+		}
+	}
+	{
+		siString str = SI_STR(test_str);
+		isize i = si_stringFind(str, SI_STR("ty"));
+		TEST_EQ_ISIZE(i, countof_str("qwer"));
+		
+		i = si_stringFindByte(str, '_');
+		TEST_EQ_ISIZE(i, countof_str(test_str1));
+
+		i = si_stringFindRune(str, 0x0433);
+		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+
+		i = si_stringFindLast(str, SI_STR("ty"));
+		TEST_EQ_ISIZE(i, countof_str("qwertyqwer"));
+		
+		i = si_stringFindLastByte(str, '_');
+		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“"));
+
+		i = si_stringFindLastRune(str, 0x0433);
+		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+
+		i = si_stringFindCount(str, SI_STR("_"));
+		TEST_EQ_ISIZE(i, 2);
+	}
+	{
+		siString str = SI_STR("abcd");
+		b32 res = si_stringEqual(str, SI_STR("qwe"));
+		TEST_EQ_ISIZE(res, 0);
+
+		res = si_stringEqual(str, SI_STR("ABCD"));
+		TEST_EQ_ISIZE(res, 0);
+	
+		res = si_stringEqual(str, SI_STR("abcd"));
+		TEST_EQ_ISIZE(res, 1);
+
+		res = si_stringEqual(str, si_stringCopy(str, alloc));
+		TEST_EQ_ISIZE(res, 1);
+
+		i32 code = si_stringCompare(SI_STR("ABCD"), str);
+		TEST_EQ_ISIZE(res, 1);
+		
+		code = si_stringCompare(str, SI_STR("ABCD"));
+		TEST_EQ_ISIZE(code, 'a' - 'A');
+	
+		code = si_stringCompare(str, SI_STR("abcd"));
+		TEST_EQ_ISIZE(code, 0);
+
+		code = si_stringCompare(str, si_stringCopy(str, alloc));
+		TEST_EQ_ISIZE(code, 0);
+	}
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
 	SI_UNUSED(global_str1); SI_UNUSED(global_str2); SI_UNUSED(global_str3);
