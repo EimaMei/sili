@@ -6,7 +6,7 @@
 #define test_str1 "qwertyqwerty"
 #define test_str2 "ąčęėįšųū„“"
 #define test_str3 "йцукеннгш"
-#define test_str (test_str1  "_" test_str2 "_" test_str3)
+#define test_str test_str1  "_" test_str2 "_" test_str3
 
 i32 test_str_utf32[] = {
 	'q', 'w', 'e', 'r', 't', 'y', 'q', 'w', 'e', 'r', 't', 'y',
@@ -33,10 +33,10 @@ int main(void) {
 		TEST_EQ_ISIZE(str.len, 4);
 		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
 
-		str = SI_CSTR(test_str + 1);
-		TEST_EQ_PTR(str.data, (const void*)(test_str + 1));
+		str = SI_CSTR(((char*)test_str + 1));
+		TEST_EQ_PTR(str.data, (const u8*)(test_str) + 1);
 		TEST_EQ_ISIZE(str.len, countof_str(test_str) - 1);
-		TEST_EQ_PTR(si_memcompare(str.data, test_str + 1, str.len), 0);
+		TEST_EQ_PTR(si_memcompare(str.data, (const u8*)test_str + 1, str.len), 0);
 
 		str = SI_STR_EMPTY;
 		TEST_N_EQ_PTR(str.data, nil);
@@ -194,30 +194,57 @@ int main(void) {
 		TEST_EQ_ISIZE(i, 2);
 	}
 	{
-		siString str = SI_STR("abcd");
-		b32 res = si_stringEqual(str, SI_STR("qwe"));
+		siString str = SI_STR("DWgaOtP12df0");
+		b32 res = si_stringEqual(str, SI_STR("dWgaf0"));
 		TEST_EQ_ISIZE(res, 0);
 
-		res = si_stringEqual(str, SI_STR("ABCD"));
+		res = si_stringEqual(str, SI_STR("dWgaOtP12df0"));
 		TEST_EQ_ISIZE(res, 0);
 	
-		res = si_stringEqual(str, SI_STR("abcd"));
+		res = si_stringEqual(str, SI_STR("DWgaOtP12df0"));
 		TEST_EQ_ISIZE(res, 1);
 
 		res = si_stringEqual(str, si_stringCopy(str, alloc));
 		TEST_EQ_ISIZE(res, 1);
 
-		i32 code = si_stringCompare(SI_STR("ABCD"), str);
-		TEST_EQ_ISIZE(res, 1);
+		i32 code = si_stringCompare(str, SI_STR("DWGAOTP12DF0"));
+		SI_ASSERT(code > 0);
 		
-		code = si_stringCompare(str, SI_STR("ABCD"));
-		TEST_EQ_ISIZE(code, 'a' - 'A');
+		code = si_stringCompare(SI_STR("DWGAOTP12DF0"), str);
+		SI_ASSERT(code < 0);
 	
-		code = si_stringCompare(str, SI_STR("abcd"));
+		code = si_stringCompare(str, SI_STR("DWgaOtP12df0"));
 		TEST_EQ_ISIZE(code, 0);
 
 		code = si_stringCompare(str, si_stringCopy(str, alloc));
 		TEST_EQ_ISIZE(code, 0);
+	}
+	{
+		#define trim_l "abcd"
+		#define trim_s " \t\r\n\v\f"
+
+		siString str = SI_STR(trim_l test_str trim_l);
+		siString res = si_stringTrimLeft(str, SI_STR(trim_l));
+		TEST_EQ_STR(res, SI_STR(test_str trim_l));
+
+		res = si_stringTrimRight(str, SI_STR(trim_l));
+		TEST_EQ_STR(res, SI_STR(trim_l test_str));
+	
+		res = si_stringTrim(str, SI_STR(trim_l));
+		TEST_EQ_STR(res, SI_STR(test_str));
+
+		str = SI_STR(trim_s test_str trim_s);
+		res = si_stringStripLeft(str);
+		TEST_EQ_STR(res, SI_STR(test_str trim_s));
+
+		res = si_stringStripRight(str);
+		TEST_EQ_STR(res, SI_STR(trim_s test_str));
+	
+		res = si_stringStrip(str);
+		TEST_EQ_STR(res, SI_STR(test_str));
+
+		res = si_stringUnquote(SI_STR("\"" test_str "\""));
+		TEST_EQ_STR(res, SI_STR(test_str));
 	}
 
 	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
