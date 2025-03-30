@@ -1,3 +1,18 @@
+int test_on = false;
+
+#define TEST_START() \
+	test_on = true; \
+	si_printfLn("%CTesting function '%s':%C", si_printColor3bitEx(siPrintColor3bit_Yellow, false, false), __func__);
+
+#define SUCCEEDED() \
+	si_printfLn("%s'%L' succeeded.", test_on ? "\t" : "", SI_CALLER_LOC)
+
+#define TEST_COMPLETE() \
+	test_on = false; \
+	si_printfLn("%CTest '%s' has been completed!%C", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false), __func__);
+
+
+
 #define TEST_EQ(arg1, arg2, format) \
 	SI_ASSERT_FMT((arg1) == (arg2), SI_STR(format " | " format), arg1, arg2)
 #define TEST_N_EQ(arg1, arg2, format) \

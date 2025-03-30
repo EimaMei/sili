@@ -1169,15 +1169,15 @@ extern "C++" {
 */
 
 #if SI_LANGUAGE_IS_C
-	#ifndef SI_DEFAULT_STRUCT
+	#ifndef SI_STRUCT_ZERO
 		/* Default zero-initialization value on C. */
-		#define SI_DEFAULT_STRUCT {0}
+		#define SI_STRUCT_ZERO {0}
 	#endif
 
 	#ifndef SI_COMP_LIT
 		/* Compound literal syntax on C. */
 		#define SI_COMP_LIT(type, ...) ((type){__VA_ARGS__})
-		#define SI_COMP_LIT_DEFAULT(type) ((type)SI_DEFAULT_STRUCT)
+		#define SI_TYPE_ZERO(type) ((type)SI_STRUCT_ZERO)
 	#endif
 
 	#ifndef SI_PTR
@@ -1187,15 +1187,15 @@ extern "C++" {
 	#endif
 
 #else
-	#ifndef SI_DEFAULT_STRUCT
+	#ifndef SI_STRUCT_ZERO
 		/* Default zero-initialization value on C++. */
-		#define SI_DEFAULT_STRUCT {}
+		#define SI_STRUCT_ZERO {}
 	#endif
 
 	#ifndef SI_COMP_LIT
 		/* Compound literal syntax on C++. */
 		#define SI_COMP_LIT(type, ...) (type{__VA_ARGS__})
-		#define SI_COMP_LIT_DEFAULT(type) (type SI_DEFAULT_STRUCT)
+		#define SI_TYPE_ZERO(type) (type SI_STRUCT_ZERO)
 	#endif
 
 	#ifndef SI_PTR
@@ -1511,7 +1511,7 @@ SIDEF b32 si_allocatorHasFeature(u8 features, siAllocationType type);
 /* name - NAME
 * A helper macro to make it easier to create a 'features' byte. For examples, see
 * the 'siAllocationType_GetFeatures' section of allocator implementations, like
-* in 'si_allocator_heap_proc'. */
+* in 'si_allocatorHeap_proc'. */
 #define SI_ALLOC_FEAT(name) SI_BIT(siAllocationType_##name)
 /*
  * TODO: rework
@@ -1528,7 +1528,7 @@ SIDEF b32 si_allocatorHasFeature(u8 features, siAllocationType type);
  *
  * NOTE:
  * 'si_allocatorGetAvailableMem' always returns an 'ISIZE_MAX'. */
-SIDEF SI_ALLOCATOR_PROC(si_allocator_heap_proc);
+SIDEF SI_ALLOCATOR_PROC(si_allocatorHeap_proc);
 
 /* Returns the heap allocator. */
 SIDEF siAllocator si_allocatorHeap(void);
@@ -1616,7 +1616,7 @@ typedef struct siArena {
  * 2) Individual element frees are not supported as that would be very expensive
  * to implement and remove the purpose of an arena (you're suppose to free the
  * entire arena, not just a few elements). */
-SIDEF SI_ALLOCATOR_PROC(si_allocator_arena_proc);
+SIDEF SI_ALLOCATOR_PROC(si_allocatorArena_proc);
 
 /* Creates an arena allocator. */
 SIDEF siArena si_arenaMake(siAllocator alloc, isize capacity);
@@ -1685,7 +1685,7 @@ typedef siArena siLifo;
  * Note:
  * - Compared to arenas, LIFO allocations are slightly more expensive in terms of
  * memory consumption, as an 'isize' is needed for each allocation. */
-SIDEF SI_ALLOCATOR_PROC(si_allocator_lifo_proc);
+SIDEF SI_ALLOCATOR_PROC(si_allocatorLifo_proc);
 
 /* Creates a LIFO allocator. */
 SIDEF siLifo si_lifoMake(siAllocator alloc, isize capacity);
@@ -1735,7 +1735,7 @@ typedef struct siPool {
  * - si_realloc - UNSUPPORTED.
  * - si_free - frees a previously allocated block.
  * - si_freeAll - resets the entire pool, marking all blocks as free. */
-SIDEF SI_ALLOCATOR_PROC(si_allocator_pool_proc);
+SIDEF SI_ALLOCATOR_PROC(si_allocatorPool_proc);
 
 /* Creates a pool allocator. */
 SIDEF siPool si_poolMake(siAllocator alloc, isize numChunks, isize chunkSize);
@@ -1787,7 +1787,7 @@ typedef struct siDynamicArena {
  * - si_realloc - same as arena's 'si_realloc', alongside its hefty price.
  * - si_free - UNSUPPORTED.
  * - si_freeAll - sets the internal offsets to zero. */
-SIDEF SI_ALLOCATOR_PROC(si_allocator_dynamic_arena_proc);
+SIDEF SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc);
 
 /* Creates a dynamic arena allocator. */
 SIDEF siDynamicArena si_dynamicArenaMake(siAllocator alloc, isize startingCapacity,
@@ -2415,46 +2415,51 @@ SIDEF siString si_stringLower(siString str, siAllocator alloc);
 SIDEF siBuilder si_builderMake(isize capacity, siAllocator alloc);
 /* Creates a string builder structure with a set starting length. */
 SIDEF siBuilder si_builderMakeLen(isize len, isize capacity, siAllocator alloc);
+/* Creates a string builder structure with a set starting growth. */
+SIDEF siBuilder si_builderMakeGrow(isize grow, isize capacity, siAllocator alloc);
+/* Creates a string builder structure with all the specified options. */
+SIDEF siBuilder si_builderMakeEx(isize len, isize grow, isize capacity, siAllocator alloc);
 /* Creates an empty str builder structure. */
 SIDEF siBuilder si_builderMakeNone(siAllocator alloc);
 
-/* Writes a NULL-terminator byte and returns the builder data as a C-string. */
-SIDEF char* si_builderToCstr(siBuilder* b);
 /* Returns the builder data as a string. */
 SIDEF siString si_builderToStr(siBuilder b);
+/* Writes a NULL-terminator byte and returns the builder data as a C-string. */
+SIDEF char* si_builderToCstr(siBuilder* b);
 
 /* Writes a byte into the builder. */
-SIDEF b32 si_builderWriteByte(siBuilder* b, u8 byte);
+SIDEF siAllocationError si_builderWriteByte(siBuilder* b, u8 byte);
 /* Writes an array of byte into the builder. */
-SIDEF b32 si_builderWriteBytes(siBuilder* b, const void* bytes, isize len);
+SIDEF siAllocationError si_builderWriteBytes(siBuilder* b, const void* bytes, isize len);
 /* Writes a string into the builder. */
-SIDEF b32 si_builderWriteStr(siBuilder* b, siString str);
+SIDEF siAllocationError si_builderWriteStr(siBuilder* b, siString str);
 /* Converts a rune into UTF-8 and writes it into the builder. */
-SIDEF b32 si_builderWriteRune(siBuilder* b, siRune character);
+SIDEF siAllocationError si_builderWriteRune(siBuilder* b, siRune character);
 
 /* Writes an enquoted string with double quates on each side. */
-SIDEF b32 si_builderWriteStrQuoted(siBuilder* b, siString str);
-/* Writes an enquoted string with an option to specify an ASCII quotation mark. */
-SIDEF b32 si_builderWriteStrQuotedEx(siBuilder* b, siString str, u8 quote);
+SIDEF siAllocationError si_builderWriteStrQuoted(siBuilder* b, siString str);
+/* Writes an enquoted string with an option to specify a one-byte quotation mark. */
+SIDEF siAllocationError si_builderWriteStrQuotedEx(siBuilder* b, siString str, u8 quote);
 /* Writes an enquoted string with an option to specify the starting and ending
- * quotation marks. Mostly here to support other languages with unique quoting. */
-SIDEF b32 si_builderWriteStrQuotedRune(siBuilder* b, siString str, siRune quoteStart,
-	siRune quoteEnd);
+ * UTF-32 quotation marks. */
+SIDEF siAllocationError si_builderWriteStrQuotedRune(siBuilder* b, siString str, 
+	siRune quoteStart, siRune quoteEnd);
 
 /* Converts an integer into a string and writes it to the builder. */
-SIDEF b32 si_builderWriteInt(siBuilder* b, i64 num);
+SIDEF siAllocationError si_builderWriteInt(siBuilder* b, i64 num);
 /* Converts a specified-base integer into a string and writes it to the builder. */
-SIDEF b32 si_builderWriteIntEx(siBuilder* b, i64 num, i32 base);
+SIDEF siAllocationError si_builderWriteIntEx(siBuilder* b, i64 num, i32 base);
 /* Converts an unsigned integer into a string and writes it to the builder. */
-SIDEF b32 si_builderWriteUInt(siBuilder* b, u64 num);
+SIDEF siAllocationError si_builderWriteUInt(siBuilder* b, u64 num);
 /* Converts a specfied-base unsigned integer into a string and writes it to
  * the builder. */
-SIDEF b32 si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base);
+SIDEF siAllocationError si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base);
 /* Converts a float into a string and writes it to the builder. */
-SIDEF b32 si_builderWriteFloat(siBuilder* b, f64 num);
+SIDEF siAllocationError si_builderWriteFloat(siBuilder* b, f64 num);
 /* Converts a specified-base and afterPoint float into a string and writes it
  * to the builder. */
-SIDEF b32 si_builderWriteFloatEx(siBuilder* b, f64 num, i32 base, i32 afterPoint);
+SIDEF siAllocationError si_builderWriteFloatEx(siBuilder* b, f64 num, i32 base,
+	i32 afterPoint);
 
 /* Sets the length to zero. */
 SIDEF void si_builderClear(siBuilder* b);
@@ -2467,13 +2472,26 @@ SIDEF void si_builderPopRune(siBuilder* b);
  * the builder will reallocate the current data buffer, in which case the capacity
  * gets changed. _The length doesn't change_. If '->grow' isn't -1, the capacity
  * gets increase to 'b->capacity + addLen + b->grow', otherwise the new capacity
- * becomes the result of 'SI_BUILDER_NEW_CAP'. Returns true if the builder had
- * to reallocate. */
-SIDEF b32 si_builderMakeSpaceFor(siBuilder* b, isize addLen);
+ * becomes the result of 'SI_BUILDER_NEW_CAP'. Returns an allocator error. */
+SIDEF siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen);
+
 
 
 /* TODO */
+#define SI_BASE_MAX 64
+
+/* TODO */
 #define SI_STRINT_SUCCESS INT32_MAX
+
+
+/* A base-64 character lookup table for converting strings into integers. */
+SI_EXTERN const u8* SI_NUM_TO_CHAR_TABLE;
+
+/* Sets the lookup table state to use upper/lower characters when converting an
+ * integer to a string. If 'upper' is set to true, converting '15' to base 16
+ * would result in "FF", otherwise "ff". By default this is set to true. */
+SIDEF void si_numChangeTable(b32 upper);
+
 
 /* Converts a string into a base 10 unsigned integer. the string can only contain
  * up to 20 characters. No error reporting is done at all. */
@@ -2510,19 +2528,11 @@ SIDEF i64 si_stringToIntBase(siString str, i32 base, i32* outRes);
 SIDEF b32 si_stringToBool(siString str);
 
 
-/* Capitalizes er to character lookup table (eg. SI_NUM_TO_CHAR_TABLE[0] would return
- * '0', wheare as an index of 10 would return 'A'/'a'). */
-SI_EXTERN const u8* SI_NUM_TO_CHAR_TABLE;
-
-/* Sets the lookup table state to use upper/lower characters when converting an
- * integer to a string. If 'upper' is set to true, converting '15' to base 16
- * would result in "FF", otherwise "ff". By default this is set to true. */
-SIDEF void si_numChangeTable(b32 upper);
-
 /* Makes a string from the integer. */
 SIDEF siString si_stringFromInt(i64 num, siArray(u8) out);
 /* Makes a string from the specified-base integer. */
 SIDEF siString si_stringFromIntEx(i64 num, i32 base, siArray(u8) out);
+
 /* Makes a string from the unsigned integer. */
 SIDEF siString si_stringFromUInt(u64 num, siArray(u8) out);
 /* Makes a string from the specified-base unsigned integer. */
@@ -2644,7 +2654,7 @@ typedef struct siError {
 
 
 /* Sets the error code to zero. */
-#define SI_ERROR_NIL SI_COMP_LIT_DEFAULT(siError)
+#define SI_ERROR_NIL SI_TYPE_ZERO(siError)
 
 
 /* name - NAME
@@ -5146,7 +5156,7 @@ b32 si_allocatorHasFeature(u8 features, siAllocationType type) {
 inline
 siAllocator si_allocatorHeap(void) {
 	siAllocator alloc;
-	alloc.proc = si_allocator_heap_proc;
+	alloc.proc = si_allocatorHeap_proc;
 	alloc.data = nil;
 
 	return alloc;
@@ -5154,7 +5164,7 @@ siAllocator si_allocatorHeap(void) {
 
 #ifndef SI_NO_CRT
 SIDEF
-SI_ALLOCATOR_PROC(si_allocator_heap_proc) {
+SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
@@ -5232,7 +5242,7 @@ siArena si_arenaMakeEx(siAllocator alloc, isize capacity, i32 alignment) {
 	SI_ASSERT(si_isPowerOfTwo(alignment));
 	SI_ASSERT_NOT_NEG(capacity);
 
-	siArena out = SI_DEFAULT_STRUCT;
+	siArena out = SI_STRUCT_ZERO;
 	out.alloc = alloc;
 	out.alignment = alignment;
 	out.capacity = capacity;
@@ -5245,7 +5255,7 @@ siArena si_arenaMakePtr(void* ptr, isize capacity, i32 alignment) {
 	SI_ASSERT(si_isPowerOfTwo(alignment));
 	SI_ASSERT_NOT_NEG(capacity);
 
-	siArena out = SI_DEFAULT_STRUCT;
+	siArena out = SI_STRUCT_ZERO;
 	out.alignment = alignment;
 	out.capacity = capacity;
 	out.ptr = (u8*)ptr;
@@ -5258,7 +5268,7 @@ inline
 siAllocator si_allocatorArena(siArena* arena) {
 	siAllocator alloc;
 	alloc.data = arena;
-	alloc.proc = si_allocator_arena_proc;
+	alloc.proc = si_allocatorArena_proc;
 	return alloc;
 }
 
@@ -5274,11 +5284,12 @@ void si_arenaFree(siArena* arena) {
 siIntern
 void* si__arenaAlloc(siArena* arena, isize size, siAllocationError* outError) {
 	isize bytes = si_alignForward(size, arena->alignment);
+	isize newOffset = arena->offset + bytes;
+	
+	if (newOffset > arena->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
+
 	void* out = &arena->ptr[arena->offset];
-
-	arena->offset += bytes;
-	if (arena->offset > arena->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
-
+	arena->offset = newOffset;
 	*outError = 0;
 	return out;
 }
@@ -5288,13 +5299,13 @@ void* si__arenaResize(siArena* arena, void* ptr, isize oldSize, isize newSize, s
 	if (oldSize >= newSize) { return ptr; }
 
 	void* out = si_allocNonZeroedEx(si_allocatorArena(arena), newSize, outError);
-	if (ptr == nil) { return out; }
+	if (out == nil) { return out; }
 
 	return si_memcopy_ptr(out, ptr, oldSize);
 }
 
 SIDEF
-SI_ALLOCATOR_PROC(si_allocator_arena_proc) {
+SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 	siArena* arena = (siArena*)data;
 	SI_ASSERT_MSG(arena->ptr != nil, "You cannot use an already freed arena.");
 
@@ -5371,7 +5382,7 @@ siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, i32 alignment) {
 	SI_ASSERT(si_isPowerOfTwo(alignment));
 	SI_ASSERT_NOT_NEG(capacity);
 
-	siLifo lifo = SI_DEFAULT_STRUCT;
+	siLifo lifo = SI_STRUCT_ZERO;
 	lifo.alloc = alloc;
 	lifo.alignment = alignment;
 	lifo.capacity = capacity;
@@ -5384,7 +5395,7 @@ siLifo si_lifoMakePtr(void* ptr, isize capacity, i32 alignment) {
 	SI_ASSERT(si_isPowerOfTwo(alignment));
 	SI_ASSERT_NOT_NEG(capacity);
 
-	siLifo lifo = SI_DEFAULT_STRUCT;
+	siLifo lifo = SI_STRUCT_ZERO;
 	lifo.alignment = alignment;
 	lifo.capacity = capacity;
 	lifo.ptr = (u8*)ptr;
@@ -5397,7 +5408,7 @@ inline
 siAllocator si_allocatorLifo(siLifo* lifo) {
 	siAllocator alloc;
 	alloc.data = lifo;
-	alloc.proc = si_allocator_lifo_proc;
+	alloc.proc = si_allocatorLifo_proc;
 	return alloc;
 }
 
@@ -5412,19 +5423,20 @@ void si_lifoFree(siLifo* lifo) {
 siIntern
 void* si__lifoAlloc(siLifo* lifo, isize size, siAllocationError* outError) {
 	isize bytes = si_alignForward(si_sizeof(isize) + size, lifo->alignment);
-	isize oldOffset = lifo->offset;
+	isize newOffset = lifo->offset + bytes;
+
+	if (newOffset > lifo->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
+
 	void* out = &lifo->ptr[lifo->offset];
+	*(isize*)out = lifo->offset;
 
-	lifo->offset += bytes;
-	if (lifo->offset > lifo->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
+	lifo->offset = newOffset;
 	*outError = 0;
-
-	*(isize*)out = oldOffset;
 	return si_pointerAdd(out, si_sizeof(isize));
 }
 
 SIDEF
-SI_ALLOCATOR_PROC(si_allocator_lifo_proc) {
+SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 	siLifo* lifo = (siLifo*)data;
 	SI_ASSERT_MSG(lifo->ptr != nil, "You cannot use an already freed LIFO allocator.");
 
@@ -5521,7 +5533,7 @@ inline
 siAllocator si_allocatorPool(siPool* pool) {
 	siAllocator alloc;
 	alloc.data = pool;
-	alloc.proc = si_allocator_pool_proc;
+	alloc.proc = si_allocatorPool_proc;
 	return alloc;
 }
 
@@ -5542,17 +5554,14 @@ void* si__poolAlloc(siPool* pool, isize size, siAllocationError* outError) {
 	}
 
 	void* out = pool->head;
-	if (out == nil) {
-		*outError = siAllocationError_OutOfMem;
-		return out;
-	}
+	if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
+	
 	pool->head = pool->head->next;
-
 	return si_pointerAdd(out, si_sizeof(siPoolFreeNode*));
 }
 
 SIDEF
-SI_ALLOCATOR_PROC(si_allocator_pool_proc) {
+SI_ALLOCATOR_PROC(si_allocatorPool_proc) {
 	siPool* pool = (siPool*)data;
 	SI_ASSERT_MSG(pool->ptr != nil, "You cannot use an already freed pool.");
 
@@ -5640,7 +5649,7 @@ siAllocator si_allocatorDynamicArena(siDynamicArena* dynamic) {
 	SI_ASSERT_NOT_NIL(dynamic);
 
 	siAllocator alloc;
-	alloc.proc = si_allocator_dynamic_arena_proc;
+	alloc.proc = si_allocatorDynamicArena_proc;
 	alloc.data = dynamic;
 
 	return alloc;
@@ -5756,7 +5765,7 @@ void* si__dynamicArenaResize(siDynamicArena* arena, void* ptr, isize oldSize, is
 
 
 SIDEF
-SI_ALLOCATOR_PROC(si_allocator_dynamic_arena_proc) {
+SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 	siDynamicArena* dyn = (siDynamicArena*)data;
 	siArena* arena = &dyn->arena;
 	SI_ASSERT_MSG(arena->ptr != nil, "You cannot use an already freed arena.");
@@ -5981,7 +5990,7 @@ siDynamicArrayAny si_dynamicArrayReserveNonZeroed(isize typeSize, isize capacity
 	SI_ASSERT_NOT_NEG(capacity);
 
 	void* data = si_allocNonZeroed(alloc, typeSize * capacity);
-	if (data == nil) { return SI_COMP_LIT_DEFAULT(siDynamicArrayAny); }
+	if (data == nil) { return SI_TYPE_ZERO(siDynamicArrayAny); }
 
 	siDynamicArrayAny array;
 	array.alloc = alloc;
@@ -6001,7 +6010,7 @@ siDynamicArrayAny si_dynamicArrayReserve(isize typeSize, isize capacity, siAlloc
 
 	void* data = si_alloc(alloc, typeSize * capacity);
 	if (data == nil) {
-		siDynamicArrayAny array = SI_DEFAULT_STRUCT;
+		siDynamicArrayAny array = SI_STRUCT_ZERO;
 		return array;
 	}
 
@@ -6293,20 +6302,32 @@ siString si__stringTrimCr(siString str) {
 
 inline
 siBuilder si_builderMake(isize capacity, siAllocator alloc) {
-	return si_builderMakeLen(0, capacity, alloc);
+	return si_builderMakeEx(0, 0, capacity, alloc);
+}
+inline
+siBuilder si_builderMakeLen(isize len, isize capacity, siAllocator alloc) {
+	return si_builderMakeEx(len, 0, capacity, alloc);
+}
+inline  
+siBuilder si_builderMakeGrow(isize grow, isize capacity, siAllocator alloc) {
+	return si_builderMakeEx(0, grow, capacity, alloc);
 }
 
 inline
-siBuilder si_builderMakeLen(isize len, isize capacity, siAllocator alloc) {
+siBuilder si_builderMakeEx(isize len, isize grow, isize capacity, siAllocator alloc) {
 	SI_ASSERT_NOT_NEG(len);
+	SI_ASSERT_NOT_NEG(grow);
 	SI_ASSERT_NOT_NEG(capacity);
 
+	u8* data = si_allocArrayNonZeroed(alloc, u8, capacity);
+	if (data == nil) { return SI_TYPE_ZERO(siBuilder); }
+
 	siBuilder b;
+	b.data = data;
 	b.capacity = capacity;
-	b.len = 0;
+	b.len = len;
 	b.alloc = alloc;
-	b.data = si_allocArrayNonZeroed(alloc, u8, capacity);
-	b.grow = -1;
+	b.grow = grow;
 
 	return b;
 }
@@ -6318,93 +6339,102 @@ siBuilder si_builderMakeNone(siAllocator alloc) {
 	b.len = 0;
 	b.alloc = alloc;
 	b.data = nil;
-	b.grow = -1;
+	b.grow = 0;
 
 	return b;
 
 }
 
 inline
+siString si_builderToStr(siBuilder b) {
+	return SI_STR_LEN(b.data, b.len);
+}
+inline
 char* si_builderToCstr(siBuilder* b) {
 	si_builderWriteByte(b, '\0');
 	return (char*)b->data;
 }
 
-inline
-siString si_builderToStr(siBuilder b) {
-	return SI_STR_LEN(b.data, b.len);
-}
-
 
 SIDEF
-b32 si_builderMakeSpaceFor(siBuilder* b, isize addLen) {
+siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen) {
 	SI_ASSERT_NOT_NIL(b);
 	SI_ASSERT_NOT_NIL(b->alloc.proc);
 
 	isize newLength = b->len + addLen;
 	if (newLength <= b->capacity) {
 		SI_ASSERT_NOT_NEG(newLength);
-		return false;
+		return siAllocationError_None;
 	}
 
 	isize newCapacity = (b->grow <= 0)
 		? SI_BUILDER_NEW_CAP(b, addLen)
 		: b->capacity + addLen + b->grow;
-	b->data = (u8*)si_realloc(b->alloc, b->data, b->capacity, newCapacity);
-	b->capacity = newCapacity;
+	SI_ASSERT(newLength <= newCapacity);
 
-	return true;
+	siAllocationError error;
+	void* data = si_reallocExNonZeroed(b->alloc, b->data, b->capacity, newCapacity, &error);
+	if (data != nil) { 
+		b->data = (u8*)data;
+		b->capacity = newCapacity;
+	}
+
+	return error;
 }
 
+
 inline
-b32 si_builderWriteByte(siBuilder* b, u8 byte) {
+siAllocationError si_builderWriteByte(siBuilder* b, u8 byte) {
 	return si_builderWriteBytes(b, &byte, 1);
 }
 
 SIDEF
-b32 si_builderWriteBytes(siBuilder* b, const void* bytes, isize len) {
-	b32 allocated = si_builderMakeSpaceFor(b, len);
-	b->len += si_memcopy(&b->data[b->len], bytes, len);
+siAllocationError si_builderWriteBytes(siBuilder* b, const void* bytes, isize len) {
+	siAllocationError res = si_builderMakeSpaceFor(b, len);
+	if (res == siAllocationError_None) {
+		b->len += si_memcopy(&b->data[b->len], bytes, len);
+	}
 
-	return allocated;
-
+	return res;
 }
+
 inline
-b32 si_builderWriteStr(siBuilder* b, siString str) {
+siAllocationError si_builderWriteStr(siBuilder* b, siString str) {
 	return si_builderWriteBytes(b, str.data, str.len);
 }
 inline
-b32 si_builderWriteRune(siBuilder* b, siRune character) {
+siAllocationError si_builderWriteRune(siBuilder* b, siRune character) {
 	siUtf8Char str = si_utf8Encode(character);
 	return si_builderWriteBytes(b, str.codepoint, str.len);
 }
 
 inline
-b32 si_builderWriteStrQuoted(siBuilder* b, siString str) {
+siAllocationError si_builderWriteStrQuoted(siBuilder* b, siString str) {
 	return si_builderWriteStrQuotedEx(b, str, '\"');
 }
 
 SIDEF
-b32 si_builderWriteStrQuotedEx(siBuilder* b, siString str, u8 quote) {
-	b32 allocated = si_builderMakeSpaceFor(b, 2 + str.len);
-
+siAllocationError si_builderWriteStrQuotedEx(siBuilder* b, siString str, u8 quote) {
+	siAllocationError res = si_builderMakeSpaceFor(b, 2 + str.len);
+	if (res != siAllocationError_None) { return res; }
+		
 	u8* data = &b->data[b->len];
 	data[0] = quote;
 	si_memcopyStr(&data[1], str);
 	data[1 + str.len] = quote;
 
-	b->len += 2 + str.len;
-	return allocated;
+	b->len += 1 + str.len + 1;
+	return res;
 }
 
 SIDEF
-b32 si_builderWriteStrQuotedRune(siBuilder* b, siString str, siRune quoteStart,
-		siRune quoteEnd) {
-	SI_ASSERT_NOT_NIL(b);
-
+siAllocationError si_builderWriteStrQuotedRune(siBuilder* b, siString str, 
+		siRune quoteStart, siRune quoteEnd) {
 	siUtf8Char start = si_utf8Encode(quoteStart),
 			   end = si_utf8Encode(quoteEnd);
-	b32 allocated = si_builderMakeSpaceFor(b, start.len + str.len + end.len);
+
+	siAllocationError res = si_builderMakeSpaceFor(b, start.len + str.len + end.len);
+	if (res != siAllocationError_None) { return res; }
 
 	isize i = 0;
 	u8* data = &b->data[b->len];
@@ -6413,52 +6443,37 @@ b32 si_builderWriteStrQuotedRune(siBuilder* b, siString str, siRune quoteStart,
 	i += si_memcopy(&data[i], end.codepoint, end.len);
 	b->len += i;
 
-	return allocated;
+	return res;
 }
 
 inline
-b32 si_builderWriteInt(siBuilder* b, i64 num) {
+siAllocationError si_builderWriteInt(siBuilder* b, i64 num) {
 	return si_builderWriteIntEx(b, num, 10);
 }
 SIDEF
-b32 si_builderWriteIntEx(siBuilder* b, i64 num, i32 base) {
-	isize numLen = si_numLenIntEx(num, base);
-	b32 allocated = si_builderMakeSpaceFor(b, numLen);
-
-	si_stringFromIntEx(num, base, SI_ARR_LEN(&b->data[b->len], numLen));
-	b->len += numLen;
-
-	return allocated;
+siAllocationError si_builderWriteIntEx(siBuilder* b, i64 num, i32 base) {
+	siString str = si_stringFromIntEx(num, base, SI_ARR_STACK(32));
+	return si_builderWriteStr(b, str);
 }
 
 inline
-b32 si_builderWriteUInt(siBuilder* b, u64 num) {
+siAllocationError si_builderWriteUInt(siBuilder* b, u64 num) {
 	return si_builderWriteUIntEx(b, num, 10);
 }
 SIDEF
-b32 si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base) {
-	isize numLen = si_numLenUintEx(num, base);
-	b32 allocated = si_builderMakeSpaceFor(b, numLen);
-
-	si_stringFromUIntEx(num, base, SI_ARR_LEN(&b->data[b->len], numLen));
-	b->len += numLen;
-
-	return allocated;
+siAllocationError si_builderWriteUIntEx(siBuilder* b, u64 num, i32 base) {
+	siString str = si_stringFromUIntEx(num, base, SI_ARR_STACK(32));
+	return si_builderWriteStr(b, str);
 }
 
 inline
-b32 si_builderWriteFloat(siBuilder* b, f64 num) {
+siAllocationError si_builderWriteFloat(siBuilder* b, f64 num) {
 	return si_builderWriteFloatEx(b, num, 10, 6);
 }
 SIDEF
-b32 si_builderWriteFloatEx(siBuilder* b, f64 num, i32 base, i32 afterPoint) {
-	isize numLen = si_numLenFloatEx(num, base, afterPoint);
-	b32 allocated = si_builderMakeSpaceFor(b, numLen);
-
-	si_stringFromFloatEx(num, base, afterPoint, SI_ARR_LEN(&b->data[b->len], numLen));
-	b->len += numLen;
-
-	return allocated;
+siAllocationError si_builderWriteFloatEx(siBuilder* b, f64 num, i32 base, i32 afterPoint) {
+	siString str = si_stringFromFloatEx(num, base, afterPoint, SI_ARR_STACK(1024));
+	return si_builderWriteStr(b, str);
 }
 
 
@@ -7033,30 +7048,48 @@ void si_numChangeTable(b32 upper) {
 	SI_NUM_TO_CHAR_TABLE = choices[upper & true];
 }
 
+siIntern
+siString si__stringFromBits(u64 num, i32 base, b32 isSigned, siArray(u8) out) {
+	SI_ASSERT(si_between(i64, base, 2, SI_BASE_MAX));
+	SI_ASSERT_ARR_TYPE(out, u8);
 
+	/* TODO(EimaMei): Add prefix support. */
+	u8 buf[128]; 
+	u64 base_u = (u64)base; 
+	
+	isize i = countof(buf) - 1;
+	do {
+		buf[i] = SI_NUM_TO_CHAR_TABLE[num % base_u];
+		num /= base_u;
+		i -= 1;
+	} while (num != 0);
+
+	if (isSigned) {
+		buf[i] = '-';
+		i -= 1;
+	}
+
+	i += 1;
+	isize len = si_memcopy_s(out, &buf[i], countof(buf) - i);
+	return SI_STR_LEN(out.data, len);
+}
+
+inline
+siString si_stringFromInt(i64 num, siArray(u8) out) {
+	return si_stringFromIntEx(num, 10, out);
+}
+SIDEF
+siString si_stringFromIntEx(i64 num, i32 base, siArray(u8) out) {
+	b32 isSigned = num < 0;
+	return si__stringFromBits(isSigned ? (u64)-num : (u64)num, base, isSigned, out);
+}
 inline
 siString si_stringFromUInt(u64 num, siArray(u8) out) {
 	return si_stringFromUIntEx(num, 10, out);
 }
 SIDEF
 siString si_stringFromUIntEx(u64 num, i32 base, siArray(u8) out) {
-	SI_ASSERT_ARR(out);
-	SI_ASSERT_NOT_NEG(base);
-
-	isize len = si_min(isize, si_numLenUintEx(num, base), out.len);
-	u8* res = (u8*)out.data;
-
-	/* NOTE(EimaMei): We build the string from the back (not the front) so that
-	 * we wouldn't have to reverse the string after we make the string. */
-	isize i = len - 1;
-
-	do {
-		res[i] = SI_NUM_TO_CHAR_TABLE[num % (u32)base];
-		num /= (u32)base;
-		i -= 1;
-	} while (num != 0);
-
-	return SI_STR_LEN(res, len);
+	return si__stringFromBits(num, base, false, out);
 }
 
 inline
@@ -7168,42 +7201,15 @@ u64 si_stringToUIntBase(siString str, i32 base, i32* outRes) {
 }
 
 inline
-siString si_stringFromInt(i64 num, siArray(u8) out) {
-	return si_stringFromIntEx(num, 10, out);
-}
-SIDEF
-siString si_stringFromIntEx(i64 num, i32 base, siArray(u8) out) {
-	SI_ASSERT_NOT_NEG(base);
-	SI_ASSERT_ARR_TYPE(out, u8);
-
-	isize len = si_min(isize, si_numLenIntEx(num, base), out.len);
-	u8* res = (u8*)out.data;
-
-	/* NOTE(EimaMei): We build the string from the back (not the front) so that
-	 * we wouldn't have to reverse the string after we make the string. */
-	isize i = len - 1;
-
-	if (num < 0) {
-		num = -num;
-		res[0] = '-';
-	}
-
-	do {
-		res[i] = SI_NUM_TO_CHAR_TABLE[(u32)num % (u32)base];
-		num /= base;
-		i -= 1;
-	} while (num > 0);
-
-	return SI_STR_LEN(res, len);
-}
-inline
 siString si_stringFromFloat(f64 num, siArray(u8) out) {
 	return si_stringFromFloatEx(num, 10, 6, out);
 }
 SIDEF
 siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siArray(u8) out) {
 	SI_ASSERT_NOT_NEG(afterPoint);
+	SI_ASSERT(si_between(i32, base, 2, SI_BASE_MAX));
 
+	/* TODO(EimaMei): Rework this to be faster and to be more like si__stringFromBits. */
 	{
 		i32 isInf = si_float64IsInf(num);
 		if (isInf) {
@@ -7224,7 +7230,6 @@ siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siArray(u8) out
 	   	check.n &= ~SI_BIT(63); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
 		num = check.f;
 	}
-
 
 	isize baseLen = 0;
 	f64 numWhole = (afterPoint != 0)
@@ -7264,12 +7269,15 @@ siString si_stringFromFloatEx(f64 num, i32 base, i32 afterPoint, siArray(u8) out
 	res[i] = '.';
 	i += 1;
 
-	num -= si_floor(f64, num);
+	f64 rounder = 5.0 / base;
+	for_range (j, 0, afterPoint) { rounder /= base; }
+
+	num += rounder;
 	while (afterPoint) {
 		num *= base;
 
-		i32 numInt = (i32)num;
-		res[i] = SI_NUM_TO_CHAR_TABLE[(u32)numInt % (u32)base];
+		u64 numInt = (u64)num;
+		res[i] = SI_NUM_TO_CHAR_TABLE[numInt % (u64)base];
 		i += 1;
 
 		afterPoint -= 1;
@@ -8554,7 +8562,7 @@ siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc) {
 		  lenHashes = si_alignForward(si_sizeof(*map.hashes) * map.capacity, SI_DEFAULT_MEMORY_ALIGNMENT);
 
 	void* ptr = si_allocNonZeroed(alloc, lenEntries + lenHashes + map.typeSize * map.capacity);
-	if (ptr == nil) { return SI_COMP_LIT_DEFAULT(siMapAny); }
+	if (ptr == nil) { return SI_TYPE_ZERO(siMapAny); }
 
 	map.entries = (siMapEntry*)ptr;
 	map.hashes = (u32*)si_pointerAdd(map.entries, lenEntries);
@@ -9960,7 +9968,7 @@ siString si_bprintfVa(siArray(u8) out, siString fmt, va_list va) {
 		cstring STR; u8* PTR;
 	} vaValue;
 
-	struct si__printfInfoStruct info = SI_DEFAULT_STRUCT;
+	struct si__printfInfoStruct info = SI_STRUCT_ZERO;
 	info.data = (u8*)out.data;
 	info.capacity = out.len;
 
@@ -10395,7 +10403,7 @@ GOTO_SCIENTIFIC_NOTATION:
 						#undef _24BIT_STR
 					} break;
 
-					default: SI_PANIC();
+					default: SI_PANIC_MSG("Invalid color type. Most likely a non-color value was given.");
 				}
 			} break;
 
@@ -10569,11 +10577,11 @@ f32 si__cos_f32(f32 x) {
 inline f64 si__round_f64(f64 x) { return (x >= 0.0f) ? si_floor(f64, x + 0.5f) : si_ceil(f64, x - 0.5f); }
 inline f32 si__round_f32(f32 x) { return (x >= 0.0f) ? si_floor(f32, x + 0.5f) : si_ceil(f32, x - 0.5f); }
 
-inline f32 si__floor_f32(f32 a) { return (a >= 0.0f) ? (f32)(i64)a : (f32)(i64)(a - 0.9999999999999999f); }
-inline f64 si__floor_f64(f64 a) { return (a >= 0.0f) ? (f64)(i64)a : (f64)(i64)(a - 0.9999999999999999f); }
+inline f32 si__floor_f32(f32 a) { return (f32)((a >= 0.0f) ? (i64)a : (i64)(a - 0.9999999999999999f)); }
+inline f64 si__floor_f64(f64 a) { return (f64)((a >= 0.0) ? (i64)a : (i64)(a - 0.9999999999999999)); }
 
-inline f32 si__ceil_f32(f32 a) { return (a < 0) ? (f32)(i64)a : (f32)(i64)(a + 1); }
-inline f64 si__ceil_f64(f64 a) { return (a < 0) ? (f64)(i64)a : (f64)(i64)(a + 1); }
+inline f32 si__ceil_f32(f32 a) { return (f32)((a < 0) ? (i64)a : (i64)a + 1); }
+inline f64 si__ceil_f64(f64 a) { return (f64)((a < 0) ? (i64)a : (i64)a + 1); }
 
 inline
 i32 si_float32IsInf(f32 num) {
@@ -11079,7 +11087,7 @@ siString si_envVarGetData(siString name, siArray(u8) out) {
 SIDEF
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
-	OSVERSIONINFOEXW info = SI_DEFAULT_STRUCT;
+	OSVERSIONINFOEXW info = SI_STRUCT_ZERO;
 	{
 		siDllHandle ntdll = si_dllLoad(SI_STR("ntdll.dll"));
 
@@ -11794,7 +11802,7 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 	SI_ASSERT(path.len <= SI_PATH_MAX);
 	SI_ASSERT((mode & ~(u32)siFileMode_All) == 0);
 
-	siFile res = SI_DEFAULT_STRUCT;
+	siFile res = SI_STRUCT_ZERO;
 	res.handle = -1;
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -11842,7 +11850,7 @@ siFile si_fileOpenMode(siString path, siFileMode mode) {
 	SI_ERROR_SYS_CHECK(handle == INVALID_HANDLE_VALUE, res.error = SI_ERROR_RES; return res);
 
 	if (mode & siFileMode_Append) {
-		LARGE_INTEGER offset = SI_DEFAULT_STRUCT;
+		LARGE_INTEGER offset = SI_STRUCT_ZERO;
 
 		i32 status = SetFilePointerEx(handle, offset, nil, FILE_END);
 		if (!status) {
@@ -11902,7 +11910,7 @@ isize si_fileSize(siFile file) {
 	SI_ASSERT_NOT_NEG(file.handle);
 
 #if SI_SYSTEM_IS_WINDOWS
-	ULARGE_INTEGER res = SI_DEFAULT_STRUCT;
+	ULARGE_INTEGER res = SI_STRUCT_ZERO;
 
 	BY_HANDLE_FILE_INFORMATION data;
 	if (GetFileInformationByHandle((HANDLE)file.handle, &data)) {
@@ -12397,7 +12405,7 @@ inline
 siThread si_threadMakeEx(siThreadFunction function, void* arg, usize stackSize) {
 	SI_ASSERT_NOT_NIL(function);
 
-	siThread thread = SI_DEFAULT_STRUCT;
+	siThread thread = SI_STRUCT_ZERO;
 	thread.func = function;
 	thread.arg = arg;
 	thread.stackSize = stackSize;

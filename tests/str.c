@@ -3,6 +3,19 @@
 #include <tests/test.h>
 
 
+void test_string(siAllocator alloc);
+void test_builder(siAllocator alloc);
+
+int main(void) {
+	siArena arena = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
+	siAllocator alloc = si_allocatorArena(&arena);
+
+	test_string(alloc);
+	test_builder(alloc);
+	
+	si_arenaFree(&arena);
+}
+
 #define test_str1 "qwertyqwerty"
 #define test_str2 "ąčęėįšųū„“"
 #define test_str3 "йцукеннгш"
@@ -16,14 +29,16 @@ i32 test_str_utf32[] = {
 	0x0439, 0x0446, 0x0443, 0x043A, 0x0435, 0x043D, 0x043D, 0x0433, 0x0448
 };
 
-
-
 /* NOTE(EimaMei): These should compile without issue. */
 const siString global_str1 = SI_STRC("test");
 const siString global_str2 = SI_STRC_EMPTY;
 const siString global_str3 = SI_STRC_NIL;
 
-int main(void) {
+
+void test_string(siAllocator alloc) {
+	SI_UNUSED(global_str1); SI_UNUSED(global_str2); SI_UNUSED(global_str3);
+	TEST_START();
+
 	{
 		siString str = SI_STR(test_str);
 		TEST_EQ_ISIZE(str.len, countof_str(test_str));
@@ -45,7 +60,8 @@ int main(void) {
 		str = SI_STR_NIL;
 		TEST_EQ_PTR(str.data, (const void*)nil);
 		TEST_EQ_ISIZE(str.len, 0);
-	}
+	} SUCCEEDED();
+
 	#if SI_LANGUAGE_IS_CPP
 	{
 		siString str = SI_STR(test_str);
@@ -79,8 +95,9 @@ int main(void) {
 				TEST_EQ_ISIZE(slice.len, j);
 			}
 		}
-	}
+	} SUCCEEDED();
 	#endif
+
 	{
 		isize i = 0;
 		siRune rune;
@@ -93,14 +110,8 @@ int main(void) {
 			i -= 1;
 			TEST_EQ_CHAR(rune, test_str_utf32[i]);
 		}
-	}
-	/* NOTE(EimaMei): We malloc the buffer so that we could easily write a random
-	 * value and from there figure out if said random value was overwritten. If
-	 * it was, it means the functions are working as intended. */
-	void* buf = si_mallocNonZeroed(SI_MEGA(1));
-	siArena arena = si_arenaMakePtr(buf, SI_MEGA(1), SI_DEFAULT_MEMORY_ALIGNMENT);
-	siAllocator alloc = si_allocatorArena(&arena);
-	si_memset(buf, 0x93, SI_MEGA(1));
+	} SUCCEEDED();
+
 	{
 		siString str = SI_STR(test_str);
 
@@ -115,7 +126,8 @@ int main(void) {
 		TEST_EQ_CHAR(cstr[res.len], 0);
 
 		/* si_stringToCStrEx */
-	}
+	} SUCCEEDED();
+
 	{
 		siString str = SI_STR(test_str);
 		
@@ -139,7 +151,8 @@ int main(void) {
 		
 		rune = si_stringAtBack(str);
 		TEST_EQ_CHAR(rune, -1);
-	}
+	} SUCCEEDED();
+
 	{
 		siString str = SI_STR(test_str);
 
@@ -169,7 +182,8 @@ int main(void) {
 				TEST_EQ_ISIZE(slice.len, j);
 			}
 		}
-	}
+	} SUCCEEDED();
+
 	{
 		siString str = SI_STR(test_str);
 
@@ -207,7 +221,8 @@ int main(void) {
 		TEST_EQ_ISIZE(i, 2);
 		i = si_stringFindCount(str, SI_STR("dfdjkf"));
 		TEST_EQ_ISIZE(i, 0);
-	}
+	} SUCCEEDED();
+
 	{
 		siString str = SI_STR("DWgaOtP12df0");
 		b32 res = si_stringEqual(str, SI_STR("dWgaf0"));
@@ -233,7 +248,8 @@ int main(void) {
 
 		code = si_stringCompare(str, si_stringCopy(str, alloc));
 		TEST_EQ_ISIZE(code, 0);
-	}
+	} SUCCEEDED();
+
 	{
 		#define trim_l "abcd"
 		#define trim_s " \t\r\n\v\f"
@@ -260,7 +276,7 @@ int main(void) {
 
 		res = si_stringUnquote(SI_STR("\"" test_str "\""));
 		TEST_EQ_STR(res, SI_STR(test_str));
-	}
+	} SUCCEEDED();
 
 	{
 		siString res;
@@ -282,9 +298,7 @@ int main(void) {
 
 		res = si_stringReplace(res, SI_STR("-"), SI_STR("~"), 1, alloc);
 		TEST_EQ_STR(res, SI_STR(test_str1 "~" test_str2 "-" test_str3));
-
-		si_freeAll(alloc);
-	}
+	} SUCCEEDED();
 
 	{
 		siString str = SI_STR(test_str);
@@ -325,7 +339,7 @@ int main(void) {
 			i += 1;
 		}
 		TEST_EQ_ISIZE(i, countof(nl_arr));
-	}
+	} SUCCEEDED();
 
 	{
         siString res = si_stringReverse(SI_STR("helloWORLD123"), alloc);
@@ -339,12 +353,182 @@ int main(void) {
 
         res = si_stringLower(SI_STR("helloĄČĘ123йц"), alloc);
         TEST_EQ_STR(res, SI_STR("helloąčę123йц"));
+    } SUCCEEDED();
 
-		si_freeAll(alloc);
-    }
+	TEST_COMPLETE();
+}
+
+void test_builder(siAllocator alloc) {
+	TEST_START();
+
+	{
+		siBuilder builder = si_builderMake(16, alloc);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_EQ_ISIZE(builder.len, 0);
+		TEST_EQ_ISIZE(builder.capacity, 16);
+		TEST_EQ_ISIZE(builder.grow, 0);
+		builder = si_builderMakeLen(5, 16, alloc);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_EQ_ISIZE(builder.len, 5);
+		TEST_EQ_ISIZE(builder.capacity, 16);
+		TEST_EQ_ISIZE(builder.grow, 0);
+
+		builder = si_builderMakeGrow(32, 16, alloc);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_EQ_ISIZE(builder.len, 0);
+		TEST_EQ_ISIZE(builder.capacity, 16);
+		TEST_EQ_ISIZE(builder.grow, 32);
+
+		builder = si_builderMakeNone(alloc);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_EQ_PTR(builder.data, nil);
+		TEST_EQ_ISIZE(builder.len, 0);
+		TEST_EQ_ISIZE(builder.capacity, 0);
+		TEST_EQ_ISIZE(builder.grow, 0);
+
+		builder = si_builderMakeEx(0, 0, si_allocatorGetAvailableMem(alloc) + 1, alloc);
+		TEST_EQ_PTR(builder.alloc.proc, nil); 
+		TEST_EQ_PTR(builder.alloc.data, nil);
+		TEST_EQ_PTR(builder.data, nil);
+		TEST_EQ_ISIZE(builder.len, 0);
+		TEST_EQ_ISIZE(builder.capacity, 0);
+		TEST_EQ_ISIZE(builder.grow, 0);
+	} SUCCEEDED();
+
+	{
+		siBuilder builder = si_builderMake(4, alloc);
+		siAllocationError res = si_builderMakeSpaceFor(&builder, 2);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.capacity, 4);
+
+		res = si_builderMakeSpaceFor(&builder, 4);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.capacity, 4);
+
+		res = si_builderMakeSpaceFor(&builder, 8);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.capacity, 2 * (4 + 8));
+
+		builder = si_builderMakeGrow(32, 4, alloc);
+		res = si_builderMakeSpaceFor(&builder, 8);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
+
+		res = si_builderMakeSpaceFor(&builder, si_allocatorGetAvailableMem(alloc) + 1);
+		TEST_EQ_ISIZE(res, siAllocationError_OutOfMem);
+		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
+	} SUCCEEDED();
+
+	{
+		siBuilder builder;
+		siAllocationError res;
+
+		builder = si_builderMake(4, alloc);
+		
+		res = si_builderWriteByte(&builder, 'A');
+		TEST_EQ_ISIZE(builder.len, countof_str("A"));
+
+		res = si_builderWriteBytes(&builder, "BCD", 3);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD"));
+
+		res = si_builderWriteStr(&builder, SI_STR("EFG"));
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD" "EFG"));
+		TEST_EQ_ISIZE(builder.capacity, 2 * (4 + 3));
+
+		res = si_builderWriteRune(&builder, 0x0105);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD" "EFG" "ą"));
+
+		siString str = si_builderToStr(builder);
+		TEST_EQ_STR(SI_STR("ABCDEFGą"), str);
+		
+		char* cstr = si_builderToCstr(&builder);
+		TEST_EQ_STR(SI_STR("ABCDEFGą"), SI_CSTR(cstr));
+		TEST_EQ_CHAR(cstr[builder.len], '\0');
+	} SUCCEEDED();
+
+	{
+		siBuilder builder;
+		siAllocationError res;
+
+		builder = si_builderMakeGrow(32, 4, alloc);
+
+		res = si_builderWriteStrQuoted(&builder, SI_STR("hello"));
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\""));
+
+		res = si_builderWriteStrQuotedEx(&builder, SI_STR("world"), '\'');
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\"" "\'world\'"));
+
+		res = si_builderWriteStrQuotedRune(&builder, SI_STR("labas, pasauli!"), 0x201E, 0x201C);
+		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\"" "\'world\'" "„labas, pasauli!“"));
+
+		siString str = si_builderToStr(builder);
+		TEST_EQ_STR(SI_STR("\"hello\"" "\'world\'" "„labas, pasauli!“"), str);
+	} SUCCEEDED();
+
+	{
+		siBuilder builder;
+		siAllocationError res;
+
+		builder = si_builderMakeEx(0, 64, 64, alloc);
+
+		res = si_builderWriteInt(&builder, 123);
+		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteInt(&builder, INT64_MIN);
+		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteIntEx(&builder, 456, 2);
+		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteIntEx(&builder, 456, 8);
+		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteIntEx(&builder, 456, 12);
+		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteIntEx(&builder, -456, 16);
+		TEST_EQ_ISIZE(res, 0);
+
+		siString str = si_builderToStr(builder);
+		TEST_EQ_STR(SI_STR("123" "-9223372036854775808" "111001000" "710" "320" "-1C8" ), str);
+
+		si_builderClear(&builder);
+		TEST_EQ_ISIZE(si_builderToStr(builder).len, 0);
+
+		res = si_builderWriteFloat(&builder, 3.14);
+		TEST_EQ_ISIZE(res, 0);
+
+		res = si_builderWriteFloatEx(&builder, 2.718, 10, 2);
+		TEST_EQ_ISIZE(res, 0);
+
+		res = si_builderWriteFloatEx(&builder, FLOAT32_MIN, 10, 46);
+		TEST_EQ_ISIZE(res, 0);
+
+		//res = si_builderWriteFloatEx(&builder, FLOAT64_MAX, 10, 0);
+		//TEST_EQ_ISIZE(res, 0);
+
+		str = si_builderToStr(builder);
+		TEST_EQ_STR(str, SI_STR("3.140000" "2.72" "0.0000000000000000000000000000000000000117549435"));
+
+		si_builderClear(&builder);
+		si_builderWriteStr(&builder, SI_STR("aę!"));
+
+		si_builderPopByte(&builder);
+		si_builderPopRune(&builder);
+		
+		str = si_builderToStr(builder);
+		TEST_EQ_STR(str, SI_STR("a"));
 
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
-	SI_UNUSED(global_str1); SI_UNUSED(global_str2); SI_UNUSED(global_str3);
-	si_mfree(buf);
+	} SUCCEEDED();
+	
+	TEST_COMPLETE();
 }
