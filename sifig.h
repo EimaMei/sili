@@ -136,7 +136,7 @@ siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator al
 
 	while (sifig_iniIterateEx(&it, options.comment)) {
 		if (curSection.data != it.section.data) { /* NOTE(EimaMei): This always equals true on first runs. */
-			curIni = si_mapSetItem(&ini, si_stringCopy(it.section, alloc), SI_DEFAULT_STRUCT, siIniSection);
+			curIni = si_mapSetItem(&ini, si_stringCopy(it.section, alloc), SI_STRUCT_ZERO, siIniSection);
 			*curIni = si_mapMakeReserve(siString, 32, alloc);
 
 			curSection = it.section;

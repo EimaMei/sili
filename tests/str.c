@@ -486,19 +486,29 @@ void test_builder(siAllocator alloc) {
 
 		res = si_builderWriteInt(&builder, 123);
 		TEST_EQ_ISIZE(res, 0);
+		si_builderWriteByte(&builder, ' ');
+
 		res = si_builderWriteInt(&builder, INT64_MIN);
 		TEST_EQ_ISIZE(res, 0);
+		si_builderWriteByte(&builder, ' ');
+
 		res = si_builderWriteIntEx(&builder, 456, 2);
 		TEST_EQ_ISIZE(res, 0);
+		si_builderWriteByte(&builder, ' ');
+
 		res = si_builderWriteIntEx(&builder, 456, 8);
 		TEST_EQ_ISIZE(res, 0);
+		si_builderWriteByte(&builder, ' ');
+
 		res = si_builderWriteIntEx(&builder, 456, 12);
 		TEST_EQ_ISIZE(res, 0);
+		si_builderWriteByte(&builder, ' ');
+
 		res = si_builderWriteIntEx(&builder, -456, 16);
 		TEST_EQ_ISIZE(res, 0);
 
 		siString str = si_builderToStr(builder);
-		TEST_EQ_STR(SI_STR("123" "-9223372036854775808" "111001000" "710" "320" "-1C8" ), str);
+		TEST_EQ_STR(SI_STR("123 -9223372036854775808 111001000 710 320 -1C8"), str);
 
 		si_builderClear(&builder);
 		TEST_EQ_ISIZE(si_builderToStr(builder).len, 0);
@@ -523,7 +533,7 @@ void test_builder(siAllocator alloc) {
 
 		si_builderPopByte(&builder);
 		si_builderPopRune(&builder);
-		
+
 		str = si_builderToStr(builder);
 		TEST_EQ_STR(str, SI_STR("a"));
 

@@ -86,7 +86,7 @@ int main(void) {
 
 	{
 		siAllocator alloc = si_allocatorHeap();
-		TEST_EQ_PTR(alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_PTR(alloc.proc, si_allocatorHeap_proc);
 		TEST_EQ_PTR(alloc.data, nil);
 
 		void* ptr = si_alloc(alloc, SI_KILO(1));
@@ -100,14 +100,14 @@ int main(void) {
 
 	{
 		siArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
-		TEST_EQ_PTR(aData.alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_PTR(aData.alloc.proc, si_allocatorHeap_proc);
 		TEST_EQ_USIZE(aData.offset, 0);
 		TEST_EQ_USIZE(aData.capacity, SI_MEGA(1));
 		TEST_EQ_U32(aData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
 		SI_ASSERT_NOT_NIL(aData.ptr);
 
 		siAllocator alloc = si_allocatorArena(&aData);
-		TEST_EQ_PTR(alloc.proc, si_allocator_arena_proc);
+		TEST_EQ_PTR(alloc.proc, si_allocatorArena_proc);
 		TEST_EQ_PTR(alloc.data, &aData);
 
 		void* ptr = si_alloc(alloc, SI_KILO(1));
@@ -129,7 +129,7 @@ int main(void) {
 
 	{
 		siPool pData = si_poolMake(si_allocatorHeap(), 3, 32);
-		TEST_EQ_PTR(pData.alloc.proc, si_allocator_heap_proc);
+		TEST_EQ_PTR(pData.alloc.proc, si_allocatorHeap_proc);
 		TEST_EQ_U32(pData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
 		TEST_EQ_USIZE(pData.chunkSize, 32);
 		TEST_EQ_USIZE(pData.numChunks, 3);
@@ -137,7 +137,7 @@ int main(void) {
 		SI_ASSERT_NOT_NIL(pData.head);
 
 		siAllocator alloc = si_allocatorPool(&pData);
-		TEST_EQ_PTR(alloc.proc, si_allocator_pool_proc);
+		TEST_EQ_PTR(alloc.proc, si_allocatorPool_proc);
 		TEST_EQ_PTR(alloc.data, &pData);
 
 		void* previousHead = pData.head;
@@ -205,7 +205,7 @@ int main(void) {
 		TEST_EQ_U64(opt.hasValue, 1);
 		TEST_EQ_U64(opt.data.value, 19920216ULL);
 
-		siError tmp = SI_DEFAULT_STRUCT;
+		siError tmp = SI_STRUCT_ZERO;
 		tmp.code = 40;
 		opt = SI_OPT_ERR(u64, tmp);
 		TEST_EQ_I64(opt.data.error.code, 40);

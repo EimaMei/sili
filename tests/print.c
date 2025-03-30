@@ -57,7 +57,7 @@ int main(void) {
 #endif
 
 	TEST_PRINT_REG("Floating-point:\n");
-	TEST_PRINT("\tRounding:\t1.500000 2 1.30000000000000004440892098500626\n", "\tRounding:\t%f %.0f %.32f\n", 1.5, 1.5, 1.3);
+	TEST_PRINT("\tRounding:\t1.500000 2 1.30000000000000000000000000000000\n", "\tRounding:\t%f %.0f %.32f\n", 1.5, 1.5, 1.3);
 	TEST_PRINT("\tPadding:\t01.50 1.50  1.50\n", "\tPadding:\t%05.2f %.2f %5.2f\n", 1.5, 1.5, 1.5);
 	TEST_PRINT("\tScientific:\t1.500000E+00 1.500000e+00\n", "\tScientific:\t%E %e\n", 1.5, 1.5);
 	/* TEST_PRINT("\t0x1.8p+0 0X1.8P+0\n", "\tHexadecimal:\t%a %A\n", 1.5, 1.5); */
