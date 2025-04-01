@@ -1175,14 +1175,20 @@ extern "C++" {
 	#endif
 
 	#ifndef SI_COMP_LIT
-		/* Compound literal syntax on C. */
-		#define SI_COMP_LIT(type, ...) ((type){__VA_ARGS__})
+		/* type - TYPE | ...value - ANYTHING 
+		 * Compound literal syntax on C. */
+		#define SI_COMP_LIT(type, .../* value */) ((type){__VA_ARGS__})
+		/* type - TYPE | ...value - ANYTHING 
+		 * A zero value compound literal on C. */
 		#define SI_TYPE_ZERO(type) ((type)SI_STRUCT_ZERO)
 	#endif
 
 	#ifndef SI_PTR
-		/* TODO */
+		/* type - TYPE | ..value - ANYTHING
+		 * Returns a pointer to the given list of values.  */
 		#define SI_PTR(type, ...) ((type[]){__VA_ARGS__})
+		/* type - TYPE | ..value - ANYTHING
+		 * Returns a pointer to the list of and its length, separated by a comma. */
 		#define SI_PTR_WITH_LEN(type, ...) (type[]){__VA_ARGS__}, countof((type[]){__VA_ARGS__})
 	#endif
 
@@ -1193,17 +1199,23 @@ extern "C++" {
 	#endif
 
 	#ifndef SI_COMP_LIT
-		/* Compound literal syntax on C++. */
+		/* type - TYPE | ...value - ANYTHING 
+		 * Compound literal syntax on C++. */
 		#define SI_COMP_LIT(type, ...) (type{__VA_ARGS__})
+		/* type - TYPE | ...value - ANYTHING 
+		 * A zero value compound literal on C. */
 		#define SI_TYPE_ZERO(type) (type SI_STRUCT_ZERO)
 	#endif
 
 	#ifndef SI_PTR
-		/* TODO */
+		/* type - TYPE | ..value - ANYTHING
+		 * Returns a pointer to the given list of values.  */
 		#define SI_PTR(type, ...) ([] { \
 			static type temp[] = {__VA_ARGS__}; \
 			return temp; \
 		}())
+		/* type - TYPE | ..value - ANYTHING
+		 * Returns a pointer to the list of and its length, separated by a comma. */
 		#define SI_PTR_WITH_LEN(type, ...) SI_PTR(type, __VA_ARGS__), ([] { \
 			static type temp[] = {__VA_ARGS__}; \
 			return countof(temp); \
@@ -1975,7 +1987,7 @@ SIDEF isize si_arrayFind(siArrayAny array, const void* data);
 /* Searches for the specified pointer's content in the array (from the end). If
  * found, the value's array index is returned, otherwise '-1' is returned. */
 SIDEF isize si_arrayFindLast(siArrayAny array, const void* data);
-/* Returns the amount of times the specified pointer's value repeats in the array. */
+/* Returns the amount of times the specified pointer's value is repeated in the array. */
 SIDEF isize si_arrayFindCount(siArrayAny array, const void* data);
 
 /* Returns true if the two specified arrays are equal in length and contents. */
@@ -1985,16 +1997,23 @@ SIDEF b32 si_arrayEqual(siArrayAny lhs, siArrayAny rhs);
 SIDEF void si_arrayFree(siArrayAny array, siAllocator alloc);
 
 
-/* TODO */
+/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
+ * Sets an element to the given value (bound or type checking isn't done). */
 #define si_arraySetItem(array, index, value, type) (type*)si_arraySet(array, index, SI_PTR(type, value))
-/* TODO */
-#define si_arraySetArray(array, index, type, ...) (type*)si_arraySet(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
+/* array - siArrayAny | index - isize | type - TYPE | ...values - ANYTHING
+ * Sets a list of elements to the given array (bound or type checking isn't done). */
+#define si_arraySetArray(array, index, type, .../* values */) (type*)si_arraySet(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
 
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Searches for the given value in the array (from the beginning). If found, the
+ * value's array index is returned, otherwise '-1' is returned. */
 #define si_arrayFindItem(array, value, type) si_arrayFind(array, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Searches for the given value in the array (from the end). If found, the value's
+ * array index is returned, otherwise '-1' is returned. */
 #define si_arrayFindLastItem(array, value, type) si_arrayFindLast(array, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Returns the amount of times the specified value is repeated in the array. */
 #define si_arrayFindCountItem(array, value, type) si_arrayFindCount(array, SI_PTR(type, value))
 
 
@@ -2147,34 +2166,51 @@ SIDEF b32 si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize addLen);
 
 
 
-/* TODO */
+/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
+ * Sets an element to the given value (bound or type checking isn't done). */
 #define si_dynamicArraySetItem(array, index, value, type) (type*)si_dynamicArraySet(array, index, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | index - isize | type - TYPE | ...values - ANYTHING
+ * Sets a list of elements to the given array (bound or type checking isn't done). */
 #define si_dynamicArraySetArray(array, index, type, ...) (type*)si_dynamicArraySetEx(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
 
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Searches for the given value in the array (from the beginning).
+ * If found, the value's array index is returned, otherwise '-1' is returned. */
 #define si_dynamicArrayFindItem(array, value, type) si_dynamicArrayFind(array, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Searches for the given value in the array (from the end).
+ * If found, the value's array index is returned, otherwise '-1' is returned. */
 #define si_dynamicArrayFindLastItem(array, value, type) si_dynamicArrayFindLast(array, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Returns the amount of times the specified value is repeated in the array. */
 #define si_dynamicArrayFindCountItem(array, value, type) si_dynamicArrayFindCount(array, SI_PTR(type, value))
 
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Appends the given value to the array and returns the element's pointer. */
 #define si_dynamicArrayAppendItem(array, value, type) (type*)si_dynamicArrayAppend(array, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | value - ANYTHING | type - TYPE
+ * Appends the specified list of items to the array and returns the elements' pointer. */
 #define si_dynamicArrayAppendArray(array, type, ...) (type*)si_dynamicArrayAppendEx(array, SI_PTR_WITH_LEN(type, __VA_ARGS__))
 
-/* TODO */
+/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
+ * Inserts the given value at the given index of the array. Returns true if the 
+ * array was reallocated. */
 #define si_dynamicArrayInsertItem(array, index, value, type) si_dynamicArrayInsert(array, index, SI_PTR(type, value))
-/* TODO */
+/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
+ * Inserts the specified list of items at the given index of the array. Returns
+ * true if the array was reallocated. */
 #define si_dynamicArrayInsertArray(array, index, type, ...) si_dynamicArrayInsertEx(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
 
-/* TODO */
+/* array - siArrayAny | index, count - isize | value - ANYTHING | type - TYPE
+ * Fills the contents of the array with the given value. Returns true if the array 
+ * was reallocated. */
 #define si_dynamicArrayFillItem(array, index, count, value, type) si_dynamicArrayFill(array, index, count, SI_PTR(type, value))
 
-/* TODO */
+/* array - siArrayAny | valueOld, valueNew - ANYTHING | type - TYPE
+ * Replaces all occurences of the given old value with the specified new one. */
 #define si_dynamicArrayReplaceAllItem(array, valueOld, valueNew, type) si_dynamicArrayReplaceAll(array, SI_PTR(type, valueOld), SI_PTR(type, valueNew))
-/* TODO */
+/* array - siArrayAny | valueOld, valueNew - ANYTHING | amount - isize | type - TYPE
+ * Replaces a given amount of the given old value with the specified new one. */
 #define si_dynamicArrayReplaceItem(array, valueOld, valueNew, amount, type) si_dynamicArrayReplace(array, SI_PTR(type, valueOld), SI_PTR(type, valueNew), amount)
 
 
@@ -2393,12 +2429,17 @@ SIDEF siArray(siString) si_stringSplit(siString str, siString delimiter,
 /* Splits the string into a specified amount _string views_ based on the separator. */
 SIDEF siArray(siString) si_stringSplitEx(siString str, siString delimiter,
 	isize amount, siAllocator alloc);
-/* Splits lines into _string views_. */
+/* Splits lines into string views. */
 SIDEF siArray(siString) si_stringSplitLines(siString str, siAllocator alloc);
 
-/* TODO */
+/* Iterates through the given string. If the specified delimiter is found, the 
+ * substring before it is written into the given out, then the input becomes a 
+ * substring from the delimiter's end to the string's end, then true is returned. 
+ * This also happens if the delimiter isn't found but the string isn't empty.
+ * False is returned when the string is empty. */
 SIDEF b32 si_stringSplitIterate(siString* str, siString delimiter, siString* outStr);
-/* TODO */
+/* Same functionality as 'si_stringSplitIterate', however the delimiter is '\n'.
+ * The carrier return newline (\r) is also trimmed out. */
 SIDEF b32 si_stringSplitLinesIterate(siString* str, siString* outStr);
 
 /* Allocates a string, which is the reversed specified string. */
@@ -2477,14 +2518,11 @@ SIDEF siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen);
 
 
 
-/* TODO */
+/* The highest base that a number can be in. */
 #define SI_BASE_MAX 64
 
-/* TODO */
-#define SI_STRINT_SUCCESS INT32_MAX
-
-
-/* A base-64 character lookup table for converting strings into integers. */
+/* A character lookup table for converting strings into integers. Size must be 
+ * 'SI_BASE_MAX'. */
 SI_EXTERN const u8* SI_NUM_TO_CHAR_TABLE;
 
 /* Sets the lookup table state to use upper/lower characters when converting an
@@ -2493,35 +2531,27 @@ SI_EXTERN const u8* SI_NUM_TO_CHAR_TABLE;
 SIDEF void si_numChangeTable(b32 upper);
 
 
-/* Converts a string into a base 10 unsigned integer. the string can only contain
- * up to 20 characters. No error reporting is done at all. */
+/* Converts a string into a base 10 unsigned integer. */
 SIDEF u64 si_stringToUInt(siString str);
-/* Converts a string into a base 10 unsigned integer. An error code is written to
- * the specified pointer (check 'si_stringToUIntBase' for the error codes). */
-SIDEF u64 si_stringToUIntEx(siString str, i32* outRes);
+/* Converts a string into a base 10 unsigned integer. If an invalid character is
+ * found, its index gets written into the specified pointer; if not then '-1'. */
+SIDEF u64 si_stringToUIntEx(siString str, isize* outInvalidIndex);
+/* Converts a string into a specified base unsigned integer. Setting a '-1' base 
+ * the function to automatically find the base from the string's prefix. If an 
+ * invalid character is found, its index gets written into the specified pointer; 
+ * if not then '-1'. The prefix list: 0x (16), 0z (12), 0d (10), 0o (8), 0b (2). */
+SIDEF u64 si_stringToUIntBase(siString str, i32 base, isize* outInvalidIndex);
 
-/* Converts a string into a base 10 unsigned integer. Setting a '-1' base tells
- * the function to automatically find the base from the string's prefixes (eg. '0b').
- * An error code is written to the specified pointer. The possible error codes
- * are:
- * '-2' - the string length is bigger than 20 characters,
- * '-1' - the string length is zero,
- * '<0...len - 1>' - an invalid base character was encountered at that index (eg.
- * finding an alphabet character in a base 10 string).
- * 'SI_STRINT_SUCCESS' - no errors were encountered. */
-SIDEF u64 si_stringToUIntBase(siString str, i32 base, i32* outRes);
-
-/* Converts a string into a base 10 signed integer. the string can only contain
- * up to 20 characters. No error reporting is done at all. */
+/* Converts a string into a base 10 signed integer. */
 SIDEF i64 si_stringToInt(siString str);
-/* Converts a string into a base 10 signed integer. An error code is written to
- * the specified pointer (check 'si_stringToUIntBase' for the error codes). */
-SIDEF i64 si_stringToIntEx(siString str, i32* outRes);
-/* Converts a string into a base 10 unsigned integer. Setting a '-1' base tells
- * the function to automatically find the base from the string's prefixes (eg. '0b').
- * An error code is written to the specified pointer (check 'si_stringToUIntBase'
- * for the error codes). */
-SIDEF i64 si_stringToIntBase(siString str, i32 base, i32* outRes);
+/* Converts a string into a base 10 signed integer. If an invalid character is
+ * found, its index gets written into the specified pointer; if not then '-1'. */
+SIDEF i64 si_stringToIntEx(siString str, isize* outInvalidIndex);
+/* Converts a string into a specified base unsigned integer. Setting a '-1' base 
+ * the function to automatically find the base from the string's prefix. If an 
+ * invalid character is found, its index gets written into the specified pointer; 
+ * if not then '-1'. The prefix list: 0x (16), 0z (12), 0d (10), 0o (8), 0b (2). */
+SIDEF i64 si_stringToIntBase(siString str, i32 base, isize* outInvalidIndex);
 
 /* Returns either 'true', 'false' or UINT32_MAX from a string. 'UINT32_MAX'
  * is returned if the given str cannot be converted into a boolean. */
@@ -7030,17 +7060,17 @@ siString si_stringLower(siString str, siAllocator alloc) {
 }
 
 
-const u8 SI_NUM_TO_CHAR_TABLE_UPPER[] =
+const u8 SI_NUM_TO_CHAR_TABLE_UPPER[SI_BASE_MAX + 1] =
 	"0123456789"
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"abcdefghijklmnopqrstuvwxyz"
 	"@$";
-const u8 SI_NUM_TO_CHAR_TABLE_LOWER[] =
+const u8 SI_NUM_TO_CHAR_TABLE_LOWER[SI_BASE_MAX + 1] =
 	"0123456789"
 	"abcdefghijklmnopqrstuvwxyz"
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"@$";
-const u8* SI_NUM_TO_CHAR_TABLE = SI_NUM_TO_CHAR_TABLE_UPPER;
+const u8* SI_NUM_TO_CHAR_TABLE = (const u8*)SI_NUM_TO_CHAR_TABLE_UPPER;
 
 inline
 void si_numChangeTable(b32 upper) {
@@ -7094,21 +7124,20 @@ siString si_stringFromUIntEx(u64 num, i32 base, siArray(u8) out) {
 
 inline
 u64 si_stringToUInt(siString str) {
-	i32 tmp;
+	isize tmp;
 	return si_stringToUIntEx(str, &tmp);
 }
 
 inline
-u64 si_stringToUIntEx(siString str, i32* outRes) {
-	return si_stringToUIntBase(str, -1, outRes);
+u64 si_stringToUIntEx(siString str, isize* outInvalidIndex) {
+	return si_stringToUIntBase(str, -1, outInvalidIndex);
 }
 
 SIDEF
-u64 si_stringToUIntBase(siString str, i32 base, i32* outRes) {
-	SI_ASSERT_NOT_NIL(outRes);
-	SI_STOPIF(str.len == 0, *outRes = -1; return 0);
+u64 si_stringToUIntBase(siString str, i32 base, isize* outInvalidIndex) {
+	SI_ASSERT_NOT_NIL(outInvalidIndex);
+	SI_ASSERT(base == -1 || (base >= 2 && base <= SI_BASE_MAX));
 
-	u64 res = 0;
 	siRune r;
 	for_eachStrEx (r, i, str) {
 		if (!si_runeIsSpace(r)) {
@@ -7117,86 +7146,64 @@ u64 si_stringToUIntBase(siString str, i32 base, i32* outRes) {
 		}
 	}
 
-	if (base == 10 || (base == -1 && str.data[0] != '0')) {
-		SI_STOPIF(str.len > 20, *outRes = -2; return 0);
-
-		for_eachStrEx (r, i, str) {
-			if (!si_runeIsDigit(r)) {
-				isize oldI = i;
-
-				siUtf32Char tmp;
-				while (i < str.len) {
-					tmp = si_utf8Decode(&str.data[i]);
-					SI_STOPIF(!si_runeIsSpace(tmp.codepoint), break);
-					i += tmp.len;
-				}
-
-				*outRes = (i >= str.len) ? SI_STRINT_SUCCESS : (i32)oldI;
-				return res;
-			}
-
-			res *= 10;
-			res += (u64)(r - '0');
-		}
-
-
-		*outRes = INT32_MAX;
-		return res;
-	}
-
-	i32 maxDigits;
-	if (base < 0) {
+	if (base == -1 && str.len > 2 && str.data[0] == '0') {
 		switch (str.data[1]) {
-			case 'X': base = 16; str = si_substrFrom(str, 2); maxDigits = 16 + 2; break;
-			case 'O': base =  8; str = si_substrFrom(str, 2); maxDigits = 22 + 2; break;
-			case 'B': base =  2; str = si_substrFrom(str, 2); maxDigits = 64 + 2; break;
-			default:  base =  8; str = si_substrFrom(str, 1); maxDigits = 22 + 1; break;
+			case 'x': base = 16; str = si_substrFrom(str, 2); break;
+			case 'z': base = 12; str = si_substrFrom(str, 2); break;
+			case 'd': base = 10; str = si_substrFrom(str, 2); break;
+			case 'o': base =  8; str = si_substrFrom(str, 2); break;
+			case 'b': base =  2; str = si_substrFrom(str, 2); break;
+			default:  base = 10;
 		}
 	}
 	else {
-		switch (base) {
-			case 16: maxDigits = 16; break;
-			case 8:  maxDigits = 22; break;
-			case 2:  maxDigits = 64; break;
-			default: SI_PANIC_FMT("Found invalid %i", base);
-		}
+		base = 10;
 	}
-	SI_STOPIF(str.len > maxDigits, *outRes = -2; return res);
 
-
+	u64 res = 0;
+	u64 base_u = (u64)base;
 	for_eachStrEx (r, i, str) {
-		res *= (u32)base;
-
-		i32 value = r - '0';
-		if (value < 10) {
-			res += (u32)value;
+		if (r == '_') {
+			continue;
 		}
-		else if (value != (' ' - '0')) {
-			value = si_charUpper((char)value) - 7;
-			if (value < base) {
-				res += (u32)value;
-			}
-			else {
-				*outRes = (i32)i;
-				return res;
-			}
-		}
-		else {
+		else if (r == ' ') {
 			isize oldI = i;
-
 			siUtf32Char tmp;
+			i += 1;
+
 			while (i < str.len) {
 				tmp = si_utf8Decode(&str.data[i]);
 				SI_STOPIF(!si_runeIsSpace(tmp.codepoint), break);
 				i += tmp.len;
 			}
-
-			*outRes = (i >= str.len) ? SI_STRINT_SUCCESS : (i32)oldI;
+			*outInvalidIndex = (i >= str.len) ? -1 : oldI;
 			return res;
 		}
+
+		i32 value;
+		if (r >= '0' && r <= '9') {
+			value = (r - '0');
+		}
+		else if (r >= 'a' && r <= 'z') {
+			value = (r - 'a' + 10);
+		}
+		else if (r >= 'A' && r <= 'Z') {
+			value = (r - 'A' + 10);
+		}
+		else {
+			value = (r - '@' + 62);
+		}
+
+		if (value >= base) {
+			*outInvalidIndex = i;
+			return res;
+		}
+		
+		res *= base_u;
+		res += (u64)value;
 	}
 
-	*outRes = INT32_MAX;
+	*outInvalidIndex = -1;
 	return res;
 }
 
@@ -7542,44 +7549,29 @@ siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied
 
 
 
-SIDEF
-i64 si_stringToInt(siString str) {
-	SI_ASSERT_NOT_NIL(str.data);
-
-	switch (*(u8*)str.data) {
-		case '-':
-			str = si_substrFrom(str, 1);
-			return -(i64)si_stringToUInt(str);
-		case '+':
-			str = si_substrFrom(str, 1);
-			break;
-	}
-
-	return (i64)si_stringToUInt(str);
-}
-
 inline
-i64 si_stringToIntEx(siString str, i32* outRes) {
-	return si_stringToIntBase(str, -1, outRes);
+i64 si_stringToInt(siString str) {
+	isize tmp;
+	return si_stringToIntBase(str, -1, &tmp);
 }
-
+inline
+i64 si_stringToIntEx(siString str, isize* outInvalidIndex) {
+	return si_stringToIntBase(str, -1, outInvalidIndex);
+}
 SIDEF
-i64 si_stringToIntBase(siString str, i32 base, i32* outRes) {
+i64 si_stringToIntBase(siString str, i32 base, isize* outInvalidIndex) {
 	SI_ASSERT_NOT_NIL(str.data);
 
-	switch (*(u8*)str.data) {
+	switch (str.data[0]) {
 		case '-':
-			str.data = (u8*)str.data + 1;
-			str.len -= 1;
-
-			return -(i64)si_stringToUIntBase(str, base, outRes);
+			str = si_substrFrom(str, 1);
+			return -(i64)si_stringToUIntBase(str, base, outInvalidIndex);
 		case '+':
-			str.data = (u8*)str.data + 1;
-			str.len  -= 1;
+			str = si_substrFrom(str, 1);
 			break;
 	}
 
-	return (i64)si_stringToUIntBase(str, base, outRes);
+	return (i64)si_stringToUIntEx(str, outInvalidIndex);
 }
 
 #endif /* SI_IMPLEMENTATION_STRING */
@@ -9854,33 +9846,33 @@ struct si__printfInfoStruct {
 	siString str;
 	isize capacity;
 };
-
-force_inline
+#include <stdio.h>
+siIntern
 void si__printStrToBuf(struct si__printfInfoStruct* info) {
 	u8* base = &info->data[info->index];
 
-	isize len = (info->capacity > info->str.len)
-		? info->str.len
-		: info->capacity;
+	siString str = (info->capacity > info->str.len)
+		? info->str
+		: si_substrTo(info->str, info->capacity);
 
 	if (info->padSize == 0) {
-		si_memcopy(base, info->str.data, len);
+		si_memcopyStr(base, str);
 	}
 	else if (info->padSize < 0) {
-		isize padLen = len + info->padSize;
+		isize padLen = str.len + info->padSize;
 		b32 padNeeded = (padLen < 0);
 
-		si_memcopy(base, info->str.data, len);
+		si_memcopyStr(base, str);
 		if (padNeeded) {
 			isize padding = -padLen;
-			si_memset(&base[len], info->padLetter, padding);
+			si_memset(&base[str.len], info->padLetter, padding);
 			info->index += padding;
 			info->capacity -= padding;
 		}
 		info->padSize = 0;
 	}
 	else {
-		isize padLen = info->padSize - len;
+		isize padLen = info->padSize - str.len;
 		b32 padNeeded = (padLen > 0);
 
 		if (padNeeded) {
@@ -9888,20 +9880,20 @@ void si__printStrToBuf(struct si__printfInfoStruct* info) {
 			info->index += padLen;
 			info->capacity -= padLen;
 		}
-		si_memcopy(&info->data[info->index], info->str.data, len);
+		si_memcopyStr(&info->data[info->index], info->str);
 		info->padSize = 0;
 	}
 
-	info->index += len;
-	info->capacity -= len;
+	info->index += str.len;
+	info->capacity -= str.len;
 }
 force_inline
 void si__printStrCpy(struct si__printfInfoStruct* info) {
-	isize len = (info->capacity > info->str.len)
-		? info->str.len
-		: info->capacity;
+	siString str = (info->capacity > info->str.len)
+		? info->str
+		: si_substrTo(info->str, info->capacity);
 
-	info->index += si_memcopy(&info->data[info->index], info->str.data, len);
+	info->index += si_memcopyStr(&info->data[info->index], str);
 }
 
 force_inline
@@ -10084,7 +10076,20 @@ GOTO_PRINT_SWITCH:
 			}
 			case '-': case '+': {
 				if (si_runeIsDigit(si_utf8Decode(fmtPtr).codepoint)) {
-					goto GOTO_PADCALC_SWITCH;
+					/* TODO(EimaMei): Unsafe, this should be patched when printf is 
+					* going to use indexes instead of pointers. Also this is quite 
+					* hacky since we have to take account -/+. */
+					isize len;
+					fmtPtr -= 1;
+					i64 count = si_stringToIntEx(SI_STR_LEN(fmtPtr, 64), &len);
+					SI_ASSERT(count <= INT32_MAX);
+					SI_ASSERT(len != -1);
+	
+					*ptrToVar = (i32)count;
+					fmtPtr += len + 1;
+	
+					SI_SET_FMT_PTR(&x, &fmtPtr);
+					goto GOTO_PRINT_SWITCH;
 				}
 				siFallthrough; /* NOTE(EimaMei): Go to the ' ' case. */
 			}
@@ -10109,23 +10114,16 @@ GOTO_PRINT_SWITCH:
 			}
 			case '1': case '2': case '3': case '4': case '5': case '6': case '7':
 			case '8': case '9': {
-				const u8* start;
-GOTO_PADCALC_SWITCH:
-				start = fmtPtr - 1;
-
-				while (true) {
-					siUtf32Char letter = si_utf8Decode(fmtPtr);
-					if (!si_runeIsDigit(letter.codepoint)) {
-						break;
-					}
-					fmtPtr += letter.len;
-				}
-
-				isize len = fmtPtr - start;
-				i64 count = si_stringToInt(SI_STR_LEN(start, len));
+				isize len;
+				/* TODO(EimaMei): Unsafe, this should be patched when printf is 
+				 * going to use indexes instead of pointers. */
+				fmtPtr -= 1;
+				i64 count = si_stringToIntEx(SI_STR_LEN(fmtPtr, 64), &len);
 				SI_ASSERT(count <= INT32_MAX);
+				SI_ASSERT(len != -1);
 
 				*ptrToVar = (i32)count;
+				fmtPtr += len;
 
 				SI_SET_FMT_PTR(&x, &fmtPtr);
 				goto GOTO_PRINT_SWITCH;
@@ -10206,7 +10204,7 @@ GOTO_SPECIFIER_U:
 			case 'A': case 'a': {
 				vaValue.F64 = va_arg(va, f64);
 
-				char altForm[2] = {'0', si_cast(char, x + ('X' - 'A'))};
+				char altForm[2] = {'0', (char)(x + ('X' - 'A'))};
 				info.str = SI_STR_LEN(altForm, si_sizeof(altForm));
 				si__printStrCpy(&info);
 
