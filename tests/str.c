@@ -5,16 +5,20 @@
 
 void test_string(siAllocator alloc);
 void test_builder(siAllocator alloc);
+void test_conv(void);
 
 int main(void) {
 	siArena arena = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
 	siAllocator alloc = si_allocatorArena(&arena);
 
 	test_string(alloc);
+	test_conv();
 	test_builder(alloc);
 	
 	si_arenaFree(&arena);
 }
+
+
 
 #define test_str1 "qwertyqwerty"
 #define test_str2 "ąčęėįšųū„“"
@@ -358,6 +362,7 @@ void test_string(siAllocator alloc) {
 	TEST_COMPLETE();
 }
 
+
 void test_builder(siAllocator alloc) {
 	TEST_START();
 
@@ -536,9 +541,30 @@ void test_builder(siAllocator alloc) {
 
 		str = si_builderToStr(builder);
 		TEST_EQ_STR(str, SI_STR("a"));
-
-
 	} SUCCEEDED();
 	
 	TEST_COMPLETE();
+}
+
+SI_STATIC_ASSERT(SI_BASE_MAX == 64);
+
+void test_conv(void) {
+	{
+		siString str = SI_STR("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@$");
+		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_UPPER));
+		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
+
+		str = SI_STR("0123456789""abcdefghijklmnopqrstuvwxyz""ABCDEFGHIJKLMNOPQRSTUVWXYZ""@$");
+		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_LOWER));
+		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
+
+		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
+
+		si_numChangeTable(false);
+		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_LOWER);
+
+		si_numChangeTable(true);
+		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
+
+	} SUCCEEDED();
 }
