@@ -2519,7 +2519,7 @@ SIDEF siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen);
 
 
 /* The highest base that a number can be in. */
-#define SI_BASE_MAX 64
+#define SI_BASE_MAX 32
 
 /* A character lookup table for converting strings into integers. Size must be
  * 'SI_BASE_MAX'. */
@@ -2528,7 +2528,7 @@ SI_EXTERN const u8* SI_NUM_TO_CHAR_TABLE;
 /* Sets the lookup table state to use upper/lower characters when converting an
  * integer to a string. If 'upper' is set to true, converting '15' to base 16
  * would result in "FF", otherwise "ff". By default this is set to true. */
-SIDEF void si_numChangeTable(b32 upper);
+SIDEF void si_numEnableUpper(b32 upper);
 
 
 /* Converts a string into a base 10 unsigned integer. */
@@ -2984,10 +2984,10 @@ SIDEF b32 si_runeIsGraphical(siRune rune);
 /* Checks if the specified rune is NOT a letter, '@', '#' or '$'. */
 SIDEF b32 si_runeIsDelimiter(siRune rune);
 
-/* Converts a digit to an actual integer ('3' -> 3). Returns -1 otherwise. */
+/* Converts a digit to an integer ('3' -> 3). Returns -1 otherwise. */
 SIDEF i32 si_runeDigitToInt(siRune rune);
-/* Converts a hex digit into an actual integer ('F' -> 15). Returns -1 otherwise. */
-SIDEF i32 si_runeHexToInt(siRune rune);
+/* Converts a base-32 digit into an integer ('F' -> 15). Returns -1 otherwise. */
+SIDEF i32 si_runeBase32ToInt(siRune rune);
 
 
 
@@ -3024,8 +3024,8 @@ SIDEF b32 si_charIsDelimiter(char c);
 
 /* Converts '0'...'9' to an actual integer ('3' -> 3). */
 SIDEF i32 si_charDigitToInt(char c);
-/* Converts a hex digit into an actual integer ('F' -> 15). */
-SIDEF i32 si_charHexToInt(char c);
+/* Converts a base-32 digit into an integer ('F' -> 15). Returns -1 otherwise. */
+SIDEF i32 si_charBase32ToInt(char c);
 
 
 #endif /* SI_NO_CHAR */
@@ -7071,24 +7071,20 @@ siString si_stringLower(siString str, siAllocator alloc) {
 
 const u8 SI_NUM_TO_CHAR_TABLE_UPPER[SI_BASE_MAX + 1] =
 	"0123456789"
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"abcdefghijklmnopqrstuvwxyz"
-	"@$";
+	"ABCDEFGHIJKLMNOPQRSTUV";
 const u8 SI_NUM_TO_CHAR_TABLE_LOWER[SI_BASE_MAX + 1] =
 	"0123456789"
-	"abcdefghijklmnopqrstuvwxyz"
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"@$";
+	"abcdefghijklmnopqrstuv";
 const u8* SI_NUM_TO_CHAR_TABLE = (const u8*)SI_NUM_TO_CHAR_TABLE_UPPER;
 
 inline
-void si_numChangeTable(b32 upper) {
+void si_numEnableUpper(b32 upper) {
 	static const u8* choices[2] = {SI_NUM_TO_CHAR_TABLE_LOWER, SI_NUM_TO_CHAR_TABLE_UPPER};
 	SI_NUM_TO_CHAR_TABLE = choices[upper & true];
 }
 
 siIntern
-siString si__stringFromBits(u64 num, i32 base, b32 isSigned, siArray(u8) out) {
+siString si__stringFromBits(u64 num, i32 base, b32 isNegative, siArray(u8) out) {
 	SI_ASSERT(si_between(i64, base, 2, SI_BASE_MAX));
 	SI_ASSERT_ARR_TYPE(out, u8);
 
@@ -7103,7 +7099,7 @@ siString si__stringFromBits(u64 num, i32 base, b32 isSigned, siArray(u8) out) {
 		i -= 1;
 	} while (num != 0);
 
-	if (isSigned) {
+	if (isNegative) {
 		buf[i] = '-';
 		i -= 1;
 	}
@@ -7113,14 +7109,93 @@ siString si__stringFromBits(u64 num, i32 base, b32 isSigned, siArray(u8) out) {
 	return SI_STR_LEN(out.data, len);
 }
 
+siIntern
+u64 si__stringToBits(siString str, i32 base, isize* outInvalidIndex) {
+	SI_ASSERT_NOT_NIL(outInvalidIndex);
+	SI_ASSERT(base == -1 || (base >= 2 && base <= SI_BASE_MAX));
+
+	isize baseI = 0;
+	siRune r;
+	for_eachStrEx (r, i, str) {
+		if (!si_runeIsSpace(r)) {
+			baseI += i;
+			str = si_substrFrom(str, i);
+			break;
+		}
+	}
+
+	b32 isNeg;
+	if (str.len > 1) {
+		switch (str.data[0]) {
+			case '-': str = si_substrFrom(str, 1); isNeg = true; baseI += 1; break;
+			case '+': str = si_substrFrom(str, 1); isNeg = false; baseI += 1; break;
+			default: isNeg = false;
+		}
+	}
+	else {
+		isNeg = false;
+	}
+
+	if (str.len > 2 && str.data[0] == '0') {
+		switch (str.data[1]) {
+			case 'x': base = 16; str = si_substrFrom(str, 2); baseI += 2; break;
+			case 'z': base = 12; str = si_substrFrom(str, 2); baseI += 2; break;
+			case 'd': base = 10; str = si_substrFrom(str, 2); baseI += 2; break;
+			case 'o': base =  8; str = si_substrFrom(str, 2); baseI += 2; break;
+			case 'b': base =  2; str = si_substrFrom(str, 2); baseI += 2; break;
+			default:  base = 10;
+		}
+	}
+	else if (base == -1) {
+		base = 10;
+	}
+
+	u64 res = 0;
+	u64 base_u = (u64)base;
+	for_eachStrEx (r, i, str) {
+		if (r == '_') {
+			continue;
+		}
+		else if (r == ' ') {
+			isize oldI = i + baseI;
+			siUtf32Char tmp;
+			i += 1;
+
+			while (i < str.len) {
+				tmp = si_utf8Decode(&str.data[i]);
+				SI_STOPIF(!si_runeIsSpace(tmp.codepoint), break);
+				i += tmp.len;
+			}
+
+			*outInvalidIndex = (i >= str.len) ? -1 : oldI;
+			if (isNeg) { res = (u64)-res; }
+			return res;
+		}
+
+		i32 value = si_charBase32ToInt((char)r);
+		if (value >= base || value == -1) {
+			*outInvalidIndex = i + baseI;
+			if (isNeg) { res = (u64)-res; }
+			return res;
+		}
+
+		res *= base_u;
+		res += (u64)value;
+	}
+
+	*outInvalidIndex = -1;
+	if (isNeg) { res = (u64)-res; }
+	return res;
+}
+
 inline
 siString si_stringFromInt(i64 num, siArray(u8) out) {
 	return si_stringFromIntEx(num, 10, out);
 }
 SIDEF
 siString si_stringFromIntEx(i64 num, i32 base, siArray(u8) out) {
-	b32 isSigned = num < 0;
-	return si__stringFromBits(isSigned ? (u64)-num : (u64)num, base, isSigned, out);
+	b32 isNegative = num < 0;
+	return si__stringFromBits(isNegative ? (u64)-num : (u64)num, base, isNegative, out);
 }
 inline
 siString si_stringFromUInt(u64 num, siArray(u8) out) {
@@ -7136,84 +7211,27 @@ u64 si_stringToUInt(siString str) {
 	isize tmp;
 	return si_stringToUIntEx(str, &tmp);
 }
-
 inline
 u64 si_stringToUIntEx(siString str, isize* outInvalidIndex) {
 	return si_stringToUIntBase(str, -1, outInvalidIndex);
 }
-
 SIDEF
 u64 si_stringToUIntBase(siString str, i32 base, isize* outInvalidIndex) {
-	SI_ASSERT_NOT_NIL(outInvalidIndex);
-	SI_ASSERT(base == -1 || (base >= 2 && base <= SI_BASE_MAX));
+	return si__stringToBits(str, base, outInvalidIndex);
+}
 
-	siRune r;
-	for_eachStrEx (r, i, str) {
-		if (!si_runeIsSpace(r)) {
-			str = si_substrFrom(str, i);
-			break;
-		}
-	}
-
-	if (base == -1 && str.len > 2 && str.data[0] == '0') {
-		switch (str.data[1]) {
-			case 'x': base = 16; str = si_substrFrom(str, 2); break;
-			case 'z': base = 12; str = si_substrFrom(str, 2); break;
-			case 'd': base = 10; str = si_substrFrom(str, 2); break;
-			case 'o': base =  8; str = si_substrFrom(str, 2); break;
-			case 'b': base =  2; str = si_substrFrom(str, 2); break;
-			default:  base = 10;
-		}
-	}
-	else {
-		base = 10;
-	}
-
-	u64 res = 0;
-	u64 base_u = (u64)base;
-	for_eachStrEx (r, i, str) {
-		if (r == '_') {
-			continue;
-		}
-		else if (r == ' ') {
-			isize oldI = i;
-			siUtf32Char tmp;
-			i += 1;
-
-			while (i < str.len) {
-				tmp = si_utf8Decode(&str.data[i]);
-				SI_STOPIF(!si_runeIsSpace(tmp.codepoint), break);
-				i += tmp.len;
-			}
-			*outInvalidIndex = (i >= str.len) ? -1 : oldI;
-			return res;
-		}
-
-		i32 value;
-		if (r >= '0' && r <= '9') {
-			value = (r - '0');
-		}
-		else if (r >= 'a' && r <= 'z') {
-			value = (r - 'a' + 10);
-		}
-		else if (r >= 'A' && r <= 'Z') {
-			value = (r - 'A' + 10);
-		}
-		else {
-			value = (r - '@' + 62);
-		}
-
-		if (value >= base) {
-			*outInvalidIndex = i;
-			return res;
-		}
-
-		res *= base_u;
-		res += (u64)value;
-	}
-
-	*outInvalidIndex = -1;
-	return res;
+inline
+i64 si_stringToInt(siString str) {
+	isize tmp;
+	return si_stringToIntBase(str, -1, &tmp);
+}
+inline
+i64 si_stringToIntEx(siString str, isize* outInvalidIndex) {
+	return si_stringToIntBase(str, -1, outInvalidIndex);
+}
+SIDEF
+i64 si_stringToIntBase(siString str, i32 base, isize* outInvalidIndex) {
+	return (i64)si__stringToBits(str, base, outInvalidIndex);
 }
 
 inline
@@ -7556,33 +7574,6 @@ siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied
 #endif
 }
 
-
-
-inline
-i64 si_stringToInt(siString str) {
-	isize tmp;
-	return si_stringToIntBase(str, -1, &tmp);
-}
-inline
-i64 si_stringToIntEx(siString str, isize* outInvalidIndex) {
-	return si_stringToIntBase(str, -1, outInvalidIndex);
-}
-SIDEF
-i64 si_stringToIntBase(siString str, i32 base, isize* outInvalidIndex) {
-	SI_ASSERT_NOT_NIL(str.data);
-
-	switch (str.data[0]) {
-		case '-':
-			str = si_substrFrom(str, 1);
-			return -(i64)si_stringToUIntBase(str, base, outInvalidIndex);
-		case '+':
-			str = si_substrFrom(str, 1);
-			break;
-	}
-
-	return (i64)si_stringToUIntEx(str, outInvalidIndex);
-}
-
 #endif /* SI_IMPLEMENTATION_STRING */
 
 #ifdef SI_IMPLEMENTATION_OPTIONAL
@@ -7874,10 +7865,7 @@ siUtf8Char si_utf16Encode(const u16 character[2]) {
 #define SI__LETL SI_BIT(5) /* Lowercase letters. */
 #define SI__HEXA SI_BIT(6) /* Hexadecimal characters. */
 
-#define SI__LTXU (SI__LETU | SI__HEXA)
-#define SI__LTXL (SI__LETL | SI__HEXA)
 #define SI__CTRS (SI__CTRL | SI__SPAC)
-#define SI__NUMX (SI__NUME | SI__HEXA)
 
 const u8 characterTraits[SI_ASCII_MAX + 1] = {
 	SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL, SI__CTRL,
@@ -7892,17 +7880,17 @@ const u8 characterTraits[SI_ASCII_MAX + 1] = {
 	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
 	SI__PUNC, SI__PUNC, SI__PUNC,
 
-	SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX, SI__NUMX,
+	SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME, SI__NUME,
 
 	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
 
-	SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LTXU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU,
+	SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU,
 	SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU, SI__LETU,
 	SI__LETU, SI__LETU,
 
 	SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC, SI__PUNC,
 
-	SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LTXL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL,
+	SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL,
 	SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL, SI__LETL,
 	SI__LETL, SI__LETL,
 
@@ -8218,8 +8206,8 @@ i32 si_runeDigitToInt(siRune rune) {
 	return (rune <= SI_ASCII_MAX) ? si_charDigitToInt((char)rune) : -1;
 }
 inline
-i32 si_runeHexToInt(siRune rune) {
-	return (rune <= SI_ASCII_MAX) ? si_charHexToInt((char)rune) : -1;
+i32 si_runeBase32ToInt(siRune rune) {
+	return (rune <= SI_ASCII_MAX) ? si_charBase32ToInt((char)rune) : -1;
 }
 
 
@@ -8309,16 +8297,16 @@ i32 si_charDigitToInt(char c) {
 	return -1;
 }
 SIDEF
-i32 si_charHexToInt(char c) {
+i32 si_charBase32ToInt(char c) {
 	u8 trait = characterTraits[(u8)c];
 
 	if (trait & SI__NUME) {
 		return si_charDigitToInt(c);
 	}
-	else if ((trait & SI__LTXL) == SI__LTXL) {
+	else if ((trait & SI__LETL) == SI__LETL) {
 		return c - 'a' + 10;
 	}
-	else if ((trait & SI__LTXU) == SI__LTXU) {
+	else if ((trait & SI__LETU) == SI__LETU) {
 		return c - 'A' + 10;
 	}
 
@@ -8333,10 +8321,7 @@ i32 si_charHexToInt(char c) {
 #undef SI__LETL
 #undef SI__HEXA
 
-#undef SI__LTXU
-#undef SI__LTXL
 #undef SI__CTRS
-#undef SI__NUMX
 
 #endif /* SI_IMPLEMENTATION_CHAR */
 
@@ -10142,7 +10127,7 @@ GOTO_PRINT_SWITCH:
 
 			case 'x': case 'X':
 				base = 16;
-				si_numChangeTable(x != 'x');
+				si_numEnableUpper(x != 'x');
 				goto GOTO_SPECIFIER_U;
 			case 'O': case 'o':
 				base = 8;
@@ -10167,7 +10152,7 @@ GOTO_SPECIFIER_U:
 				info.str = si_stringFromUIntEx(vaValue.U64, base, stack);
 				si__printStrToBuf(&info);
 
-				si_numChangeTable(true);
+				si_numEnableUpper(true);
 			} break;
 
 			case 'i': case 'd': {

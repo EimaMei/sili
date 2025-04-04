@@ -49,7 +49,7 @@ int main(void) {
 			bool_deli = si_charIsDelimiter(x);
 
 		i32 conv_digit = si_charDigitToInt(x),
-			conv_hex = si_charHexToInt(x);
+			conv_hex = si_charBase32ToInt(x);
 
 		si_printf("%i: '%c' '%c' '%c'\n", x, x, res_lower, expected_lower[i]);
 		SI_ASSERT(res_upper == expected_upper[i]);

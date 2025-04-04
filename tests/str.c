@@ -14,7 +14,7 @@ int main(void) {
 	test_string(alloc);
 	test_conv();
 	test_builder(alloc);
-	
+
 	si_arenaFree(&arena);
 }
 
@@ -134,13 +134,13 @@ void test_string(siAllocator alloc) {
 
 	{
 		siString str = SI_STR(test_str);
-		
+
 		siRune rune = si_stringAtFront(str);
 		TEST_EQ_CHAR(rune, test_str_utf32[0]);
-		
+
 		rune = si_stringAtBack(str);
 		TEST_EQ_CHAR(rune, test_str_utf32[countof(test_str_utf32) - 1]);
-		
+
 		const u8* ptr = si_stringBegin(str);
 		TEST_EQ_PTR(ptr, str.data);
 
@@ -149,10 +149,10 @@ void test_string(siAllocator alloc) {
 
 
 		str = SI_STR_EMPTY;
-		
+
 		rune = si_stringAtFront(str);
 		TEST_EQ_CHAR(rune,  -1);
-		
+
 		rune = si_stringAtBack(str);
 		TEST_EQ_CHAR(rune, -1);
 	} SUCCEEDED();
@@ -195,7 +195,7 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_ISIZE(i, countof_str("qwer"));
 		i = si_stringFind(str, SI_STR("sdfdf"));
 		TEST_EQ_ISIZE(i, -1);
-		
+
 		i = si_stringFindByte(str, '_');
 		TEST_EQ_ISIZE(i, countof_str(test_str1));
 		i = si_stringFindByte(str, '0');
@@ -210,7 +210,7 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwer"));
 		i = si_stringFindLast(str, SI_STR("sdfdf"));
 		TEST_EQ_ISIZE(i, -1);
-		
+
 		i = si_stringFindLastByte(str, '_');
 		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“"));
 		i = si_stringFindLastByte(str, '0');
@@ -234,7 +234,7 @@ void test_string(siAllocator alloc) {
 
 		res = si_stringEqual(str, SI_STR("dWgaOtP12df0"));
 		TEST_EQ_ISIZE(res, 0);
-	
+
 		res = si_stringEqual(str, SI_STR("DWgaOtP12df0"));
 		TEST_EQ_ISIZE(res, 1);
 
@@ -243,10 +243,10 @@ void test_string(siAllocator alloc) {
 
 		i32 code = si_stringCompare(str, SI_STR("DWGAOTP12DF0"));
 		SI_ASSERT(code > 0);
-		
+
 		code = si_stringCompare(SI_STR("DWGAOTP12DF0"), str);
 		SI_ASSERT(code < 0);
-	
+
 		code = si_stringCompare(str, SI_STR("DWgaOtP12df0"));
 		TEST_EQ_ISIZE(code, 0);
 
@@ -264,7 +264,7 @@ void test_string(siAllocator alloc) {
 
 		res = si_stringTrimRight(str, SI_STR(trim_l));
 		TEST_EQ_STR(res, SI_STR(trim_l test_str));
-	
+
 		res = si_stringTrim(str, SI_STR(trim_l));
 		TEST_EQ_STR(res, SI_STR(test_str));
 
@@ -274,7 +274,7 @@ void test_string(siAllocator alloc) {
 
 		res = si_stringStripRight(str);
 		TEST_EQ_STR(res, SI_STR(trim_s test_str));
-	
+
 		res = si_stringStrip(str);
 		TEST_EQ_STR(res, SI_STR(test_str));
 
@@ -284,7 +284,7 @@ void test_string(siAllocator alloc) {
 
 	{
 		siString res;
-		
+
 		res = si_stringJoin(SI_ARR(siString, SI_STR(test_str1), SI_STR(test_str2), SI_STR(test_str3)), SI_STR("_"), alloc);
 		TEST_EQ_STR(res, SI_STR(test_str));
 
@@ -346,18 +346,18 @@ void test_string(siAllocator alloc) {
 	} SUCCEEDED();
 
 	{
-        siString res = si_stringReverse(SI_STR("helloWORLD123"), alloc);
-        TEST_EQ_STR(res, SI_STR("321DLROWolleh"));
+		siString res = si_stringReverse(SI_STR("helloWORLD123"), alloc);
+		TEST_EQ_STR(res, SI_STR("321DLROWolleh"));
 
-        res = si_stringReverse(SI_STR("ĄČĘĖĮŠŲŪ„“йцук"), alloc);
-        TEST_EQ_STR(res, SI_STR("куцй“„ŪŲŠĮĖĘČĄ"));
+		res = si_stringReverse(SI_STR("ĄČĘĖĮŠŲŪ„“йцук"), alloc);
+		TEST_EQ_STR(res, SI_STR("куцй“„ŪŲŠĮĖĘČĄ"));
 
-        res = si_stringUpper(SI_STR("helloĄČĘ123йц"), alloc);
-        TEST_EQ_STR(res, SI_STR("HELLOĄČĘ123ЙЦ"));
+		res = si_stringUpper(SI_STR("helloĄČĘ123йц"), alloc);
+		TEST_EQ_STR(res, SI_STR("HELLOĄČĘ123ЙЦ"));
 
-        res = si_stringLower(SI_STR("helloĄČĘ123йц"), alloc);
-        TEST_EQ_STR(res, SI_STR("helloąčę123йц"));
-    } SUCCEEDED();
+		res = si_stringLower(SI_STR("helloĄČĘ123йц"), alloc);
+		TEST_EQ_STR(res, SI_STR("helloąčę123йц"));
+	} SUCCEEDED();
 
 	TEST_COMPLETE();
 }
@@ -368,14 +368,14 @@ void test_builder(siAllocator alloc) {
 
 	{
 		siBuilder builder = si_builderMake(16, alloc);
-		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_N_EQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
 		TEST_EQ_ISIZE(builder.capacity, 16);
 		TEST_EQ_ISIZE(builder.grow, 0);
 		builder = si_builderMakeLen(5, 16, alloc);
-		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_N_EQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 5);
@@ -383,7 +383,7 @@ void test_builder(siAllocator alloc) {
 		TEST_EQ_ISIZE(builder.grow, 0);
 
 		builder = si_builderMakeGrow(32, 16, alloc);
-		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_N_EQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
@@ -391,7 +391,7 @@ void test_builder(siAllocator alloc) {
 		TEST_EQ_ISIZE(builder.grow, 32);
 
 		builder = si_builderMakeNone(alloc);
-		TEST_EQ_PTR(builder.alloc.proc, alloc.proc); 
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_EQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
@@ -399,7 +399,7 @@ void test_builder(siAllocator alloc) {
 		TEST_EQ_ISIZE(builder.grow, 0);
 
 		builder = si_builderMakeEx(0, 0, si_allocatorGetAvailableMem(alloc) + 1, alloc);
-		TEST_EQ_PTR(builder.alloc.proc, nil); 
+		TEST_EQ_PTR(builder.alloc.proc, nil);
 		TEST_EQ_PTR(builder.alloc.data, nil);
 		TEST_EQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
@@ -436,7 +436,7 @@ void test_builder(siAllocator alloc) {
 		siAllocationError res;
 
 		builder = si_builderMake(4, alloc);
-		
+
 		res = si_builderWriteByte(&builder, 'A');
 		TEST_EQ_ISIZE(builder.len, countof_str("A"));
 
@@ -455,7 +455,7 @@ void test_builder(siAllocator alloc) {
 
 		siString str = si_builderToStr(builder);
 		TEST_EQ_STR(SI_STR("ABCDEFGą"), str);
-		
+
 		char* cstr = si_builderToCstr(&builder);
 		TEST_EQ_STR(SI_STR("ABCDEFGą"), SI_CSTR(cstr));
 		TEST_EQ_CHAR(cstr[builder.len], '\0');
@@ -542,29 +542,189 @@ void test_builder(siAllocator alloc) {
 		str = si_builderToStr(builder);
 		TEST_EQ_STR(str, SI_STR("a"));
 	} SUCCEEDED();
-	
+
 	TEST_COMPLETE();
 }
 
-SI_STATIC_ASSERT(SI_BASE_MAX == 64);
+SI_STATIC_ASSERT(SI_BASE_MAX == 32);
+
+void TEST_UINT(siString str, u64 expectedNum);
+void TEST_UINT_EX(siString str, u64 expectedNum, isize expectedIndex);
+void TEST_UINT_BASE(siString str, i32 base, u64 expectedNum, isize expectedIndex);
+
+#define TEST_UINT(str, expectedNum) \
+	TEST_UINT_EX(str, expectedNum, -2)
+
+#define TEST_UINT_EX(str, expectedNum, expectedIndex) \
+	TEST_UINT_BASE(str, -1, expectedNum, expectedIndex)
+
+#define TEST_UINT_BASE(str,  base, expectedNum, expectedIndex) \
+	do { \
+		isize invalidIndex; \
+		\
+		u64 num = si_stringToUIntBase(str, base, &invalidIndex); \
+		TEST_EQ_U64(num, expectedNum); \
+		if (expectedIndex != -2) { \
+			TEST_EQ_ISIZE(invalidIndex, expectedIndex); \
+		} \
+	} while (0)
+
+#define TEST_INT(str, expectedNum) \
+	TEST_INT_EX(str, expectedNum, -2)
+
+#define TEST_INT_EX(str, expectedNum, expectedIndex) \
+	TEST_INT_BASE(str, -1, expectedNum, expectedIndex)
+
+#define TEST_INT_BASE(str,  base, expectedNum, expectedIndex) \
+	do { \
+		isize invalidIndex; \
+		\
+		i64 num = si_stringToIntBase(str, base, &invalidIndex); \
+		TEST_EQ_I64(num, expectedNum); \
+		if (expectedIndex != -2) { \
+			TEST_EQ_ISIZE(invalidIndex, expectedIndex); \
+		} \
+	} while (0)
 
 void test_conv(void) {
+	TEST_START();
+
 	{
-		siString str = SI_STR("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@$");
+		siString str = SI_STR("0123456789ABCDEFGHIJKLMNOPQRSTUV");
 		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_UPPER));
 		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
 
-		str = SI_STR("0123456789""abcdefghijklmnopqrstuvwxyz""ABCDEFGHIJKLMNOPQRSTUVWXYZ""@$");
+		str = SI_STR("0123456789""abcdefghijklmnopqrstuv");
 		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_LOWER));
 		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
 
 		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
 
-		si_numChangeTable(false);
+		si_numEnableUpper(false);
 		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_LOWER);
 
-		si_numChangeTable(true);
+		si_numEnableUpper(true);
 		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
 
 	} SUCCEEDED();
+
+	{
+		TEST_UINT(SI_STR("12345"), 12345);
+		TEST_UINT(SI_STR("0"), 0);
+		TEST_UINT(SI_STR("999_999_999_999_999_999"), 999999999999999999);
+		TEST_UINT(SI_STR("18446744073709551615"), UINT64_MAX);
+		TEST_UINT(SI_STR("18!446744073709551615"), 18);
+
+		TEST_UINT_EX(SI_STR("1234a56"), 1234, 4);
+		TEST_UINT_EX(SI_STR("9876543210"), 9876543210, -1);
+		TEST_UINT_EX(SI_STR("123!456"), 123, 3);
+		TEST_UINT_EX(SI_STR("abc123"), 0, 0);
+
+
+		TEST_UINT_BASE(SI_STR("1V"), 32, 63, -1);
+		TEST_UINT_BASE(SI_STR("VVVVVVVVVVVVV"), 32, UINT64_MAX, -1);
+
+		TEST_UINT_BASE(SI_STR("0x1A3F"), -1, 0x1A3F, -1);
+		TEST_UINT_BASE(SI_STR("0xFFAA"), -1, 0xFFAA, -1);
+		TEST_UINT_BASE(SI_STR("0xFF!AA"), -1, 0xFF, 4);
+		TEST_UINT_BASE(SI_STR("   FFFFFFFFFFFFFFFF   "), 16, UINT64_MAX, -1);
+
+		TEST_UINT_BASE(SI_STR("0z123"), -1, 171, -1);
+		TEST_UINT_BASE(SI_STR("123"), 12, 171, -1);
+		TEST_UINT_BASE(SI_STR("839365134A2A240713"), 12, UINT64_MAX, -1);
+
+		TEST_UINT_BASE(SI_STR("0d9876"), -1, 9876, -1);
+		TEST_UINT_BASE(SI_STR("0d98!76"), -1, 98, 4);
+		TEST_UINT_BASE(SI_STR("12345"), 10, 12345, -1);
+		TEST_UINT_BASE(SI_STR("18446744073709551615"), 10, UINT64_MAX, -1);
+
+		TEST_UINT_BASE(SI_STR("0o755"), -1, 0755, -1);
+		TEST_UINT_BASE(SI_STR("0o75!5"), -1, 075, 4);
+		TEST_UINT_BASE(SI_STR("755"), 8, 0755, -1);
+		TEST_UINT_BASE(SI_STR("1777777777777777777777"), 8, UINT64_MAX, -1);
+
+		TEST_UINT_BASE(SI_STR("+0b1101"), -1, 13, -1);
+		TEST_UINT_BASE(SI_STR("0b11!01"), -1, 3, 4);
+		TEST_UINT_BASE(SI_STR("1101"), 2, 13, -1);
+		TEST_UINT_BASE(SI_STR("11012"), 2, 13, 4);
+		TEST_UINT_BASE(SI_STR("1111111111111111111111111111111111111111111111111111111111111111"), 2, UINT64_MAX, -1);
+	} SUCCEEDED();
+
+	{
+		TEST_INT(SI_STR("12345"), 12345);
+		TEST_INT(SI_STR("0"), 0);
+		TEST_INT(SI_STR("-999_999_999_999"), -999999999999);
+		TEST_INT(SI_STR("-9223372036854775808"), INT64_MIN);
+		TEST_INT(SI_STR("9223372036854775807"), INT64_MAX);
+		TEST_INT(SI_STR("-42!999"), -42);
+
+		TEST_INT_EX(SI_STR("1234a56"), 1234, 4);
+		TEST_INT_EX(SI_STR("-98765z43210"), -98765, 6);
+		TEST_INT_EX(SI_STR("123!456"), 123, 3);
+		TEST_INT_EX(SI_STR("-abc123"), 0, 1);
+
+		TEST_INT_BASE(SI_STR("1V"), 32, 63, -1);
+		TEST_INT_BASE(SI_STR("7VVVVVVVVVVVV"), 32, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("-8000000000000"), 32, INT64_MIN, -1);
+
+		TEST_INT_BASE(SI_STR("0x1A3F"), -1, 0x1A3F, -1);
+		TEST_INT_BASE(SI_STR("-0xFFAA"), -1, -0xFFAA, -1);
+		TEST_INT_BASE(SI_STR("   7FFFFFFFFFFFFFFF   "), 16, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("   -8000000000000000   "), 16, INT64_MIN, -1);
+
+		TEST_INT_BASE(SI_STR("0z123"), -1, 171, -1);
+		TEST_INT_BASE(SI_STR("-0z123"), -1, -171, -1);
+		TEST_INT_BASE(SI_STR("123"), 12, 171, -1);
+		TEST_INT_BASE(SI_STR("-123"), 12, -171, -1);
+		TEST_INT_BASE(SI_STR("41A792678515120367"), 12, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("-41A792678515120368"), 12, INT64_MIN, -1);
+
+		TEST_INT_BASE(SI_STR("0d-9876"), -1, 0, 2);
+		TEST_INT_BASE(SI_STR("-0d9876"), -1, -9876, -1);
+		TEST_INT_BASE(SI_STR("-12345"), 10, -12345, -1);
+		TEST_INT_BASE(SI_STR("9223372036854775807"), 10, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("-9223372036854775808"), 10, INT64_MIN, -1);
+
+		TEST_INT_BASE(SI_STR("0o755"), -1, 0755, -1);
+		TEST_INT_BASE(SI_STR("-0o755"), -1, -0755, -1);
+		TEST_INT_BASE(SI_STR("777777777777777777777"), 8, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("-1000000000000000000000"), 8, INT64_MIN, -1);
+
+		TEST_INT_BASE(SI_STR("0b1101"), -1, 13, -1);
+		TEST_INT_BASE(SI_STR("-0b1101"), -1, -13, -1);
+		TEST_INT_BASE(SI_STR("1101"), 2, 13, -1);
+		TEST_INT_BASE(SI_STR("-1101"), 2, -13, -1);
+		TEST_INT_BASE(SI_STR("111111111111111111111111111111111111111111111111111111111111111"), 2, INT64_MAX, -1);
+		TEST_INT_BASE(SI_STR("-1000000000000000000000000000000000000000000000000000000000000000"), 2, INT64_MIN, -1);
+	} SUCCEEDED();
+
+	{
+		siString str;
+
+		str = si_stringFromBool(true);
+		TEST_EQ_STR(str, SI_STR("true"));
+		str = si_stringFromBool(true + 2);
+		TEST_EQ_STR(str, SI_STR("true"));
+
+		str = si_stringFromBool(false);
+		TEST_EQ_STR(str, SI_STR("false"));
+		str = si_stringFromBool(false + 2);
+		TEST_EQ_STR(str, SI_STR("false"));
+
+		siString trues[] = {SI_STR("1"), SI_STR("t"), SI_STR("T"), SI_STR("true"), SI_STR("True")};
+		siString falses[countof(trues)] = {SI_STR("0"), SI_STR("f"), SI_STR("F"), SI_STR("false"), SI_STR("False")};
+
+		for_range (i, 0, countof(trues)) {
+			b32 res = si_stringToBool(trues[i]);
+			TEST_EQ_U32(res, true);
+
+			res = si_stringToBool(falses[i]);
+			TEST_EQ_U32(res, false);
+		}
+
+		b32 res = si_stringToBool(SI_STR("tru"));
+		TEST_EQ_U32(res, UINT32_MAX);
+	} SUCCEEDED();
+
+	TEST_COMPLETE();
 }
