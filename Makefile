@@ -4,7 +4,7 @@ AR = ar
 OUTPUT = build
 NAME = sili
 
-GNU_FLAGS = -std=c99 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -O3 -Wall -Wextra -Wpedantic \
 	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -24,8 +24,15 @@ GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
 GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a "$(OUTPUT)/$(NAME).o"
 GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)"
 
+ifneq (,$(filter $(CC), g++ clang++))
+	GNU_FLAGS += -std=c++20 -x c++
+else 
+	GNU_FLAGS += -std=c99 -x c
+endif
+
+
 DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-mingw32-gcc x86_64-w64-mingw32-g++))
+ifneq (,$(filter $(CC),w64gcc x86_64-w64-mingw32-gcc w32gcc i686-w64-mingw32-gcc))
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
@@ -85,7 +92,7 @@ else ifeq ($(DETECTED_OS),Darwin)
 	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
 	DLL_FLAGS = $(GNU_DLL_FLAGS)
 	AR_FLAGS = $(GNU_AR_FLAGS)
-	DLL_EXT = .so
+	DLL_EXT = .dylib
 	CC_OUT = -o
 
 else ifeq ($(DETECTED_OS),Linux)

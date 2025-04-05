@@ -1,9 +1,11 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
+#include <tests/test.h>
 
 SI_STATIC_ASSERT(SI_ASCII_MAX == 0x7F);
 
 int main(void) {
+	TEST_START();
 	static const char expected_lower[0x80] = {
 	    '\0', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07',
 	    '\x08', '\x09', '\x0A', '\x0B', '\x0C', '\x0D', '\x0E', '\x0F',
@@ -51,105 +53,45 @@ int main(void) {
 		i32 conv_digit = si_charDigitToInt(x),
 			conv_hex = si_charBase32ToInt(x);
 
-		si_printf("%i: '%c' '%c' '%c'\n", x, x, res_lower, expected_lower[i]);
-		SI_ASSERT(res_upper == expected_upper[i]);
-		SI_ASSERT(res_lower == expected_lower[i]);
+		//si_printf("%i: '%c' '%c' '%c'\n", x, x, res_lower, expected_lower[i]);
+		TEST_EQ_CHAR(res_upper, expected_upper[i]);
+		TEST_EQ_CHAR(res_lower, expected_lower[i]);
 
-		if (bool_upper == true) {
-			SI_ASSERT(si_between(i8, x, 'A', 'Z'));
-		}
-		else if (bool_lower == true) {
-			SI_ASSERT(si_between(i8, x, 'a', 'z'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, 'A', 'Z') && !si_between(i8, x, 'a', 'z'));
-			SI_ASSERT(bool_upper == false && bool_lower == false);
-		}
+		TEST_EQ_U32(si_between(i8, x, 'A', 'Z'), bool_upper);
+		TEST_EQ_U32(si_between(i8, x, 'a', 'z'), bool_lower);
+		TEST_EQ_U32(si_between(i8, x, '\t', '\r') || x == ' ', bool_space);
+		TEST_EQ_U32(si_between(i8, x, '0', '9'), bool_digit);
+		TEST_EQ_U32(si_between(i8, x, '0', '9') || si_between(i8, x, 'a', 'f') || si_between(i8, x, 'A', 'F'), bool_hex);
+		TEST_EQ_U32(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z'), bool_alpha);
+		TEST_EQ_U32(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z') || si_between(i8, x, '0', '9'), bool_alphanum);
+		TEST_EQ_U32(si_between(i8, x, '!', '/') || si_between(i8, x, ':', '@') || si_between(i8, x, '[', '`') || si_between(i8, x, '{', '~'), bool_punc);
+		TEST_EQ_U32(si_between(i8, x, '\0', '\x1F') || x == '\x7F', bool_ctrl);
+		TEST_EQ_U32(bool_alphanum || bool_punc || bool_space, bool_prnt);
+		TEST_EQ_U32(bool_alphanum || bool_punc, bool_grap);
 
-		if (bool_space) {
-			SI_ASSERT(si_between(i8, x, '\t', '\r') || x == ' ');
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, '\t', '\r') && x != ' ');
-		}
-
-		if (bool_digit) {
-			SI_ASSERT(si_between(i8, x, '0', '9'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, '0', '9'));
-		}
-
-		if (bool_hex) {
-			SI_ASSERT(si_between(i8, x, '0', '9') || si_between(i8, x, 'a', 'f') || si_between(i8, x, 'A', 'F'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, '0', '9') && !si_between(i8, x, 'a', 'f') && !si_between(i8, x, 'A', 'F'));
-		}
-
-		if (bool_alpha) {
-			SI_ASSERT(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, 'a', 'z') && !si_between(i8, x, 'A', 'Z'));
-		}
-
-		if (bool_alphanum) {
-			SI_ASSERT(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z') || si_between(i8, x, '0', '9'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, 'a', 'z') && !si_between(i8, x, 'A', 'Z') && !si_between(i8, x, '0', '9'));
-		}
-
-		if (bool_punc) {
-			SI_ASSERT(si_between(i8, x, '!', '/') || si_between(i8, x, ':', '@') || si_between(i8, x, '[', '`') || si_between(i8, x, '{', '~'));
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, '!', '/') && !si_between(i8, x, ':', '@') && !si_between(i8, x, '[', '`') && !si_between(i8, x, '{', '~'));
-		}
-
-		if (bool_ctrl) {
-			SI_ASSERT(si_between(i8, x, '\0', '\x1F') || x == '\x7F');
-		}
-		else {
-			SI_ASSERT(!si_between(i8, x, '\0', '\x1F') && x != '\x7F');
-		}
-
-		if (bool_prnt) {
-			SI_ASSERT(bool_alphanum || bool_punc || bool_space);
-		}
-		else {
-			SI_ASSERT(!bool_alphanum && !bool_punc && !bool_space);
-		}
-
-		if (bool_grap) {
-			SI_ASSERT(bool_alphanum || bool_punc);
-		}
-		else {
-			SI_ASSERT(!bool_alphanum && !bool_punc);
-		}
-
-		if (bool_deli) {
-			SI_ASSERT(!bool_alphanum && x != '@' && x != '#' && x != '$');
-		}
-		else {
-			SI_ASSERT(bool_alphanum || x == '@' || x == '#' || x == '$');
-		}
+		TEST_EQ_U32(bool_alphanum || x == '@' || x == '#' || x == '$', !bool_deli);
 
 		if (conv_digit != -1) {
-			SI_ASSERT(bool_digit && conv_digit == (x - '0'));
+			TEST_EQ_CHAR(conv_digit, (x - '0'));
 		}
 		else {
-			SI_ASSERT(!bool_digit);
+			TEST_EQ_U32(bool_digit, false);
 		}
 
 		if (conv_hex != -1) {
-			SI_ASSERT(bool_hex && ((bool_digit && conv_hex == (x  - '0')) || (bool_upper && conv_hex == (x - 'A' + 10)) || (bool_lower && conv_hex == (x - 'a' + 10))));
+			// TEST_EQ_U32(bool_hex, true);
+			if (bool_digit) {
+				TEST_EQ_CHAR(conv_hex, (x  - '0'));
+			} else if (bool_upper) {
+				TEST_EQ_CHAR(conv_hex, (x  - 'A' + 10));
+			} else if (bool_lower) {
+				TEST_EQ_CHAR(conv_hex, (x  - 'a' + 10));
+			}
 		}
 		else {
 			SI_ASSERT(!bool_hex);
 		}
 	}
 
-	si_printf("%CTest '" __FILE__ "' has been completed!%C\n", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false));
+	TEST_COMPLETE();
 }
