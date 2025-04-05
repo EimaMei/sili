@@ -77,8 +77,8 @@ jobs:
         
         # Join sili and arm64 dynamic
         rm -f ./build/lib/*
-        lipo -create -output libsili.so /tmp/libsili_x86_64.so /tmp/libsili_arm64.so
-        ln -sv libsili.so  build/${{ env.RELEASE_NAME }}/lib/libsili.so
+        lipo -create -output libsili.dylib /tmp/libsili_x86_64.dylib /tmp/libsili_arm64.dylib
+        ln -sv libsili.dylib  build/${{ env.RELEASE_NAME }}/lib/libsili.dylib
   
     - name: Generate Artifacts
       run: |
