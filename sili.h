@@ -631,7 +631,7 @@ extern "C" {
 	typedef u32 b32;
 	typedef u64 b64;
 
-	#if SI_STANDARD_CHECK_MAX(C, C17)
+	#if !defined(bool) && SI_STANDARD_CHECK_MAX(C, C17)
 	typedef b8 bool;
 	#endif
 #endif
@@ -960,21 +960,21 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	========================
 */
 
-#ifdef si_swapEx
+#ifndef si_swapEx
 	/* a - VARIABLE | b - VARIABLE | typeSize - isize
 	 * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
 	#define si_swapEx(a, b, typeSize) do { \
 		SI_ASSERT(si_sizeof(a) == si_sizeof(b)); \
 		SI_ASSERT(si_sizeof(a) == typeSize); \
-		char tmp[si_sizeof(a)]; \
-		si_memcopy(tmp, &(a), si_sizeof(a)); \
-		si_memcopy(&(a), &(b), si_sizeof(a)); \
-		si_memcopy(&(b), tmp, si_sizeof(a)); \
+		char tmp[typeSize]; \
+		si_memcopy(tmp, &(a), typeSize); \
+		si_memcopy(&(a), &(b), typeSize); \
+		si_memcopy(&(b), tmp, typeSize); \
 	} while (0)
 
 #endif
 
-/* a - VARIABLE | b - VARIABLE 
+/* a - VARIABLE | b - VARIABLE
  * Swaps the value of 'a' with 'b'; 'b' with 'a'. */
 #define si_swap(a, b) si_swapEx(a, b, si_sizeof(a))
 
