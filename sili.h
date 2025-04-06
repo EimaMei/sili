@@ -5115,7 +5115,7 @@ void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize siz
 	siAllocationError tmp;
 	return si_reallocExNonZeroed(alloc, ptr, sizeOld, sizeNew, &tmp);
 }
-SIDEF
+inline
 void* si_reallocExNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew, siAllocationError* outError) {
 	SI_ASSERT_NOT_NIL(ptr);
 	SI_ASSERT_NOT_NEG(sizeOld);
@@ -5126,7 +5126,7 @@ void* si_reallocExNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize s
 }
 
 
-inline
+SIDEF
 isize si_allocatorGetAvailableMem(siAllocator alloc) {
 	siAllocationError err;
 	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, alloc.data, &err);
@@ -6261,7 +6261,7 @@ siString siString::substrLen(isize offset1, isize length) {
 }
 #endif
 
-inline
+SIDEF
 siUtf32Char si__stringLastRune(siString str) {
 	SI_ASSERT_MSG(str.len > 0, "This function doesn't check for if the length is zero. Fix your function.");
 
@@ -6306,7 +6306,7 @@ siBuilder si_builderMakeGrow(isize grow, isize capacity, siAllocator alloc) {
 	return si_builderMakeEx(0, grow, capacity, alloc);
 }
 
-inline
+SIDEF
 siBuilder si_builderMakeEx(isize len, isize grow, isize capacity, siAllocator alloc) {
 	SI_ASSERT_NOT_NEG(len);
 	SI_ASSERT_NOT_NEG(grow);
@@ -6716,10 +6716,10 @@ i32 si_stringCompare(siString lhs, siString rhs) {
 	return si_memcompare(lhs.data, rhs.data, si_min(isize, lhs.len, rhs.len));
 }
 
-inline
+SIDEF
 b32 si_stringEqual(siString lhs, siString rhs) {
-	SI_STOPIF(lhs.len != rhs.len, return false);
-	SI_STOPIF(lhs.data == rhs.data, return true);
+	if (lhs.len != rhs.len) { return false; }
+	if (lhs.data == rhs.data) { return true; }
 
 	return si_memcompare(lhs.data, rhs.data, lhs.len) == 0;
 }
@@ -8679,7 +8679,7 @@ void si_mapFree(siMapAny map) {
 	def u16 si__##func##_u16(u16 x) { u64 res = 0; body return (u16)res; } \
 	def u32 si__##func##_u32(u32 x) { u64 res = 0; body return (u32)res; } \
 	def u64 si__##func##_u64(u64 x) { u64 res = 0; body return (u64)res; } \
-	def usize si__##func##_usize(usize x) { u64 res = 0; body return (u64)res; }
+	def usize si__##func##_usize(usize x) { usize res = 0; body return (u64)res; }
 
 SI_BIT_DEC(countOnes, inline, {
 	isize count = 0;
@@ -9174,7 +9174,7 @@ i64 si_RDTSCP(i32* proc) {
 }
 
 
-inline
+SIDEF
 siTime si_clock(void) {
 	u64 ticks = (u64)si_RDTSC();
 	u32 proc = (u32)si_cpuClockSpeed(); /* TODO(EimaMei): Remove this later. */
@@ -9198,18 +9198,18 @@ void si_timeStampPrintSinceLoc(siTime timestamp, siCallerLoc loc) {
 	);
 }
 
-inline
+SIDEF
 void si_sleep(siTime time) {
 	SI_ASSERT_NOT_NEG(time);
-	SI_STOPIF(time == 0, return);
 
 #if SI_SYSTEM_IS_WINDOWS
 	if (time < SI_MILLISECOND) { return; }
 
-	u32 ms = (u32)(time / SI_MILLISECOND);
-	Sleep(ms);
+	Sleep((u32)time / SI_MILLISECOND);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	if (time == 0) { return; }
+
 	struct timespec ts = {
 		time / SI_SECOND,
 		(time % SI_SECOND)
@@ -9217,7 +9217,9 @@ void si_sleep(siTime time) {
 	nanosleep(&ts, &ts);
 
 #elif SI_SYSTEM_WASI
-	__wasi_subscription_t in = {0};
+	if (time == 0) { return; }
+
+	__wasi_subscription_t in = SI_STRUCT_ZERO;
 	in.u.tag = __WASI_EVENTTYPE_CLOCK;
 	in.u.u.clock.id = __WASI_CLOCKID_MONOTONIC;
 	in.u.u.clock.timeout = time;
@@ -9282,7 +9284,7 @@ siTime si_timeNowLocal(void) {
 #endif
 }
 
-inline
+SIDEF
 b32 si_timeYearIsLeap(i32 year) {
 	return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }

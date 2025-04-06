@@ -32,7 +32,7 @@ endif
 ifeq ($(DEBUG),1)
 	GNU_FLAGS += -fsanitize=undefined
 else
-	GNU_FLAGS += -O3
+	GNU_FLAGS += -O3 -D SI_RELEASE_MODE
 endif
 
 
@@ -56,7 +56,7 @@ else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe
 	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
 	INCLUDES = -I"." -I"include"
 	ifeq ($(DEBUG),0)
-		FLAGS += /O2
+		FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
 	endif
 
 	LIBS =

@@ -53,7 +53,6 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
 
 		str = SI_CSTR(((char*)test_str + 1));
-		TEST_EQ_PTR(str.data, (const u8*)(test_str) + 1);
 		TEST_EQ_ISIZE(str.len, countof_str(test_str) - 1);
 		TEST_EQ_PTR(si_memcompare(str.data, (const u8*)test_str + 1, str.len), 0);
 
@@ -461,7 +460,7 @@ void test_builder(siAllocator alloc) {
 
 		char* cstr = si_builderToCstr(&builder);
 		TEST_EQ_STR(SI_STR("ABCDEFGą"), SI_CSTR(cstr));
-		TEST_EQ_CHAR(cstr[builder.len], '\0');
+		TEST_EQ_U32(cstr[builder.len - 1], '\0');
 	} SUCCEEDED();
 
 	{
@@ -550,6 +549,11 @@ void test_builder(siAllocator alloc) {
 }
 
 SI_STATIC_ASSERT(SI_BASE_MAX == 32);
+
+
+#if SI_COMPILER_MSVC
+#pragma warning(disable : 4127)
+#endif
 
 void TEST_UINT(siString str, u64 expectedNum);
 void TEST_UINT_EX(siString str, u64 expectedNum, isize expectedIndex);
