@@ -3,8 +3,9 @@ AR = ar
 
 OUTPUT = build
 NAME = sili
+DEBUG = 0
 
-GNU_FLAGS = -O3 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -Wall -Wextra -Wpedantic \
 	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -15,9 +16,7 @@ GNU_FLAGS = -O3 -Wall -Wextra -Wpedantic \
 	\
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
 	\
-	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
-	\
-	-fsanitize=undefined
+	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn
 GNU_INCLUDES = -I"." -I"include"
 
 GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
@@ -26,9 +25,16 @@ GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)
 
 ifneq (,$(filter $(CC), g++ clang++))
 	GNU_FLAGS += -std=c++20 -x c++
-else 
+else
 	GNU_FLAGS += -std=c99 -x c
 endif
+
+ifeq ($(DEBUG),1)
+	GNU_FLAGS += -fsanitize=undefined
+else
+	GNU_FLAGS += -O3
+endif
+
 
 
 DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
@@ -49,6 +55,9 @@ ifneq (,$(filter $(CC),w64gcc x86_64-w64-mingw32-gcc w32gcc i686-w64-mingw32-gcc
 else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe, cl.exe))
 	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
 	INCLUDES = -I"." -I"include"
+	ifeq ($(DEBUG),0)
+		FLAGS += /O2
+	endif
 
 	LIBS =
 	LINKER = $(CC)
