@@ -364,6 +364,9 @@ void test_string(siAllocator alloc) {
 
 
 void test_builder(siAllocator alloc) {
+	si_freeAll(alloc);
+	TEST_EQ_ISIZE(si_allocatorGetAvailableMem(alloc), SI_MEGA(1));
+
 	TEST_START();
 
 	{

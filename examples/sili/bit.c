@@ -79,7 +79,8 @@ int main(void) {
 	rotateAdr = si_bitsRotateRight(u32, rotateAdr, 24);
 	si_printfLn("Rotating '0x34000012' right by 24 bits: '%#08X'", rotateAdr);
 
-	si_printfLn("Reversing the bits of '0x1234567890123456' gives us: '%#lX'", si_bitsReverseBits(u32, 0x1234567890123456));
+	u64 val = 0x1234567890123456;
+	si_printfLn("Reversing the bits of '%#lX' gives us: '%#lX'", val, si_bitsReverse(u64, val));
 
 	siArray(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
 	si_printfLn("buffer: %S, (len: %zd)", si_stringFromArray(buffer, "%#hhX", SI_ARR_STACK(64)), buffer.len);

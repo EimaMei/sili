@@ -15,7 +15,7 @@ GNU_FLAGS = -O3 -Wall -Wextra -Wpedantic \
 	\
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
 	\
-	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn
+	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
 	\
 	-fsanitize=undefined
 GNU_INCLUDES = -I"." -I"include"
@@ -149,6 +149,10 @@ compile_examples:
 # Compiles and runs every test.
 compile_tests:
 	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+
+compile_asm:
+	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
+	objdump -d -M intel $(OUTPUT)/$(NAME).o  > $(OUTPUT)/$(NAME).s
 
 
 # If 'build' doesn't exist, create it

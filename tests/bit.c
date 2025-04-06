@@ -18,8 +18,8 @@ int main(void) {
 		for_range (k, 0, 2) { \
 			u64 test_in = tests[j]; \
 			for_range (i, 0, 65) { \
-				i32 result = func(u64, test_in); \
-				i32 correct = check(test_in, bit); \
+				isize result = func(u64, test_in); \
+				isize correct = check(test_in, bit); \
 				if (result != correct) { \
 					si_printfLn("%L: %S: %064#lb: result = %i, correct = %i (j = %zi, k = %zi)", SI_CALLER_LOC, SI_STR(#func), test_in, result, correct, j, k); \
 					SI_PANIC(); \

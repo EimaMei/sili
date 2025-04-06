@@ -1437,7 +1437,8 @@ SIDEF siAllocationError si_free(siAllocator alloc, void* ptr);
 SIDEF siAllocationError si_freeAll(siAllocator alloc);
 
 
-/* Returns the available space left inside the specified allocator. */
+/* Returns the available space left inside the specified allocator. A minus one
+ * is returned if the feature isn't supported. */
 SIDEF isize si_allocatorGetAvailableMem(siAllocator alloc);
 
 /* Returns a byte, where each 'siAllocationType' bit corresponds to a supporterd
@@ -1463,21 +1464,22 @@ SIDEF b32 si_allocatorHasFeature(u8 features, siAllocationType type);
 * the 'siAllocationType_GetFeatures' section of allocator implementations, like
 * in 'si_allocatorHeap_proc'. */
 #define SI_ALLOC_FEAT(name) SI_BIT(siAllocationType_##name)
+
 /*
- * TODO: rework
  * Heap allocator
  *
  * Description:
- * - An allocator that utilizes 'malloc', 'realloc' and 'free' functions of C stdlib.
+ * - An allocator that utilizes 'malloc', 'realloc' and 'free' functions.
  *
  * Functionality:
- * - si_alloc - 'malloc(requestedSize)'.
- * - si_realloc - 'realloc(newRequestedSize)'. The 'oldSize' argument is ignored.
+ * - si_alloc - 'malloc(size), 0, size'. The allocated block gets zeroed out.
+ * - si_allocNonZeroed - 'malloc(size)'.
+ * - si_realloc - 'realloc(newSize)'. The 'oldSize' argument is ignored. The newly
+ * allocated memory gets zeroed out.
+ * - si_reallocNonZero - 'realloc(newSize)'. The 'oldSize' argument is ignored.
  * - si_free - 'free(ptr)'.
  * - si_freeAll - UNSUPPORTED.
- *
- * NOTE:
- * 'si_allocatorGetAvailableMem' always returns an 'ISIZE_MAX'. */
+ * - si_allocatorGetAvaialable - UNSUPPORTED. */
 SIDEF SI_ALLOCATOR_PROC(si_allocatorHeap_proc);
 
 /* Returns the heap allocator. */
@@ -3155,7 +3157,7 @@ SIDEF void si_mapFree(siMapAny map);
 
 /* x - INT/UINT
  * Returns the number of set bits. */
-#define si_countOnes(type, x) si__countOnes_##type(x)
+#define si_countOnes(type, x) SI_BIT_FUNC(type, countOnes, x)
 /* x - INT/UINT
  * Returns the number of unset bits. */
 #define si_countZeros(type, x) ((si_sizeof(type) * 8) - si_countOnes(type, x))
@@ -3177,18 +3179,18 @@ SIDEF void si_mapFree(siMapAny map);
 
 /* type - TYPE | x - INT/UINT | bits - i32
  * Rotates the bits left by the specified amount. */
-#define si_bitsRotateLeft(type, x, bits) (type)SI_BIT_FUNC_EX(type, bitsRotateLeft, x, bits)
+#define si_bitsRotateLeft(type, x, bits) (type)SI_BIT_FUNC(type, bitsRotateLeft, x, bits)
 /* type - TYPE | x - INT/UINT | bits - i32
  * Rotates the bits right by 'bits' amount. */
-#define si_bitsRotateRight(type, x, bits) (type)SI_BIT_FUNC_EX(type, bitsRotateRight, x, bits)
+#define si_bitsRotateRight(type, x, bits) (type)SI_BIT_FUNC(type, bitsRotateRight, x, bits)
 /* type - TYPE | x - INT/UINT | alloc - siAllocator
  * Reverses the bits. */
-#define si_bitsReverseBits(type, x) (type)SI_BIT_FUNC(type, bitsReverse, x)
+#define si_bitsReverse(type, x) (type)SI_BIT_FUNC(type, bitsReverse, x)
 
 
 /* type - TYPE | x - UINT/INT | alloc - siAllocator
  * Creates an array from the specified number. */
-#define si_bytesToArray(type, x, alloc) SI_BIT_FUNC_EX(type, bytesToArray, x, alloc)
+#define si_bytesToArray(type, x, alloc) SI_BIT_FUNC(type, bytesToArray, x, alloc)
 /* Creates an integer from an array. */
 SIDEF u64 si_bytesFromArray(siArray(u8) bytes);
 
@@ -3223,11 +3225,6 @@ SIDEF isize si_numLenIntEx(i64 num, i32 base);
 SIDEF isize si_numLenUint(u64 num);
 /* Returns the length of a specified base unsigned number. */
 SIDEF isize si_numLenUintEx(u64 num, i32 base);
-
-/* Returns the length of a float. */
-SIDEF isize si_numLenFloat(f64 num);
-/* Returns the length of a specified-base and afterPoint float. */
-SIDEF isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint);
 
 /* type - TYPE | a - TYPE | b - TYPE | res - TYPE*
  * Returns true if the addition of two integers resulted in an overflow. The addition
@@ -4725,30 +4722,47 @@ SIDEF siMapAny si_mapMakeFull(const void* input, isize len, isize structTypeSize
 
 #ifndef SI_NO_BIT
 
-#define SI_BIT_FUNC(type, name, x) si__##name((u64)(x), si_sizeof((type)(x)) * 8)
-#define SI_BIT_FUNC_EX(type, name, x, ...) si__##name((u64)(x), si_sizeof((type)(x)) * 8, __VA_ARGS__)
+#define SI_BIT_FUNC(type, name, ...) si__##name##_##type(__VA_ARGS__)
 
-SIDEF i32 si__countOnes_u8(u8 x);
-SIDEF i32 si__countOnes_u16(u16 x);
-SIDEF i32 si__countOnes_u32(u32 x);
-SIDEF i32 si__countOnes_u64(u64 x);
-SIDEF i32 si__countOnes_usize(usize x);
-SIDEF i32 si__countOnes_i8(i8 x);
-SIDEF i32 si__countOnes_i16(i16 x);
-SIDEF i32 si__countOnes_i32(i32 x);
-SIDEF i32 si__countOnes_i64(i64 x);
-SIDEF i32 si__countOnes_isize(isize x);
+#define SI_BIT_DEC(func, def, body) \
+	def isize si__##func##_u8(u8 x) body \
+	def isize si__##func##_u16(u16 x) body \
+	def isize si__##func##_u32(u32 x) body \
+	def isize si__##func##_u64(u64 x) body \
+	def isize si__##func##_usize(usize x) body
+#define SI_BIT_DEC_TYPE(func, def, body) \
+	def u8 si__##func##_u8(u8 x) body \
+	def u16 si__##func##_u16(u16 x) body \
+	def u32 si__##func##_u32(u32 x) body \
+	def u64 si__##func##_u64(u64 x) body \
+	def usize si__##func##_usize(usize x) body
+#define SI_BIT_DEC_AMOUNT(func, def, body) \
+	def u8 si__##func##_u8(u8 x, i32 amount) body \
+	def u16 si__##func##_u16(u16 x, i32 amount) body \
+	def u32 si__##func##_u32(u32 x, i32 amount) body \
+	def u64 si__##func##_u64(u64 x, i32 amount) body \
+	def usize si__##func##_usize(usize x, i32 amount) body
+#define SI_BIT_DEC_ARRAY(func, def, body) \
+	def siArray(u8) si__##func##_u8(u8 x, siAllocator alloc) body \
+	def siArray(u8) si__##func##_u16(u16 x, siAllocator alloc) body \
+	def siArray(u8) si__##func##_u32(u32 x, siAllocator alloc) body \
+	def siArray(u8) si__##func##_u64(u64 x, siAllocator alloc) body \
+	def siArray(u8) si__##func##_usize(usize x, siAllocator alloc) body
 
-SIDEF i32 si__countLeadingOnes(u64 x, i32 bitSize);
-SIDEF i32 si__countLeadingZeros(u64 x, i32 bitSize);
-SIDEF i32 si__countTrailingOnes(u64 x, i32 bitSize);
-SIDEF i32 si__countTrailingZeros(u64 x, i32 bitSize);
+SI_BIT_DEC(countOnes, SIDEF, ;)
 
-SIDEF u64 si__bitsRotateLeft(u64 x, i32 bitSize, i32 amount);
-SIDEF u64 si__bitsRotateRight(u64 x, i32 bitSize, i32 amount);
-SIDEF u64 si__bitsReverse(u64 x, i32 bitSize);
+SI_BIT_DEC(countLeadingOnes, SIDEF, ;)
+SI_BIT_DEC(countLeadingZeros, SIDEF, ;)
+SI_BIT_DEC(countTrailingOnes, SIDEF, ;)
+SI_BIT_DEC(countTrailingZeros, SIDEF, ;)
 
-SIDEF siArray(u8) si__bytesToArray(u64 x, i32 bitSize, siAllocator alloc);
+SI_BIT_DEC_AMOUNT(bitsRotateLeft, SIDEF, ;)
+SI_BIT_DEC_AMOUNT(bitsRotateRight, SIDEF, ;)
+SI_BIT_DEC_TYPE(bitsReverse, SIDEF, ;)
+SI_BIT_DEC_ARRAY(bytesToArray, SIDEF, ;)
+
+#undef SI_BIT_DEC_TYPE
+#undef SI_BIT_DEC_AMOUNT
 
 #define SI_CHECK_ARITHMETIC_FUNC(type, func, a, b, res) si__check##func##_##type(a, b, res)
 
@@ -5114,7 +5128,9 @@ void* si_reallocExNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize s
 
 inline
 isize si_allocatorGetAvailableMem(siAllocator alloc) {
-	return (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, alloc.data, nil);
+	siAllocationError err;
+	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, alloc.data, &err);
+	return (err == 0) ? res : -1;
 }
 
 inline
@@ -5168,11 +5184,6 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 			*outError = 0;
 		} break;
 
-		case siAllocationType_FreeAll: {
-			*outError = siAllocationError_NotImplemented;
-			out = nil;
-		} break;
-
 		case siAllocationType_Resize: {
 			out = realloc(ptr, (usize)newSize);
 			if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
@@ -5189,9 +5200,10 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 			else { *outError = 0; }
 		} break;
 
-
+		case siAllocationType_FreeAll:
 		case siAllocationType_MemAvailable: {
-			out = (void*)-1;
+			*outError = siAllocationError_NotImplemented;
+			out = nil;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -5319,6 +5331,7 @@ SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 
 		case siAllocationType_MemAvailable: {
 			out = (void*)(arena->capacity - arena->offset);
+			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -5455,6 +5468,7 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 
 		case siAllocationType_MemAvailable: {
 			out = (void*)(lifo->capacity - lifo->offset);
+			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -5585,6 +5599,7 @@ SI_ALLOCATOR_PROC(si_allocatorPool_proc) {
 
 		case siAllocationType_MemAvailable: {
 			out = (pool->head != nil) ? (void*)pool->chunkSize : 0;
+			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -5786,6 +5801,7 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 
 		case siAllocationType_MemAvailable: {
 			out = (void*)(arena->capacity - arena->offset);
+			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -7106,14 +7122,14 @@ u64 si__stringToBits(siString str, i32 base, isize* outInvalidIndex) {
 			}
 
 			*outInvalidIndex = (i >= str.len) ? -1 : oldI;
-			if (isNeg) { res = (u64)-(i64)res; }
+			if (isNeg) { res = (~res + 1); }
 			return res;
 		}
 
 		i32 value = si_charBase32ToInt((char)r);
 		if (value >= base || value == -1) {
 			*outInvalidIndex = i + baseI;
-			if (isNeg) { res = (u64)-(i64)res; }
+			if (isNeg) { res = (~res + 1); }
 			return res;
 		}
 
@@ -7122,7 +7138,7 @@ u64 si__stringToBits(siString str, i32 base, isize* outInvalidIndex) {
 	}
 
 	*outInvalidIndex = -1;
-	if (isNeg) { res = (u64)-(i64)res; }
+	if (isNeg) { res = (~res + 1); }
 	return res;
 }
 
@@ -7133,7 +7149,7 @@ siString si_stringFromInt(i64 num, siArray(u8) out) {
 SIDEF
 siString si_stringFromIntEx(i64 num, i32 base, siArray(u8) out) {
 	b32 isNegative = num < 0;
-	return si__stringFromBits(isNegative ? (u64)-num : (u64)num, base, isNegative, out);
+	return si__stringFromBits(isNegative ? (~(u64)num + 1) : (u64)num, base, isNegative, out);
 }
 inline
 siString si_stringFromUInt(u64 num, siArray(u8) out) {
@@ -7501,7 +7517,7 @@ siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied
 	SI_STOPIF(out.len == 0, *copied = -1; return nil);
 
 	isize len = si_memcopyStr_s(si_sliceTo(out, out.len - 1), str);
-	si_arraySet(out, len, "\0");
+	*((u8*)out.data + len) = '\0';
 	*copied = len + 1;
 
 	return (siOsChar*)out.data;
@@ -8651,124 +8667,117 @@ void si_mapFree(siMapAny map) {
 
 #ifdef SI_IMPLEMENTATION_BIT
 
-SIDEF
-i32 si__countOnes_u8(u8 x) {
-	return (i32)(((u64)x * 01001001001L & 042104210421) % 017);
-}
+#define SI_BIT_DEC_AMOUNT_IMPL(func, def, body, retVal) \
+	def u8 si__##func##_u8(u8 x, i32 amount) { body return (u8)(retVal); } \
+	def u16 si__##func##_u16(u16 x, i32 amount) { body return (u16)(retVal); } \
+	def u32 si__##func##_u32(u32 x, i32 amount) { body return (u32)(retVal); } \
+	def u64 si__##func##_u64(u64 x, i32 amount) { body return (u64)(retVal); } \
+	def usize si__##func##_usize(usize x, i32 amount) { body return (usize)(retVal); }
 
-inline i32 si__countOnes_u16(u16 x) { return si_countOnes(u32, x); }
+#define SI_BIT_DEC_TYPE_IMPL(func, def, body) \
+	def u8 si__##func##_u8(u8 x)    { u64 res = 0; body return (u8)res; } \
+	def u16 si__##func##_u16(u16 x) { u64 res = 0; body return (u16)res; } \
+	def u32 si__##func##_u32(u32 x) { u64 res = 0; body return (u32)res; } \
+	def u64 si__##func##_u64(u64 x) { u64 res = 0; body return (u64)res; } \
+	def usize si__##func##_usize(usize x) { u64 res = 0; body return (u64)res; }
 
-SIDEF
-i32 si__countOnes_u32(u32 x) {
-	 x -= ((x >> 1) & 0x55555555);
-	 x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
-	 x = (x + (x >> 4u)) & 0x0F0F0F0F;
-	 return (i32)((x * 0x01010101) >> 24);
-}
+SI_BIT_DEC(countOnes, inline, {
+	isize count = 0;
+	while (x) {
+		count += (isize)(x & 1);
+		x >>= 1;
+	}
+	return count;
+})
 
-SIDEF
-i32 si__countOnes_u64(u64 x) {
-	x = x - ((x >> 1) & 0x5555555555555555);
-	x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
-	x = (x + (x >> 4)) & 0xF0F0F0F0F0F0F0F;
-	return (i32)((x * 0x101010101010101) >> 56);
-}
+SI_BIT_DEC(countLeadingOnes, inline, {
+	isize count = 0;
 
-#if SI_ARCH_IS_64BIT
-inline i32 si__countOnes_usize(usize x) { return si__countOnes_u64(x); }
-#else
-inline i32 si__countOnes_usize(usize x) { return si__countOnes_u32(x); }
-#endif
-
-inline i32 si__countOnes_i8(i8 x) { return si__countOnes_u8((u8)x); }
-inline i32 si__countOnes_i16(i16 x) { return si__countOnes_u16((u16)x); }
-inline i32 si__countOnes_i32(i32 x) { return si__countOnes_u32((u32)x); }
-inline i32 si__countOnes_i64(i64 x) { return si__countOnes_u64((u64)x); }
-inline i32 si__countOnes_isize(isize x) { return si__countOnes_usize((usize)x); }
-
-
-SIDEF
-i32 si__countLeadingOnes(u64 x, i32 bitSize) {
-	bitSize -= 1;
-	i32 bits = bitSize;
-
-	while (bits >= 0 && x & SI_BIT(bits)) {
-		bits -= 1;
+	for (isize i = si_sizeof(x) * 8 - 1; i >= 0; i -= 1) {
+		if (x & SI_BIT(i)) { count += 1; }
+		else { break; }
 	}
 
-	return bitSize - bits;
-}
+	return count;
+})
 
-SIDEF
-i32 si__countLeadingZeros(u64 x, i32 bitSize) {
-	bitSize -= 1;
-	i32 bits = bitSize;
+SI_BIT_DEC(countLeadingZeros, inline, {
+	isize count = 0;
 
-	while (bits >= 0 && (x & SI_BIT(bits)) == 0) {
-		bits -= 1;
+	for (isize i = si_sizeof(x) * 8 - 1; i >= 0; i -= 1) {
+		if ((x & SI_BIT(i)) == 0) { count += 1; }
+		else { break; }
 	}
 
-	return bitSize - bits;
-}
+	return count;
+})
 
-SIDEF
-i32 si__countTrailingOnes(u64 x, i32 bitSize) {
-	i32 bits = 0;
+SI_BIT_DEC(countTrailingOnes, inline, {
+	isize count = 0;
 
-	while (bits < bitSize && x & SI_BIT(bits)) {
-		bits += 1;
+	while (x & 1) {
+		count += 1;
+		x >>= 1;
 	}
 
-	return bits;
-}
+	return count;
+})
 
-SIDEF
-i32 si__countTrailingZeros(u64 x, i32 bitSize) {
-	i32 bits = 0;
+SI_BIT_DEC(countTrailingZeros, inline, {
+	if (x == 0) { return si_sizeof(x) * 8; }
+	isize count = 0;
 
-	while (bits < bitSize && (x & SI_BIT(bits)) == 0) {
-		bits += 1;
+	while ((x & 1) == 0) {
+		count += 1;
+		x >>= 1;
 	}
 
-	return bits;
-}
+	return count;
+})
 
-inline
-u64 si__bitsRotateLeft(u64 x, i32 bitSize, i32 amount) {
-	return (x << amount) | (x >> (bitSize - amount));
-}
+SI_BIT_DEC_AMOUNT_IMPL(bitsRotateLeft, inline,
+	{
+		SI_ASSERT_NOT_NEG(amount);
+		amount &= si_sizeof(x) * 8 - 1;
+		if (!amount) { return x; }
+	},
+	(x << amount) | (x >> (si_sizeof(x) * 8 - amount))
+)
 
-inline
-u64 si__bitsRotateRight(u64 x, i32 bitSize, i32 amount) {
-	return (x >> amount) | (x << (bitSize - amount));
-}
+SI_BIT_DEC_AMOUNT_IMPL(bitsRotateRight, inline,
+	{
+		SI_ASSERT_NOT_NEG(amount);
+		amount &= si_sizeof(x) * 8 - 1;
+		if (!amount) { return x; }
+	},
+	(x >> amount) | (x << (si_sizeof(x) * 8 - amount))
+)
 
-
-SIDEF
-u64 si__bitsReverse(u64 x, i32 bitSize) {
-	u64 res = 0;
-
-	for_range (i, 0, bitSize) {
+SI_BIT_DEC_TYPE_IMPL(bitsReverse, inline, {
+	for_range (i, 0, si_sizeof(x) * 8) {
 		res <<= 1;
 		res |= (x & 1);
 		x >>= 1;
 	}
+})
 
-	return res;
-}
-
-SIDEF
-siArray(u8) si__bytesToArray(u64 x, i32 bitSize, siAllocator alloc) {
-	isize len = bitSize / 8;
+SI_BIT_DEC_ARRAY(bytesToArray, inline, {
+	isize len = si_sizeof(x);
 	u8* res = si_allocArrayNonZeroed(alloc, u8, len);
 
-	for_range (i, 0, len) {
-		res[i] = x & 0xFF;
-		x >>= 8;
+	u64 copy = x;
+	for_range (i, 0, len - 1) {
+		res[i] = (u8)(copy & 0xFF);
+		copy >>= 8;
 	}
 
 	return SI_ARR_LEN(res, len);
-}
+})
+
+#undef SI_BIT_DEC
+#undef SI_BIT_DEC_ARRAY
+#undef SI_BIT_DEC_TYPE_IMPL
+#undef SI_BIT_DEC_AMOUNT_IMPL
 
 SIDEF
 u64 si_bytesFromArray(siArray(u8) bytes) {
@@ -8900,49 +8909,6 @@ isize si_numLenUintEx(u64 num, i32 base) {
 	} while (num != 0);
 
 	return count;
-}
-
-
-inline
-isize si_numLenFloat(f64 num) {
-	return si_numLenFloatEx(num, 10, 6);
-}
-
-SIDEF
-isize si_numLenFloatEx(f64 num, i32 base, i32 afterPoint) {
-	SI_ASSERT_NOT_NEG(base);
-	SI_ASSERT_NOT_NEG(afterPoint);
-
-	{
-		i32 isInf = si_float64IsInf(num);
-		if (isInf) {
-			return countof_str("inf") + (isInf == 2);
-		}
-		else if (si_float64IsNan(num)) {
-			return countof_str("nan");
-		}
-	}
-
-	i32 isNegative;
-	{
-		union { f64 f; u64 n; } check = {num};
-		isNegative = (check.n & SI_ENDIAN_VALUE(SI_BIT(63), SI_BIT(0))) != 0;
-	   	check.n &= ~SI_ENDIAN_VALUE(SI_BIT(63), SI_BIT(0)); /* NOTE(EimaMei): A quick way of changing the minus to plus. */
-		num = check.f;
-	}
-
-
-	isize baseLen = 0;
-	f64 numWhole = (afterPoint != 0)
-		? num
-		: si_round(f64, num);
-	do {
-		numWhole /= base;
-		baseLen += 1;
-	} while (numWhole > 0.9999999999999999f); /* NOTE(EimaMei): How long can this be?? */
-
-
-	return isNegative + baseLen + (afterPoint != 0) + afterPoint;
 }
 
 
@@ -9210,8 +9176,9 @@ i64 si_RDTSCP(i32* proc) {
 
 inline
 siTime si_clock(void) {
-	i32 proc = si_cpuClockSpeed(); /* TODO(EimaMei): Remove this later. */
-	return si_RDTSC() * 1000 / proc;
+	u64 ticks = (u64)si_RDTSC();
+	u32 proc = (u32)si_cpuClockSpeed(); /* TODO(EimaMei): Remove this later. */
+	return (siTime)(ticks * 1000) / proc;
 }
 
 inline
@@ -9735,7 +9702,7 @@ struct si__printfInfoStruct {
 	siString str;
 	isize capacity;
 };
-#include <stdio.h>
+
 siIntern
 void si__printStrToBuf(struct si__printfInfoStruct* info) {
 	u8* base = &info->data[info->index];

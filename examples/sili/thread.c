@@ -14,7 +14,7 @@ void example2(void);
 
 
 int main(void) {
-	//example1();
+	example1();
 	example2();
 }
 
@@ -28,10 +28,10 @@ void example1(void) {
 
 	while (thread.state == siThreadState_Running) {
 		si_print("Even though 'thread' is sleeping, the main thread is running independently.\n");
-		si_sleep(1000);
+		si_sleep(SI_TIME_S(1));
 	}
 	si_printfLn("thread_test(false) returned a '%i'", si_threadGetReturn(thread, i16));
-	si_sleep(2000);
+	si_sleep(SI_TIME_S(2));
 
 	loopState = true;
 	si_threadRun(&thread);
@@ -46,7 +46,7 @@ void example1(void) {
  * the core count doesn't resolve in better performance. */
 #define THREAD_COUNT 4
 /* The higher the number, the longer it takes. */
-#define SIZE 128
+#define SIZE 64
 
 void matrix_singlethreaded(f32* a, f32* b, f32* result);
 void matrix_multithreaded(f32* a, f32* b, f32* result);
@@ -66,10 +66,10 @@ void example2(void) {
 	siAllocator alloc = si_allocatorArena(&aData);
 
 	/* Matrices A and B; res1 - single-threaded result, res2 - multi-threaded result. */
-	f32* A = si_allocArray(alloc, f32, SIZE * SIZE);
-	f32* B = si_allocArray(alloc, f32, SIZE * SIZE);
-	f32* res1 = si_allocArray(alloc, f32, SIZE * SIZE);
-	f32* res2 = si_allocArray(alloc, f32, SIZE * SIZE);
+	f32* A = si_allocArrayNonZeroed(alloc, f32, SIZE * SIZE);
+	f32* B = si_allocArrayNonZeroed(alloc, f32, SIZE * SIZE);
+	f32* res1 = si_allocArrayNonZeroed(alloc, f32, SIZE * SIZE);
+	f32* res2 = si_allocArrayNonZeroed(alloc, f32, SIZE * SIZE);
 
 
 	/* Fill out both matrix A and B with random data. */
@@ -134,14 +134,14 @@ void* thread_test(void* arg) {
 
 	if (loop) {
 		si_printfLn("The function will increment 'count' from %d to %d:", INT16_MIN, INT16_MAX);
-		si_sleep(2000);
+		si_sleep(SI_TIME_S(2));
 		while (count < INT16_MAX) {
 			count += 1;
 		}
 	}
 	else {
 		si_printLn("'arg' equals to 'false', so the function will do nothing and sleep for 3 seconds.");
-		si_sleep(3000);
+		si_sleep(SI_TIME_S(3));
 		si_printLn("Exiting the thread now.");
 	}
 
