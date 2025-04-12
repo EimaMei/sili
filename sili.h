@@ -12389,7 +12389,7 @@ i32 si_cpuProcessorCount(void) {
 	for_range (i, 0, len) {
 		SYSTEM_LOGICAL_PROCESSOR_INFORMATION processor = processors[i];
 		if (processor.Relationship == RelationProcessorCore) {
-			procCount += si_countOnes(u64, processor.ProcessorMask);
+			procCount += (i32)si_countOnes(u64, processor.ProcessorMask);
 		}
 	}
 
@@ -12402,7 +12402,7 @@ i32 si_cpuProcessorCount(void) {
 		procCount = (i32)count;
 	}
 	else  {
-		procCount = 0;
+		procCount = (i32)sysconf(_SC_NPROCESSORS_ONLN);
 	}
 
 #elif SI_SYSTEM_IS_WASM
