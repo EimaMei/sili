@@ -635,7 +635,7 @@ extern "C" {
 	typedef u32 b32;
 	typedef u64 b64;
 
-	#if SI_STANDARD_CHECK_MAX(C, C17)
+	#if !defined(bool) && SI_STANDARD_CHECK_MAX(C, C17)
 	typedef b8 bool;
 	#endif
 #endif
@@ -646,6 +646,7 @@ SI_STATIC_ASSERT(sizeof(u32)   == sizeof(i32));
 SI_STATIC_ASSERT(sizeof(u64)   == sizeof(i64));
 SI_STATIC_ASSERT(sizeof(usize) == sizeof(isize));
 
+SI_STATIC_ASSERT(sizeof(bool)  == 1);
 SI_STATIC_ASSERT(sizeof(u8)  == 1);
 SI_STATIC_ASSERT(sizeof(u16) == 2);
 SI_STATIC_ASSERT(sizeof(u32) == 4);
