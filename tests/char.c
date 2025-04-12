@@ -37,7 +37,7 @@ int main(void) {
 		char res_lower = si_charLower(x),
 			 res_upper = si_charUpper(x);
 
-		b32 bool_lower = si_charIsLower(x),
+		bool bool_lower = si_charIsLower(x),
 			bool_upper = si_charIsUpper(x),
 			bool_space = si_charIsSpace(x),
 			bool_digit = si_charIsDigit(x),
@@ -89,7 +89,7 @@ int main(void) {
 			}
 		}
 		else {
-			SI_ASSERT(!bool_hex);
+			TEST_EQ_FALSE(bool_hex);
 		}
 	}
 

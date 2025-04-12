@@ -19,7 +19,7 @@ typedef struct {
 
 typedef struct {
 	siString name;
-	b32 isAdmin;
+	bool isAdmin;
 	u32 moneis;
 } userInfo;
 
@@ -48,7 +48,7 @@ int main(void) {
 
 /* Returns an optional object either with or without a value depending on the
  * specified boolean. */
-siOption(cstring) create(b32 value);
+siOption(cstring) create(bool value);
 
 void example1(void) {
 	/* Based on https://en.cppreference.com/w/cpp/utility/optional. */
@@ -56,7 +56,7 @@ void example1(void) {
 
 	siOption(cstring) str = create(false);
 	si_printfLn(
-		"create(false) returned '%s' (hasValue: %B)",
+		"create(false) returned '%S' (hasValue: %t)",
 		si_optionalGetOrDefault(str, "empty"), str.hasValue
 	);
 
@@ -70,10 +70,10 @@ void example1(void) {
 	 * use '.data.value' internally. for it to work on
 	 * multiple standards. */
 #if SI_STANDARD_CHECK_MIN(C, C11)
-	si_printfLn("create2(true) returned '%s'", str.value);
+	si_printfLn("create2(true) returned '%S'", str.value);
 
 #else
-	si_printfLn("create2(true) returned '%s'", str.data.value);
+	si_printfLn("create2(true) returned '%S'", str.data.value);
 
 #endif
 }
@@ -103,8 +103,8 @@ void example2(void) {
 	}
 
 	si_printfLn("Element 1: '%X'", opt_i32.data.value);
-	si_printfLn("Element 2: '%S'", opt_string.data.value);
-	si_printfLn("Element 3: '%S'", si_stringFromArray(opt_buffer.data.value, "%i", SI_ARR_STACK(64)));
+	si_printfLn("Element 2: '%s'", opt_string.data.value);
+	si_printfLn("Element 3: '%s'", si_stringFromArray(opt_buffer.data.value, "%i", SI_ARR_STACK(64)));
 	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.data.value.high, opt_u128.data.value.low);
 	si_printfLn("Element 5: '%zd'", opt_type.data.value);
 	si_printfLn("Element 6: '%p'", opt_ptr.data.value);
@@ -125,21 +125,26 @@ void example3(void) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
-			si_printfLn("ID %u: %S moneis - %u cents", id, res.data.value.name, res.data.value.moneis);
+			si_printfLn("ID %u: %s moneis - %u cents", id, res.data.value.name, res.data.value.moneis);
 		}
 		else {
-			siError err = res.data.error;
-			siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64));
-			si_printfLn(
-				"Couldn't get info on ID '%u': Error '%u' ('%L', occurred on '%S')",
-				id, err.code, err.location, time
-			);
+			#ifndef SI_NO_ERROR_STRUCT
+				siError err = res.data.error;
+				siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64));
+				si_printfLn(
+					"Couldn't get info on ID '%u': Error '%u' ('%L', occurred on '%s')",
+					id, err.code, err.location, time
+				);
+			#else 
+				siError err = res.data.error;
+				si_printfLn("Couldn't get info on ID '%u': Error '%u'", id, err.code);
+			#endif
 		}
 	}
 }
 
 
-siOption(cstring) create(b32 value) {
+siOption(cstring) create(bool value) {
 	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
 }
 

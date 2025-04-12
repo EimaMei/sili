@@ -16,7 +16,7 @@ int main(void) {
 	si_printLn("Scope 1:");
 	{
 		siArray(i32) buffer = SI_ARR(i32, 1, 2, 4, 8, 16, 32);
-		si_printfLn("\tbuffer: \"%S\"", si_stringFromArray(buffer, "%i", SI_ARR_STACK(256)));
+		si_printfLn("\tbuffer: \"%s\"", si_stringFromArray(buffer, "%i", SI_ARR_STACK(256)));
 
 		si_print("\tyou can also print a buffer through a loop: {");
 		i32 value;
@@ -24,11 +24,11 @@ int main(void) {
 		si_print("}\n");
 
 		siDynamicArray(i32) array = si_dynamicArrayCopy(buffer, alloc);
-		b32 res = si_arrayEqual(SI_ARR_DYN(array), buffer);
-		si_printfLn("\t(array == buffer) returns a '%B' boolean", res);
+		bool res = si_arrayEqual(SI_ARR_DYN(array), buffer);
+		si_printfLn("\t(array == buffer) returns a '%t' boolean", res);
 
 		i64* lastElement = si_dynamicArrayAppendItem(&array, 64, i64);
-		si_printfLn("\tarray: \"%S\" (pointer to the element: %p)", si_dynamicArrayPrintInt(array), lastElement);
+		si_printfLn("\tarray: \"%s\" (pointer to the element: %p)", si_dynamicArrayPrintInt(array), lastElement);
 
 		i32 front, middle, back;
 		si_dynamicArrayAtFront(array, &front);
@@ -41,7 +41,7 @@ int main(void) {
 	{
 		siArray(i32) buffer = SI_ARR(i32, INT32_MAX, INT8_MAX, UINT16_MAX, INT32_MAX, 128);
 		si_printfLn(
-			"\tarray: '%S', len: '%zi'",
+			"\tarray: '%s', len: '%zi'",
 			si_stringFromArray(buffer, "%02#X", SI_ARR_STACK(256)),
 			buffer.len
 		);
@@ -64,34 +64,34 @@ int main(void) {
 	{
 		siDynamicArray(i32) array = si_dynamicArrayMake(alloc, i32, 1, 1, 2, 0, 6, 6, 6);
 
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayReplaceAllItem(array, 6, 9, i32);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayEraseEx(&array, 1, 3);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayInsertArray(&array, 1, i32, 0xFF, 0xFFFF, 0x1991);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayEraseEx(&array, 1, 5);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintInt(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 	}
 
 	si_printLn("Scope 4:");
 	{
 
 		siDynamicArray(u32) array = si_dynamicArrayMake(alloc, siColor, {255, 0, 0, 255}, {128, 128, 128, 255}, {96, 255, 186, 255}, {23, 204, 2, 255});
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintClr(array));
 
 		si_dynamicArrayReverse(array);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintClr(array));
 
 		si_dynamicArrayClear(&array);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintClr(array));
 
 		si_dynamicArrayFillItem(&array, 0, 4, SI_RGB(255, 255, 255), siColor);
-		si_printfLn("\tarray: \"%S\"", si_dynamicArrayPrintClr(array));
+		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintClr(array));
 	}
 }

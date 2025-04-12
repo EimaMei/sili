@@ -21,7 +21,7 @@ int main(void) {
 
 
 void example1(void) {
-	b32 loopState = false;
+	bool loopState = false;
 
 	siThread thread;
 	si_threadMakeAndRun(thread_test, &loopState, &thread);
@@ -129,7 +129,7 @@ void matrix_multithreaded(f32* a, f32* b, f32* result) {
 /* A thread can only return a maximum of 'sizeof(void*)' bytes, and take a
  * sizeof(void*) byte parameter. */
 void* thread_test(void* arg) {
-	b32 loop = *si_transmute(b32*, arg, void*);
+	bool loop = *(bool*)arg;
 	i16 count = INT16_MIN;
 
 	if (loop) {

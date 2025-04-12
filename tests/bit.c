@@ -96,14 +96,14 @@ void test_bit(void) {
 			type limit = si_max(type, 1, max / UINT16_MAX / 64); \
 			for (i64 b = min; b < max - limit; b += limit) { \
 				type res[2]; \
-				SI_ASSERT_FMT(si_checkAdd(type, (type)a, (type)b, &res[0]) == __builtin_add_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
-				SI_ASSERT(res[0] == res[1]); \
+				ASSERT_FMT(si_checkAdd(type, (type)a, (type)b, &res[0]) == __builtin_add_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
+				ASSERT(res[0] == res[1]); \
 				\
-				SI_ASSERT_FMT(si_checkSub(type, (type)a, (type)b, &res[0]) == __builtin_sub_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
-				SI_ASSERT(res[0] == res[1]); \
+				ASSERT_FMT(si_checkSub(type, (type)a, (type)b, &res[0]) == __builtin_sub_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
+				ASSERT(res[0] == res[1]); \
 				\
-				SI_ASSERT_FMT(si_checkMul(type, (type)a, (type)b, &res[0]) == __builtin_mul_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
-				SI_ASSERT(res[0] == res[1]); \
+				ASSERT_FMT(si_checkMul(type, (type)a, (type)b, &res[0]) == __builtin_mul_overflow((type)a, (type)b, &res[1]), SI_STR(#type ": %lli %lli %lli %lli"), a, b, res[0], res[1]); \
+				ASSERT(res[0] == res[1]); \
 			} \
 		} \
 		SUCCEEDED(); \

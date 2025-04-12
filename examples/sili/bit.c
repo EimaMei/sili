@@ -46,12 +46,12 @@ int main(void) {
 
 	si_printf(
 		"Information about the system:\n\t"
-			"Operating System - '%s'\n\t"
-			"CPU Architecture - '%s' (%zd-bit)\n\t"
-			"Target endian - '%s'\n"
+			"Operating System - '%S'\n\t"
+			"CPU Architecture - '%S' (%zd-bit)\n\t"
+			"Target endian - '%S'\n"
 		"Compilation info:\n\t"
-			"Compiler - '%s'\n\t"
-			"Language - '%s' (%s)\n\n"
+			"Compiler - '%S'\n\t"
+			"Language - '%S' (%S)\n\n"
 		,
 		SI_SYSTEM_STR,
 		SI_ARCH_STR, cpu_archBit(),
@@ -83,7 +83,7 @@ int main(void) {
 	si_printfLn("Reversing the bits of '%#lX' gives us: '%#lX'", val, si_bitsReverse(u64, val));
 
 	siArray(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
-	si_printfLn("buffer: %S, (len: %zd)", si_stringFromArray(buffer, "%#hhX", SI_ARR_STACK(64)), buffer.len);
+	si_printfLn("buffer: %s, (len: %zd)", si_stringFromArray(buffer, "%#hhX", SI_ARR_STACK(64)), buffer.len);
 
 	u32 newNum = (u32)si_bytesFromArray(buffer);
 	si_printfLn("Combining them all back, we get '%#X'", newNum);

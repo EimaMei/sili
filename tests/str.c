@@ -57,7 +57,7 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_PTR(si_memcompare(str.data, (const u8*)test_str + 1, str.len), 0);
 
 		str = SI_STR_EMPTY;
-		TEST_N_EQ_PTR(str.data, nil);
+		TEST_NEQ_PTR(str.data, nil);
 		TEST_EQ_ISIZE(str.len, 0);
 
 		str = SI_STR_NIL;
@@ -228,7 +228,7 @@ void test_string(siAllocator alloc) {
 
 	{
 		siString str = SI_STR("DWgaOtP12df0");
-		b32 res = si_stringEqual(str, SI_STR("dWgaf0"));
+		bool res = si_stringEqual(str, SI_STR("dWgaf0"));
 		TEST_EQ_ISIZE(res, 0);
 
 		res = si_stringEqual(str, SI_STR("dWgaOtP12df0"));
@@ -241,10 +241,10 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_ISIZE(res, 1);
 
 		i32 code = si_stringCompare(str, SI_STR("DWGAOTP12DF0"));
-		SI_ASSERT(code > 0);
+		ASSERT(code > 0);
 
 		code = si_stringCompare(SI_STR("DWGAOTP12DF0"), str);
-		SI_ASSERT(code < 0);
+		ASSERT(code < 0);
 
 		code = si_stringCompare(str, SI_STR("DWgaOtP12df0"));
 		TEST_EQ_ISIZE(code, 0);
@@ -372,14 +372,14 @@ void test_builder(siAllocator alloc) {
 		siBuilder builder = si_builderMake(16, alloc);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
-		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_NEQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
 		TEST_EQ_ISIZE(builder.capacity, 16);
 		TEST_EQ_ISIZE(builder.grow, 0);
 		builder = si_builderMakeLen(5, 16, alloc);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
-		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_NEQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 5);
 		TEST_EQ_ISIZE(builder.capacity, 16);
 		TEST_EQ_ISIZE(builder.grow, 0);
@@ -387,7 +387,7 @@ void test_builder(siAllocator alloc) {
 		builder = si_builderMakeGrow(32, 16, alloc);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
-		TEST_N_EQ_PTR(builder.data, nil);
+		TEST_NEQ_PTR(builder.data, nil);
 		TEST_EQ_ISIZE(builder.len, 0);
 		TEST_EQ_ISIZE(builder.capacity, 16);
 		TEST_EQ_ISIZE(builder.grow, 32);
@@ -710,12 +710,7 @@ void test_conv(void) {
 
 		str = si_stringFromBool(true);
 		TEST_EQ_STR(str, SI_STR("true"));
-		str = si_stringFromBool(true + 2);
-		TEST_EQ_STR(str, SI_STR("true"));
-
 		str = si_stringFromBool(false);
-		TEST_EQ_STR(str, SI_STR("false"));
-		str = si_stringFromBool(false + 2);
 		TEST_EQ_STR(str, SI_STR("false"));
 
 		siString trues[] = {SI_STR("1"), SI_STR("t"), SI_STR("T"), SI_STR("true"), SI_STR("True")};

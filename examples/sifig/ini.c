@@ -12,11 +12,11 @@ int main(void) {
 	siIniFile ini = sifig_iniMake(path, alloc);
 	siString name; siIniSection section;
 	for_eachMapEx (name, section, ini) {
-		si_printfLn("[%S] - %i", name, section.len);
+		si_printfLn("[%s] - %i", name, section.len);
 
 		siString key, value;
 		for_eachMapEx (key, value, section) {
-			si_printfLn("\t\"%S\" = \"%S\"", key, value);
+			si_printfLn("\t\"%s\" = \"%s\"", key, value);
 		}
 	}
 

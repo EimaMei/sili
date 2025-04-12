@@ -70,7 +70,7 @@ typedef siMap(siIniSection) siIniFile;
 
 typedef struct siIniOptions {
 	siString comment;
-	b32 lowerCase;
+	bool lowerCase;
 } siIniOptions;
 
 
@@ -83,23 +83,25 @@ typedef struct siIniIterator {
 
 
 
-/* TODO */
+/* Creates an .ini object from a path file. */
 SIDEF siIniFile sifig_iniMake(siString path, siAllocator alloc);
-/* TODO */
+/* Creates an .ini object from a string. */
 SIDEF siIniFile sifig_iniMakeStr(siString content, siAllocator alloc);
-/* TODO */
+/* Creates an .ini object from a string with certain options. */
 SIDEF siIniFile sifig_iniMakeEx(siString content, siIniOptions options, siAllocator alloc);
+/* Frees the allocated memory from a .ini file. */
+SIDEF void sifig_iniFree(siIniFile ini);
+
 
 /* TODO */
 SIDEF siIniIterator sifig_iniIterator(siString content);
 
 /* TODO */
-SIDEF b32 sifig_iniIterate(siIniIterator* it);
+SIDEF bool sifig_iniIterate(siIniIterator* it);
 /* TODO */
-SIDEF b32 sifig_iniIterateEx(siIniIterator* it, siString comment);
+SIDEF bool sifig_iniIterateEx(siIniIterator* it, siString comment);
 
-/* TODO */
-SIDEF void sifig_iniFree(siIniFile ini);
+
 
 
 #ifdef SIFIG_IMPLEMENTATION
@@ -158,12 +160,12 @@ siIniIterator sifig_iniIterator(siString content) {
 }
 
 inline
-b32 sifig_iniIterate(siIniIterator* it) {
+bool sifig_iniIterate(siIniIterator* it) {
 	return sifig_iniIterateEx(it, SI_STR(";"));
 }
 
 SIDEF
-b32 sifig_iniIterateEx(siIniIterator* it, siString comment) {
+bool sifig_iniIterateEx(siIniIterator* it, siString comment) {
 	siString line;
 
 	while (si_stringSplitLinesIterate(&it->src, &line)) {

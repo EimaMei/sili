@@ -1,45 +1,46 @@
 #define SI_IMPLEMENTATION 1
 #include <sili.h>
 #include <math.h>
+#include <tests/test.h>
 
+siIntern
+void TEST_PRINT_EX(cstring expectedStr, cstring fmt, siCallerLoc loc, ...) {
+	siArray(u8) buffer = SI_ARR_STACK(1024);
 
-#define TEST_PRINT(expectedStr, input, ...) \
-	do { \
-		siArray(u8) buffer = SI_ARR_STACK(1024); \
-		isize expectedLen = countof_str(expectedStr); \
-		SI_ASSERT(expectedLen <= buffer.len); \
-		\
-		isize len = si_bprintf(buffer, SI_STR(input), __VA_ARGS__).len; \
-		\
-		if (expectedLen != len) { \
-			si_printf( \
-				"%C" __FILE__ ":%i:%C Lengths are not the same: '%zu' vs '%zu'\n", \
-				si_printColor3bitEx(siPrintColor3bit_Red, true, false), \
-				__LINE__, expectedLen, len \
-			); \
-		} \
-		i32 res = si_memcompare(buffer.data, expectedStr, len); \
-		SI_ASSERT_FMT(res == 0, SI_STR("Wrong character at index %i: '%S'"), res, buffer); \
-		si_printf("Test at '" __FILE__ ":%i' has been completed.\n", __LINE__); \
-	} while(0)
+	siString in = SI_CSTR(expectedStr);
+	ASSERT(in.len <= buffer.len);
 
+	siString out;
+	{
+		va_list va;
+		va_start(va, loc);
+		out = si_bprintfVa(buffer, SI_CSTR(fmt), va);
+		va_end(va);
+	}
+
+	TEST_EQ_STR(out, in);
+}
+
+#define TEST_PRINT(in, fmt, ...) TEST_PRINT_EX(in, fmt, SI_CALLER_LOC, __VA_ARGS__); SUCCEEDED()
 #define TEST_PRINT_REG(expectedStr) TEST_PRINT(expectedStr, expectedStr, 0)
 
 
 int main(void) {
+	TEST_START();
+
 	/* From: https://en.cppreference.com/w/c/io/fprintf */
 	const char* str = "Hello";
 	TEST_PRINT_REG("Strings:\n");
 	TEST_PRINT_REG(" padding:\n");
-	TEST_PRINT("\t[Hello]\n", "\t[%s]\n", str);
-	TEST_PRINT("\t[     Hello]\n", "\t[%10s]\n", str);
-	TEST_PRINT("\t[Hello     ]\n", "\t[%-10s]\n", str);
-	TEST_PRINT("\t[     Hello]\n", "\t[%*s]\n", 10, str);
+	TEST_PRINT("\t[Hello]\n", "\t[%S]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%10S]\n", str);
+	TEST_PRINT("\t[Hello     ]\n", "\t[%-10S]\n", str);
+	TEST_PRINT("\t[     Hello]\n", "\t[%*S]\n", 10, str);
 	TEST_PRINT_REG(" truncating:\n");
-	TEST_PRINT("\tHell\n", "\t%.4s\n", str);
-	TEST_PRINT("\tHel\n", "\t%.*s\n", 3, str);
+	TEST_PRINT("\tHell\n", "\t%.4S\n", str);
+	TEST_PRINT("\tHel\n", "\t%.*S\n", 3, str);
 
-	TEST_PRINT("Characters:\tA %\n", "Characters:\t%c %%\n", 'A');
+	TEST_PRINT("Characters:\tA % ė\n", "Characters:\t%c %% %c\n", 'A', 0x0117);
 
 	TEST_PRINT_REG("Integers:\n");
 	TEST_PRINT(
@@ -49,13 +50,7 @@ int main(void) {
 	);
 
 	TEST_PRINT("\tHexadecimal:\t5 a A 0x6\n", "\tHexadecimal:\t%x %x %X %#x\n", 5, 10, 10, 6);
-
-#ifdef SI_NO_SILI_PRINTF_STYLE
-	TEST_PRINT("\tOctal:\t\t12 012 04\n","\tOctal:\t\t%o %#o %#o\n", 10, 10, 4);
-#else
 	TEST_PRINT("\tOctal:\t\t12 0o12 0o4\n","\tOctal:\t\t%o %#o %#o\n", 10, 10, 4);
-#endif
-
 	TEST_PRINT_REG("Floating-point:\n");
 	TEST_PRINT("\tRounding:\t1.500000 2 1.30000000000000000000000000000000\n", "\tRounding:\t%f %.0f %.32f\n", 1.5, 1.5, 1.3);
 	TEST_PRINT("\tPadding:\t01.50 1.50  1.50\n", "\tPadding:\t%05.2f %.2f %5.2f\n", 1.5, 1.5, 1.5);
@@ -70,11 +65,8 @@ int main(void) {
 
 	TEST_PRINT_REG("Fixed-width types:\n");
 	TEST_PRINT("\tLargest 32-bit value is 4294967295 or 0xffffffff\n", "\tLargest 32-bit value is %u or %#x\n", UINT32_MAX, UINT32_MAX);
-
-#ifndef SI_NO_SILI_PRINTF_STYLE
-	TEST_PRINT("true false 0b1 0b0\n", "%B %B %#b %#b\n", true, false, 1, 0);
-	TEST_PRINT("qwertyuiop\n", "%S\n", SI_STR("qwertyuiop"));
-#endif
+	TEST_PRINT("true false 0b1 0b0\n", "%t %t %#b %#b\n", true, false, 1, 0);
+	TEST_PRINT("qwertyuiop\n", "%s\n", SI_STR("qwertyuiop"));
 
 	si_printLn("================\nPrint colour tests:\nANSI/3-bit colour:");
 	for_rangeEx (u8, id, siPrintColor3bit_Black, siPrintColor3bit_White + 1) {
@@ -94,7 +86,7 @@ int main(void) {
             si_print("\n\t");
         }
 	}
-	si_printf("\n24-bit colour (%B):\n\t", si_printHas24bitColor());
+	si_printf("\n24-bit colour (%t):\n\t", si_printHas24bitColor());
 
     for_rangeEx (i32, column, 0, 77) {
         i32 r = 255 - (column * 255 / 76);
@@ -110,5 +102,5 @@ int main(void) {
     }
     si_print("\n\n");
 
-	si_printfLn("%CTest '" __FILE__ "' has been completed!%C", si_printColor3bitEx(siPrintColor3bit_Yellow, true, 0));
+	TEST_COMPLETE();
 }

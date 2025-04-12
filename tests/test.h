@@ -2,21 +2,22 @@ int test_on = false;
 
 #define TEST_START() \
 	test_on = true; \
-	si_printfLn("%CTesting function '%s':%C", si_printColor3bitEx(siPrintColor3bit_Yellow, false, false), __func__);
+	si_printfLn("%CTesting function '%S':%C", si_printColor3bitEx(siPrintColor3bit_Yellow, false, false), __func__);
 
 #define SUCCEEDED() \
-	si_printfLn("%s'%L' succeeded.", test_on ? "\t" : "", SI_CALLER_LOC)
+	si_printfLn("%S'%L' succeeded.", test_on ? "\t" : "", SI_CALLER_LOC)
 
 #define TEST_COMPLETE() \
 	test_on = false; \
-	si_printfLn("%CTest '%s' has been completed!%C", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false), __func__);
+	si_printfLn("%CTest '%S' has been completed!%C", si_printColor3bitEx(siPrintColor3bit_Yellow, true, false), __func__);
 
 
-#define ASSERT_FMT(condition, message, .../* fmt */) SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_CALLER_LOC, message, __VA_ARGS__));
+#define ASSERT_FMT(condition, message, .../* fmt */) SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_CALLER_LOC, message, __VA_ARGS__))
+#define ASSERT(condition) ASSERT_FMT(condition, SI_STR(""), "")
 
 #define TEST_EQ(arg1, arg2, format) \
 	ASSERT_FMT((arg1) == (arg2), SI_STR(format " | " format), arg1, arg2)
-#define TEST_N_EQ(arg1, arg2, format) \
+#define TEST_NEQ(arg1, arg2, format) \
 	ASSERT_FMT((arg1) != (arg2), SI_STR(format " | " format), arg1, arg2)
 
 
@@ -39,14 +40,24 @@ int test_on = false;
 #define TEST_EQ_U32(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%u")
 #define TEST_EQ_STR(arg1, arg2) \
-	ASSERT_FMT(arg1.len == arg2.len && \
-		si_memcompare(arg1.data, arg2.data, arg1.len) == 0, \
-		SI_STR("len = {%zi, %zi}, str = {\"%S\", \"%S\"}"), arg1.len, arg2.len, arg1, arg2 \
+	ASSERT_FMT( \
+		si_stringEqual(arg1, arg2), \
+		SI_STR("len = {%zi, %zi}, str = {\"%s\", \"%s\"}"), arg1.len, arg2.len, arg1, arg2 \
 	)
+#define TEST_EQ_TRUE(arg1) \
+	TEST_EQ_U32(arg1, true)
+#define TEST_EQ_FALSE(arg1) \
+	TEST_EQ_U32(arg1, false)
+
+#define TEST_EQ_NIL(arg1) \
+	TEST_EQ_PTR(arg1, nil)
 
 
 
-#define TEST_N_EQ_U64(arg1, arg2) \
-	TEST_N_EQ(arg1, arg2, "%lu")
-#define TEST_N_EQ_PTR(arg1, arg2) \
-	TEST_N_EQ(arg1, arg2, "%p")
+#define TEST_NEQ_U64(arg1, arg2) \
+	TEST_NEQ(arg1, arg2, "%lu")
+#define TEST_NEQ_PTR(arg1, arg2) \
+	TEST_NEQ(arg1, arg2, "%p")
+
+#define TEST_NEQ_NIL(arg1) \
+	TEST_NEQ_PTR(arg1, nil)
