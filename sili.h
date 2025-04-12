@@ -1481,8 +1481,10 @@ SIDEF bool si_allocatorHasFeature(u8 features, siAllocationType type);
 /*
  * Heap allocator
  *
+ *
  * Description:
  * - An allocator that utilizes 'malloc', 'realloc' and 'free' functions.
+ *
  *
  * Functionality:
  * - si_alloc - 'malloc(size), 0, size'. The allocated block gets zeroed out.
@@ -1493,6 +1495,7 @@ SIDEF bool si_allocatorHasFeature(u8 features, siAllocationType type);
  * - si_free - 'free(ptr)'.
  * - si_freeAll - UNSUPPORTED.
  * - si_allocatorGetAvaialable - UNSUPPORTED.
+ *
  *
  * Errors:
  * - siAllocationError_OutOfMem - alloc, allocNonZeroed, realloc, reallocNonZeroed.
@@ -1564,12 +1567,13 @@ typedef struct siArena {
 /*
  * Arena allocator
  *
- * TODO: rework
+ *
  * Description:
  * - An allocator that allocates one large memory region and linearly assigns
  * each allocated element to a free section of said region. In practice, if one
  * has an arena of 128 bytes and allocates 32 bytes, the remaining 96 bytes will
  * be available for further linear allocations.
+ *
  *
  * Functionality:
  * - si_alloc - reserves the requested amount of bytes. The allocation gets zeroed
@@ -1578,18 +1582,13 @@ typedef struct siArena {
  * out.
  * - si_realloc - reserves a new memory block and copies the old block's data
  * into it. The newly allocated memory after the copied data gets zeroed out.
- * - si_allocNonZeroed - reserves a new memory block and copies the old block's
+ * - si_reallocNonZeroed - reserves a new memory block and copies the old block's
  * data.
  * - si_free - UNSUPPORTED.
  * - si_freeAll - frees every single allocated memory block. Internal offset is
  * set to zero.
  * - si_allocatorGetAvaialable - returns the available memory.
-
- *   If the user surpasses the arena's capacity, a panic is thrown.
- * - si_realloc - allocates 'aligned(newRequestedSize)' amount of bytes for the
- *   allocation. If the old size is bigger than the new one, nothing is done.
- * - si_free - UNSUPPORTED.
- * - si_freeAll - sets the internal offset to zero, effectively freeing everything.
+ *
  *
  * Errors:
  * - siAllocationError_OutOfMem - alloc, allocNonZeroed, realloc, reallocNonZeroed.
@@ -1640,30 +1639,47 @@ typedef siArena siLifo;
 /*
  * Stack-like LIFO (last in, first out) stack-based allocator
  *
- * TODO: rework
+ *
  * Description:
- * - An allocator that follows stack-based principles of the last allocated element
- * being the first to be deallocated. Works similiarly to an arena with the added
- * bonus of being able to any last pointer in the allocator.
+ * - The allocator follows stack-based principles where the last allocated element
+ * is also the first to be deallocated. Works exactly like an arena except an 
+ * additional size-length offset is requested for each allocation. For example, 
+ * an 8-byte allocation becomes a 16-byte one in memory due to the saved offset.
+ * 
+ * - Memory layout: | 32/64-bit offset | memory data |
+ *
+ *
+ * How freeing works:
+ * - A very important part to note is that the offsets are *not* relative, meaning 
+ * you *are* able to free any pointer. What happens is that the allocator will 
+ * free everything _before_ the offset. 
+ *
+ * As an example, if you an array from 1 to 6:
+ * {1, 2, 3, 4, 5, 6}
+ * and you decide to free the pointer that points to the third element:
+ * {1, 2}
+ * Everything before it plus itself gets freed. However if the 6th element was 
+ * freed, then only it would be freed.
  *
  *
  * Functionality:
- * - si_alloc - the allocator reserves 'aligned(si_sizeof(isize) + requestedSize)'
- *   amount of bytes for each allocation. The allocator stores how many bytes
- *   each pointer takes up so that every element can be freed at any given state.
+ * - si_alloc - reserves the requested amount of bytes. The allocation gets zeroed
+ * out.
+ * - si_allocNonZeroed - reserves the requested amount of bytes.
+ * out.
+ * - si_realloc - reserves a new memory block and copies the old block's data
+ * into it. The newly allocated memory after the copied data gets zeroed out.
+ * - si_reallocNonZeroed - reserves a new memory block and copies the old block's
+ * data.
+ * - si_free - frees the pointer and everything after it.
+ * - si_freeAll - frees every single allocated memory block. Internal offset is
+ * set to zero.
+ * - si_allocatorGetAvaialable - returns the available memory.
  *
- * - si_realloc - UNSUPPORTED.
  *
- * - si_free - frees _everything_ up to that pointer. For example, if an allocated
- *   element is second-to-last, the last element also gets deallocated.
- *
- * - si_freeAll - resets the allocator's internal offset, freeing everything in the
- *   process.
- *
- *
- * Note:
- * - Compared to arenas, LIFO allocations are slightly more expensive in terms of
- * memory consumption, as an 'isize' is needed for each allocation. */
+ * Errors:
+ * - siAllocationError_OutOfMem - alloc, allocNonZeroed, realloc, reallocNonZeroed.
+ * - siAllocationError_InvalidPtr - free. */
 SIDEF SI_ALLOCATOR_PROC(si_allocatorLifo_proc);
 
 /* Creates a LIFO allocator. */
@@ -1702,18 +1718,32 @@ typedef struct siPool {
 
 /*
  * Pool allocator
- * TODO: rework
+ *
+ *
  * Description:
- * - An allocator that allocates fixed-size blocks of memory from a pre-allocated
+ * - The allocator that allocates fixed-size blocks of memory from a pre-allocated
  * pool. Useful for frequent allocations and deallocations of fixed-sized objects.
  *
+ *
+ *
  * Functionality:
- * - si_alloc - allocates a fixed-size block from the pool, regardless of the
- *   requested size. The function panics if the specified size is larger than
- *   the block size.
+ * - si_alloc - reserves the block size amount of bytes. The allocation gets zeroed
+ * out. If the requested size is larger than the block size, the function fails.
+ * - si_allocNonZeroed - reserves the requested amount of bytes.
+ * out. If the requested size is larger than the block size, the function fails.
  * - si_realloc - UNSUPPORTED.
- * - si_free - frees a previously allocated block.
- * - si_freeAll - resets the entire pool, marking all blocks as free. */
+ * - si_reallocNonZeroed - UNSUPPORTED.
+ * - si_free - frees the specified block.
+ * - si_freeAll - frees every single block.
+ * - si_allocatorGetAvaialable - returns the block size if there is an available 
+ * block, otherwise 0 is returned.
+ *
+ *
+ * Errors:
+ * - siAllocationError_InvalidArg - alloc, allocNonZeroed.
+ * - siAllocationError_OutOfMem - alloc, allocNonZeroed.
+ * - siAllocationError_InvalidPtr - free.
+ * - siAllocationError_NotImplemented - realloc, reallocNonZeroed. */
 SIDEF SI_ALLOCATOR_PROC(si_allocatorPool_proc);
 
 /* Creates a pool allocator. */
@@ -1750,7 +1780,8 @@ typedef struct siDynamicArena {
 
 /*
  * Dynamic arena allocator
- * TODO: rework
+ *
+ *
  * Description:
  * - A dynamic arena allocator is an arena allocator that automatically grows
  * when the allocator capacity is about to get surpassed. This is done by allocating
@@ -1759,13 +1790,30 @@ typedef struct siDynamicArena {
  * - Useful for the same reasons you'd want to use arenas for with the added
  * bonus of not running out of memory.
  *
+ *
  * Functionality:
-  * - si_alloc - allocates a fixed-size block from the pool, regardless of the
- *   requested size. The function panics if the specified size is larger than
- *   the block size.
- * - si_realloc - same as arena's 'si_realloc', alongside its hefty price.
- * - si_free - UNSUPPORTED.
- * - si_freeAll - sets the internal offsets to zero. */
+ * - si_alloc - reserves the block size amount of bytes. The allocation gets zeroed
+ * out. Allocates a new block if the requested size overflows the current capacity.
+ * If the requested size is larger than the block size, the function fails.
+ *
+ * - si_allocNonZeroed - reserves the requested amount of bytes. Allocates a new 
+ * block if the requested size overflows the current capacity. If the requested 
+ * size is larger than the block size, the function fails.
+*
+ * - si_realloc - same as arena's 'si_realloc'.
+ * - si_reallocNonZeroed - same as arena's 'si_reallocNonZeroed'.
+ *
+ * - si_free - UNSUPPORTED
+ * - si_freeAll - frees the allocator alongside the blocks.
+ * 
+ * - si_allocatorGetAvaialable - returns the available space of the allocator if 
+ * it's higher than the block size, otherwise the block size gets returned.
+ *
+ *
+ * Errors:
+ * - siAllocationError_InvalidArg - alloc, allocNonZeroed, realloc, reallocNonZeroed.
+ * - siAllocationError_OutOfMem - alloc, allocNonZeroed, realloc, reallocNonZeroed.
+ * - siAllocationError_NotImplemented - free. */
 SIDEF SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc);
 
 /* Creates a dynamic arena allocator. */
@@ -5705,7 +5753,7 @@ void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, siAllocationError* 
 			siDynamicArenaBlock* newBlock = (siDynamicArenaBlock*)si_allocNonZeroedEx(
 				arena->alloc, si_sizeof(siDynamicArenaBlock) + dyn->blockSize, outError
 			);
-			if (newBlock == nil) { return nil; }
+			if (newBlock == nil) { *outError = siAllocationError_OutOfMem; return nil; }
 
 			if (head != nil) { head->next = newBlock; }
 			else { dyn->head = newBlock; }
@@ -5783,7 +5831,10 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 		} break;
 
 		case siAllocationType_MemAvailable: {
-			out = (void*)(arena->capacity - arena->offset);
+			isize len = arena->capacity - arena->offset;
+			if (len < dyn->blockSize) { len = dyn->blockSize; }
+
+			out = (void*)len;
 			*outError = 0;
 		} break;
 
@@ -9482,7 +9533,7 @@ siString si_timeToString(siTimeCalendar calendar, siString fmt, siArray(u8) out)
 			case 'h': {
 				if (!AMwasChecked) {
 					for_range (j, i + 1, fmt.len) {
-						if (j + 1 < fmt.len && 
+						if (j + 1 < fmt.len &&
 							((fmt.data[j] == 'a' && fmt.data[j + 1] == 'p')
 							|| (fmt.data[j] == 'A' && fmt.data[j + 1] == 'P'))
 						) {
