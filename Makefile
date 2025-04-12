@@ -3,8 +3,9 @@ AR = ar
 
 OUTPUT = build
 NAME = sili
+DEBUG = 0
 
-GNU_FLAGS = -O3 -std=c99 -Wall -Wextra -Wpedantic \
+GNU_FLAGS = -Wall -Wextra -Wpedantic \
 	-Wconversion -Wsign-conversion \
 	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
 	-Wvla -Wcast-align -Wcast-align=strict \
@@ -15,65 +16,68 @@ GNU_FLAGS = -O3 -std=c99 -Wall -Wextra -Wpedantic \
 	\
 	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
 	\
-	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn \
-	-D _GNU_SOURCE -D _LARGEFILE64_SOURCE -D __USE_POSIX199506
+	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn
 GNU_INCLUDES = -I"." -I"include"
 
 GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
 GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a "$(OUTPUT)/$(NAME).o"
 GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)"
 
-GNU_CC_OUT = -o
+ifneq (,$(filter $(CC), g++ clang++))
+	GNU_FLAGS += -std=c++20 -x c++
+else
+	GNU_FLAGS += -std=c99 -x c
+endif
 
+ifeq ($(DEBUG),1)
+	GNU_FLAGS += -fsanitize=undefined
+else
+	GNU_FLAGS += -O3 -D SI_RELEASE_MODE
+endif
 
-MSVC_FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
-MSVC_INCLUDES = -I"." -I"include"
-
-MSVC_STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).obj"
-MSVC_AR_FLAGS = -nologo -out:"$(OUTPUT)\lib$(NAME).lib" "$(OUTPUT)/$(NAME).obj"
-MSVC_DLL_FLAGS = -LD -nologo $(MSVC_CC_OUT)"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).obj"
-
-MSVC_CC_OUT = -Fe
 
 
 DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-ifneq (,$(filter $(CC),winegcc x86_64-w64-mingw32-gcc w64gcc w32gcc i686-w64-mingw32-gcc x86_64-w64-mingw32-g++))
+ifneq (,$(filter $(CC),w64gcc x86_64-w64-mingw32-gcc w32gcc i686-w64-mingw32-gcc))
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS = -lkernel32 -lole32 -lopengl32
-	EXE = $(OUTPUT)/test.exe
 	LINKER = $(CC)
 
-	CC_OUT = $(GNU_CC_OUT)
+	EXE_OUT = .exe
 	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
 	DLL_FLAGS = $(GNU_DLL_FLAGS)
 	AR_FLAGS = $(GNU_AR_FLAGS)
 	DLL_EXT = .dll
+	CC_OUT = -o
 
 else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe, cl.exe))
-	FLAGS = $(MSVC_FLAGS)
-	INCLUDES = $(MSVC_INCLUDES)
+	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
+	INCLUDES = -I"." -I"include"
+	ifeq ($(DEBUG),0)
+		FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
+	endif
 
 	LIBS =
-	EXE = $(OUTPUT)/test.exe
 	LINKER = $(CC)
 
-	CC_OUT = $(MSVC_CC_OUT)
-	STATIC_FLAGS = $(MSVC_STATIC_FLAGS)
-	DLL_FLAGS = $(MSVC_DLL_FLAGS)
-	AR_FLAGS = $(MSVC_AR_FLAGS)
+	EXE_OUT = .exe
+	STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).obj"
+	DLL_FLAGS = -LD -nologo -Fe"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).obj"
+	AR_FLAGS = -nologo -out:"$(OUTPUT)\lib$(NAME).lib" "$(OUTPUT)/$(NAME).obj"
 	DLL_EXT = .dll
+	CC_OUT = -Fe
 
 else ifneq (,$(filter $(CC), wasm32-wasi-clang))
 	FLAGS = --target=wasm32-wasi $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS =
-	EXE = $(OUTPUT)/test.wasm
 	LINKER =
 
-	CC_OUT = $(GNU_CC_OUT)
+	EXE_OUT = .wasm
+	CC_OUT = -o
 
 else ifneq (,$(filter $(CC), emcc))
 	FLAGS = --target=wasm32-unknown-emscripten $(GNU_FLAGS) -s WASM=1 -s ASYNCIFY \
@@ -81,43 +85,45 @@ else ifneq (,$(filter $(CC), emcc))
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS =
-	EXE = $(OUTPUT)/test.html
 	LINKER =
 
-	CC_OUT = $(GNU_CC_OUT)
+	EXE_OUT = .html
+	CC_OUT = -o
 
 else ifeq ($(DETECTED_OS),Darwin)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS = -lpthread -ldl -framework CoreAudio -framework AudioUnit
-	EXE = $(OUTPUT)/test
+	LIBS = -lpthread -ldl
 	LINKER = $(CC)
 
-	CC_OUT = $(GNU_CC_OUT)
+	EXE_OUT =
 	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
 	DLL_FLAGS = $(GNU_DLL_FLAGS)
 	AR_FLAGS = $(GNU_AR_FLAGS)
-	DLL_EXT = .so
+	DLL_EXT = .dylib
+	CC_OUT = -o
 
 else ifeq ($(DETECTED_OS),Linux)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS = -lpthread -ldl -lasound -lX11 -lXrandr -lGL -lm -lvulkan
-	EXE = $(OUTPUT)/test
+	LIBS = -lpthread -ldl
 	LINKER = $(CC)
 
-	CC_OUT = $(GNU_CC_OUT)
+	EXE_OUT =
 	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
 	DLL_FLAGS = $(GNU_DLL_FLAGS)
 	AR_FLAGS = $(GNU_AR_FLAGS)
 	DLL_EXT = .so
+	CC_OUT = -o
 
 endif
 
+EXE = $(OUTPUT)/$(NAME)$(EXE_OUT)
+
 # For testing
-SRC = tests/bit.c
+SRC = tests/str.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
@@ -142,16 +148,20 @@ clean:
 
 
 # Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h sigar.h
+$(EXE): $(SRC) sili.h
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
 
 # Compiles and runs every example.
 compile_examples:
-	@for f in $(shell ls examples/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+	@for f in $(shell ls examples/*/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 # Compiles and runs every test.
 compile_tests:
 	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+
+compile_asm:
+	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
+	objdump -d -M intel $(OUTPUT)/$(NAME).o  > $(OUTPUT)/$(NAME).s
 
 
 # If 'build' doesn't exist, create it

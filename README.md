@@ -6,9 +6,10 @@ Sili
 ---
 
 <p align="center">
-Sili is a collection of cross-platform single-header libraries for general
-programming in C99/C11. It focuses on providing a more modern developer experience
-whilst adhering to the main principles and appeals of C: simplicity, performance and portability.
+Sili is a collection of cross-platform single-header libraries for modern C99/C11 
+and C++20 programming. It focuses on providing a more modern developer experience
+whilst adhering to the main principles and appeals of C: simplicity, performance 
+and portability.
 </p>
 
 <p align="center">
@@ -28,7 +29,8 @@ whilst adhering to the main principles and appeals of C: simplicity, performance
 # Libraries
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
-|  [sili.h](sili.h)    | v0.2.0  | A general-purpose library meant for modern day C development. An alternative to C/C++ standard libraries.
+|  [sili.h](sili.h)    | v0.3.0  | A general-purpose library that utilizes modern programming concepts. An alternative to C/C++ standard libraries.
+|  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration (.ini).
 
 # Contact
 You can join the [semi-offical Discord server](https://discord.gg/MSfSmNanF2) for 

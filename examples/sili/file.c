@@ -35,7 +35,7 @@ void example1(siAllocator alloc) {
 
 	si_printf("==============\n\n==============\nExample 1:\n");
 	siString file_random = SI_STR("random.txt");
-	siString file_examples_file = SI_STR("examples/file.c");
+	siString file_examples_file = SI_STR("examples/sili/file.c");
 	siString unknown = SI_STRC("N/A");
 
 	/* If the file doesn't exist or fails to open in any other way, then we will
@@ -49,9 +49,9 @@ void example1(siAllocator alloc) {
 
 		si_printf(
 			"About 'random.txt':\n\t"
-				"Full path - '%S'\n\t"
+				"Full path - '%s'\n\t"
 				"Size - '%zu' bytes\n\t"
-				"Content - '%S'\n\n",
+				"Content - '%s'\n\n",
 			si_optionalGetOrDefault(si_pathGetFullName(file_random, stack), unknown),
 			content.len, content
 		);
@@ -62,23 +62,23 @@ void example1(siAllocator alloc) {
 	{
 		siFile file = si_fileOpen(file_examples_file);
 		si_printfLn(
-			"About 'examples/file.c':\n\t"
-				"Full path - '%S'\n\t"
+			"About 'examples/sili/file.c':\n\t"
+				"Full path - '%s'\n\t"
 				"Size - '%zu' bytes",
 			si_optionalGetOrDefault(si_pathGetFullName(file_examples_file, stack), unknown),
 			file.size
 		);
 
-		siBuffer(siString) lines = si_fileReadlines(file, alloc);
+		siArray(siString) lines = si_fileReadlines(file, alloc);
 		si_printfLn(
-			"Contents of '%S' ('%zd' lines in total):",
+			"Contents of '%s' ('%zd' lines in total):",
 			si_pathBaseName(file_examples_file), lines.len
 		);
 
 
 		siString line;
-		for_eachBufEx (line, i, lines) {
-			si_printfLn("\tLine %zu (%zu bytes): '%S'", i + 1, line.len, line);
+		for_eachArrEx (line, i, lines) {
+			si_printfLn("\tLine %zu (%zu bytes): '%s'", i + 1, line.len, line);
 		}
 		si_fileClose(&file);
 	}
@@ -94,7 +94,7 @@ void example2(void)	{
 				 str_random2 = SI_STR("random-2.txt"),
 				 str_renamed = SI_STR("renamed.txt");
 
-		b32 exist = si_pathExists(str_random);
+		bool exist = si_pathExists(str_random);
 		if (!exist) {
 			si_print("Since 'random.txt' doesn't exist, we'll just create one\n");
 
@@ -105,41 +105,47 @@ void example2(void)	{
 
 		siResult(isize) error = si_pathCopy(str_random, str_random2);
 		si_printf(
-			"Does 'random-2.txt' exist: %B (returned bytes: '%zi')\n\n",
+			"Does 'random-2.txt' exist: %t (returned bytes: '%zi')\n\n",
 			si_pathExists(str_random2), si_optionalGetOrDefault(error, -1)
 		);
 
 		siError res = si_pathMove(str_random, str_renamed); // 'si_pathRename' does the same thiing as well.
 		si_printf(
-			"Does 'random.txt' exist: %B\n"
-			"'renamed.txt' outputs a %B (res: '%i')\n\n",
+			"Does 'random.txt' exist: %t\n"
+			"'renamed.txt' outputs a %t (res: '%i')\n\n",
 			si_pathExists(str_random), si_pathExists(str_renamed), res.code
 		);
 
 		res = si_pathRemove(str_random2);
 		si_printfLn(
-			"Does 'random-2.txt' exist: '%B' (res: '%i')",
+			"Does 'random-2.txt' exist: '%t' (res: '%i')",
 			si_pathExists(str_random2), res.code
 		);
 
 		res = si_pathRemove(str_renamed);
 		si_printfLn(
-			"Does 'renamed.txt' exist: '%B' (res: '%i')",
+			"Does 'renamed.txt' exist: '%t' (res: '%i')",
 			si_pathExists(str_renamed), res.code
 		);
 	}
 
 	{
-		siString path = SI_STR("example.c");
+		siString path = SI_STR("example.tar.gz");
 		siOption(siString) fullPath = si_pathGetFullName(path, stack);
 		si_printfLn(
-			"Information about '%S':\n\t"
-				"Base name - '%S'\n\t"
-				"Extension - '%S'\n\t"
-				"Full path - '%S'\n\t"
-				"Is relative: %B",
-			path, si_pathBaseName(path), si_pathExtension(path),
-			si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), si_pathIsRelative(path)
+			"Information about '%s':\n\t"
+				"Base name - '%s'\n\t"
+				"Full path - '%s'\n\t"
+				"Stem - '%s'\n\t"
+				"Short stem - '%s'\n\t"
+				"Extension - '%s'\n\t"
+				"Long extension - '%s'\n\t"
+				"Is relative: %t",
+			path,
+			si_pathBaseName(path),  si_optionalGetOrDefault(fullPath, SI_STR("NO_FULL_PATH_BECAUSE_ERROR")), 
+			si_pathStem(path), si_pathShortStem(path), 
+			si_pathExtension(path), si_pathLongExtension(path), 
+			si_pathIsRelative(path)
 		);
 	}
 }
@@ -150,14 +156,14 @@ void example3(void)	{
 	{
 		siError res = si_pathRemove(SI_STR("SI_FILE_THAT_DOESNT_EXIST"));
 #ifndef SI_NO_ERROR_STRUCT
-		si_printfLn("Error '%S' occurred at \"%L\": '%S'", si_systemErrorName(res.code), res.location, si_systemErrorDesc(res.code));
+		si_printfLn("Error '%s' occurred at \"%L\": '%s'", si_systemErrorName(res.code), res.location, si_systemErrorDesc(res.code));
 #else
-		si_printfLn("Error '%S' occurred: '%S'", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
+		si_printfLn("Error '%s' occurred: '%s'", si_systemErrorName(res.code), si_systemErrorDesc(res.code));
 #endif
 	}
 
 	{
-		u64 lastWriteTime, curWriteTime;
+		siTime lastWriteTime, curWriteTime;
 		siString file_path = SI_STR("randomSiFile.silitxt");
 
 		siFile file_handle = si_fileCreate(file_path);
@@ -165,12 +171,12 @@ void example3(void)	{
 		lastWriteTime = si_fileLastWriteTime(file_handle);
 		si_printfLn("Last write time: %lu", lastWriteTime);
 
-		si_sleep(1000);
+		si_sleep(SI_TIME_S(1));
 		si_fileWriteStr(&file_handle, SI_STR("random garbage"));
 
 		curWriteTime = si_pathLastWriteTime(file_path);
 		si_printfLn(
-			"Has the file been changed?: %B (%lu difference)",
+			"Has the file been changed?: %t (%li difference)",
 			lastWriteTime != curWriteTime,
 			curWriteTime - lastWriteTime
 		);
@@ -191,7 +197,7 @@ void example3(void)	{
 		si_pathRemove(str_hard);
 		si_pathRemove(str_file);
 
-		si_printfLn("Temporary path of the system: %S", si_pathGetTmp());
+		si_printfLn("Temporary path of the system: %s", si_pathGetTmp());
 	}
 }
 
@@ -212,13 +218,13 @@ void example4(void) {
 	}
 
 	siDirectory dir = si_directoryOpen(SI_STR(ROOT_PATH));
-	siDirectoryEntry entry;
+	siDirectoryIterator it;
 
 	usize count = 0;
-	while (si_directoryPollEntry(&dir, &entry)) {
+	while (si_directoryIterate(&dir, &it)) {
 		si_printfLn(
-			"%zu: %S ('%zu' bytes, type '%i')",
-			count, entry.path, entry.path.len, entry.type
+			"%zu: %s ('%zu' bytes, type '%i')",
+			count, it.path, it.path.len, it.type
 		);
 		count += 1;
 	}
@@ -236,8 +242,8 @@ void example5(siAllocator* alloc) {
 	si_printfLn("Some different radices: %d %x %o %#x %#o", 100, 100, 100, 100, 100);
 	si_printfLn("Floats: %4.2f %+.0e %E %g", 3.1416, 3333333333333.1416, 3.1416, 1234.062400);
 	si_printfLn("Width trick: %*d", 5, 10);
-	si_printfLn("%.5s", "A string");
-	si_printfLn("%B - %B (%#b, %#b)", true, false, true, false);
+	si_printfLn("%.5s", SI_STR("A string"));
+	si_printfLn("%t - %t (%#b, %#b)", true, false, true, false);
 	si_printfLn("Pointer to the heap: %p", alloc);
 	si_printfLn("This will print nothing: '%n', 100%%.", nil);
 	si_printfLn(

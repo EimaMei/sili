@@ -1,6 +1,6 @@
 # Folders
 build/**
-res/
+res/**
 src/
 include/
 lib/

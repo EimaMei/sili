@@ -26,7 +26,7 @@ int main(void) {
 	si_benchmarkRunsPerLoop(1000000, function_regular());
 
 	si_printLn("Now let's see how many times 'function_regular()' can be executed in 5 seconds...");
-	si_benchmarkExecutesPerMs(5000, function_regular());
+	si_benchmarkExecutesPerTime(SI_TIME_S(5), function_regular());
 
 	si_printLn("The average performance:");
 	si_benchmarkLoopsAvg(1000000, function_regular());
