@@ -92,7 +92,7 @@ int main(void) {
 		ptr = si_realloc(alloc, ptr, 0, SI_KILO(4));
 		si_free(alloc, ptr);
 
-		isize avail = si_allocatorGetAvailableMem(alloc);
+		isize avail = si_allocatorMemAvailable(alloc);
 		TEST_EQ_ISIZE(avail, -1);
 	}
 	si_print("Test 3 has been completed.\n");
@@ -102,7 +102,6 @@ int main(void) {
 		TEST_EQ_PTR(aData.alloc.proc, si_allocatorHeap_proc);
 		TEST_EQ_USIZE(aData.offset, 0);
 		TEST_EQ_USIZE(aData.capacity, SI_MEGA(1));
-		TEST_EQ_U32(aData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
 		TEST_NEQ_NIL(aData.ptr);
 
 		siAllocator alloc = si_allocatorArena(&aData);
@@ -113,7 +112,7 @@ int main(void) {
 		TEST_EQ_USIZE(aData.offset, SI_KILO(1));
 		TEST_EQ_PTR(ptr, aData.ptr);
 
-		isize avail = si_allocatorGetAvailableMem(alloc);
+		isize avail = si_allocatorMemAvailable(alloc);
 		TEST_EQ_USIZE(avail, SI_MEGA(1) - SI_KILO(1));
 
 		si_freeAll(alloc);
@@ -129,7 +128,6 @@ int main(void) {
 	{
 		siPool pData = si_poolMake(si_allocatorHeap(), 3, 32);
 		TEST_EQ_PTR(pData.alloc.proc, si_allocatorHeap_proc);
-		TEST_EQ_U32(pData.alignment, SI_DEFAULT_MEMORY_ALIGNMENT);
 		TEST_EQ_USIZE(pData.chunkSize, 32);
 		TEST_EQ_USIZE(pData.numChunks, 3);
 		TEST_NEQ_NIL(pData.ptr);
@@ -142,24 +140,24 @@ int main(void) {
 		void* previousHead = pData.head;
 		u8* ptr = si_allocArray(alloc, u8, 24);
 		TEST_EQ_PTR(ptr, si_pointerAdd(previousHead, si_sizeof(void*)));
-		for_range (i, 0, 24) {
-			TEST_EQ_CHAR(ptr[i], 0);
-		}
+		for_range (i, 0, 24) { TEST_EQ_CHAR(ptr[i], 0); }
 
 		previousHead = pData.head;
 		void* ptr2 = si_allocNonZeroed(alloc, 24);
 		TEST_EQ_PTR(ptr2, si_pointerAdd(previousHead, si_sizeof(void*)));
 
-		isize avail = si_allocatorGetAvailableMem(alloc);
+		isize avail = si_allocatorMemAvailable(alloc);
 		TEST_EQ_USIZE(avail, 32);
 
 		si_allocNonZeroed(alloc, 24);
 
-		avail = si_allocatorGetAvailableMem(alloc);
+		siAllocationError err;
+		avail = si_allocatorMemAvailableEx(alloc, &err);
 		TEST_EQ_USIZE(avail, 0);
+		TEST_EQ_USIZE(err, siAllocationError_None);
 
 		si_freeAll(alloc);
-		avail = si_allocatorGetAvailableMem(alloc);
+		avail = si_allocatorMemAvailable(alloc);
 		TEST_EQ_USIZE(avail, 32);
 
 		u8 features = si_allocatorGetFeatures(alloc);

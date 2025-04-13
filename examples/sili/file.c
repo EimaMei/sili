@@ -30,7 +30,7 @@ int main(void) {
 
 
 void example1(siAllocator alloc) {
-	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)));
 	siAllocator stack = si_allocatorArena(&aData);
 
 	si_printf("==============\n\n==============\nExample 1:\n");
@@ -85,7 +85,7 @@ void example1(siAllocator alloc) {
 }
 
 void example2(void)	{
-	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)));
 	siAllocator stack = si_allocatorArena(&aData);
 
 	si_printLn("==============\n\n==============\nExample 2:");

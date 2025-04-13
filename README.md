@@ -29,7 +29,7 @@ and portability.
 # Libraries
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
-|  [sili.h](sili.h)    | v0.3.0  | A general-purpose library that utilizes modern programming concepts. An alternative to C/C++ standard libraries.
+|  [sili.h](sili.h)    | v0.4.0  | A general-purpose library that utilizes modern programming concepts. An alternative to C/C++ standard libraries.
 |  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration (.ini).
 
 # Contact

@@ -364,7 +364,7 @@ void test_string(siAllocator alloc) {
 
 void test_builder(siAllocator alloc) {
 	si_freeAll(alloc);
-	TEST_EQ_ISIZE(si_allocatorGetAvailableMem(alloc), SI_MEGA(1));
+	TEST_EQ_ISIZE(si_allocatorMemAvailable(alloc), SI_MEGA(1));
 
 	TEST_START();
 
@@ -400,7 +400,7 @@ void test_builder(siAllocator alloc) {
 		TEST_EQ_ISIZE(builder.capacity, 0);
 		TEST_EQ_ISIZE(builder.grow, 0);
 
-		builder = si_builderMakeEx(0, 0, si_allocatorGetAvailableMem(alloc) + 1, alloc);
+		builder = si_builderMakeEx(0, 0, si_allocatorMemAvailable(alloc) + 1, alloc);
 		TEST_EQ_PTR(builder.alloc.proc, nil);
 		TEST_EQ_PTR(builder.alloc.data, nil);
 		TEST_EQ_PTR(builder.data, nil);
@@ -428,7 +428,7 @@ void test_builder(siAllocator alloc) {
 		TEST_EQ_ISIZE(res, 0);
 		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
 
-		res = si_builderMakeSpaceFor(&builder, si_allocatorGetAvailableMem(alloc) + 1);
+		res = si_builderMakeSpaceFor(&builder, si_allocatorMemAvailable(alloc) + 1);
 		TEST_EQ_ISIZE(res, siAllocationError_OutOfMem);
 		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
 	} SUCCEEDED();

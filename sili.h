@@ -115,7 +115,7 @@ WARNING
 
 */
 
-#if (_MSC_VER >= 1020) || ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))
+#if (_MSC_VER >= 1020) || (__GNUC__ >= 3)
 	#pragma once
 #endif
 
@@ -128,7 +128,7 @@ extern "C" {
 
 #ifndef SI_VERSION_MAJOR
 	#define SI_VERSION_MAJOR 0
-	#define SI_VERSION_MINOR 3
+	#define SI_VERSION_MINOR 4
 	#define SI_VERSION_PATCH 0
 #endif
 #define SI_VERSION_CURRENT SI_VERSION(SI_VERSION_MAJOR, SI_VERSION_MINOR, SI_VERSION_PATCH)
@@ -1402,7 +1402,7 @@ SI_ENUM(i32, siAllocationType) {
 
 	siAllocationType_Len,
 };
-/* NOTE(EimaMei): If this fails, sili needs to get updated. */
+/* NOTE(EimaMei): If this fails, sili needs to be updated. */
 SI_STATIC_ASSERT(siAllocationType_Len == si_sizeof(u8) * 8);
 
 SI_ENUM(i32, siAllocationError) {
@@ -1415,8 +1415,37 @@ SI_ENUM(i32, siAllocationError) {
 
 
 /* name - NAME
- * Defines a valid allocator function prototype.*/
-#define SI_ALLOCATOR_PROC(name) void* name(siAllocationType type, void* ptr, isize oldSize, isize newSize, void* data, siAllocationError* outError)
+ * Defines a valid allocator function prototype.
+ *
+ *
+ * PARAMETERS:
+ * - siAllocationType type - denotes what allocator action is being requested.
+ *
+ * - void* ptr - the pointer to the given memory block. This is only valid for
+ *   the Resize and Free types. 'ptr' is guaranteed to not be a nil value for
+ *   valid types.
+ *
+ * - isize oldSize - the old, current size of the given memory block. This is
+ *   only valid for the Resize types. 'oldSize' is guaranteed to not be a negative
+ *   number.
+ *
+ * - isize newSize - the new requested size for a given or newmemory block. This
+ *   is only valid for the Alloc and Resize types. 'newSize' is guaranteed to
+ *   not be a negative number and, for optimizations, is also larger than 'oldSize'.
+ *
+ * - isize align - the used-specific alignment for an allocation. This is only
+ *   valid for Alloc and Resize types. 'align' is always guaranteed to be a
+ *   power of two number, starting from 1.
+ *
+ * - void* data - a user-specified parameter. Can be nil.
+ *
+ * - siAllocationError* outError - a parameter to denote an error or a succesful
+ *   action. Guaranteed to never be nil. If no error is encountered, the out
+ *   parameter _must_ be set to zero by the allocator.
+ */
+#define SI_ALLOCATOR_PROC(name) \
+	void* name(siAllocationType type, void* ptr, isize oldSize, isize newSize, \
+			isize align, void* data, siAllocationError* outError)
 /* Represents an allocator procedure. */
 typedef SI_ALLOCATOR_PROC(siAllocatorProc);
 
@@ -1425,24 +1454,38 @@ typedef struct siAllocator { siAllocatorProc* proc; void* data; } siAllocator;
 
 
 
-/* Allocates the specified amount of bytes of storage. Memory gets zeroed out. */
+/* Allocates the specified amount of bytes of storage. Memory _gets_ zeroed out. */
 SIDEF void* si_alloc(siAllocator alloc, isize bytes);
-SIDEF void* si_allocEx(siAllocator alloc, isize bytes, siAllocationError* outError);
+SIDEF void* si_allocAlign(siAllocator alloc, isize bytes, isize align);
+SIDEF void* si_allocErr(siAllocator alloc, isize bytes, siAllocationError* outError);
+SIDEF void* si_allocEx(siAllocator alloc, isize bytes, isize align, siAllocationError* outError);
 
-/* Allocates the specified amount of bytes of storage. Memory doesn't get zeroed out. */
+/* Allocates the specified amount of bytes of storage. Memory _doesn't_ get zeroed out. */
 SIDEF void* si_allocNonZeroed(siAllocator alloc, isize bytes);
-SIDEF void* si_allocNonZeroedEx(siAllocator alloc, isize bytes, siAllocationError* outError);
+SIDEF void* si_allocNonZeroedAlign(siAllocator alloc, isize bytes, isize align);
+SIDEF void* si_allocNonZeroedErr(siAllocator alloc, isize bytes, siAllocationError* outError);
+SIDEF void* si_allocNonZeroedEx(siAllocator alloc, isize bytes, isize align,
+		siAllocationError* outError);
 
+/* Resizes specified memory block from the given old size to the new. Memory
+ * _gets_ zeroed out. */
+SIDEF void* si_realloc(siAllocator alloc, void* ptr, isize oldSize, isize newSize);
+SIDEF void* si_reallocAlign(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align);
+SIDEF void* si_reallocErr(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		siAllocationError* outError);
+SIDEF void* si_reallocEx(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align, siAllocationError* outError);
 
-/* Reallocates the specified memory block from the given old size to the new.
- * Memory gets zeroed out. */
-SIDEF void* si_realloc(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew);
-SIDEF void* si_reallocEx(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew, siAllocationError* outError);
-
-/* Reallocates the specified memory block from the given old size to the new.
- * Memory doesn't get zeroed out. */
-SIDEF void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew);
-SIDEF void* si_reallocExNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew, siAllocationError* outError);
+/* Resizes the specified memory block from the given old size to the new. Memory
+ * _doesn't_ get zeroed out. */
+SIDEF void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize oldSize, isize newSize);
+SIDEF void* si_reallocNonZeroedAlign(siAllocator alloc, void* ptr, isize oldSize,
+		isize newSize, isize align);
+SIDEF void* si_reallocNonZeroedErr(siAllocator alloc, void* ptr, isize oldSize,
+		isize newSize, siAllocationError* outError);
+SIDEF void* si_reallocNonZeroedEx(siAllocator alloc, void* ptr, isize oldSize,
+		isize newSize, isize align, siAllocationError* outError);
 
 
 /* Frees a previously allocated memory block from 'si_alloc'. */
@@ -1453,7 +1496,8 @@ SIDEF siAllocationError si_freeAll(siAllocator alloc);
 
 /* Returns the available space left inside the specified allocator. A minus one
  * is returned if the feature isn't supported. */
-SIDEF isize si_allocatorGetAvailableMem(siAllocator alloc);
+SIDEF isize si_allocatorMemAvailable(siAllocator alloc);
+SIDEF isize si_allocatorMemAvailableEx(siAllocator alloc, siAllocationError* outError);
 
 /* Returns a byte, where each 'siAllocationType' bit corresponds to a supporterd
  * feature. */
@@ -1463,14 +1507,26 @@ SIDEF bool si_allocatorHasFeature(u8 features, siAllocationType type);
 
 
 /* allocator - siAllocator* | type - TYPE
- * Allocates an exact amount of storage to fit the specified type. */
+ * Allocates an exact amount of storage to fit the specified type. Memory gets
+ * zeroed out. */
 #define si_allocItem(allocator, type) (type*)si_alloc(allocator, si_sizeof(type))
+#define si_allocItemAlign(allocator, type, align) (type*)si_allocAlign(allocator, si_sizeof(type), align)
+
+/* allocator - siAllocator* | type - TYPE
+ * Allocates an exact amount of storage to fit the specified type. */
 #define si_allocItemNonZeroed(allocator, type) (type*)si_allocNonZeroed(allocator, si_sizeof(type))
+#define si_allocItemNonZeroedAlign(allocator, type, align) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type), align)
+
+/* allocator - siAllocator | type - TYPE | count - isize
+ * Allocates an exact amount of storage to fit the specified array of types.
+ * Memory gets zeroed out. */
+#define si_allocArray(allocator, type, count) (type*)si_alloc(allocator, si_sizeof(type) * (count))
+#define si_allocArrayAlign(allocator, type, count, align) (type*)si_allocAlign(allocator, si_sizeof(type) * (count), align)
 
 /* allocator - siAllocator | type - TYPE | count - isize
  * Allocates an exact amount of storage to fit the specified array of types. */
-#define si_allocArray(allocator, type, count) (type*)si_alloc(allocator, si_sizeof(type) * (count))
 #define si_allocArrayNonZeroed(allocator, type, count) (type*)si_allocNonZeroed(allocator, si_sizeof(type) * (count))
+#define si_allocArrayNonZeroedAlign(allocator, type, count, align) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type) * (count), align)
 
 
 /* name - NAME
@@ -1489,13 +1545,19 @@ SIDEF bool si_allocatorHasFeature(u8 features, siAllocationType type);
  *
  * Functionality:
  * - si_alloc - 'malloc(size), 0, size'. The allocated block gets zeroed out.
+ *
  * - si_allocNonZeroed - 'malloc(size)'.
+ *
  * - si_realloc - 'realloc(newSize)'. The 'oldSize' argument is ignored. The newly
- * allocated memory gets zeroed out.
+ *   allocated memory gets zeroed out.
+ *
  * - si_reallocNonZeroed - 'realloc(newSize)'. The 'oldSize' argument is ignored.
+ *
  * - si_free - 'free(ptr)'.
+ *
  * - si_freeAll - UNSUPPORTED.
- * - si_allocatorGetAvaialable - UNSUPPORTED.
+ *
+ * - si_allocatorMemAvailable - UNSUPPORTED.
  *
  *
  * Errors:
@@ -1562,7 +1624,6 @@ typedef struct siArena {
 	u8* ptr;
 	isize offset;
 	isize capacity;
-	i32 alignment;
 } siArena;
 
 /*
@@ -1571,24 +1632,30 @@ typedef struct siArena {
  *
  * Description:
  * - An allocator that allocates one large memory region and linearly assigns
- * each allocated element to a free section of said region. In practice, if one
- * has an arena of 128 bytes and allocates 32 bytes, the remaining 96 bytes will
- * be available for further linear allocations.
+ *   each allocated element to a free section of said region. In practice, if one
+ *   has an arena of 128 bytes and allocates 32 bytes, the remaining 96 bytes will
+ *   be available for further linear allocations.
  *
  *
  * Functionality:
  * - si_alloc - reserves the requested amount of bytes. The allocation gets zeroed
- * out.
+ *   out.
+ *
  * - si_allocNonZeroed - reserves the requested amount of bytes.
- * out.
+ *   out.
+ *
  * - si_realloc - reserves a new memory block and copies the old block's data
- * into it. The newly allocated memory after the copied data gets zeroed out.
+ *   into it. The newly allocated memory after the copied data gets zeroed out.
+ *
  * - si_reallocNonZeroed - reserves a new memory block and copies the old block's
- * data.
+ *   data.
+ *
  * - si_free - UNSUPPORTED.
+ *
  * - si_freeAll - frees every single allocated memory block. Internal offset is
  * set to zero.
- * - si_allocatorGetAvaialable - returns the available memory.
+ *
+ * - si_allocatorMemAvailable - returns the available memory.
  *
  *
  * Errors:
@@ -1599,8 +1666,8 @@ SIDEF SI_ALLOCATOR_PROC(si_allocatorArena_proc);
 
 /* Creates an arena allocator. */
 SIDEF siArena si_arenaMake(siAllocator alloc, isize capacity);
-SIDEF siArena si_arenaMakeEx(siAllocator alloc, isize capacity, i32 alignment);
-SIDEF siArena si_arenaMakePtr(void* ptr, isize capacity, i32 alignment);
+SIDEF siArena si_arenaMakeEx(siAllocator alloc, isize capacity, isize align);
+SIDEF siArena si_arenaMakePtr(void* ptr, isize capacity);
 
 /* Returns an arena allocator procedure. */
 SIDEF siAllocator si_allocatorArena(siArena* arena);
@@ -1643,39 +1710,44 @@ typedef siArena siLifo;
  *
  * Description:
  * - The allocator follows stack-based principles where the last allocated element
- * is also the first to be deallocated. Works exactly like an arena except an 
- * additional size-length offset is requested for each allocation. For example, 
- * an 8-byte allocation becomes a 16-byte one in memory due to the saved offset.
- * 
+ *   is also the first to be deallocated. Works exactly like an arena except an
+ *   additional size-length offset is requested for each allocation. For example,
+ *   an 8-byte allocation becomes a 16-byte one in memory due to the saved offset.
  * - Memory layout: | 32/64-bit offset | memory data |
  *
  *
  * How freeing works:
- * - A very important part to note is that the offsets are *not* relative, meaning 
- * you *are* able to free any pointer. What happens is that the allocator will 
- * free everything _before_ the offset. 
+ * - A very important part to note is that the offsets are *not* relative, meaning
+ *   you *are* able to free any pointer. What happens is that the allocator will
+ *   free everything _before_ the offset.
  *
- * As an example, if you an array from 1 to 6:
- * {1, 2, 3, 4, 5, 6}
- * and you decide to free the pointer that points to the third element:
- * {1, 2}
- * Everything before it plus itself gets freed. However if the 6th element was 
+ * - As an example, here is an array from 1 to 6:
+ *   {1, 2, 3, 4, 5, 6}
+ * - If you decide to free the pointer for the 3rd elemnt, the end-result will be:
+ *   {1, 2}
+ * - The pointer and everything after it got freed. However if the 6th element was
  * freed, then only it would be freed.
  *
  *
  * Functionality:
  * - si_alloc - reserves the requested amount of bytes. The allocation gets zeroed
  * out.
+ *
  * - si_allocNonZeroed - reserves the requested amount of bytes.
- * out.
+ *   out.
+ *
  * - si_realloc - reserves a new memory block and copies the old block's data
  * into it. The newly allocated memory after the copied data gets zeroed out.
+ *
  * - si_reallocNonZeroed - reserves a new memory block and copies the old block's
  * data.
+ *
  * - si_free - frees the pointer and everything after it.
+ *
  * - si_freeAll - frees every single allocated memory block. Internal offset is
  * set to zero.
- * - si_allocatorGetAvaialable - returns the available memory.
+ *
+ * - si_allocatorMemAvailable - returns the available memory.
  *
  *
  * Errors:
@@ -1685,8 +1757,8 @@ SIDEF SI_ALLOCATOR_PROC(si_allocatorLifo_proc);
 
 /* Creates a LIFO allocator. */
 SIDEF siLifo si_lifoMake(siAllocator alloc, isize capacity);
-SIDEF siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, i32 alignment);
-SIDEF siLifo si_lifoMakePtr(void* ptr, isize capacity, i32 alignment);
+SIDEF siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, isize align);
+SIDEF siLifo si_lifoMakePtr(void* ptr, isize capacity);
 
 /* Returns a LIFO allocator procedure. */
 SIDEF siAllocator si_allocatorLifo(siLifo* lifo);
@@ -1712,7 +1784,6 @@ typedef struct siPool {
 	u8* ptr;
 	isize numChunks;
 	isize chunkSize;
-	i32 alignment;
 
 	siPoolFreeNode* head;
 } siPool;
@@ -1726,17 +1797,32 @@ typedef struct siPool {
  * pool. Useful for frequent allocations and deallocations of fixed-sized objects.
  *
  *
+ * Each allocation's alignment:
+ * - The allocator will always silently ignore any user-specified alignment options
+ *   and assume that each allocation is aligned to the pool allocator's alignment
+ *   value. As an example, requesting an 8-byte aligned allocation of 10 bytes
+ *   will not change the underlined size from 10 to 16 - the allocator will only
+ *   simply check if the requested size of 8 bytes is less than the aligned block
+ *   size.
+ *
+ *
  *
  * Functionality:
  * - si_alloc - reserves the block size amount of bytes. The allocation gets zeroed
- * out. If the requested size is larger than the block size, the function fails.
+ *   out. If the requested size is larger than the block size, the function fails.
+ *
  * - si_allocNonZeroed - reserves the requested amount of bytes.
- * out. If the requested size is larger than the block size, the function fails.
+ *   out. If the requested size is larger than the block size, the function fails.
+ *
  * - si_realloc - UNSUPPORTED.
+ *
  * - si_reallocNonZeroed - UNSUPPORTED.
+ *
  * - si_free - frees the specified block.
+ *
  * - si_freeAll - frees every single block.
- * - si_allocatorGetAvaialable - returns the block size if there is an available 
+ *
+ * - si_allocatorMemAvailable - returns the block size if there is an available
  * block, otherwise 0 is returned.
  *
  *
@@ -1749,7 +1835,8 @@ SIDEF SI_ALLOCATOR_PROC(si_allocatorPool_proc);
 
 /* Creates a pool allocator. */
 SIDEF siPool si_poolMake(siAllocator alloc, isize numChunks, isize chunkSize);
-SIDEF siPool si_poolMakeEx(siAllocator alloc, isize numChunks, isize chunkSize, i32 alignment);
+SIDEF siPool si_poolMakeEx(siAllocator alloc, isize numChunks, isize chunkSize,
+		isize align);
 
 /* Returns a pool allocator procedure. */
 SIDEF siAllocator si_allocatorPool(siPool* pool);
@@ -1784,30 +1871,34 @@ typedef struct siDynamicArena {
  *
  *
  * Description:
- * - A dynamic arena allocator is an arena allocator that automatically grows
- * when the allocator capacity is about to get surpassed. This is done by allocating
- * another memory block and returning it and instead of panicking like a static
- * arena would. Internally this is achieved via a single linked-list.
- * - Useful for the same reasons you'd want to use arenas for with the added
- * bonus of not running out of memory.
+ * - An arena allocator that automatically grows when the starting capacity is
+ *   about to get surpassed. This is done by allocating another memory block
+ *   from anothr allocator and returning it instead of returning a no memory error.
+ *   Internally this is achieved via a single linked-list.
+ *
+ * - Using a dynamic allocator with a heap allocator as the backend results in
+ *   an allocator that will likely never run out of memory or return any errors
+ *   unless the requested size is larger than the block size.
  *
  *
  * Functionality:
  * - si_alloc - reserves the block size amount of bytes. The allocation gets zeroed
- * out. Allocates a new block if the requested size overflows the current capacity.
- * If the requested size is larger than the block size, the function fails.
+ *   out. Allocates a new block if the requested size overflows the current capacity.
+ *   If the requested size is larger than the block size, the function fails.
  *
- * - si_allocNonZeroed - reserves the requested amount of bytes. Allocates a new 
- * block if the requested size overflows the current capacity. If the requested 
- * size is larger than the block size, the function fails.
+ * - si_allocNonZeroed - reserves the requested amount of bytes. Allocates a new
+ *   block if the requested size overflows the current capacity. If the requested
+ *   size is larger than the block size, the function fails.
 *
  * - si_realloc - same as arena's 'si_realloc'.
+ *
  * - si_reallocNonZeroed - same as arena's 'si_reallocNonZeroed'.
  *
  * - si_free - UNSUPPORTED
+ *
  * - si_freeAll - frees the allocator alongside the blocks.
- * 
- * - si_allocatorGetAvaialable - returns the available space of the allocator if 
+ *
+ * - si_allocatorMemAvailable - returns the available space of the allocator if
  * it's higher than the block size, otherwise the block size gets returned.
  *
  *
@@ -1821,7 +1912,7 @@ SIDEF SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc);
 SIDEF siDynamicArena si_dynamicArenaMake(siAllocator alloc, isize startingCapacity,
 		isize blockSize);
 SIDEF siDynamicArena si_dynamicArenaMakeEx(siAllocator alloc, isize startingCapacity,
-		isize blockSize, i32 alignment);
+		isize blockSize, isize align);
 
 /* Returns a dynamic arena allocator procedure. */
 SIDEF siAllocator si_allocatorDynamicArena(siDynamicArena* dynamic);
@@ -5082,37 +5173,53 @@ inline void* si_memset_ptr(void* data, u8 value, isize size)  { si_memset(data, 
 
 inline
 void* si_alloc(siAllocator alloc, isize bytes) {
-	siAllocationError tmp;
-	return si_allocEx(alloc, bytes, &tmp);
+	return si_allocAlign(alloc, bytes, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 inline
-void* si_allocEx(siAllocator alloc, isize bytes, siAllocationError* outError) {
+void* si_allocAlign(siAllocator alloc, isize bytes, isize align) {
+	siAllocationError tmp;
+	return si_allocEx(alloc, bytes, align, &tmp);
+}
+inline
+void* si_allocAlignErr(siAllocator alloc, isize bytes, siAllocationError* outError) {
+	return si_allocEx(alloc, bytes, SI_DEFAULT_MEMORY_ALIGNMENT, outError);
+}
+inline
+void* si_allocEx(siAllocator alloc, isize bytes, isize align, siAllocationError* outError) {
 	SI_ASSERT_NOT_NEG(bytes);
+	SI_ASSERT(si_isPowerOfTwo(align));
 	SI_ASSERT_NOT_NIL(outError);
-	return alloc.proc(siAllocationType_Alloc, nil, 0, bytes, alloc.data, outError);
+	return alloc.proc(siAllocationType_Alloc, nil, 0, bytes, align, alloc.data, outError);
 }
 
 inline
 void* si_allocNonZeroed(siAllocator alloc, isize bytes) {
-	siAllocationError tmp;
-	return si_allocNonZeroedEx(alloc, bytes, &tmp);
+	return si_allocNonZeroedAlign(alloc, bytes, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 inline
-void* si_allocNonZeroedEx(siAllocator alloc, isize bytes, siAllocationError* outError) {
+void* si_allocNonZeroedAlign(siAllocator alloc, isize bytes, isize align) {
+	siAllocationError tmp;
+	return si_allocNonZeroedEx(alloc, bytes, align, &tmp);
+}
+inline
+void* si_allocNonZeroedErr(siAllocator alloc, isize bytes, siAllocationError* outError) {
+	return si_allocNonZeroedEx(alloc, bytes, SI_DEFAULT_MEMORY_ALIGNMENT, outError);
+}
+inline
+void* si_allocNonZeroedEx(siAllocator alloc, isize bytes, isize align, siAllocationError* outError) {
 	SI_ASSERT_NOT_NEG(bytes);
+	SI_ASSERT(si_isPowerOfTwo(align));
 	SI_ASSERT_NOT_NIL(outError);
-	return alloc.proc(siAllocationType_AllocNonZeroed, nil, 0, bytes, alloc.data, outError);
+	return alloc.proc(siAllocationType_AllocNonZeroed, nil, 0, bytes, align, alloc.data, outError);
 }
 
 
 inline
 siAllocationError si_free(siAllocator alloc, void* ptr) {
-	if (ptr == nil) {
-		return siAllocationError_InvalidArg;
-	}
+	if (ptr == nil) { return siAllocationError_InvalidArg; }
 
 	siAllocationError err;
-	alloc.proc(siAllocationType_Free, ptr, 0, 0, alloc.data, &err);
+	alloc.proc(siAllocationType_Free, ptr, 0, 0, 0, alloc.data, &err);
 
 	return err;
 }
@@ -5120,53 +5227,83 @@ siAllocationError si_free(siAllocator alloc, void* ptr) {
 inline
 siAllocationError si_freeAll(siAllocator alloc) {
 	siAllocationError err;
-	alloc.proc(siAllocationType_FreeAll, nil, 0, 0, alloc.data, &err);
+	alloc.proc(siAllocationType_FreeAll, nil, 0, 0, 0, alloc.data, &err);
 
 	return err;
 }
 
 
 inline
-void* si_realloc(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew) {
-	siAllocationError tmp;
-	return si_reallocEx(alloc, ptr, sizeOld, sizeNew, &tmp);
+void* si_realloc(siAllocator alloc, void* ptr, isize oldSize, isize newSize) {
+	return si_reallocAlign(alloc, ptr, oldSize, newSize, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 inline
-void* si_reallocEx(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew, siAllocationError* outError) {
+void* si_reallocAlign(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align) {
+	siAllocationError tmp;
+	return si_reallocEx(alloc, ptr, oldSize, newSize, align, &tmp);
+}
+inline
+void* si_reallocErr(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		siAllocationError* outError) {
+	return si_reallocEx(alloc, ptr, oldSize, newSize, SI_DEFAULT_MEMORY_ALIGNMENT, outError);
+}
+inline
+void* si_reallocEx(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align, siAllocationError* outError) {
 	SI_ASSERT_NOT_NIL(ptr);
-	SI_ASSERT_NOT_NEG(sizeOld);
-	SI_ASSERT_NOT_NEG(sizeNew);
+	SI_ASSERT_NOT_NEG(oldSize);
+	SI_ASSERT_NOT_NEG(newSize);
+	SI_ASSERT(si_isPowerOfTwo(align));
 	SI_ASSERT_NOT_NIL(outError);
 
-	return alloc.proc(siAllocationType_Resize, ptr, sizeOld, sizeNew, alloc.data, outError);
+	return alloc.proc(siAllocationType_Resize, ptr, oldSize, newSize, align, alloc.data, outError);
 }
 
 inline
-void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew) {
-	siAllocationError tmp;
-	return si_reallocExNonZeroed(alloc, ptr, sizeOld, sizeNew, &tmp);
+void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize oldSize, isize newSize) {
+	return si_reallocNonZeroedAlign(alloc, ptr, oldSize, newSize, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 inline
-void* si_reallocExNonZeroed(siAllocator alloc, void* ptr, isize sizeOld, isize sizeNew, siAllocationError* outError) {
+void* si_reallocNonZeroedAlign(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align) {
+	siAllocationError tmp;
+	return si_reallocNonZeroedEx(alloc, ptr, oldSize, newSize, align, &tmp);
+}
+inline
+void* si_reallocNonZeroedErr(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		siAllocationError* outError) {
+	return si_reallocEx(alloc, ptr, oldSize, newSize, SI_DEFAULT_MEMORY_ALIGNMENT, outError);
+}
+inline
+void* si_reallocNonZeroedEx(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align, siAllocationError* outError) {
 	SI_ASSERT_NOT_NIL(ptr);
-	SI_ASSERT_NOT_NEG(sizeOld);
-	SI_ASSERT_NOT_NEG(sizeNew);
+	SI_ASSERT_NOT_NEG(oldSize);
+	SI_ASSERT_NOT_NEG(newSize);
+	SI_ASSERT(si_isPowerOfTwo(align));
 	SI_ASSERT_NOT_NIL(outError);
 
-	return alloc.proc(siAllocationType_ResizeNonZeroed, ptr, sizeOld, sizeNew, alloc.data, outError);
+	return alloc.proc(siAllocationType_ResizeNonZeroed, ptr, oldSize, newSize, align, alloc.data, outError);
 }
 
 
+inline
+isize si_allocatorMemAvailable(siAllocator alloc) {
+	siAllocationError tmp;
+	return si_allocatorMemAvailableEx(alloc, &tmp);
+}
 SIDEF
-isize si_allocatorGetAvailableMem(siAllocator alloc) {
-	siAllocationError err;
-	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, alloc.data, &err);
-	return (err == 0) ? res : -1;
+isize si_allocatorMemAvailableEx(siAllocator alloc, siAllocationError* outError) {
+	SI_ASSERT_NOT_NIL(outError);
+
+	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, 0, alloc.data, outError);
+	return (*outError == 0) ? res : -1;
 }
 
 inline
 u8 si_allocatorGetFeatures(siAllocator alloc) {
-	return si_transmute(u8, alloc.proc(siAllocationType_GetFeatures, nil, 0, 0, alloc.data, nil), void*);
+	return si_transmute(u8, alloc.proc(siAllocationType_GetFeatures, nil, 0, 0, 0, alloc.data, nil), void*);
 }
 
 inline
@@ -5192,7 +5329,7 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = malloc((usize)newSize);
+			out = malloc((usize)si_alignForward(newSize, align));
 
 			if (out == nil) {
 				*outError = siAllocationError_OutOfMem;
@@ -5204,7 +5341,7 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = malloc((usize)newSize);
+			out = malloc((usize)si_alignForward(newSize, align));
 			if (out == nil) { *outError = siAllocationError_OutOfMem; }
 			else { *outError = 0; }
 		} break;
@@ -5216,7 +5353,7 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = realloc(ptr, (usize)newSize);
+			out = realloc(ptr, (usize)si_alignForward(newSize, align));
 			if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
 
 			if (newSize > oldSize) {
@@ -5226,7 +5363,7 @@ SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = realloc(ptr, (usize)newSize);
+			out = realloc(ptr, (usize)si_alignForward(newSize, align));
 			if (out == nil) { *outError = siAllocationError_OutOfMem; }
 			else { *outError = 0; }
 		} break;
@@ -5258,25 +5395,21 @@ siArena si_arenaMake(siAllocator alloc, isize capacity) {
 	return si_arenaMakeEx(alloc, capacity, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 SIDEF
-siArena si_arenaMakeEx(siAllocator alloc, isize capacity, i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+siArena si_arenaMakeEx(siAllocator alloc, isize capacity, isize align) {
 	SI_ASSERT_NOT_NEG(capacity);
 
 	siArena out = SI_STRUCT_ZERO;
 	out.alloc = alloc;
-	out.alignment = alignment;
 	out.capacity = capacity;
-	out.ptr = si_allocArrayNonZeroed(out.alloc, u8, out.capacity);
+	out.ptr = si_allocArrayAlign(out.alloc, u8, out.capacity, align);
 
 	return out;
 }
 inline
-siArena si_arenaMakePtr(void* ptr, isize capacity, i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+siArena si_arenaMakePtr(void* ptr, isize capacity) {
 	SI_ASSERT_NOT_NEG(capacity);
 
 	siArena out = SI_STRUCT_ZERO;
-	out.alignment = alignment;
 	out.capacity = capacity;
 	out.ptr = (u8*)ptr;
 
@@ -5302,26 +5435,28 @@ void si_arenaFree(siArena* arena) {
 
 
 siIntern
-void* si__arenaAlloc(siArena* arena, isize size, siAllocationError* outError) {
-	isize bytes = si_alignForward(size, arena->alignment);
+void* si__arenaAlloc(siArena* arena, isize size, isize align, siAllocationError* outError) {
+	isize bytes = si_alignForward(size, align);
 	isize newOffset = arena->offset + bytes;
 
 	if (newOffset > arena->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
 
 	void* out = &arena->ptr[arena->offset];
 	arena->offset = newOffset;
+
 	*outError = 0;
 	return out;
 }
 
 siIntern
-void* si__arenaResize(siArena* arena, void* ptr, isize oldSize, isize newSize, siAllocationError* outError) {
-	if (oldSize >= newSize) { return ptr; }
+void* si__arenaResize(siArena* arena, void* ptr, isize oldSize, isize newSize,
+		isize align, siAllocationError* outError) {
+	void* out = si_allocNonZeroedEx(si_allocatorArena(arena), newSize, align, outError);
+	if (out != nil) {
+		si_memcopy(out, ptr, oldSize);
+	}
 
-	void* out = si_allocNonZeroedEx(si_allocatorArena(arena), newSize, outError);
-	if (out == nil) { return out; }
-
-	return si_memcopy_ptr(out, ptr, oldSize);
+	return out;
 }
 
 SIDEF
@@ -5332,12 +5467,12 @@ SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = si__arenaAlloc(arena, newSize, outError);
+			out = si__arenaAlloc(arena, newSize, align, outError);
 			if (out) { si_memset(out, 0, newSize); }
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = si__arenaAlloc(arena, newSize, outError);
+			out = si__arenaAlloc(arena, newSize, align, outError);
 		} break;
 
 
@@ -5353,12 +5488,12 @@ SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = si__arenaResize(arena, ptr, oldSize, newSize, outError);
+			out = si__arenaResize(arena, ptr, oldSize, newSize, align, outError);
 			if (out && oldSize < newSize) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = si__arenaResize(arena, ptr, oldSize, newSize, outError);
+			out = si__arenaResize(arena, ptr, oldSize, newSize, align, outError);
 		} break;
 
 		case siAllocationType_MemAvailable: {
@@ -5400,25 +5535,21 @@ siLifo si_lifoMake(siAllocator alloc, isize capacity) {
 	return si_lifoMakeEx(alloc, capacity, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 SIDEF
-siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, isize align) {
 	SI_ASSERT_NOT_NEG(capacity);
 
 	siLifo lifo = SI_STRUCT_ZERO;
 	lifo.alloc = alloc;
-	lifo.alignment = alignment;
 	lifo.capacity = capacity;
-	lifo.ptr = si_allocArrayNonZeroed(lifo.alloc, u8, lifo.capacity);
+	lifo.ptr = si_allocArrayNonZeroedAlign(lifo.alloc, u8, lifo.capacity, align);
 
 	return lifo;
 }
 inline
-siLifo si_lifoMakePtr(void* ptr, isize capacity, i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+siLifo si_lifoMakePtr(void* ptr, isize capacity) {
 	SI_ASSERT_NOT_NEG(capacity);
 
 	siLifo lifo = SI_STRUCT_ZERO;
-	lifo.alignment = alignment;
 	lifo.capacity = capacity;
 	lifo.ptr = (u8*)ptr;
 
@@ -5443,8 +5574,8 @@ void si_lifoFree(siLifo* lifo) {
 
 
 siIntern
-void* si__lifoAlloc(siLifo* lifo, isize size, siAllocationError* outError) {
-	isize bytes = si_alignForward(si_sizeof(isize) + size, lifo->alignment);
+void* si__lifoAlloc(siLifo* lifo, isize size, isize align, siAllocationError* outError) {
+	isize bytes = si_alignForward(si_sizeof(isize) + size, align);
 	isize newOffset = lifo->offset + bytes;
 
 	if (newOffset > lifo->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
@@ -5454,6 +5585,7 @@ void* si__lifoAlloc(siLifo* lifo, isize size, siAllocationError* outError) {
 
 	lifo->offset = newOffset;
 	*outError = 0;
+
 	return si_pointerAdd(out, si_sizeof(isize));
 }
 
@@ -5465,12 +5597,12 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = si__lifoAlloc(lifo, newSize, outError);
+			out = si__lifoAlloc(lifo, newSize, align, outError);
 			if (out) { si_memset(out, 0, newSize); }
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = si__lifoAlloc(lifo, newSize, outError);
+			out = si__lifoAlloc(lifo, newSize, align, outError);
 		} break;
 
 
@@ -5490,12 +5622,12 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = si__arenaResize(lifo, ptr, oldSize, newSize, outError);
+			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, outError);
 			if (out && oldSize < newSize) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = si__arenaResize(lifo, ptr, oldSize, newSize, outError);
+			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, outError);
 		} break;
 
 		case siAllocationType_MemAvailable: {
@@ -5523,22 +5655,19 @@ siPool si_poolMake(siAllocator alloc, isize numChunks, isize chunkSize) {
 	return si_poolMakeEx(alloc, numChunks, chunkSize, SI_DEFAULT_MEMORY_ALIGNMENT);
 }
 SIDEF
-siPool si_poolMakeEx(siAllocator alloc, isize numChunks, isize chunkSize,
-		i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+siPool si_poolMakeEx(siAllocator alloc, isize numChunks, isize chunkSize, isize align) {
 	SI_ASSERT_NOT_NEG(numChunks);
 	SI_ASSERT_NOT_NEG(chunkSize);
 
 
 	siPool pool;
 	pool.alloc = alloc;
-	pool.alignment = alignment;
 	pool.numChunks = numChunks;
 	pool.chunkSize = chunkSize;
 	pool.head = nil;
 
 	isize totalChunkSize = si_sizeof(siPoolFreeNode*) + pool.chunkSize;
-	pool.ptr = si_allocArrayNonZeroed(pool.alloc, u8, pool.numChunks * totalChunkSize);
+	pool.ptr = si_allocArrayNonZeroedAlign(pool.alloc, u8, pool.numChunks * totalChunkSize, align);
 
 	for_range (i, 0, pool.numChunks) {
 		void* ptr = &pool.ptr[i * pool.chunkSize];
@@ -5587,6 +5716,7 @@ SIDEF
 SI_ALLOCATOR_PROC(si_allocatorPool_proc) {
 	siPool* pool = (siPool*)data;
 	SI_ASSERT_MSG(pool->ptr != nil, "You cannot use an already freed pool.");
+	SI_UNUSED(align); /* NOTE(EimaMei): Check the allocator's description. */
 
 	void* out;
 	switch (type) {
@@ -5654,13 +5784,12 @@ siDynamicArena si_dynamicArenaMake(siAllocator alloc, isize startingCapacity,
 }
 inline
 siDynamicArena si_dynamicArenaMakeEx(siAllocator alloc, isize startingCapacity,
-		isize blockSize, i32 alignment) {
-	SI_ASSERT(si_isPowerOfTwo(alignment));
+		isize blockSize, isize align) {
 	SI_ASSERT_NOT_NEG(startingCapacity);
 	SI_ASSERT_NOT_NEG(blockSize);
 
 	siDynamicArena dynamic;
-	dynamic.arena = si_arenaMakeEx(alloc, startingCapacity, alignment);
+	dynamic.arena = si_arenaMakeEx(alloc, startingCapacity, align);
 	dynamic.blockSize = blockSize;
 	dynamic.head = nil;
 
@@ -5732,9 +5861,10 @@ void si_dynamicArenaTmpEnd(siDynamicArenaTmp tmp) {
 
 
 siIntern
-void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, siAllocationError* outError) {
+void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, isize align,
+		siAllocationError* outError) {
 	siArena* arena = &dyn->arena;
-	isize bytes = (isize)si_alignForward(size, arena->alignment);
+	isize bytes = (isize)si_alignForward(size, align);
 	void* out = &arena->ptr[arena->offset];
 
 	if (arena->offset + bytes > arena->capacity) {
@@ -5751,9 +5881,12 @@ void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, siAllocationError* 
 		}
 
 		if (block == nil) {
-			siDynamicArenaBlock* newBlock = (siDynamicArenaBlock*)si_allocNonZeroedEx(
-				arena->alloc, si_sizeof(siDynamicArenaBlock) + dyn->blockSize, outError
+			void* newBlockPtr = si_allocNonZeroedEx(
+				arena->alloc, si_sizeof(siDynamicArenaBlock) + dyn->blockSize,
+				align, outError
 			);
+
+			siDynamicArenaBlock* newBlock = (siDynamicArenaBlock*)newBlockPtr;
 			if (newBlock == nil) { *outError = siAllocationError_OutOfMem; return nil; }
 
 			if (head != nil) { head->next = newBlock; }
@@ -5778,13 +5911,15 @@ void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, siAllocationError* 
 }
 
 siIntern
-void* si__dynamicArenaResize(siDynamicArena* arena, void* ptr, isize oldSize, isize newSize, siAllocationError* outError) {
+void* si__dynamicArenaResize(siDynamicArena* arena, void* ptr, isize oldSize,
+		isize newSize, isize align, siAllocationError* outError) {
 	if (oldSize >= newSize) { return ptr; }
 
-	void* out = si_allocNonZeroedEx(si_allocatorDynamicArena(arena), newSize, outError);
+	void* out = si_allocNonZeroedEx(si_allocatorDynamicArena(arena), newSize, align, outError);
 	if (ptr == nil) { return out; }
 
-	return si_memcopy_ptr(out, ptr, oldSize);
+	si_memcopy(out, ptr, oldSize);
+	return out;
 }
 
 
@@ -5797,12 +5932,12 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = si__dynamicArenaAlloc(dyn, newSize, outError);
+			out = si__dynamicArenaAlloc(dyn, newSize, align, outError);
 			if (out != nil) { si_memset(out, 0, newSize); }
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = si__dynamicArenaAlloc(dyn, newSize, outError);
+			out = si__dynamicArenaAlloc(dyn, newSize, align, outError);
 		} break;
 
 		case siAllocationType_Free: {
@@ -5823,12 +5958,12 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, outError);
+			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, outError);
 			if (out && oldSize < newSize) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, outError);
+			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, outError);
 		} break;
 
 		case siAllocationType_MemAvailable: {
@@ -6401,7 +6536,7 @@ siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen) {
 	SI_ASSERT(newLength <= newCapacity);
 
 	siAllocationError error;
-	void* data = si_reallocExNonZeroed(b->alloc, b->data, b->capacity, newCapacity, &error);
+	void* data = si_reallocNonZeroedErr(b->alloc, b->data, b->capacity, newCapacity, &error);
 	if (data != nil) {
 		b->data = (u8*)data;
 		b->capacity = newCapacity;
@@ -10202,7 +10337,7 @@ GOTO_SCIENTIFIC_NOTATION:
 
 			case 'L': { /* Location */
 				siCallerLoc loc = va_arg(va, siCallerLoc);
-				siArena arena = si_arenaMakePtr(si_stackAlloc(1024), 1);
+				siArena arena = si_arenaMakePtr(si_stackAlloc(1024));
 
 				siBuilder b = si_builderMake(loc.filename.len + 20 + loc.function.len + 2, si_allocatorArena(&arena));
 				si_builderWriteStr(&b, loc.filename);
@@ -10983,7 +11118,7 @@ siUnixDE si_unixGetDE(void) {
 	siString res = si_envVarGetData(SI_STR("XDG_CURRENT_DESKTOP"), SI_ARR_STACK(16));
 	SI_STOPIF(res.data == nil, return 0);
 
-	siArena arena = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)), SI_DEFAULT_MEMORY_ALIGNMENT);
+	siArena arena = si_arenaMakePtr(si_stackAlloc(SI_KILO(1)));
 	siMap(i32) map = si_mapMake(
 		si_allocatorArena(&arena), i32,
 		{SI_STR("KDE"), siUnixDE_KDE}, {SI_STR("GNOME"), siUnixDE_GNOME},

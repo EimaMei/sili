@@ -96,7 +96,7 @@ void example2(void) {
 		&opt_i32, &opt_string, &opt_buffer, &opt_u128, &opt_type, &opt_ptr
 	};
 
-	siArena arena = si_arenaMakePtr(si_stackAlloc(64), 1);
+	siArena arena = si_arenaMakePtr(si_stackAlloc(64));
 	siAllocator alloc = si_allocatorArena(&arena);
 	for_range (i, 0, Type_len) {
 		createOptional((Type)i, opt_array[i], alloc);
