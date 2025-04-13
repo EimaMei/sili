@@ -342,22 +342,6 @@ extern "C" {
 		#define SI_ARCH_IS_X86 1
 		#define SI_ARCH_IS_64BIT 1
 
-	#elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__) || defined(_ARCH_PPC64)
-		#define SI_ARCH_PPC64 1
-		#define SI_ARCH_STR "PowerPC 64-bit"
-
-		#define SI_ARCH_IS_PPC 1
-		#define SI_ARCH_IS_64BIT 1
-
-	#elif defined(__powerpc__) || defined(__powerpc) || defined(__POWERPC__) || defined(__ppc__) \
-		|| defined(__PPC__) || defined(_M_PPC) || defined(_ARCH_PPC) || defined(__PPCGECKO__) \
-		|| defined(__PPCBROADWAY__) || defined(_XENON) || defined(__ppc)
-		#define SI_ARCH_PPC32 1
-		#define SI_ARCH_STR "PowerPC 32-bit"
-
-		#define SI_ARCH_IS_PPC 1
-		#define SI_ARCH_IS_32BIT 1
-
 	#elif defined(__aarch64__) || defined(_M_ARM64)
 		#define SI_ARCH_ARM64 1
 		#define SI_ARCH_STR "ARM64"
@@ -397,6 +381,28 @@ extern "C" {
 			#define SI_ARCH_IS_64BIT 1
 		#endif
 		#define SI_ARCH_IS_WASM 1
+
+	#elif defined(__powerpc64__) || defined(__ppc64__) || defined(__PPC64__) || defined(_ARCH_PPC64)
+		#define SI_ARCH_PPC64 1
+		#define SI_ARCH_STR "PowerPC 64-bit"
+
+		#define SI_ARCH_IS_PPC 1
+		#define SI_ARCH_IS_64BIT 1
+
+	#elif defined(__powerpc__) || defined(__powerpc) || defined(__POWERPC__) || defined(__ppc__) \
+		|| defined(__PPC__) || defined(_M_PPC) || defined(_ARCH_PPC) || defined(__PPCGECKO__) \
+		|| defined(__PPCBROADWAY__) || defined(_XENON) || defined(__ppc)
+		#define SI_ARCH_PPC32 1
+		#define SI_ARCH_STR "PowerPC 32-bit"
+
+		#define SI_ARCH_IS_PPC 1
+		#define SI_ARCH_IS_32BIT 1
+
+	#elif defined(__sh__)
+		#define SI_ARCH_SUPERH 1
+		#define SI_ARCH_STR "SuperH"
+		#define SI_ARCH_IS_32BIT 1
+		#define SI_ARCH_IS_SUPERH 1
 
 	#else
 		#define SI_ARCH_UNKNOWN 1
