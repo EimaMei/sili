@@ -21,7 +21,7 @@ int main(void) {
 				isize result = func(u64, test_in); \
 				isize correct = check(test_in, bit); \
 				if (result != correct) { \
-					si_printfLn("%L: %S: %064#lb: result = %i, correct = %i (j = %zi, k = %zi)", SI_CALLER_LOC, SI_STR(#func), test_in, result, correct, j, k); \
+					si_printfLn("%L: %s: %.64#b: result = %i, correct = %i (j = %i, k = %i)", SI_CALLER_LOC, SI_STR(#func), test_in, result, correct, j, k); \
 					SI_PANIC(); \
 				} \
 				if (k == 0) { \
@@ -36,8 +36,8 @@ int main(void) {
 }
 
 siIntern
-i32 bits_count(u64 n, u32 bit) {
-    i32 count = 0;
+isize bits_count(u64 n, u64 bit) {
+    isize count = 0;
     for_range (i, 0, 64) {
         count += (n & 1) == bit;
         n >>= 1;
@@ -46,10 +46,10 @@ i32 bits_count(u64 n, u32 bit) {
 }
 
 siIntern
-i32 bits_countLeading(u64 n, u32 bit) {
-    i32 count = 0;
-    for (i32 i = 63; i >= 0; i -= 1) {
-        u32 current_bit = (n >> i) & 1;
+isize bits_countLeading(u64 n, u64 bit) {
+	isize count = 0;
+    for (isize i = 63; i >= 0; i -= 1) {
+        u64 current_bit = (n & SI_BIT(i)) != 0;
         if (current_bit != bit) break;
         count += 1;
     }
@@ -57,19 +57,14 @@ i32 bits_countLeading(u64 n, u32 bit) {
 }
 
 siIntern
-i32 bits_countTrailing(u64 n, u32 bit) {
-    i32 count = 0;
+isize bits_countTrailing(u64 n, u64 bit) {
+    isize count = 0;
 	for_range (i, 0, 64) {
-        u32 current_bit = (n & SI_BIT(i)) != 0;
+        u64 current_bit = (n & SI_BIT(i)) != 0;
         if (current_bit != bit) break;
         count += 1;
     }
     return count;
-}
-
-siIntern
-u64 bits_bitsRotateLeft(u64 n, u32 shift) {
-    return (n << shift) | (n >> (64 - shift));
 }
 
 #define BIT_TEST(function) \

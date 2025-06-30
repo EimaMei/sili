@@ -1,142 +1,189 @@
-CC = clang
-AR = ar
+# Parameter explanations:
+#   CC - compiler used by the Makefile. Can be whatever you desire.
+#
+#   PLATFORM - sets the platform target to compile for. Current values: WIN32_GNU, 
+# WIN32_MSVC, OS_X, LINUX, WASM_WASI, WASM_EMCC, DEFAULT. Selecting 'DEFAULT' 
+# makes the Makefile automatically guess which platform to target.
+#
+# 	MODE - sets the release mode to compile for. Current values: FAST, MODE, 
+# RELEASE. 'FAST' disables all flags and enables ones requires for fast compilation. 
+# 'MODE' turns on all warnings as well as flags to help with MODEging/finding 
+# problematic code. 'RELEASE' turns on all optimisations as well as warnings.
+# 
+# 	LANGUAGE - selects which programming language to target. Currently C and C++ 
+# are the only valid options.
 
+CC        = clang
+PLATFORM  = DEFAULT
+MODE      = FAST
+LANGUAGE  = C
+
+# Building options:
+#	NAME   - the executable name.
+#	SRC    - source file to target.
+#   OUTPUT - the directory where all of the output goes to.
+NAME = basic
+SRC = tests/bit.c
 OUTPUT = build
-NAME = sili
-DEBUG = 0
 
-GNU_FLAGS = -Wall -Wextra -Wpedantic \
-	-Wconversion -Wsign-conversion \
-	-Wshadow -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes \
-	-Wvla -Wcast-align -Wcast-align=strict \
-	\
-	-Wswitch-enum -Wcast-align -Wstrict-overflow \
-	-Wstrict-prototypes -Wnested-externs -Wlogical-op -Wstrict-aliasing  -Wredundant-decls \
-	-Wold-style-definition \
-	\
-	-fno-omit-frame-pointer -ffloat-store -fstrict-aliasing \
-	\
-	-Wformat=2 -Wformat-signedness -Wuninitialized -Winit-self -Wunsafe-loop-optimizations -Wmissing-noreturn
+
+ifeq ($(PLATFORM),DEFAULT)
+	ifneq (,$(filter $(CC),mingw32-gcc x86_64-w64-mingw32-g++ w64gcc w32gcc))
+		PLATFORM = WIN32_GNU
+	else ifneq (,$(filter $(CC),cl))
+		PLATFORM = WIN32_MSVC
+	else ifneq (,$(filter $(CC), wasi))
+		PLATFORM = WASM_WASI
+	else ifneq (,$(filter $(CC), emcc))
+		PLATFORM = WASM_EMCC
+	else
+		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
+
+		ifeq ($(DETECTED_OS),Darwin)
+			PLATFORM = OS_X
+		else ifeq ($(DETECTED_OS),Linux)
+			PLATFORM = LINUX
+		else
+			$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
+		endif
+	endif
+endif
+
+ifeq ($(LANGUAGE),C)
+	GNU_FLAGS = -std=c23 -x c -Wvla
+else ifeq ($(LANGUAGE),CPP)
+	GNU_FLAGS = -std=c++11 -x c++ -fno-exceptions
+endif
+
+ifeq ($(MODE),FAST)
+	GNU_FLAGS += -O0 -flto 
+
+else
+	GNU_FLAGS += \
+		-Wall -Wextra -Wpedantic \
+		-Wconversion -Wsign-conversion -Wdouble-promotion \
+		\
+		-Wpointer-arith \
+		\
+		-Wcast-align \
+		\
+		\
+		-Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition \
+		\
+		-Wswitch-enum -Wnested-externs \
+		\
+		-Werror=format-security -Wformat=2 -Wformat-signedness \
+		\
+		-Winit-self -Wshadow -Wredundant-decls \
+		\
+		-Wmissing-noreturn \
+		\
+		-fwrapv -fstrict-aliasing \
+		-fstrict-flex-arrays=3 -fno-omit-frame-pointer
+
+	ifneq (,$(filter $(CC),gcc g++))
+		GNU_FLAGS += -Wcast-align=strict -Wlogical-op
+	endif
+
+	ifeq ($(MODE),1)
+		GNU_FLAGS += \
+			-fstack-clash-protection \
+			-fstack-protector-strong \
+			-ftrivial-auto-var-init=pattern \
+			-fsanitize=undefined -fsanitize=address
+	else
+		GNU_FLAGS += \
+			-O3 \
+			-D SI_RELEASE_MODE \
+			-fno-delete-null-pointer-checks \
+			-fno-strict-aliasing \
+			-ftrivial-auto-var-init=zero \
+			-flto
+	endif
+endif
+
 GNU_INCLUDES = -I"." -I"include"
 
-GNU_STATIC_FLAGS = -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(NAME).o"
-GNU_AR_FLAGS = rcs $(OUTPUT)/lib$(NAME).a "$(OUTPUT)/$(NAME).o"
-GNU_DLL_FLAGS = -shared "$(OUTPUT)/$(NAME).o" -o "$(OUTPUT)/lib$(NAME)$(DLL_EXT)"
 
-ifneq (,$(filter $(CC), g++ clang++))
-	GNU_FLAGS += -std=c++20 -x c++
-else
-	GNU_FLAGS += -std=c99 -x c
+ifeq ($(PLATFORM),DEFAULT)
+	ifneq (,$(filter $(CC),mingw32-gcc x86_64-w64-mingw32-g++ w64gcc w32gcc))
+		PLATFORM = WIN32_GNU
+	else ifneq (,$(filter $(CC),cl))
+		PLATFORM = WIN32_MSVC
+	else ifneq (,$(filter $(CC), wasi))
+		PLATFORM = WASM_WASI
+	else ifneq (,$(filter $(CC), emcc))
+		PLATFORM = WASM_EMCC
+	else
+		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
+
+		ifeq ($(DETECTED_OS),Darwin)
+			PLATFORM = OS_X
+		else ifeq ($(DETECTED_OS),Linux)
+			PLATFORM = LINUX
+		else
+			$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
+		endif
+	endif
 endif
 
-ifeq ($(DEBUG),1)
-	GNU_FLAGS += -fsanitize=undefined
-else
-	GNU_FLAGS += -O3 -D SI_RELEASE_MODE
-endif
 
-
-
-DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-ifneq (,$(filter $(CC),w64gcc x86_64-w64-mingw32-gcc w32gcc i686-w64-mingw32-gcc))
+ifeq ($(PLATFORM),WIN32_GNU)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS = -lkernel32 -lole32 -lopengl32
-	LINKER = $(CC)
-
 	EXE_OUT = .exe
-	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
-	DLL_FLAGS = $(GNU_DLL_FLAGS)
-	AR_FLAGS = $(GNU_AR_FLAGS)
-	DLL_EXT = .dll
-	CC_OUT = -o
 
-else ifneq (,$(filter $(CC),cl /opt/msvc/bin/x64/cl.exe /opt/msvc/bin/x86/cl.exe, cl.exe))
+else ifeq ($(PLATFORM),WIN32_MSVC)
 	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
 	INCLUDES = -I"." -I"include"
-	ifeq ($(DEBUG),0)
+	ifeq ($(MODE),0)
 		FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
 	endif
 
 	LIBS =
-	LINKER = $(CC)
-
 	EXE_OUT = .exe
-	STATIC_FLAGS = -c -D SI_IMPLEMENTATION -Tc sili.h -Fo"$(OUTPUT)\$(NAME).obj"
-	DLL_FLAGS = -LD -nologo -Fe"$(OUTPUT)\lib$(NAME)$(DLL_EXT)" "$(OUTPUT)\$(NAME).obj"
-	AR_FLAGS = -nologo -out:"$(OUTPUT)\lib$(NAME).lib" "$(OUTPUT)/$(NAME).obj"
-	DLL_EXT = .dll
-	CC_OUT = -Fe
 
-else ifneq (,$(filter $(CC), wasm32-wasi-clang))
+else ifeq ($(PLATFORM),OS_X)
+	FLAGS = $(GNU_FLAGS)
+	INCLUDES = $(GNU_INCLUDES)
+
+	LIBS    = -lpthread -ldl
+	EXE_OUT =
+
+else ifeq ($(PLATFORM),LINUX)
+	FLAGS = $(GNU_FLAGS)
+	INCLUDES = $(GNU_INCLUDES)
+
+	LIBS    = -lpthread -ldl -lX11 -lXrandr -lGL
+	EXE_OUT =
+
+else ifeq ($(PLATFORM),WASM_WASI)
 	FLAGS = --target=wasm32-wasi $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS =
-	LINKER =
-
 	EXE_OUT = .wasm
-	CC_OUT = -o
 
-else ifneq (,$(filter $(CC), emcc))
-	FLAGS = --target=wasm32-unknown-emscripten $(GNU_FLAGS) -s WASM=1 -s ASYNCIFY \
-		-s PTHREAD_POOL_SIZE=4 -pthread
+else ifeq ($(PLATFORM),WASM_EMCC)
+	FLAGS = --target=wasm32-unknown-emscripten -s WASM=1 -s ASYNCIFY -s PTHREAD_POOL_SIZE=4 \
+		$(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
-	LIBS =
-	LINKER =
-
+	LIBS    = -pthread
 	EXE_OUT = .html
-	CC_OUT = -o
 
-else ifeq ($(DETECTED_OS),Darwin)
-	FLAGS = $(GNU_FLAGS)
-	INCLUDES = $(GNU_INCLUDES)
-
-	LIBS = -lpthread -ldl
-	LINKER = $(CC)
-
-	EXE_OUT =
-	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
-	DLL_FLAGS = $(GNU_DLL_FLAGS)
-	AR_FLAGS = $(GNU_AR_FLAGS)
-	DLL_EXT = .dylib
-	CC_OUT = -o
-
-else ifeq ($(DETECTED_OS),Linux)
-	FLAGS = $(GNU_FLAGS)
-	INCLUDES = $(GNU_INCLUDES)
-
-	LIBS = -lpthread -ldl
-	LINKER = $(CC)
-
-	EXE_OUT =
-	STATIC_FLAGS = $(GNU_STATIC_FLAGS)
-	DLL_FLAGS = $(GNU_DLL_FLAGS)
-	AR_FLAGS = $(GNU_AR_FLAGS)
-	DLL_EXT = .so
-	CC_OUT = -o
+else
+	$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
 
 endif
 
 EXE = $(OUTPUT)/$(NAME)$(EXE_OUT)
 
-# For testing
-SRC = tests/str.c
 
 # 'make'
 all: $(OUTPUT) $(EXE) run
-
-# 'make static'
-static:
-	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
-	$(AR) $(AR_FLAGS)
-
-dynamic:
-	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
-	$(LINKER) $(LIBS) $(EXTRA_LIBS) $(EXTRA_FLAGS) $(DLL_FLAGS)
-
 
 # Run the executable.
 run: $(EXE)
@@ -144,24 +191,14 @@ run: $(EXE)
 
 # Clean the 'build' folder.
 clean:
-	rm $(OUTPUT)/**
+	rm -rf $(OUTPUT)/*
 
 
-# Compile each time the main file or `sili.h` is changed.
-$(EXE): $(SRC) sili.h
-	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) $(CC_OUT)"$@"
+$(EXE): $(SRC) sili.h Makefile examples/*
+	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
 
-# Compiles and runs every example.
-compile_examples:
-	@for f in $(shell ls examples/*/*.c); do make SRC=$${f}; rm -rf $(EXE); done
-
-# Compiles and runs every test.
-compile_tests:
-	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
-
-compile_asm:
-	$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) $(STATIC_FLAGS)
-	objdump -d -M intel $(OUTPUT)/$(NAME).o  > $(OUTPUT)/$(NAME).s
+#$(OUTPUT)/sili.o: sili.h
+#	$(CC) $(FLAGS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
 
 
 # If 'build' doesn't exist, create it

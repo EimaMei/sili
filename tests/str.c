@@ -45,24 +45,24 @@ void test_string(siAllocator alloc) {
 
 	{
 		siString str = SI_STR(test_str);
-		TEST_EQ_ISIZE(str.len, countof_str(test_str));
-		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
+		TEST_EQ_INT(str.len, countof_str(test_str));
+		TEST_EQ_INT(si_memcompare(str.data, test_str, str.len), 0);
 
 		str = SI_STR_LEN(test_str, 4);
-		TEST_EQ_ISIZE(str.len, 4);
-		TEST_EQ_PTR(si_memcompare(str.data, test_str, str.len), 0);
+		TEST_EQ_INT(str.len, 4);
+		TEST_EQ_INT(si_memcompare(str.data, test_str, str.len), 0);
 
-		str = SI_CSTR(((char*)test_str + 1));
-		TEST_EQ_ISIZE(str.len, countof_str(test_str) - 1);
-		TEST_EQ_PTR(si_memcompare(str.data, (const u8*)test_str + 1, str.len), 0);
+		str = SI_STR(((char*)test_str + 1));
+		TEST_EQ_INT(str.len, countof_str(test_str) - 1);
+		TEST_EQ_INT(si_memcompare(str.data, (const u8*)test_str + 1, str.len), 0);
 
 		str = SI_STR_EMPTY;
 		TEST_NEQ_PTR(str.data, nil);
-		TEST_EQ_ISIZE(str.len, 0);
+		TEST_EQ_INT(str.len, 0);
 
 		str = SI_STR_NIL;
 		TEST_EQ_PTR(str.data, (const void*)nil);
-		TEST_EQ_ISIZE(str.len, 0);
+		TEST_EQ_INT(str.len, 0);
 	} SUCCEEDED();
 
 	#if SI_LANGUAGE_IS_CPP
@@ -79,23 +79,23 @@ void test_string(siAllocator alloc) {
 
 				slice = str(i, j);
 				TEST_EQ_PTR(slice.data, str.data + i);
-				TEST_EQ_ISIZE(slice.len, j - i);
+				TEST_EQ_INT(slice.len, j - i);
 			}
 
 			slice = str.from(i);
 			TEST_EQ_PTR(slice.data, str.data + i);
-			TEST_EQ_ISIZE(slice.len, str.len - i);
+			TEST_EQ_INT(slice.len, str.len - i);
 
 			slice = str.to(i);
 			TEST_EQ_PTR(slice.data, str.data);
-			TEST_EQ_ISIZE(slice.len, i);
+			TEST_EQ_INT(slice.len, i);
 
 			for_range (j, 0, str.len) {
 				SI_STOPIF(i + j > str.len, break);
 
 				slice = str.substrLen(i, j);
 				TEST_EQ_PTR(slice.data, str.data + i);
-				TEST_EQ_ISIZE(slice.len, j);
+				TEST_EQ_INT(slice.len, j);
 			}
 		}
 	} SUCCEEDED();
@@ -144,7 +144,7 @@ void test_string(siAllocator alloc) {
 		TEST_EQ_PTR(ptr, str.data);
 
 		ptr = si_stringEnd(str);
-		TEST_EQ_PTR(ptr, str.data + str.len);
+		TEST_EQ_PTR(ptr, &str.data[str.len]);
 
 
 		str = SI_STR_EMPTY;
@@ -165,24 +165,24 @@ void test_string(siAllocator alloc) {
 				SI_STOPIF(i > j, break);
 
 				slice = si_substr(str, i, j);
-				TEST_EQ_PTR(slice.data, str.data + i);
-				TEST_EQ_ISIZE(slice.len, j - i);
+				TEST_EQ_PTR(slice.data, &str.data[i]);
+				TEST_EQ_INT(slice.len, j - i);
 			}
 
 			slice = si_substrFrom(str, i);
-			TEST_EQ_PTR(slice.data, str.data + i);
-			TEST_EQ_ISIZE(slice.len, str.len - i);
+			TEST_EQ_PTR(slice.data, &str.data[i]);
+			TEST_EQ_INT(slice.len, str.len - i);
 
 			slice = si_substrTo(str, i);
 			TEST_EQ_PTR(slice.data, str.data);
-			TEST_EQ_ISIZE(slice.len, i);
+			TEST_EQ_INT(slice.len, i);
 
 			for_range (j, 0, str.len) {
 				SI_STOPIF(i + j > str.len, break);
 
 				slice = si_substrLen(str, i, j);
-				TEST_EQ_PTR(slice.data, str.data + i);
-				TEST_EQ_ISIZE(slice.len, j);
+				TEST_EQ_PTR(slice.data, &str.data[i]);
+				TEST_EQ_INT(slice.len, j);
 			}
 		}
 	} SUCCEEDED();
@@ -191,54 +191,54 @@ void test_string(siAllocator alloc) {
 		siString str = SI_STR(test_str);
 
 		isize i = si_stringFind(str, SI_STR("ty"));
-		TEST_EQ_ISIZE(i, countof_str("qwer"));
+		TEST_EQ_INT(i, countof_str("qwer"));
 		i = si_stringFind(str, SI_STR("sdfdf"));
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindByte(str, '_');
-		TEST_EQ_ISIZE(i, countof_str(test_str1));
+		TEST_EQ_INT(i, countof_str(test_str1));
 		i = si_stringFindByte(str, '0');
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindRune(str, 0x0433);
-		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+		TEST_EQ_INT(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
 		i = si_stringFindRune(str, '\0');
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindLast(str, SI_STR("ty"));
-		TEST_EQ_ISIZE(i, countof_str("qwertyqwer"));
+		TEST_EQ_INT(i, countof_str("qwertyqwer"));
 		i = si_stringFindLast(str, SI_STR("sdfdf"));
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindLastByte(str, '_');
-		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“"));
+		TEST_EQ_INT(i, countof_str("qwertyqwerty_ąčęėįšųū„“"));
 		i = si_stringFindLastByte(str, '0');
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindLastRune(str, 0x0433);
-		TEST_EQ_ISIZE(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
+		TEST_EQ_INT(i, countof_str("qwertyqwerty_ąčęėįšųū„“_йцукенн"));
 		i = si_stringFindLastRune(str, '\0');
-		TEST_EQ_ISIZE(i, -1);
+		TEST_EQ_INT(i, -1);
 
 		i = si_stringFindCount(str, SI_STR("_"));
-		TEST_EQ_ISIZE(i, 2);
+		TEST_EQ_INT(i, 2);
 		i = si_stringFindCount(str, SI_STR("dfdjkf"));
-		TEST_EQ_ISIZE(i, 0);
+		TEST_EQ_INT(i, 0);
 	} SUCCEEDED();
 
 	{
 		siString str = SI_STR("DWgaOtP12df0");
 		bool res = si_stringEqual(str, SI_STR("dWgaf0"));
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, 0);
 
 		res = si_stringEqual(str, SI_STR("dWgaOtP12df0"));
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, 0);
 
 		res = si_stringEqual(str, SI_STR("DWgaOtP12df0"));
-		TEST_EQ_ISIZE(res, 1);
+		TEST_EQ_INT(res, 1);
 
 		res = si_stringEqual(str, si_stringCopy(str, alloc));
-		TEST_EQ_ISIZE(res, 1);
+		TEST_EQ_INT(res, 1);
 
 		i32 code = si_stringCompare(str, SI_STR("DWGAOTP12DF0"));
 		ASSERT(code > 0);
@@ -247,10 +247,10 @@ void test_string(siAllocator alloc) {
 		ASSERT(code < 0);
 
 		code = si_stringCompare(str, SI_STR("DWgaOtP12df0"));
-		TEST_EQ_ISIZE(code, 0);
+		TEST_EQ_INT(code, 0);
 
 		code = si_stringCompare(str, si_stringCopy(str, alloc));
-		TEST_EQ_ISIZE(code, 0);
+		TEST_EQ_INT(code, 0);
 	} SUCCEEDED();
 
 	{
@@ -311,20 +311,20 @@ void test_string(siAllocator alloc) {
 
 		siArray(siString) arr = si_stringSplit(str, SI_STR("_"), alloc);
 		siString* arrv = (siString*)arr.data;
-		TEST_EQ_ISIZE(arr.len, countof(str_arr));
+		TEST_EQ_INT(arr.len, countof(str_arr));
 		for_range (i, 0, countof(str_arr)) {
 			TEST_EQ_STR(arrv[i], SI_CSTR(str_arr[i]));
 		}
 
 		arr = si_stringSplitEx(str, SI_STR("_"), 1, alloc);
 		arrv = (siString*)arr.data;
-		TEST_EQ_ISIZE(arr.len, 2);
+		TEST_EQ_INT(arr.len, 2);
 		TEST_EQ_STR(arrv[0], SI_STR(test_str1));
 		TEST_EQ_STR(arrv[1], SI_STR(test_str2 "_" test_str3));
 
 		arr = si_stringSplitLines(nl, alloc);
 		arrv = (siString*)arr.data;
-		TEST_EQ_ISIZE(arr.len, countof(nl_arr));
+		TEST_EQ_INT(arr.len, countof(nl_arr));
 		for_range (i, 0, countof(nl_arr)) {
 			TEST_EQ_STR(arrv[i], SI_CSTR(nl_arr[i]));
 		}
@@ -334,14 +334,14 @@ void test_string(siAllocator alloc) {
 			TEST_EQ_STR(line, SI_CSTR(str_arr[i]));
 			i += 1;
 		}
-		TEST_EQ_ISIZE(i, countof(str_arr));
+		TEST_EQ_INT(i, countof(str_arr));
 
 		i = 0;
 		while (si_stringSplitLinesIterate(&nl, &line)) {
 			TEST_EQ_STR(line, SI_CSTR(nl_arr[i]));
 			i += 1;
 		}
-		TEST_EQ_ISIZE(i, countof(nl_arr));
+		TEST_EQ_INT(i, countof(nl_arr));
 	} SUCCEEDED();
 
 	{
@@ -364,122 +364,134 @@ void test_string(siAllocator alloc) {
 
 void test_builder(siAllocator alloc) {
 	si_freeAll(alloc);
-	TEST_EQ_ISIZE(si_allocatorMemAvailable(alloc), SI_MEGA(1));
+	TEST_EQ_INT(si_allocatorMemAvailable(alloc), SI_MEGA(1));
 
 	TEST_START();
 
 	{
-		siBuilder builder = si_builderMake(16, alloc);
+		siBuilder builder = si_builderMake(alloc, 16);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_NEQ_PTR(builder.data, nil);
-		TEST_EQ_ISIZE(builder.len, 0);
-		TEST_EQ_ISIZE(builder.capacity, 16);
-		TEST_EQ_ISIZE(builder.grow, 0);
-		builder = si_builderMakeLen(5, 16, alloc);
-		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
-		TEST_EQ_PTR(builder.alloc.data, alloc.data);
-		TEST_NEQ_PTR(builder.data, nil);
-		TEST_EQ_ISIZE(builder.len, 5);
-		TEST_EQ_ISIZE(builder.capacity, 16);
-		TEST_EQ_ISIZE(builder.grow, 0);
+		TEST_EQ_INT(builder.len, 0);
+		TEST_EQ_INT(builder.capacity, 16);
+		TEST_EQ_INT(builder.grow, 0);
 
-		builder = si_builderMakeGrow(32, 16, alloc);
+		builder = si_builderMake(alloc, 16, 45);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_NEQ_PTR(builder.data, nil);
-		TEST_EQ_ISIZE(builder.len, 0);
-		TEST_EQ_ISIZE(builder.capacity, 16);
-		TEST_EQ_ISIZE(builder.grow, 32);
+		TEST_EQ_INT(builder.len, 0);
+		TEST_EQ_INT(builder.capacity, 16);
+		TEST_EQ_INT(builder.grow, 45);
+
+		builder = si_builderMakeLen(alloc, 16, 8);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_NEQ_PTR(builder.data, nil);
+		TEST_EQ_INT(builder.len, 8);
+		TEST_EQ_INT(builder.capacity, 16);
+		TEST_EQ_INT(builder.grow, 0);
+
+		builder = si_builderMakeLen(alloc, 16, 8, 64);
+		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
+		TEST_EQ_PTR(builder.alloc.data, alloc.data);
+		TEST_NEQ_PTR(builder.data, nil);
+		TEST_EQ_INT(builder.len, 8);
+		TEST_EQ_INT(builder.capacity, 16);
+		TEST_EQ_INT(builder.grow, 64);
 
 		builder = si_builderMakeNone(alloc);
 		TEST_EQ_PTR(builder.alloc.proc, alloc.proc);
 		TEST_EQ_PTR(builder.alloc.data, alloc.data);
 		TEST_EQ_PTR(builder.data, nil);
-		TEST_EQ_ISIZE(builder.len, 0);
-		TEST_EQ_ISIZE(builder.capacity, 0);
-		TEST_EQ_ISIZE(builder.grow, 0);
+		TEST_EQ_INT(builder.len, 0);
+		TEST_EQ_INT(builder.capacity, 0);
+		TEST_EQ_INT(builder.grow, 0);
 
-		builder = si_builderMakeEx(0, 0, si_allocatorMemAvailable(alloc) + 1, alloc);
+		builder = si_builderMake(alloc, si_allocatorMemAvailable(alloc) + 1);
 		TEST_EQ_PTR(builder.alloc.proc, nil);
 		TEST_EQ_PTR(builder.alloc.data, nil);
 		TEST_EQ_PTR(builder.data, nil);
-		TEST_EQ_ISIZE(builder.len, 0);
-		TEST_EQ_ISIZE(builder.capacity, 0);
-		TEST_EQ_ISIZE(builder.grow, 0);
+		TEST_EQ_INT(builder.len, 0);
+		TEST_EQ_INT(builder.capacity, 0);
+		TEST_EQ_INT(builder.grow, 0);
 	} SUCCEEDED();
 
 	{
-		siBuilder builder = si_builderMake(4, alloc);
+		siBuilder builder = si_builderMake(alloc, 4);
 		siAllocationError res = si_builderMakeSpaceFor(&builder, 2);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.capacity, 4);
+		TEST_EQ_INT(res, 0);
+		TEST_EQ_INT(builder.capacity, 4);
 
 		res = si_builderMakeSpaceFor(&builder, 4);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.capacity, 4);
+		TEST_EQ_INT(res, 0);
+		TEST_EQ_INT(builder.capacity, 4);
 
 		res = si_builderMakeSpaceFor(&builder, 8);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.capacity, 2 * (4 + 8));
+		TEST_EQ_INT(res, 0);
+		TEST_EQ_INT(builder.capacity, 2 * (4 + 8));
 
-		builder = si_builderMakeGrow(32, 4, alloc);
+		builder = si_builderMakeLen(alloc, 32, 32, 4);
 		res = si_builderMakeSpaceFor(&builder, 8);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
+		TEST_EQ_INT(res, 0);
+		TEST_EQ_INT(builder.capacity, 4 + 32 + 8);
 
 		res = si_builderMakeSpaceFor(&builder, si_allocatorMemAvailable(alloc) + 1);
-		TEST_EQ_ISIZE(res, siAllocationError_OutOfMem);
-		TEST_EQ_ISIZE(builder.capacity, 4 + 32 + 8);
+		TEST_EQ_INT(res, siAllocationError_OutOfMem);
+		TEST_EQ_INT(builder.capacity, 4 + 32 + 8);
 	} SUCCEEDED();
 
 	{
 		siBuilder builder;
-		siAllocationError res;
+		isize res;
 
-		builder = si_builderMake(4, alloc);
+		builder = si_builderMake(alloc, 4);
 
 		res = si_builderWriteByte(&builder, 'A');
-		TEST_EQ_ISIZE(builder.len, countof_str("A"));
+		TEST_EQ_INT(builder.len, 1);
+		TEST_EQ_INT(res, 1);
 
-		res = si_builderWriteBytes(&builder, "BCD", 3);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD"));
+		res = si_builderWritePtr(&builder, "BCD", 3);
+		TEST_EQ_INT(res, countof_str("BCD"));
+		TEST_EQ_INT(builder.len, countof_str("A" "BCD"));
 
 		res = si_builderWriteStr(&builder, SI_STR("EFG"));
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD" "EFG"));
-		TEST_EQ_ISIZE(builder.capacity, 2 * (4 + 3));
+		TEST_EQ_INT(res, countof_str("EFG"));
+		TEST_EQ_INT(builder.len, countof_str("A" "BCD" "EFG"));
+		TEST_EQ_INT(builder.capacity, 2 * (4 + 3));
 
 		res = si_builderWriteRune(&builder, 0x0105);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("A" "BCD" "EFG" "ą"));
+		TEST_EQ_INT(res, countof_str("ą"));
+		TEST_EQ_INT(builder.len, countof_str("A" "BCD" "EFG" "ą"));
 
 		siString str = si_builderToStr(builder);
 		TEST_EQ_STR(SI_STR("ABCDEFGą"), str);
 
 		char* cstr = si_builderToCstr(&builder);
 		TEST_EQ_STR(SI_STR("ABCDEFGą"), SI_CSTR(cstr));
-		TEST_EQ_U32(cstr[builder.len - 1], '\0');
+		TEST_EQ_CHAR(cstr[builder.len], '\0');
+
+		TEST_EQ_INT(builder.len, countof_str("ABCDEFGą"));
 	} SUCCEEDED();
 
 	{
 		siBuilder builder;
-		siAllocationError res;
+		isize res;
 
-		builder = si_builderMakeGrow(32, 4, alloc);
+		builder = si_builderMake(alloc, 32, 4);
 
 		res = si_builderWriteStrQuoted(&builder, SI_STR("hello"));
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\""));
+		TEST_EQ_INT(res, countof_str("\"hello\""));
+		TEST_EQ_INT(builder.len, countof_str("\"hello\""));
 
-		res = si_builderWriteStrQuotedEx(&builder, SI_STR("world"), '\'');
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\"" "\'world\'"));
+		res = si_builderWriteStrQuoted(&builder, SI_STR("world"), '\'');
+		TEST_EQ_INT(res, countof_str("\'world\'"));
+		TEST_EQ_INT(builder.len, countof_str("\"hello\"" "\'world\'"));
 
 		res = si_builderWriteStrQuotedRune(&builder, SI_STR("labas, pasauli!"), 0x201E, 0x201C);
-		TEST_EQ_ISIZE(res, 0);
-		TEST_EQ_ISIZE(builder.len, countof_str("\"hello\"" "\'world\'" "„labas, pasauli!“"));
+		TEST_EQ_INT(res, countof_str("„labas, pasauli!“"));
+		TEST_EQ_INT(builder.len, countof_str("\"hello\"" "\'world\'" "„labas, pasauli!“"));
 
 		siString str = si_builderToStr(builder);
 		TEST_EQ_STR(SI_STR("\"hello\"" "\'world\'" "„labas, pasauli!“"), str);
@@ -487,50 +499,50 @@ void test_builder(siAllocator alloc) {
 
 	{
 		siBuilder builder;
-		siAllocationError res;
+		isize res;
 
-		builder = si_builderMakeEx(0, 64, 64, alloc);
+		builder = si_builderMake(alloc, 64, 64);
 
 		res = si_builderWriteInt(&builder, 123);
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, countof_str("123"));
 		si_builderWriteByte(&builder, ' ');
 
 		res = si_builderWriteInt(&builder, INT64_MIN);
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, countof_str("-9223372036854775808"));
 		si_builderWriteByte(&builder, ' ');
 
-		res = si_builderWriteIntEx(&builder, 456, 2);
-		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteInt(&builder, 456, 2);
+		TEST_EQ_INT(res, countof_str("111001000"));
 		si_builderWriteByte(&builder, ' ');
 
-		res = si_builderWriteIntEx(&builder, 456, 8);
-		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteInt(&builder, 456, 8);
+		TEST_EQ_INT(res, countof_str("710"));
 		si_builderWriteByte(&builder, ' ');
 
-		res = si_builderWriteIntEx(&builder, 456, 12);
-		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteInt(&builder, 456, 12);
+		TEST_EQ_INT(res, countof_str("320"));
 		si_builderWriteByte(&builder, ' ');
 
-		res = si_builderWriteIntEx(&builder, -456, 16);
-		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteInt(&builder, -456, 16);
+		TEST_EQ_INT(res, countof_str("-1C8"));
 
 		siString str = si_builderToStr(builder);
 		TEST_EQ_STR(SI_STR("123 -9223372036854775808 111001000 710 320 -1C8"), str);
 
 		si_builderClear(&builder);
-		TEST_EQ_ISIZE(si_builderToStr(builder).len, 0);
+		TEST_EQ_INT(si_builderToStr(builder).len, 0);
 
 		res = si_builderWriteFloat(&builder, 3.14);
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, countof_str("3.140000"));
 
 		res = si_builderWriteFloatEx(&builder, 2.718, 10, 2);
-		TEST_EQ_ISIZE(res, 0);
+		TEST_EQ_INT(res, countof_str("2.72"));
 
-		res = si_builderWriteFloatEx(&builder, FLOAT32_MIN, 10, 46);
-		TEST_EQ_ISIZE(res, 0);
+		res = si_builderWriteFloatEx(&builder, (f64)FLOAT32_MIN, 10, 46);
+		TEST_EQ_INT(res, countof_str("0.0000000000000000000000000000000000000117549435"));
 
 		//res = si_builderWriteFloatEx(&builder, FLOAT64_MAX, 10, 0);
-		//TEST_EQ_ISIZE(res, 0);
+		//TEST_EQ_INT(res, 0);
 
 		str = si_builderToStr(builder);
 		TEST_EQ_STR(str, SI_STR("3.140000" "2.72" "0.0000000000000000000000000000000000000117549435"));
@@ -569,10 +581,10 @@ void TEST_UINT_BASE(siString str, i32 base, u64 expectedNum, isize expectedIndex
 	do { \
 		isize invalidIndex; \
 		\
-		u64 num = si_stringToUIntBase(str, base, &invalidIndex); \
-		TEST_EQ_U64(num, expectedNum); \
+		u64 num = si_stringToUInt(str, base, &invalidIndex); \
+		TEST_EQ_INT(num, expectedNum); \
 		if (expectedIndex != -2) { \
-			TEST_EQ_ISIZE(invalidIndex, expectedIndex); \
+			TEST_EQ_INT(invalidIndex, expectedIndex); \
 		} \
 	} while (0)
 
@@ -586,34 +598,15 @@ void TEST_UINT_BASE(siString str, i32 base, u64 expectedNum, isize expectedIndex
 	do { \
 		isize invalidIndex; \
 		\
-		i64 num = si_stringToIntBase(str, base, &invalidIndex); \
-		TEST_EQ_I64(num, expectedNum); \
+		i64 num = si_stringToInt(str, base, &invalidIndex); \
+		TEST_EQ_INT(num, expectedNum); \
 		if (expectedIndex != -2) { \
-			TEST_EQ_ISIZE(invalidIndex, expectedIndex); \
+			TEST_EQ_INT(invalidIndex, expectedIndex); \
 		} \
 	} while (0)
 
 void test_conv(void) {
 	TEST_START();
-
-	{
-		siString str = SI_STR("0123456789ABCDEFGHIJKLMNOPQRSTUV");
-		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_UPPER));
-		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
-
-		str = SI_STR("0123456789""abcdefghijklmnopqrstuv");
-		TEST_EQ_STR(str, SI_CSTR((const char*)SI_NUM_TO_CHAR_TABLE_LOWER));
-		TEST_EQ_ISIZE(str.len, SI_BASE_MAX);
-
-		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
-
-		si_numEnableUpper(false);
-		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_LOWER);
-
-		si_numEnableUpper(true);
-		TEST_EQ_PTR(SI_NUM_TO_CHAR_TABLE, SI_NUM_TO_CHAR_TABLE_UPPER);
-
-	} SUCCEEDED();
 
 	{
 		TEST_UINT(SI_STR("12345"), 12345);
@@ -718,14 +711,14 @@ void test_conv(void) {
 
 		for_range (i, 0, countof(trues)) {
 			b32 res = si_stringToBool(trues[i]);
-			TEST_EQ_U32(res, true);
+			TEST_EQ_INT(res, true);
 
 			res = si_stringToBool(falses[i]);
-			TEST_EQ_U32(res, false);
+			TEST_EQ_INT(res, false);
 		}
 
 		b32 res = si_stringToBool(SI_STR("tru"));
-		TEST_EQ_U32(res, UINT32_MAX);
+		TEST_EQ_INT(res, UINT32_MAX);
 	} SUCCEEDED();
 
 	TEST_COMPLETE();

@@ -33,9 +33,9 @@ void example1(siAllocator alloc) {
 
 	}
 
-	si_printfLn("Scope 2:");
+	si_printLn("Scope 2:");
 	{
-		siBuilder b = si_builderMake(256, alloc);
+		siBuilder b = si_builderMake(alloc, 256);
 		si_printfLn("\tcapacity: '%zi' len: '%zi' grow: '%zi'", b.capacity, b.len, b.grow);
 
 		si_builderWriteStr(&b, SI_STR("Dynamically allocated string"));
@@ -59,7 +59,7 @@ void example1(siAllocator alloc) {
 		si_printfLn("\tfront: '%lc', back: '%lc'", front, back);
 	}
 
-	si_printfLn("Scope 3:");
+	si_printf("Scope 3:");
 	{
 		siString str = SI_STR("Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: geriems vyrams geroj girioj gerą girą gera gert.");
 		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
@@ -78,7 +78,7 @@ void example1(siAllocator alloc) {
 		si_printfLn("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zi'", pos);
 	}
 
-	si_printfLn("Scope 4:");
+	si_printLn("Scope 4:");
 	{
 		siString str = SI_STR("smaug giganteus");
 		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
@@ -94,7 +94,7 @@ void example1(siAllocator alloc) {
 
 	}
 
-	si_printfLn("Scope 5:");
+	si_printLn("Scope 5:");
 	{
 		siString str = SI_STR("one.two.three.four.five");
 		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
@@ -103,7 +103,7 @@ void example1(siAllocator alloc) {
 		si_printfLn("\tElements: %s", si_stringFromArray(list, "%s", SI_ARR_STACK(64)));
 	}
 
-	si_printfLn("Scope 6:");
+	si_printLn("Scope 6:");
 	{
 		siString str = SI_STR("\t       dnuora gniliart        ");
 		si_printfLn("\tBefore: '%s' (len: '%zi')", str, str.len);
@@ -120,7 +120,7 @@ void example1(siAllocator alloc) {
 
 
 void print_map(siString comment, siMap(i32) map) {
-	si_printfStr(comment);
+	si_print(comment);
 
 	siString key;
 	i32 value;
@@ -136,13 +136,13 @@ void example2(siAllocator alloc) {
 	siString str;
 	{
 		siArray(u8) buf = si_arrayMakeReserve(u8, 4, alloc);
-		str = si_stringFromInt(-342, buf);
+		str = si_stringFromInt(buf, -342);
 		si_printfLn("str: \"%s\"", str);
 
 		i64 num = si_stringToInt(SI_STR("  9300  "));
 		si_printfLn("num: %li", num);
 
-		str = si_stringFromFloat(FLOAT32_MAX, si_arrayMakeReserve(u8, 128, alloc));
+		str = si_stringFromFloat((f64)FLOAT32_MAX, si_arrayMakeReserve(u8, 128, alloc));
 		si_printfLn("str: %s", str);
 
 		siArray(siString) arr = SI_ARR(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));

@@ -69,13 +69,13 @@ int main(void) {
 		si_dynamicArrayReplaceAllItem(array, 6, 9, i32);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
-		si_dynamicArrayEraseEx(&array, 1, 3);
+		si_dynamicArrayErase(&array, 1, 3);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayInsertArray(&array, 1, i32, 0xFF, 0xFFFF, 0x1991);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
-		si_dynamicArrayEraseEx(&array, 1, 5);
+		si_dynamicArrayErase(&array, 1, 5);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 	}
 

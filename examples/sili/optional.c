@@ -56,7 +56,7 @@ void example1(void) {
 
 	siOption(cstring) str = create(false);
 	si_printfLn(
-		"create(false) returned '%S' (hasValue: %t)",
+		"create(false) returned '%s' (hasValue: %t)",
 		si_optionalGetOrDefault(str, "empty"), str.hasValue
 	);
 
@@ -70,10 +70,10 @@ void example1(void) {
 	 * use '.data.value' internally. for it to work on
 	 * multiple standards. */
 #if SI_STANDARD_CHECK_MIN(C, C11)
-	si_printfLn("create2(true) returned '%S'", str.value);
+	si_printfLn("create2(true) returned '%s'", str.value);
 
 #else
-	si_printfLn("create2(true) returned '%S'", str.data.value);
+	si_printfLn("create2(true) returned '%s'", str.data.value);
 
 #endif
 }

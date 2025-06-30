@@ -28,10 +28,10 @@ void example1(void) {
 
 	while (thread.state == siThreadState_Running) {
 		si_print("Even though 'thread' is sleeping, the main thread is running independently.\n");
-		si_sleep(SI_TIME_S(1));
+		si_sleep(SI_TIME_SEC(1));
 	}
 	si_printfLn("thread_test(false) returned a '%i'", si_threadGetReturn(thread, i16));
-	si_sleep(SI_TIME_S(2));
+	si_sleep(SI_TIME_SEC(2));
 
 	loopState = true;
 	si_threadRun(&thread);
@@ -134,18 +134,18 @@ void* thread_test(void* arg) {
 
 	if (loop) {
 		si_printfLn("The function will increment 'count' from %d to %d:", INT16_MIN, INT16_MAX);
-		si_sleep(SI_TIME_S(2));
+		si_sleep(SI_TIME_SEC(2));
 		while (count < INT16_MAX) {
 			count += 1;
 		}
 	}
 	else {
 		si_printLn("'arg' equals to 'false', so the function will do nothing and sleep for 3 seconds.");
-		si_sleep(SI_TIME_S(3));
+		si_sleep(SI_TIME_SEC(3));
 		si_printLn("Exiting the thread now.");
 	}
 
-	return si_transmute(void*, count, i16);
+	return transmute(void*, count);
 }
 
 void* thread_matrix(void* mData) {

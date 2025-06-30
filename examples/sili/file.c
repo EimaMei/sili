@@ -171,7 +171,7 @@ void example3(void)	{
 		lastWriteTime = si_fileLastWriteTime(file_handle);
 		si_printfLn("Last write time: %lu", lastWriteTime);
 
-		si_sleep(SI_TIME_S(1));
+		si_sleep(SI_TIME_SEC(1));
 		si_fileWriteStr(&file_handle, SI_STR("random garbage"));
 
 		curWriteTime = si_pathLastWriteTime(file_path);

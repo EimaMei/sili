@@ -14,11 +14,11 @@ int main(void) {
 	TEST_EQ_TRUE(res);
 
 	isize len = si_envVarGetLength(name);
-	TEST_EQ_USIZE(len, value.len);
+	TEST_EQ_INT(len, value.len);
 
 	siString out = si_envVarGetData(name, SI_ARR_STACK(1024));
 	TEST_NEQ_NIL(out.data);
-	TEST_EQ_USIZE(out.len, value.len);
+	TEST_EQ_INT(out.len, value.len);
 	TEST_EQ_TRUE(si_stringEqual(out, value));
 
 	res = si_envVarUnset(name);
@@ -29,7 +29,7 @@ int main(void) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	siWindowsVersion ver = si_windowsGetVersion();
-	TEST_EQ_U32(ver, siWindowsVersion_10);
+	TEST_EQ_INT(ver, siWindowsVersion_10);
 
 #elif defined(SI_SYSTEM_LINUX)
 	res = si_unixIsWayland();
@@ -43,7 +43,7 @@ int main(void) {
 
 #endif
 	i32 count = si_cpuProcessorCount();
-	TEST_NEQ_U64(count, 0);
+	TEST_NEQ_INT(count, 0);
 
 	TEST_COMPLETE();
 }

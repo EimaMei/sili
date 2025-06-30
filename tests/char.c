@@ -57,29 +57,29 @@ int main(void) {
 		TEST_EQ_CHAR(res_upper, expected_upper[i]);
 		TEST_EQ_CHAR(res_lower, expected_lower[i]);
 
-		TEST_EQ_U32(si_between(i8, x, 'A', 'Z'), bool_upper);
-		TEST_EQ_U32(si_between(i8, x, 'a', 'z'), bool_lower);
-		TEST_EQ_U32(si_between(i8, x, '\t', '\r') || x == ' ', bool_space);
-		TEST_EQ_U32(si_between(i8, x, '0', '9'), bool_digit);
-		TEST_EQ_U32(si_between(i8, x, '0', '9') || si_between(i8, x, 'a', 'f') || si_between(i8, x, 'A', 'F'), bool_hex);
-		TEST_EQ_U32(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z'), bool_alpha);
-		TEST_EQ_U32(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z') || si_between(i8, x, '0', '9'), bool_alphanum);
-		TEST_EQ_U32(si_between(i8, x, '!', '/') || si_between(i8, x, ':', '@') || si_between(i8, x, '[', '`') || si_between(i8, x, '{', '~'), bool_punc);
-		TEST_EQ_U32(si_between(i8, x, '\0', '\x1F') || x == '\x7F', bool_ctrl);
-		TEST_EQ_U32(bool_alphanum || bool_punc || bool_space, bool_prnt);
-		TEST_EQ_U32(bool_alphanum || bool_punc, bool_grap);
+		TEST_EQ_INT(si_between(i8, x, 'A', 'Z'), bool_upper);
+		TEST_EQ_INT(si_between(i8, x, 'a', 'z'), bool_lower);
+		TEST_EQ_INT(si_between(i8, x, '\t', '\r') || x == ' ', bool_space);
+		TEST_EQ_INT(si_between(i8, x, '0', '9'), bool_digit);
+		TEST_EQ_INT(si_between(i8, x, '0', '9') || si_between(i8, x, 'a', 'f') || si_between(i8, x, 'A', 'F'), bool_hex);
+		TEST_EQ_INT(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z'), bool_alpha);
+		TEST_EQ_INT(si_between(i8, x, 'a', 'z') || si_between(i8, x, 'A', 'Z') || si_between(i8, x, '0', '9'), bool_alphanum);
+		TEST_EQ_INT(si_between(i8, x, '!', '/') || si_between(i8, x, ':', '@') || si_between(i8, x, '[', '`') || si_between(i8, x, '{', '~'), bool_punc);
+		TEST_EQ_INT(si_between(i8, x, '\0', '\x1F') || x == '\x7F', bool_ctrl);
+		TEST_EQ_INT(bool_alphanum || bool_punc || bool_space, bool_prnt);
+		TEST_EQ_INT(bool_alphanum || bool_punc, bool_grap);
 
-		TEST_EQ_U32(bool_alphanum || x == '@' || x == '#' || x == '$', !bool_deli);
+		TEST_EQ_INT(bool_alphanum || x == '@' || x == '#' || x == '$', !bool_deli);
 
 		if (conv_digit != -1) {
 			TEST_EQ_CHAR(conv_digit, (x - '0'));
 		}
 		else {
-			TEST_EQ_U32(bool_digit, false);
+			TEST_EQ_INT(bool_digit, false);
 		}
 
 		if (conv_hex != -1) {
-			// TEST_EQ_U32(bool_hex, true);
+			// TEST_EQ_INT(bool_hex, true);
 			if (bool_digit) {
 				TEST_EQ_CHAR(conv_hex, (x  - '0'));
 			} else if (bool_upper) {

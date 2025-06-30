@@ -46,12 +46,12 @@ int main(void) {
 
 	si_printf(
 		"Information about the system:\n\t"
-			"Operating System - '%S'\n\t"
-			"CPU Architecture - '%S' (%zd-bit)\n\t"
-			"Target endian - '%S'\n"
+			"Operating System - '%s'\n\t"
+			"CPU Architecture - '%s' (%zd-bit)\n\t"
+			"Target endian - '%s'\n"
 		"Compilation info:\n\t"
-			"Compiler - '%S'\n\t"
-			"Language - '%S' (%S)\n\n"
+			"Compiler - '%s'\n\t"
+			"Language - '%s' (%s)\n\n"
 		,
 		SI_SYSTEM_STR,
 		SI_ARCH_STR, cpu_archBit(),
