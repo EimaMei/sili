@@ -72,7 +72,7 @@ int main(void) {
 		si_dynamicArrayErase(&array, 1, 3);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
-		si_dynamicArrayInsertArray(&array, 1, i32, 0xFF, 0xFFFF, 0x1991);
+		si_dynamicArrayInsert(&array, 1, 0xFF, 0xFFFF, 0x1991);
 		si_printfLn("\tarray: \"%s\"", si_dynamicArrayPrintInt(array));
 
 		si_dynamicArrayErase(&array, 1, 5);

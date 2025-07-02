@@ -24,10 +24,10 @@ void example1(void) {
 	bool loopState = false;
 
 	siThread thread;
-	si_threadMakeAndRun(thread_test, &loopState, &thread);
+	si_threadMakeAndRun(&thread, thread_test, &loopState);
 
 	while (thread.state == siThreadState_Running) {
-		si_print("Even though 'thread' is sleeping, the main thread is running independently.\n");
+		si_printLn("Even though 'thread' is sleeping, the main thread is running independently.");
 		si_sleep(SI_TIME_SEC(1));
 	}
 	si_printfLn("thread_test(false) returned a '%i'", si_threadGetReturn(thread, i16));
@@ -118,7 +118,7 @@ void matrix_multithreaded(f32* a, f32* b, f32* result) {
 		data[i].b = b;
 		data[i].result = result;
 
-		si_threadMakeAndRun(thread_matrix, &data[i], &threads[i]);
+		si_threadMakeAndRun(&threads[i], thread_matrix, &data[i]);
 	}
 	for_range (i, 0, THREAD_COUNT) { si_threadJoin(&threads[i]); }
 	for_range (i, 0, THREAD_COUNT) { si_threadDestroy(&threads[i]); }

@@ -27,7 +27,7 @@ int main(void) {
 		TEST_EQ_INT(SI_BIT(63), 0x8000000000000000);
 		TEST_EQ_INT(nil, (void*)0);
 
-		isize m = si_transmute(isize, USIZE_MAX);
+		isize m = transmute(isize, USIZE_MAX);
 		TEST_EQ_INT(m, (isize)-1);
 
 #if SI_ENDIAN_IS_LITTLE
@@ -158,22 +158,11 @@ int main(void) {
 		TEST_EQ_INT(opt.value, 19920216ULL);
 
 		siError tmp = SI_STRUCT_ZERO;
-		tmp.code = 40;
-		opt = SI_OPT_ERR(u64, tmp);
-		TEST_EQ_INT(opt.error.code, 40);
+		opt = SI_OPT_ERR(u64);
+		TEST_EQ_INT(opt.hasValue, false);
 
 		u64 res = si_optionalGetOrDefault(opt, UINT64_MAX);
 		TEST_EQ_INT(res, UINT64_MAX);
-
-		#if SI_STANDARD_CHECK_MIN(C, C11)
-			opt = SI_OPT(u64, 19920216ULL);
-			TEST_EQ_INT(opt.hasValue, 1);
-			TEST_EQ_INT(opt.value, 19920216ULL);
-
-			tmp.code = 40;
-			opt = SI_OPT_ERR(u64, tmp);
-			TEST_EQ_INT(opt.error.code, 40);
-		#endif
 	} SUCCEEDED();
 
 	TEST_COMPLETE();

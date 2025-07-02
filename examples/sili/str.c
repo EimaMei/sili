@@ -26,7 +26,7 @@ void example1(siAllocator alloc) {
 	si_printLn("Scope 1:");
 	{
 		siString strStatic = SI_STR("Hello, world!");
-		si_printfLn("\tstr: \"%s\" or \"%.*S\"", strStatic, strStatic.len, strStatic.data);
+		si_printfLn("\tstr: \"%s\" or \"%.*s\", same thing.", strStatic, strStatic.len, strStatic.data);
 
 		siString str = si_stringCopy(strStatic, alloc);
 		si_printfLn("\t(str == strStatic) returns a '%t' boolean", si_stringEqual(str, strStatic));
@@ -36,22 +36,22 @@ void example1(siAllocator alloc) {
 	si_printLn("Scope 2:");
 	{
 		siBuilder b = si_builderMake(alloc, 256);
-		si_printfLn("\tcapacity: '%zi' len: '%zi' grow: '%zi'", b.capacity, b.len, b.grow);
+		si_printfLn("\tcapacity: '%i' len: '%i' grow: '%i'", b.capacity, b.len, b.grow);
 
 		si_builderWriteStr(&b, SI_STR("Dynamically allocated string"));
-		si_printfLn("\tstr: '%.*S', len: '%zi'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
 		si_builderWriteByte(&b, '.');
-		si_printfLn("\tstr: '%.*S', len: '%zi'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
-		si_builderWriteRune(&b, 0x00000439); // UTF-32 'й'
-		si_printfLn("\tstr: '%.*S', len: '%zi'", b.len, b.data, b.len);
+		si_builderWriteRune(&b, u'й');
+		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
 		si_builderWriteStrQuoted(&b, SI_STR("Hello world."));
-		si_printfLn("\tstr: '%.*S', len: '%zi'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
-		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"), 0x0000201E, 0x0000201C); // '„' and '“' characters
-		si_printfLn("\tstr: '%.*S', len: '%zi'", b.len, b.data, b.len);
+		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"),  u'„', u'“');
+		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
 		siString str = si_builderToStr(b);
 		i32 front = si_stringAtFront(str);
@@ -62,7 +62,7 @@ void example1(siAllocator alloc) {
 	si_printf("Scope 3:");
 	{
 		siString str = SI_STR("Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: geriems vyrams geroj girioj gerą girą gera gert.");
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		siString str_ger = SI_STR("ger");
 		isize posFirst = si_stringFind(str, str_ger),
@@ -70,34 +70,34 @@ void example1(siAllocator alloc) {
 		isize occurences = si_stringFindCount(str, str_ger);
 
 		si_printfLn(
-			"\tThe substring '%s' was first found at index '%zi', last found at index '%zi', with '%zi' occurences in total.",
+			"\tThe substring '%s' was first found at index '%i', last found at index '%i', with '%i' occurences in total.",
 			str_ger, posFirst, posLast, occurences
 		);
 
 		isize pos = si_stringFind(str, SI_STR("Žąsys"));
-		si_printfLn("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%zi'", pos);
+		si_printfLn("\tHowever, the substring 'Žąsys' wasn't found and so, the function returns '%i'", pos);
 	}
 
 	si_printLn("Scope 4:");
 	{
 		siString str = SI_STR("smaug giganteus");
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		str = si_stringTrim(str, SI_STR("s"));
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		str = si_stringInsert(str, SI_STR("the "), countof_str("maug "), alloc);
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		str = si_stringRemoveAll(str, SI_STR("gigant"), alloc);
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 	}
 
 	si_printLn("Scope 5:");
 	{
 		siString str = SI_STR("one.two.three.four.five");
-		si_printfLn("\tstr: '%s', len: '%zi'", str, str.len);
+		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		siArray(siString) list = si_stringSplit(str, SI_STR("."), alloc);
 		si_printfLn("\tElements: %s", si_stringFromArray(list, "%s", SI_ARR_STACK(64)));
@@ -106,10 +106,10 @@ void example1(siAllocator alloc) {
 	si_printLn("Scope 6:");
 	{
 		siString str = SI_STR("\t       dnuora gniliart        ");
-		si_printfLn("\tBefore: '%s' (len: '%zi')", str, str.len);
+		si_printfLn("\tBefore: '%s' (len: '%i')", str, str.len);
 
 		str = si_stringStrip(str);
-		si_printfLn("\tAfter: '%s' (len: '%zi')", str, str.len);
+		si_printfLn("\tAfter: '%s' (len: '%i')", str, str.len);
 
 		siString reverse = si_stringReverse(str, alloc);
 		si_printfLn("\t'str' in reverse: '%s'", reverse);
@@ -173,6 +173,8 @@ void example2(siAllocator alloc) {
 		si_mapClear(&m);
 		print_map(SI_STR("4) After clear: "), m);
 
-		si_mapFree(m); /* Calls the needed free. */
+		si_mapFree(m); /* We don't need to call free here (in fact this results in 
+						a printed error), since the allocator is an arena and free 
+						cannot be implemented. */
 	}
 }

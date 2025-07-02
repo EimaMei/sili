@@ -21,9 +21,9 @@ LANGUAGE  = C
 # Building options:
 #	NAME   - the executable name.
 #	SRC    - source file to target.
-#   OUTPUT - the directory where all of the output goes to.
-NAME = basic
-SRC = tests/bit.c
+#	OUTPUT - the directory where all of the output goes to.
+NAME   = basic
+SRC    = examples/sili/optional.c
 OUTPUT = build
 
 
@@ -49,11 +49,13 @@ ifeq ($(PLATFORM),DEFAULT)
 	endif
 endif
 
+
 ifeq ($(LANGUAGE),C)
 	GNU_FLAGS = -std=c23 -x c -Wvla
 else ifeq ($(LANGUAGE),CPP)
 	GNU_FLAGS = -std=c++11 -x c++ -fno-exceptions
 endif
+
 
 ifeq ($(MODE),FAST)
 	GNU_FLAGS += -O0 -flto 
@@ -85,13 +87,13 @@ else
 		GNU_FLAGS += -Wcast-align=strict -Wlogical-op
 	endif
 
-	ifeq ($(MODE),1)
+	ifeq ($(MODE),DEBUG)
 		GNU_FLAGS += \
 			-fstack-clash-protection \
 			-fstack-protector-strong \
 			-ftrivial-auto-var-init=pattern \
 			-fsanitize=undefined -fsanitize=address
-	else
+	else ifeq ($(MODE),RELEASE)
 		GNU_FLAGS += \
 			-O3 \
 			-D SI_RELEASE_MODE \
@@ -197,8 +199,14 @@ clean:
 $(EXE): $(SRC) sili.h Makefile examples/*
 	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
 
-#$(OUTPUT)/sili.o: sili.h
-#	$(CC) $(FLAGS) -D SI_IMPLEMENTATION -c sili.h -o $(OUTPUT)/sili.o
+
+# Compile and run every example.
+compile_examples:
+	@for f in $(shell ls examples/*/*.c); do make SRC=$${f}; rm -rf $(EXE); done
+
+# Compile and run every test.
+compile_tests:
+	@for f in $(shell ls tests/*.c); do make SRC=$${f}; rm -rf $(EXE); done
 
 
 # If 'build' doesn't exist, create it

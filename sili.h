@@ -9,7 +9,7 @@ sili.h - v0.3.0 - a general-purpose programming library to replace the C/C++ sta
 
 	- All other files should just include the library without the #define macro.
 
-	- A compiler with C23/C++20 standard support or required extensions is expected. 
+	- A compiler with C23/C++20 standard support or required extensions is expected.
 	Do not expect sili and its libraries to function otherwise.
 
 	- If you want to disable certain features, you can do:
@@ -88,9 +88,6 @@ MACROS
 
 	- SI_NO_ASSERTIONS - all 'SI_ASSERT' functions get disabled entirely. 'SI_PANIC'
 	functions still function.
-
-	- SI_NO_ERROR_STRUCT - strips the 'siError' structure's members down to just
-	the error code member. This gets turned on automatically via 'SI_RELEASE_MODE'.
 
 	- SI_NO_ERROR_LOGS - disables sili's automatic logging for when a 'SI_ERROR'
 	is declared. This gets turned on automatically via 'SI_RELEASE_MODE'.
@@ -598,12 +595,10 @@ extern "C" {
 #if defined(SI_RELEASE_MODE) || defined(NDEBUG)
 	#undef SI_NO_ASSERTIONS
 	#undef SI_NO_ERROR_LOGS
-	#undef SI_NO_ERROR_STRUCT
 
 	#define SI_NO_ASSERTIONS
 	#define SI_NO_ALLOC_DEBUG_INFO
 	#define SI_NO_ERROR_LOGS
-	#define SI_NO_ERROR_STRUCT
 #endif
 
 #ifndef SI_NO_TYPE_DEFS
@@ -657,17 +652,11 @@ SI_STATIC_ASSERT(sizeof(u64)  == 8);
 SI_STATIC_ASSERT(sizeof(f32) == 4);
 SI_STATIC_ASSERT(sizeof(f64) == 8);
 
-
-
-
-
-
 SI_STATIC_ASSERT(sizeof(bool) == 1);
 SI_STATIC_ASSERT(sizeof(b8)   == 1);
 SI_STATIC_ASSERT(sizeof(b16)  == 2);
 SI_STATIC_ASSERT(sizeof(b32)  == 4);
 SI_STATIC_ASSERT(sizeof(b64)  == 8);
-
 
 #ifndef cstring
 	/* An immutable NULL-terminated C-string type. */
@@ -1034,22 +1023,6 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 #endif
 
 
-#if SI_COMPILER_GCC || SI_COMPILER_CLANG
-	/* x - CONDITION
-	 * Denotes that this statement is more likely to be expected. */
-	#define SI_LIKELY(x)   (__builtin_expect(!!(x), 1))
-	/* x - CONDITION
-	 * Denotes that this statement is less likely to be expected. */
-	#define SI_UNLIKELY(x) (__builtin_expect(!!(x), 0))
-#else
-	/* x - CONDITION
-	 * Denotes that this statement is more likely to be expected. */
-	#define SI_LIKELY(x) (x)
-	/* x - CONDITION
-	 * Denotes that this statement is less likely to be expected. */
-	#define SI_UNLIKELY(x) (x)
-#endif
-
 /* TODO(EimaMei): Rework this so that there's only a SI_ASSERT. */
 #ifndef SI_NO_ASSERTIONS
 	/* condition - EXPRESSION
@@ -1061,6 +1034,8 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message)))
 	/* condition - EXPRESSION | message - siString | ...fmt - VARIADIC
 	 * Terminates the program with a formatted message if the condition is not met. */
+	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
+		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message), SI_ARGS(__VA_ARGS__)))
 	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
 		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message), SI_ARGS(__VA_ARGS__)))
 
@@ -1172,7 +1147,7 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 		#define SI_TYPE_ZERO(type) (type SI_STRUCT_ZERO)
 	#endif
 
-	
+
 	/* TODO(EimaMei): This completely fails in C++. Find a fix. Desperately. */
 	#ifndef SI_PTR
 		/* type - TYPE | ..value - ANYTHING
@@ -1205,6 +1180,63 @@ SI_STATIC_ASSERT(countof_str("abcd") == 4);
 	| siCommon             |
 	========================
 */
+
+typedef struct siArrayAny {
+	isize len;
+	void* data;
+	isize typeSize;
+
+	#if SI_LANGUAGE_IS_CPP
+	/* Sets/gets a specific element in the array with array and bound checking. */
+	u8& operator[](isize index);
+	/* Creates a slice. Same as 'si_slice'. */
+	siArrayAny operator()(isize offset1, isize offset2);
+	/* Creates a slice. Same as 'si_sliceFrom'. */
+	siArrayAny from(isize offset1);
+	/* Creates a slice. Same as 'si_sliceTo'. */
+	siArrayAny to(isize offset2);
+	/* Creates a slice. Same as 'si_sliceLen'. */
+	siArrayAny sliceLen(isize offset1, isize len);
+	#endif
+} siArrayAny;
+
+/* type - TYPE
+ * Represents a buffer with a specific type. */
+#define siArray(type) siArrayAny
+
+/* A UTF-32 codepoint.*/
+typedef i32 siRune;
+
+typedef struct {
+	isize len;
+	const u8* data;
+
+#if SI_LANGUAGE_IS_CPP
+	/* Sets/gets a specific element in the array with array and bound checking. */
+	u8 operator[](isize index);
+
+	/* Creates a substring. Same as 'si_substr'. */
+	siString operator()(isize offset1, isize offset2);
+	/* Creates a substring. Same as 'si_substrFrom'. */
+	siString from(isize offset1);
+	/* Creates a substring. Same as 'si_substrTo'. */
+	siString to(isize offset2);
+	/* Creates a substring. Same as 'si_substrLen'. */
+	siString substrLen(isize offset1, isize length);
+#endif
+} siString;
+
+typedef struct {
+	siString filename;
+	siString function;
+	i32 line;
+} siCallerLoc;
+
+typedef struct {
+	isize code;
+	siCallerLoc location;
+	i64 time;
+} siError;
 
 SI_ENUM(i32, siAllocationType) {
 	siAllocationType_Alloc,
@@ -1255,16 +1287,15 @@ SI_ENUM(i32, siAllocationError) {
  *   valid for Alloc and Resize types. 'align' is always guaranteed to be a
  *   power of two number, starting from 1.
  *
- * - siAllocationError* outError - a parameter to denote an error or a succesful
- *   action. Guaranteed to never be nil except for '.GetFuture' as the function
- *   musn't fail. If no error is encountered, the out parameter _must_ be set
- *   to zero by the allocator.
+ * - siError* out_error - a parameter to denote an error or a succesful action.
+ *   Can be nil. This parameter can only be edited when an error has occured,
+ *   otherwise the return value denotes if the action was successfully done.
  *
  * - void* allocatorData - a user-specified parameter. Can be nil.
  */
 #define SI_ALLOCATOR_PROC(name) \
 	void* name(siAllocationType type, void* ptr, isize oldSize, isize newSize, \
-			isize align, siAllocationError* outError, void* allocatorData)
+			isize align, siError* out_error, void* allocatorData)
 
 /* Represents an allocator procedure. */
 typedef SI_ALLOCATOR_PROC(siAllocatorProc);
@@ -1273,30 +1304,6 @@ typedef struct siAllocator {
 	siAllocatorProc* proc;
 	void* data;
 } siAllocator;
-
-
-typedef struct siArrayAny {
-	isize len;
-	void* data;
-	isize typeSize;
-
-	#if SI_LANGUAGE_IS_CPP
-	/* Sets/gets a specific element in the array with array and bound checking. */
-	u8& operator[](isize index);
-	/* Creates a slice. Same as 'si_slice'. */
-	siArrayAny operator()(isize offset1, isize offset2);
-	/* Creates a slice. Same as 'si_sliceFrom'. */
-	siArrayAny from(isize offset1);
-	/* Creates a slice. Same as 'si_sliceTo'. */
-	siArrayAny to(isize offset2);
-	/* Creates a slice. Same as 'si_sliceLen'. */
-	siArrayAny sliceLen(isize offset1, isize len);
-	#endif
-} siArrayAny;
-
-/* type - TYPE
- * Represents a buffer with a specific type. */
-#define siArray(type) siArrayAny
 
 
 typedef struct siDynamicArrayAny {
@@ -1317,35 +1324,6 @@ typedef struct siDynamicArrayAny {
 /* type - TYPE
  * Represents a dynamic array with a specific type. */
 #define siDynamicArray(type) siDynamicArrayAny
-
-
-/* A UTF-32 codepoint.*/
-typedef i32 siRune;
-
-typedef struct siString {
-	isize len;
-	const u8* data;
-
-#if SI_LANGUAGE_IS_CPP
-	/* Sets/gets a specific element in the array with array and bound checking. */
-	u8 operator[](isize index);
-
-	/* Creates a substring. Same as 'si_substr'. */
-	siString operator()(isize offset1, isize offset2);
-	/* Creates a substring. Same as 'si_substrFrom'. */
-	siString from(isize offset1);
-	/* Creates a substring. Same as 'si_substrTo'. */
-	siString to(isize offset2);
-	/* Creates a substring. Same as 'si_substrLen'. */
-	siString substrLen(isize offset1, isize length);
-#endif
-} siString;
-
-typedef struct siCallerLoc {
-	siString filename;
-	siString function;
-	i32 line;
-} siCallerLoc;
 
 
 SI_ENUM(i32, siTypeId) {
@@ -1372,12 +1350,12 @@ SI_ENUM(i32, siTypeId) {
 	siTypeId_f64,
 
 	siTypeId_cstring,
-	siTypeId_cliterals,
-	siTypeId_voidptr,
+	siTypeId_ptr,
 
 	siTypeId_string,
 	siTypeId_array,
 
+	siTypeID_printColor,
 	siTypeId_siCallerLoc,
 	#ifdef SI_ADDITIONAL_TYPES
 	SI_ADDITIONAL_TYPES
@@ -1388,14 +1366,18 @@ SI_ENUM(i32, siTypeId) {
 
 #if SI_LANGUAGE_IS_C
 
-#if SI_ARCH_IS_64BIT
-	#define __SI_TYPEID_SIZE
+#include <limits.h>
+#if LONG_MAX == INT64_MAX
+	#define __SI_TYPEID_LONG unsigned long long : siTypeId_u64, long long : siTypeId_i64
 #else
-	#define __SI_TYPEID_SIZE , isize : siTypeId_i32, usize : siTypeId_u32
+	#define __SI_TYPEID_LONG unsigned long : siTypeId_u32, long : siTypeId_i64
 #endif
 
 #define si_typeid(type) _Generic(SI_TYPE_ZERO(type), \
-	default       : siTypeId_Unknown, \
+	default       : _Generic(&(char[1 + !!(sizeof(type) == sizeof(type*))]){0}, \
+		char(*)[2]: siTypeId_ptr, \
+		char(*)[1]: siTypeId_Unknown \
+	), \
 	char          : siTypeId_char, \
 	u8            : siTypeId_u8, \
 	u16           : siTypeId_u16, \
@@ -1410,11 +1392,12 @@ SI_ENUM(i32, siTypeId) {
 	f64           : siTypeId_f64, \
 	char*         : siTypeId_cstring, \
 	const char*   : siTypeId_cstring, \
-	void*         : siTypeId_voidptr, \
+	void*         : siTypeId_ptr, \
 	siString      : siTypeId_string, \
 	siArrayAny    : siTypeId_array, \
-	siCallerLoc   : siTypeId_siCallerLoc \
-	__SI_TYPEID_SIZE)
+	siPrintColor  : siTypeID_printColor, \
+	siCallerLoc   : siTypeId_siCallerLoc, \
+	__SI_TYPEID_LONG)
 
 #else
 
@@ -1440,8 +1423,8 @@ template<typename T>
 	template<> struct __siTypeID<f64>   { static const siTypeId id = siTypeId_f64; };
 
 	template<> struct __siTypeID<char*>    { static const siTypeId id = siTypeId_cstring; };
-	template<> struct __siTypeID<void*>    { static const siTypeId id = siTypeId_voidptr; };
-	template<> struct __siTypeID<typeof(nullptr)>    { static const siTypeId id = siTypeId_voidptr; };
+	template<> struct __siTypeID<void*>    { static const siTypeId id = siTypeId_ptr; };
+	template<> struct __siTypeID<typeof(nullptr)>    { static const siTypeId id = siTypeId_ptr; };
 	template<> struct __siTypeID<siString> { static const siTypeId id = siTypeId_string; };
 	template<> struct __siTypeID<siCallerLoc> { static const siTypeId id = siTypeId_siCallerLoc; };
 	template<> struct __siTypeID<siArrayAny> { static const siTypeId id = siTypeId_array; };
@@ -1450,6 +1433,35 @@ template<typename T>
 #define si_typeid(Type) __siTypeID<Type>::id
 
 #endif
+
+/*
+	========================
+	|  siError             |
+	========================
+*/
+
+#if SI_COMPILER_GCC || SI_COMPILER_CLANG
+	/* TODO */
+	#define SI_FUNC __builtin_FUNCTION()
+#elif SI_COMPILER_MSVC
+	/* TODO */
+	#define SI_FUNC  __FUNCTION__
+#else
+	/* TODO */
+	#define SI_FUNC __func__
+#endif
+
+/* Creates a 'siCallerLoc' structure from the current filename, line and function. */
+#define SI_CALLER_LOC SI_COMP_LIT(siCallerLoc, SI_STR(__FILE__), SI_STR(SI_FUNC), __LINE__)
+
+
+SIDEF void si_assert(bool condition, siString message, siCallerLoc loc);
+#define si_assert(condition, ...) (si_assert)(SI_DARG_IMPL_WF(1, (SI_STR(#condition), SI_CALLER_LOC), (condition) __VA_OPT__(,) __VA_ARGS__))
+
+SIDEF void si_ensure(bool condition, siString message, siCallerLoc loc);
+
+// TODO(EimaMei): ENSURE!!!
+
 
 
 #ifndef SI_NO_VARIADIC
@@ -1481,8 +1493,8 @@ template<typename T>
 /* TODO(EimaMei): Make this prettier. */
 #if SI_LANGUAGE_IS_C
 /* TODO */
-#define SI_DARG_IMPL(name, required, _default, ...) (name)(SI__DARG_IMPL_2(_default, required, SI_ARG_LEN(si__repeat_##required, SI_EXP _default), SI_ARG_LEN(__VA_ARGS__), __VA_ARGS__))
-#define SI_DARG_IMPL_WF(required, _default, ...) SI__DARG_IMPL_2(_default, required, SI_ARG_LEN(si__repeat_##required, SI_EXP _default), SI_ARG_LEN(__VA_ARGS__), __VA_ARGS__)
+#define SI_DARG_IMPL(name, required, _default, ...) (name)(SI_DARG_IMPL_WF(required, _default, __VA_ARGS__))
+#define SI_DARG_IMPL_WF(required, _default, ...) SI__DARG_IMPL_2(_default, required, SI_ARG_LEN(si__repeat_##required SI_EXP _default), SI_ARG_LEN(__VA_ARGS__), __VA_ARGS__)
 #else
 /* TODO | C++ comment */
 #define SI_DARG_IMPL(name, required, _default, ...) (name)(__VA_ARGS__)
@@ -1501,6 +1513,8 @@ typedef struct siAny {
 	siTypeId type;
 	/* TODO */
 	const void* ptr;
+	/* TODO */
+	isize item_sizeof;
 } siAny;
 
 
@@ -1529,8 +1543,8 @@ typedef struct siAny {
 */
 
 /* Default memory alignment for the system. */
-#ifndef SI_DEFAULT_ALIGNMENT
-	#define SI_DEFAULT_ALIGNMENT (2 * si_sizeof(void*))
+#ifndef SI_ALIGNMENT_DEFAULT
+	#define SI_ALIGNMENT_DEFAULT (2 * si_sizeof(void*))
 #endif
 
 #ifndef SI_DEFAULT_PAGE_SIZE
@@ -1614,69 +1628,94 @@ SIDEF isize si_cstrLen(cstring str);
 */
 
 
+
 /* Allocates the specified amount of bytes of storage. Memory _gets_ zeroed out. */
 SIDEF
 void* si_alloc(
-	siAllocator alloc,
-	isize bytes,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siAllocator alloc, isize bytes,
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_alloc(...) SI_DARG_IMPL(si_alloc, 2, (nil), __VA_ARGS__)
+
 SIDEF
 void* si_allocAlign(
-	siAllocator alloc,
-	isize bytes,
-	isize align,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siAllocator alloc, isize bytes, isize align,
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_allocAlign(...) SI_DARG_IMPL(si_allocAlign, 3, (nil), __VA_ARGS__)
 
-/* Allocates the specified amount of bytes of storage. Memory _doesn't_ get zeroed out. */
+/* Allocates the specified amount of byte storage that _doesn't_ get zeroed out.
+ * Returns nil if an error was encountered. */
 SIDEF
 void* si_allocNonZeroed(
-	siAllocator alloc,
-	isize bytes,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siAllocator alloc, isize bytes,
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_allocNonZeroed(...) SI_DARG_IMPL(si_allocNonZeroed, 2, (nil), __VA_ARGS__)
+
 SIDEF
 void* si_allocNonZeroedAlign(
 	siAllocator alloc, isize bytes, isize align,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_allocNonZeroedAlign(...) SI_DARG_IMPL(si_allocNonZeroedAlign,   3, (nil), __VA_ARGS__)
+
 
 /* Resizes specified memory block from the given old size to the new. Memory
  * _gets_ zeroed out. */
 SIDEF
 void* si_realloc(
 	siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_realloc(...) SI_DARG_IMPL(si_realloc, 4, (nil), __VA_ARGS__)
+
 SIDEF
 void* si_reallocAlign(
 	siAllocator alloc, void* ptr, isize oldSize, isize newSize, isize align,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_reallocAlign(...) SI_DARG_IMPL(si_reallocAlign, 5, (nil), __VA_ARGS__)
 
 /* Resizes the specified memory block from the given old size to the new. Memory
  * _doesn't_ get zeroed out. */
 SIDEF
 void* si_reallocNonZeroed(
 	siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_reallocNonZeroed(...) SI_DARG_IMPL(si_reallocNonZeroed, 4, (nil), __VA_ARGS__)
+
 SIDEF void* si_reallocNonZeroedAlign(
 	siAllocator alloc, void* ptr, isize oldSize, isize newSize, isize align,
-	siAllocationError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_reallocNonZeroedAlign(...) SI_DARG_IMPL(si_reallocNonZeroedAlign, 5, (nil), __VA_ARGS__)
 
 
 /* Frees a previously allocated memory block from 'si_alloc'. */
-SIDEF siAllocationError si_free(siAllocator alloc, void* ptr);
+SIDEF siAllocationError si_free(
+	siAllocator alloc, void* ptr,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_free(...) SI_DARG_IMPL(si_free, 2, (nil), __VA_ARGS__)
+
 /* Frees all of the previous allocated memory within the specified allocator. */
-SIDEF siAllocationError si_freeAll(siAllocator alloc);
+SIDEF siAllocationError si_freeAll(
+	siAllocator alloc,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_freeAll(...) SI_DARG_IMPL(si_freeAll, 1, (nil), __VA_ARGS__)
 
 
-/* Returns the available space left inside the specified allocator. A minus one
- * is returned if the feature isn't supported. */
-SIDEF isize si_allocatorMemAvailable(siAllocator alloc, siAllocationError* outError SI_DEFAULT(nil));
+/* Returns the available space left inside the allocator, other -1 is returned if
+ * an error was encountered. */
+SIDEF isize si_allocatorMemAvailable(
+	siAllocator alloc,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_allocatorMemAvailable(...) SI_DARG_IMPL(si_allocatorMemAvailable, 1, (nil), __VA_ARGS__)
+
 
 /* Returns a byte, where each 'siAllocationType' bit corresponds to a supporterd
  * feature. */
@@ -1689,33 +1728,33 @@ SIDEF bool si_allocatorHasFeature(u8 features, siAllocationType type);
 /* allocator - siAllocator* | type - TYPE
  * Allocates an exact amount of storage to fit the specified type. Memory gets
  * zeroed out. */
-#define si_allocItem(allocator, type) (type*)si_alloc(allocator, si_sizeof(type))
-#define si_allocItemAlign(allocator, type, align) (type*)si_allocAlign(allocator, si_sizeof(type), align)
+#define si_allocItem(allocator, type, ...) (type*)si_alloc(allocator, si_sizeof(type) __VA_OPT__(,) __VA_ARGS__)
+#define si_allocItemAlign(allocator, type, align, ...) (type*)si_allocAlign(allocator, si_sizeof(type), align __VA_OPT__(,) __VA_ARGS__)
 
 /* allocator - siAllocator* | type - TYPE
  * Allocates an exact amount of storage to fit the specified type. */
-#define si_allocItemNonZeroed(allocator, type) (type*)si_allocNonZeroed(allocator, si_sizeof(type))
-#define si_allocItemNonZeroedAlign(allocator, type, align) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type), align)
+#define si_allocItemNonZeroed(allocator, type, ...) (type*)si_allocNonZeroed(allocator, si_sizeof(type) __VA_OPT__(,) __VA_ARGS__)
+#define si_allocItemNonZeroedAlign(allocator, type, align, ...) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type), align __VA_OPT__(,) __VA_ARGS__)
 
 /* allocator - siAllocator | type - TYPE | count - isize
  * Allocates an exact amount of storage to fit the specified array of types.
  * Memory gets zeroed out. */
-#define si_allocArray(allocator, type, count) (type*)si_alloc(allocator, si_sizeof(type) * (count))
-#define si_allocArrayAlign(allocator, type, count, align) (type*)si_allocAlign(allocator, si_sizeof(type) * (count), align)
+#define si_allocArray(allocator, type, count, ...) (type*)si_alloc(allocator, si_sizeof(type) * (count) __VA_OPT__(,) __VA_ARGS__)
+#define si_allocArrayAlign(allocator, type, count, align, ...) (type*)si_allocAlign(allocator, si_sizeof(type) * (count), align __VA_OPT__(,) __VA_ARGS__)
 
 /* allocator - siAllocator | type - TYPE | count - isize
  * Allocates an exact amount of storage to fit the specified array of types. */
-#define si_allocArrayNonZeroed(allocator, type, count) (type*)si_allocNonZeroed(allocator, si_sizeof(type) * (count))
-#define si_allocArrayNonZeroedAlign(allocator, type, count, align) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type) * (count), align)
+#define si_allocArrayNonZeroed(allocator, type, count, ...) (type*)si_allocNonZeroed(allocator, si_sizeof(type) * (count) __VA_OPT__(,) __VA_ARGS__)
+#define si_allocArrayNonZeroedAlign(allocator, type, count, align, ...) (type*)si_allocNonZeroedAlign(allocator, si_sizeof(type) * (count), align __VA_OPT__(,) __VA_ARGS__)
 
 
 /* TODO */
-#define si_reallocArray(allocator, type, ptr, oldCount, newCount) (type*)si_realloc(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount))
-#define si_reallocArrayAlign(allocator, ptr, type, oldCount, newCount) (type*)si_reallocAlign(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount))
+#define si_reallocArray(allocator, type, ptr, oldCount, newCount, ...) (type*)si_realloc(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount)  __VA_OPT__(,)  __VA_ARGS__)
+#define si_reallocArrayAlign(allocator, ptr, type, oldCount, newCount, ...) (type*)si_reallocAlign(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount)  __VA_OPT__(,)  __VA_ARGS__)
 
 /* TODO */
-#define si_reallocArrayNonZeroed(allocator, type, ptr, oldCount, newCount) (type*)si_reallocNonZeroed(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount))
-#define si_reallocArrayNonZeroedAlign(allocator, type, ptr, oldCount, newCount) (type*)si_reallocNonZeroedAlign(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount))
+#define si_reallocArrayNonZeroed(allocator, type, ptr, oldCount, newCount, ...) (type*)si_reallocNonZeroed(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount) __VA_OPT__(,) __VA_ARGS__)
+#define si_reallocArrayNonZeroedAlign(allocator, type, ptr, oldCount, newCount, ...) (type*)si_reallocNonZeroedAlign(allocator, ptr, si_sizeof(type) * (oldCount), si_sizeof(type) * (newCount) __VA_OPT__(,) __VA_ARGS__)
 
 
 /*
@@ -2248,7 +2287,7 @@ SIDEF void* si_arrayFront(siArrayAny array);
 SIDEF void* si_arrayBack(siArrayAny array);
 /* Sets an element to the specified pointer (bound or type checking isn't done). */
 SIDEF void* si_arraySet(
-	siArrayAny array, isize index, const void* data, 
+	siArrayAny array, isize index, const void* data,
 	isize count SI_DEFAULT(1)
 );
 
@@ -2402,9 +2441,11 @@ SIDEF void si_dynamicArrayClear(siDynamicArrayAny* array);
 /* Inserts the specified pointer's value at the given index of the array. Returns
  * true if the array was reallocated. */
 SIDEF bool si_dynamicArrayInsert(
-	siDynamicArrayAny* array, isize index, const void* data,
-	isize count SI_DEFAULT(1)
+	siDynamicArrayAny* array, isize index, siArray(siAny) values
 );
+#define si_dynamicArrayInsert(array, index, ...) si_dynamicArrayInsert(array, index, SI_ARGS(__VA_ARGS__))
+
+
 /* Erases the specified pointer's value at the given index of the array. */
 SIDEF void si_dynamicArrayErase(
 	siDynamicArrayAny* array, isize index, isize count
@@ -2458,15 +2499,6 @@ SIDEF bool si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize addLen);
  * Appends the specified list of items to the array and returns the elements' pointer. */
 #define si_dynamicArrayAppendArray(array, type, ...) (type*)si_dynamicArrayAppendEx(array, SI_PTR_WITH_LEN(type, __VA_ARGS__))
 
-/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
- * Inserts the given value at the given index of the array. Returns true if the
- * array was reallocated. */
-#define si_dynamicArrayInsertItem(array, index, value, type) si_dynamicArrayInsert(array, index, SI_PTR(type, value))
-/* array - siArrayAny | index - isize | value - ANYTHING | type - TYPE
- * Inserts the specified list of items at the given index of the array. Returns
- * true if the array was reallocated. */
-#define si_dynamicArrayInsertArray(array, index, type, ...) si_dynamicArrayInsertEx(array, index, SI_PTR_WITH_LEN(type, __VA_ARGS__))
-
 /* array - siArrayAny | index, count - isize | value - ANYTHING | type - TYPE
  * Fills the contents of the array with the given value. Returns true if the array
  * was reallocated. */
@@ -2485,7 +2517,7 @@ SIDEF bool si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize addLen);
 
 #ifndef SI_NO_STREAM
 
-SI_ENUM(i32, siStreamError) {
+SI_ENUM(isize, siStreamError) {
 	/* TODO */
 	siStreamError_None = 0,
 
@@ -2503,7 +2535,7 @@ SI_ENUM(i32, siStreamError) {
 	/* TODO */
 	siStreamError_Unknown,
 	/* TODO */
-	siStreamError_Unimplemented
+	siStreamError_NotImplemented
 };
 
 SI_ENUM(i32, siStreamType) {
@@ -2539,7 +2571,7 @@ SI_ENUM(i32, siSeekWhere) {
 
 /* TODO */
 #define SI_STREAM_PROC(name) \
-	isize name(siStreamType type, siArray(u8) ptr, isize offset, siSeekWhere seek, siStreamError* outError, void* streamData)
+	isize name(siStreamType type, siArray(u8) ptr, isize offset, siSeekWhere seek, siError* out_error, void* streamData)
 /* Represents a stream procedure. */
 typedef SI_STREAM_PROC(siStreamProc);
 
@@ -2556,31 +2588,64 @@ typedef siStream siReader;
 
 
 /* TODO */
-SIDEF isize si_streamRead(siStream stream, siArray(u8) out, siStreamError* outError SI_DEFAULT(nil));
+SIDEF isize si_streamRead(siStream stream, siArray(u8) out, siError* out_error SI_DEFAULT(nil));
 /* TODO */
-SIDEF isize si_streamReadAt(siStream stream, isize offset, siArray(u8) out, siStreamError* outError SI_DEFAULT(nil));
+SIDEF isize si_streamReadAt(siStream stream, isize offset, siArray(u8) out, siError* out_error SI_DEFAULT(nil));
 
 /* TODO */
-SIDEF isize si_streamWrite(siStream stream, siArray(u8) ptr, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteStr(siStream stream, siString str, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteByte(siStream stream, u8 byte, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteInt(siStream stream, i64 num, siStreamError* outError SI_DEFAULT(nil));
+SIDEF isize si_streamWrite(siStream stream, siArray(u8) ptr, siError* out_error SI_DEFAULT(nil));
+SIDEF isize si_streamWriteStr(siStream stream, siString str, siError* out_error SI_DEFAULT(nil));
+SIDEF isize si_streamWriteByte(siStream stream, u8 byte, siError* out_error SI_DEFAULT(nil));
+SIDEF isize si_streamWriteInt(siStream stream, i64 num, siError* out_error SI_DEFAULT(nil));
+
 
 /* TODO */
-SIDEF isize si_streamWriteAt(siStream stream, isize offset, siArray(u8) ptr, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteAtStr(siStream stream, isize offset, siString str, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteAtByte(siStream stream, isize offset, u8 byte, siStreamError* outError SI_DEFAULT(nil));
-SIDEF isize si_streamWriteAtInt(siStream stream, isize offset, i64 num, siStreamError* outError SI_DEFAULT(nil));
+SIDEF isize si_streamWriteAt(
+	siStream stream, isize offset, siArray(u8) ptr,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamWriteAt(...) SI_DARG_IMPL(si_streamWriteAt, 3, (nil), __VA_ARGS__)
+
+SIDEF isize si_streamWriteAtStr(
+	siStream stream, isize offset, siString str,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamWriteAtStr(...) SI_DARG_IMPL(si_streamWriteAtStr, 3, (nil), __VA_ARGS__)
+
+SIDEF isize si_streamWriteAtByte(
+	siStream stream, isize offset, u8 byte,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamWriteAtByte(...) SI_DARG_IMPL(si_streamWriteAtByte, 3, (nil), __VA_ARGS__)
+
+SIDEF isize si_streamWriteAtInt(
+	siStream stream, isize offset, i64 num,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamWriteAtInt(...) SI_DARG_IMPL(si_streamWriteAtInt, 3, (nil), __VA_ARGS__)
+
 
 /* TODO */
 SIDEF isize si_streamSeek(
 	siStream stream, isize offset, siSeekWhere whence,
-	siStreamError* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_streamSeek(...) SI_DARG_IMPL(si_streamSeek, 3, (nil), __VA_ARGS__)
+
 /* TODO */
-SIDEF isize si_streamSize(siStream stream, siStreamError* outError SI_DEFAULT(nil));
+SIDEF isize si_streamSize(
+	siStream stream,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamSize(...) SI_DARG_IMPL(si_streamSize, 1, (nil), __VA_ARGS__)
+
+
 /* TODO */
-SIDEF siStreamError si_streamFlush(siStream stream);
+SIDEF siStreamError si_streamFlush(
+	siStream stream,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_streamFlush(...) SI_DARG_IMPL(si_streamFlush, 1, (nil), __VA_ARGS__)
 
 
 
@@ -2600,7 +2665,7 @@ SIDEF SI_STREAM_PROC(si_streamWriter_proc);
 SIDEF siIOWriter si_ioWriterMakeAlloc(
 	siStream stream, siAllocator alloc,
 	isize capacity SI_DEFAULT(SI_KILO(4)),
-	isize align SI_DEFAULT(SI_DEFAULT_ALIGNMENT)
+	isize align SI_DEFAULT(SI_ALIGNMENT_DEFAULT)
 );
 /* TODO */
 SIDEF siIOWriter si_ioWriterMakePtr(siStream stream, void* ptr, isize capacity);
@@ -2646,7 +2711,7 @@ SIDEF siStream si_streamWriter(siIOWriter* writer);
 #define for_eachRevStrEx(rune, indexName, str) \
 	for (isize indexName = (str).len; si__forEachRevStr(str, &(rune), &(indexName)); )
 
-/* TODO(EimaMei): This isn't great, but so is _Generic to be fair. Move this 
+/* TODO(EimaMei): This isn't great, but so is _Generic to be fair. Move this
  * and make it much more nicer and faster. Same with the C++ version. */
 SIDEF siString SI_STR2(siString x);
 SIDEF siString SI_STR2_ptr(const siString* x);
@@ -3063,84 +3128,27 @@ SIDEF isize si_memmoveStr_s(siArrayAny dst, siString src);
 	========================
 */
 
-/*
-	========================
-	|  siError             |
-	========================
-*/
-
-#if SI_COMPILER_GCC || SI_COMPILER_CLANG
-	/* TODO */
-	#define SI_FUNC __builtin_FUNCTION()
-#elif SI_COMPILER_MSVC
-	/* TODO */
-	#define SI_FUNC  __FUNCTION__
-#else
-	/* TODO */
-	#define SI_FUNC __func__
-#endif
-
-/* Creates a 'siCallerLoc' structure from the current filename, line and function. */
-#define SI_CALLER_LOC SI_COMP_LIT(siCallerLoc, SI_STR(__FILE__), SI_STR(SI_FUNC), __LINE__)
-
-typedef struct siError {
-	i32 code;
-
-#ifndef SI_NO_ERROR_STRUCT
-	siCallerLoc location;
-	i64 time; /* The time is in UTC+0. */
-#endif
-} siError;
-
-
-/* Sets the error code to zero. */
-#define SI_ERROR_NIL SI_TYPE_ZERO(siError)
 
 
 /* name - NAME
- * Defines a valid error logger function prototype. Returning 'false' terminates
- * the app. */
-#define SI_ERROR_PROC(name) bool name(siError* error, void* data)
+ * Defines a valid error logger function prototype. Returning an integer that isn't
+ * zero makes error declaration functions call 'si_exit(ret_value)'. */
+#define SI_ERROR_PROC(name) i32 name(siError* error, void* data)
 /* Represents an error logger procedure. */
 typedef SI_ERROR_PROC(siErrorProc);
+/* TODO */
+SIDEF SI_ERROR_PROC(si_errorLogDefault);
 
-/* code - i32
-  * Declares an error with a generic error log. */
-#define SI_ERROR(code) SI_ERROR_EX(code, nil, nil)
-/* code - i32 | function - siErrorProc (nullable) | data - void* (nullable)
- * Declares an error with a specified error log function and pointer data. Specifying
- * nil for the function defaults to the generic error log. */
-#define SI_ERROR_EX(code, function, data) si__errorDeclare(code, function, data, SI_CALLER_LOC)
+/* TODO | setting proc to nil calls nothing. | mention SI_RELEASE_MODE */
+SIDEF isize si_errorDeclare(
+	isize error_code,
+	siError* out_error SI_DEFAULT(nil),
+	siErrorProc proc SI_DEFAULT(si_errorLogDefault),
+	void* user_data SI_DEFAULT(nil),
+	siCallerLoc call SI_DEFAULT(SI_CALLER_LOC)
+);
+#define si_errorDeclare(...) SI_DARG_IMPL(si_errorDeclare, 1, (nil, si_errorLogDefault, nil, SI_CALLER_LOC), __VA_ARGS__)
 
-/* condition - bool | code - i32 | ...action - ACTION
- * If the condition is true, an error is declared with a generic error log and
- * the specified actions are executed. The result of 'SI_ERROR_EX' is saved in
- * the 'SI_ERROR_RES' variable. */
-#define SI_ERROR_CHECK(condition, code, .../*action*/) \
-	SI_ERROR_CHECK_EX(condition, code, nil, nil, __VA_ARGS__)
-/* condition - bool | code - i32 | func - siErrorProc (nullable) | data - void* (nullable) | ...action - ACTION
- * If the condition is true, an error is declared with a specified error log and
- * and the specified actions are executed. The result of 'SI_ERROR_EX' is saved
- * in the 'SI_ERROR_RES' variable. Specifying nil for the function defaults to the
- * generic error log. */
-#define SI_ERROR_CHECK_EX(condition, code, func, data, .../*action*/) \
-	SI_STOPIF(condition, siError SI_ERROR_RES = SI_ERROR_EX(code, func, data); SI_UNUSED(SI_ERROR_RES); __VA_ARGS__);
-
-/* condition - bool | code - i32
- * If the condition is true, an error is declared with a generic error log and
- * gets returned. */
-#define SI_ERROR_CHECK_RET(condition, code) SI_ERROR_CHECK_EX_RET(condition, code, nil, nil)
-/* condition - bool | code - i32 | func - siErrorProc (nullable) | data - void* (nullable)
- * If the condition is true, an error is declared with a specified error log and
- * gets returned. Specifying nil for the function defaults to the generic error log.*/
-#define SI_ERROR_CHECK_EX_RET(condition, code, func, data) \
-	SI_ERROR_CHECK_EX(condition, code, func, data, return SI_ERROR_RES)
-
-
-
-/* Function that internally handles error handling. No reason to call this. */
-SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, void* userData,
-		siCallerLoc call);
 
 /*
 	========================
@@ -3154,10 +3162,7 @@ SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, void* userData,
 #define si_optional_define(type) \
 	typedef struct siOption_##type { \
 		bool hasValue; \
-		union {\
-			type value; \
-			siError error; \
-		}; \
+		type value; \
 	} siOption_##type \
 
 /* type - TYPE
@@ -3165,10 +3170,7 @@ SIDEF siError si__errorDeclare(i32 error, siErrorProc proc, void* userData,
 #define si_optional_define_ptr(type) \
 	typedef struct siOption_##type##Ptr { \
 		bool hasValue; \
-		union { \
-			type* value; \
-			siError error; \
-		}; \
+		type* value; \
 	} siOption_##type##Ptr
 
 
@@ -3216,15 +3218,12 @@ si_optional_define(siDynamicArrayAny);
 
 /* type - TYPE | ...VALUE - EXPRESSION
  * Creates a returnable 'siOptional' value from the given value. */
-#define SI_OPT(type, .../* VALUE */) SI_COMP_LIT(siOption(type), true, {__VA_ARGS__})
-#define SI_OPT_PTR(type, .../* VALUE */) SI_COMP_LIT(siOptionPtr(type), true, {__VA_ARGS__})
-/* type - TYPE
- * Creates a returnable 'siOptional' item that has no value inside.. */
-#define SI_OPT_NIL(type) SI_OPT_ERR(type, SI_ERROR_NIL)
+#define SI_OPT(type, .../* VALUE */) SI_COMP_LIT(siOption(type), true, __VA_ARGS__)
+#define SI_OPT_PTR(type, .../* VALUE */) SI_COMP_LIT(siOptionPtr(type), true, __VA_ARGS__)
 /* type - TYPE | errorV - siError
  * Creates a returnable 'siOptional' error value with a designated error. */
-#define SI_OPT_ERR(type, errorV) SI_COMP_LIT(siOption(type), false, {.error = errorV})
-#define SI_OPT_PTR_ERR(type, errorV) SI_COMP_LIT(siOptionPtr(type), false, {.error = errorV})
+#define SI_OPT_ERR(type) SI_COMP_LIT(siOption(type), false, SI_TYPE_ZERO(type))
+#define SI_OPT_PTR_ERR(type) SI_COMP_LIT(siOptionPtr(type), false, SI_TYPE_ZERO(type))
 
 
 /* optionalVar - siOptional(TYPE) | defaultValue - EXPRESSION
@@ -4363,33 +4362,33 @@ SIDEF i32 si_float64IsInf(f64 num);
 	========================
 */
 
-SI_ENUM(i32, siErrorSystem) {
+SI_ENUM(isize, siSystemError) {
 	/* No error. */
-	siErrorSystem_None = 0,
+	siSystemError_None = 0,
 
 	/* Invalid value. */
-	siErrorSystem_Invalid,
+	siSystemError_Invalid,
 	/* Invalid file name. */
-	siErrorSystem_InvalidFilename,
+	siSystemError_InvalidFilename,
 	/* File/directory already exists. */
-	siErrorSystem_Exists,
+	siSystemError_Exists,
 	/* File/directory doesn't exist. */
-	siErrorSystem_NotExists,
+	siSystemError_NotExists,
 	/* Insufficient permissions. */
-	siErrorSystem_Permission,
+	siSystemError_Permission,
 	/* Not enough memory in the memory card. */
-	siErrorSystem_NoMemory,
+	siSystemError_NoMemory,
 	/* Failed to truncate the file. */
-	siErrorSystem_TruncationFail,
+	siSystemError_TruncationFail,
 	/* System has insufficient resources to complete the action. */
-	siErrorSystem_Unavailable,
+	siSystemError_Unavailable,
 	/* A thread deadlock occurred. */
-	siErrorSystem_Deadlock,
+	siSystemError_Deadlock,
 
 	/* An unspecified error occurred. */
-	siErrorSystem_Generic,
+	siSystemError_Generic,
 	/* Total amount of valid errors. */
-	siErrorSystem_Length,
+	siSystemError_Count,
 
 	/* Sili reserves its errors to span from 0 to (INT32_MAX / 2). Every other
 	 * value won't be touched by sili. */
@@ -4418,33 +4417,21 @@ SI_ENUM(i32, siUnixDE) {
 };
 
 
-/* Declares a system error in the function. */
-#define SI_ERROR_SYS() SI_ERROR_SYS_EX(si_systemGetError())
-/* code - i32
- * Declares a specific system error in the function. */
-#define SI_ERROR_SYS_EX(code) SI_ERROR_EX(code, si_systemErrorLog, nil);
-/* condition - bool | action - ANYTHING
- * If condition evaluates to true, a system error is declared in the function and
- * executes the specified actions. */
-#define SI_ERROR_SYS_CHECK(condition, .../*action*/) \
-	SI_ERROR_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, __VA_ARGS__)
-/* condition - bool
- * If condition evaluates to true, a system error is declared in the function and
- * then gets returned. */
-#define SI_ERROR_SYS_CHECK_RET(condition) SI_ERROR_CHECK_EX_RET(condition, si_systemGetError(), si_systemErrorLog, nil)
-/* condition - bool | type - TYPE
- * If condition evaluates to true, an optional system error is declared in the
- * function and then gets returned. */
-#define SI_OPTION_SYS_CHECK(condition, type) SI_OPTION_CHECK_EX(condition, si_systemGetError(), si_systemErrorLog, nil, type)
-
+/* TODO */
+SIDEF siSystemError si_systemErrorDeclare(
+	siError* out_error,
+	siSystemError error SI_DEFAULT(si_systemError()),
+	siCallerLoc call SI_DEFAULT(SI_CALLER_LOC)
+);
+#define si_systemErrorDeclare(...) SI_DARG_IMPL(si_systemErrorDeclare, 1, (si_systemError(), SI_CALLER_LOC), __VA_ARGS__)
 
 /* Returns the most recent system error. */
-SIDEF siErrorSystem si_systemGetError(void);
+SIDEF siSystemError si_systemError(void);
 
 /* Returns the name of a system error. */
-SIDEF siString si_systemErrorName(siErrorSystem err);
+SIDEF siString si_systemErrorName(siSystemError err);
 /* Returns the description of a system error. */
-SIDEF siString si_systemErrorDesc(siErrorSystem err);
+SIDEF siString si_systemErrorDesc(siSystemError err);
 
 
 /* Ends the program with a to be returned code. */
@@ -4502,20 +4489,23 @@ SIDEF SI_ERROR_PROC(si_systemErrorLog);
 	========================
 */
 
-typedef struct siVirtualMemory {
+typedef struct {
 	void* data;
 	isize size;
-} siVirtualMemory;
-
-si_optional_define(siVirtualMemory);
+} siVirtualMem;
 
 /* Requests memory from the OS, where the new mapping is specified in the given
  * pointer. If the pointer is nil, the OS choices a page-aligned mapping itself. */
-SIDEF siResult(siVirtualMemory) si_vmAlloc(void* address, isize size);
+SIDEF siVirtualMem si_virtualMemAlloc(
+	void* address, isize size,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_virtualMemAlloc(...) SI_DARG_IMPL(si_virtualMemAlloc, 2, (nil), __VA_ARGS__)
+
 /* Discards the page by marking it as "not in use" for later use. */
-SIDEF siError si_vmDiscard(siVirtualMemory vm);
+SIDEF siSystemError si_virtualMemDiscard(siVirtualMem vm);
 /* Frees the allocated memory by the OS. */
-SIDEF siError si_vmFree(siVirtualMemory vm);
+SIDEF siSystemError si_virtualMemFree(siVirtualMem vm);
 
 
 #endif /* SI_NO_VIRTUAL_MEMORY */
@@ -4582,31 +4572,67 @@ SI_EXTERN const u8 SI_PATH_SEPARATOR;
 */
 
 
+
 /* Checks if the specified path exists. */
 SIDEF bool si_pathExists(siString path);
 SIDEF bool si_pathExistsOS(siOsString path);
 
+
 /* Copies the specified source path to the destination. Returns the size of the
- * file if the copy was succesful. */
-SIDEF siResult(isize) si_pathCopy(siString pathSrc, siString pathDst);
+ * file if the copy was succesful, otherwise -1. */
+SIDEF isize si_pathCopy(
+	siString pathSrc, siString pathDst,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathCopy(...) SI_DARG_IMPL(si_pathCopy, 2, (nil), __VA_ARGS__)
+
 /* Copies every file and folder from the specified source to the given destination.
  * Returns the amount of files copied, otherwise an error if the function failed. */
-SIDEF siResult(i32) si_pathItemsCopy(siString pathSrc, siString pathDst);
+SIDEF isize si_pathItemsCopy(
+	siString pathSrc, siString pathDst,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathItemsCopy(...) SI_DARG_IMPL(si_pathItemsCopy, 2, (nil), __VA_ARGS__)
+
 /* Moves the specified source path to the given detination. Returns an error if failed. */
-SIDEF siError si_pathMove(siString pathSrc, siString pathDst);
+SIDEF siSystemError si_pathMove(
+	siString pathSrc, siString pathDst,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathMove(...) SI_DARG_IMPL(si_pathMove, 2, (nil), __VA_ARGS__)
+
 /* Renames the specified path to the given new path. Returns an error if failed. */
-SIDEF siError si_pathRename(siString path, siString newPath);
+#define si_pathRename si_pathMove
+
 
 /* Creates a new folder at the specified path. Returns an error if failed. */
-SIDEF siError si_pathCreateFolder(siString path);
+SIDEF siSystemError si_pathCreateFolder(
+	siString path,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathCreateFolder(...) SI_DARG_IMPL(si_pathCreateFolder, 1, (nil), __VA_ARGS__)
+
 /* Removes the specified path, including the files and folders within in. Returns
  * an error if failed. */
-SIDEF siError si_pathRemove(siString path);
+SIDEF siSystemError si_pathRemove(
+	siString path,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathRemove(...) SI_DARG_IMPL(si_pathRemove, 1, (nil), __VA_ARGS__)
 
 /* Creates a hard link of the specified path. Returns an error if failed. */
-SIDEF siError si_pathCreateHardLink(siString path, siString linkPath);
+SIDEF siSystemError si_pathCreateHardLink(
+	siString path, siString linkPath,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathCreateHardLink(...) SI_DARG_IMPL(si_pathCreateHardLink, 2, (nil), __VA_ARGS__)
+
 /* Creates a soft link of the specified path. Returns an error if failed. */
-SIDEF siError si_pathCreateSoftLink(siString path, siString linkPath);
+SIDEF siSystemError si_pathCreateSoftLink(
+	siString path, siString linkPath,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathCreateSoftLink(...) SI_DARG_IMPL(si_pathCreateSoftLink, 2, (nil), __VA_ARGS__)
 
 /* Returns the file name and extension (/home/user/file.txt -> file.txt). */
 SIDEF siString si_pathBaseName(siString path);
@@ -4621,9 +4647,16 @@ SIDEF siString si_pathShortStem(siString path);
 /* Returns a string view of the specified path's unrooted path. */
 SIDEF siString si_pathUnrooted(siString path);
 
+
 /* Finds the full, rooted path of the specified path and creates a string from
- * it. Returns an error if finding the full path failed. */
-SIDEF siResult(siString) si_pathGetFullName(siString path, siAllocator alloc);
+ * it. Returns an empty string if finding the full path failed. */
+SIDEF siString si_pathGetFullName(
+	siString path, siAllocator alloc,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_pathGetFullName(...) SI_DARG_IMPL(si_pathGetFullName, 2, (nil), __VA_ARGS__)
+
+/* TODO(EimaMei): Remake this function with va_args. */
 /* Joins the specified strings into one, seperated by the path separator. */
 SIDEF siString si_pathJoin(siString path, siString subPath, siAllocator alloc);
 SIDEF siString si_pathJoinEx(siArray(siString) strs, siAllocator alloc);
@@ -4635,18 +4668,18 @@ SIDEF siTime si_pathLastWriteTime(siString path);
 /* TODO */
 SIDEF siArray(u8) si_pathReadContents(
 	siString path, siAllocator alloc,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
 /* TODO */
 SIDEF siString si_pathReadContentsStr(
 	siString path, siAllocator alloc,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
 
 /* TODO */
 SIDEF siArray(siString) si_pathReadlines(
 	siString path, siAllocator alloc,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
 
 
@@ -4680,76 +4713,150 @@ SIDEF siFile si_fileGetStdFile(siStdFile type);
 
 
 /* Creates a file. */
-SIDEF siFile si_fileCreate(siString path, siError* outError SI_DEFAULT(nil));
+SIDEF siFile si_fileCreate(
+	siString path,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileCreate(...) SI_DARG_IMPL(si_fileCreate, 1, (nil), __VA_ARGS__)
+
 /* Opens a file that exists. */
-SIDEF siFile si_fileOpen(siString path, siError* outError SI_DEFAULT(nil));
-/* The file is opened via a specified mode. */
-SIDEF siFile si_fileOpenMode(siString path, siFileMode mode, siError* outError SI_DEFAULT(nil));
+SIDEF siFile si_fileOpen(
+	siString path,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileOpen(...) SI_DARG_IMPL(si_fileOpen, 1, (nil), __VA_ARGS__)
+
+/* Opens a file via a specified mode. Returns -1 if failed. */
+SIDEF siFile si_fileOpenMode(
+	siString path, siFileMode mode,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileOpenMode(...) SI_DARG_IMPL(si_fileOpenMode, 2, (nil), __VA_ARGS__)
 
 
 /* TODO */
-SIDEF isize si_fileRead(siFile file, siArray(u8) out, siErrorSystem* outError SI_DEFAULT(nil));
+SIDEF isize si_fileRead(
+	siFile file, siArray(u8) out,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileRead(...) SI_DARG_IMPL(si_fileRead, 2, (nil), __VA_ARGS__)
+
 /* TODO */
 SIDEF isize si_fileReadAt(
 	siFile file, isize offset, siArray(u8) out,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_fileReadAt(...) SI_DARG_IMPL(si_fileReadAt, 3, (nil), __VA_ARGS__)
+
 
 /* TODO */
 SIDEF siArray(u8) si_fileReadContents(
 	siFile file, siAllocator alloc,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_fileReadContents(...) SI_DARG_IMPL(si_fileReadContents, 2, (nil), __VA_ARGS__)
+
+/* TODO */
 SIDEF siString si_fileReadContentsStr(
 	siFile file, siAllocator alloc,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_fileReadContentsStr(...) SI_DARG_IMPL(si_fileReadContentsStr, 2, (nil), __VA_ARGS__)
 
 /* Allocates 'file.size' bytes, reads said amount (if possible) from the file's
  * beginning and then splits the string into an array of string view lines.
  * _File seek offset does not get changed when calling the function._ */
-SIDEF siArray(siString) si_fileReadlines(siFile file, siAllocator alloc, siErrorSystem* outError SI_DEFAULT(nil));
+SIDEF siArray(siString) si_fileReadlines(
+	siFile file, siAllocator alloc,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileReadlines(...) SI_DARG_IMPL(si_fileReadlines, 2, (nil), __VA_ARGS__)
 
 
-/* Writes a buffer into the file at the current offset. Returns the written bytes. */
-SIDEF isize si_fileWrite(siFile file, siArray(u8) in, siErrorSystem* outError SI_DEFAULT(nil));
-/* Writes a buffer into the file at the specified offset. Returns the written bytes. */
+/* Writes input content into the file at the current offset. Returns the amount
+ * of written bytes or -1 if an error was encountered. */
+SIDEF isize si_fileWrite(
+	siFile file, siArray(u8) in,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileWrite(...) SI_DARG_IMPL(si_fileWrite, 2, (nil), __VA_ARGS__)
+
+/* Writes input content into the file at a specified offset. Returns the amount
+ * of written bytes or -1 if an error was encountered. */
 SIDEF isize si_fileWriteAt(
 	siFile file, isize offset, siArray(u8) in,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siError* out_error SI_DEFAULT(nil)
 );
-/* Writes a byte into the file. Return the written bytes. */
-SIDEF isize si_fileWriteByte(siFile file, u8 byte, siErrorSystem* outError SI_DEFAULT(nil));
+#define si_fileWriteAt(...)   SI_DARG_IMPL(si_fileWriteAt,   3, (nil), __VA_ARGS__)
+
+/* Writes a byte into the file at a specified offset. Returns the amount of written
+*  bytes or -1 if an error was encountered. */
+SIDEF isize si_fileWriteByte(
+	siFile file, u8 byte,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileWriteByte(...) SI_DARG_IMPL(si_fileWriteByte, 2, (nil), __VA_ARGS__)
+
 /* Writes a pointer into the file. Returns the written bytes. */
 SIDEF isize si_fileWritePtr(
-	siFile file,
-	const void* ptr,
-	isize len,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siFile file, const void* ptr, isize len,
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_fileWritePtr(...) SI_DARG_IMPL(si_fileWritePtr,  3, (nil), __VA_ARGS__)
+
 /* Writes a string into the file. Returns the written bytes. */
-SIDEF isize si_fileWriteStr(siFile file, siString str, siErrorSystem* outError SI_DEFAULT(nil));
+SIDEF isize si_fileWriteStr(
+	siFile file, siString str,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileWriteStr(...) SI_DARG_IMPL(si_fileWriteStr,  2, (nil), __VA_ARGS__)
 
 
 /* Returns the current offset of the file stream. */
-SIDEF isize si_fileTell(siFile file, siErrorSystem* outError SI_DEFAULT(nil));
+SIDEF isize si_fileTell(
+	siFile file,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileTell(...) SI_DARG_IMPL(si_fileTell, 1, (nil), __VA_ARGS__)
+
+
 /* Seeks the file stream offset to the specified offset using the given method.
  * Returns the amount of bytes that were read. */
 SIDEF isize si_fileSeek(
-	siFile file,
-	isize offset,
-	siSeekWhere method,
-	siErrorSystem* outError SI_DEFAULT(nil)
+	siFile file, isize offset, siSeekWhere method,
+	siError* out_error SI_DEFAULT(nil)
 );
+#define si_fileSeek(...) SI_DARG_IMPL(si_fileSeek, 3, (nil), __VA_ARGS__)
+
 /* Seeks to the front of the file. */
-SIDEF siErrorSystem si_fileSeekFront(siFile file);
+SIDEF bool si_fileSeekFront(
+	siFile file,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileSeekFront(...) SI_DARG_IMPL(si_fileSeekFront, 1, (nil), __VA_ARGS__)
+
 /* Seeks to the back of the file. */
-SIDEF siErrorSystem si_fileSeekBack(siFile file);
+SIDEF bool si_fileSeekBack(
+	siFile file,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileSeekBack(...) SI_DARG_IMPL(si_fileSeekBack, 1, (nil), __VA_ARGS__)
+
 
 /* TODO */
-SIDEF siErrorSystem si_fileFlush(siFile file);
+SIDEF bool si_fileFlush(
+	siFile file,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileFlush(...) SI_DARG_IMPL(si_fileFlush, 1, (nil), __VA_ARGS__)
+
 /* Truncates the file to the specified size and returns 'true' if it succeded. */
-SIDEF bool si_fileTruncate(siFile file, isize size);
+SIDEF bool si_fileTruncate(
+	siFile file, isize size,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_fileTruncate(...) SI_DARG_IMPL(si_fileTruncate, 2, (nil), __VA_ARGS__)
+
 
 /* Returns the latest size of the file. */
 SIDEF isize si_fileSize(siFile file);
@@ -4795,7 +4902,11 @@ typedef struct siDirectory {
 
 
 /* Opens a directory and creates a directory stream. */
-SIDEF siDirectory si_directoryOpen(siString path);
+SIDEF siDirectory si_directoryOpen(
+	siString path,
+	siError* out_error
+);
+#define si_directoryOpen(...) SI_DARG_IMPL(si_directoryOpen, 1, (nil), __VA_ARGS__)
 
 /* Iterates through the next file, folder or link inside the directory. Information
  * about it is written into the specified 'out' and true is returned, otherwise
@@ -4872,7 +4983,7 @@ SIDEF isize si_printLnEx(
 #define si_printf(fmt, ...) si_printfEx(fmt, SI_ARGS(__VA_ARGS__))
 /* TODO */
 SIDEF isize si_printfEx(
-	siString fmt, 
+	siString fmt,
 	siArray(siAny) args SI_DEFAULT(SI_ARR_EMPTY(siAny)),
 	bool flush SI_DEFAULT(true),
 	bool newLine SI_DEFAULT(false)
@@ -4884,7 +4995,7 @@ SIDEF isize si_printfEx(
 #define si_printfLn(fmt, ...) si_printfLnEx(fmt, SI_ARGS(__VA_ARGS__))
 /* TODO */
 SIDEF isize si_printfLnEx(
-	siString fmt, 
+	siString fmt,
 	siArray(siAny) args SI_DEFAULT(SI_ARR_EMPTY(siAny)),
 	bool flush SI_DEFAULT(true)
 );
@@ -4965,7 +5076,7 @@ SIDEF isize si_eprintLnEx(
 #define si_eprintf(fmt, ...) si_eprintfEx(fmt, SI_ARGS(__VA_ARGS__))
 /* TODO */
 SIDEF isize si_eprintfEx(
-	siString fmt, 
+	siString fmt,
 	siArray(siAny) args SI_DEFAULT(SI_ARR_EMPTY(siAny)),
 	bool flush SI_DEFAULT(true),
 	bool newLine SI_DEFAULT(false)
@@ -4977,7 +5088,7 @@ SIDEF isize si_eprintfEx(
 #define si_eprintfLn(fmt, ...) si_eprintfLnEx(fmt, SI_ARGS(__VA_ARGS__))
 /* TODO */
 SIDEF isize si_eprintfLnEx(
-	siString fmt, 
+	siString fmt,
 	siArray(siAny) args SI_DEFAULT(SI_ARR_EMPTY(siAny)),
 	bool flush SI_DEFAULT(true)
 );
@@ -4995,7 +5106,7 @@ siNoreturn SIDEF void si_panic(
 	siArray(siAny) args SI_DEFAULT(SI_ARR_EMPTY(siAny)),
 	siCallerLoc call SI_DEFAULT(SI_CALLER_LOC)
 );
-#define si_panic(...)          SI_DARG_IMPL(si_panic,          1, (SI_STR_EMPTY, (SI_ARR_EMPTY(siAny)), SI_CALLER_LOC), __VA_ARGS__)
+#define si_panic(...) SI_DARG_IMPL(si_panic, 1, (SI_STR_EMPTY, (SI_ARR_EMPTY(siAny)), SI_CALLER_LOC), __VA_ARGS__)
 
 
 #endif /* SI_NO_PRINT_SYSTEM */
@@ -5045,34 +5156,58 @@ typedef struct siThread {
 
 	siThreadFunction* func;
 	void* arg;
-	usize stackSize;
+	isize stack_size;
 
 	volatile siThreadState state;
-	void* returnValue;
+	void* ret_value;
 } siThread;
+
 
 
 /* thread - siThread | type - TYPE
  * Casts 'thread.returnValue' correctly to match the given type instead of it being
  * void*. */
-#define si_threadGetReturn(thread, type) transmute(type, (thread).returnValue)
+#define si_threadGetReturn(thread, type) transmute(type, (thread).ret_value)
 
 
 /* Prepares a thread data strucutre. */
-SIDEF siThread si_threadMake(siThreadFunction function, void* arg);
-/* Prepares a thread data strucutre wth the option to specify the stack size.
- * By default this is set to zero.*/
-SIDEF siThread si_threadMakeEx(siThreadFunction function, void* arg, usize stackSize);
+SIDEF siThread si_threadMake(
+	siThreadFunction function,
+	void* arg SI_DEFAULT(nil),
+	isize stack_size SI_DEFAULT(0)
+);
+#define si_threadMake(...) SI_DARG_IMPL(si_threadMake, 1, (nil, 0), __VA_ARGS__)
+
 /* Prepares a thread data structure, writes it to 'out' and runs the thread. */
-SIDEF siError si_threadMakeAndRun(siThreadFunction function, void* arg, siThread* out);
+SIDEF siSystemError si_threadMakeAndRun(
+	siThread* out, siThreadFunction function,
+	void* arg SI_DEFAULT(nil),
+	isize stack_size SI_DEFAULT(0),
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_threadMakeAndRun(...) SI_DARG_IMPL(si_threadMakeAndRun, 2, (nil, 0, nil), __VA_ARGS__)
+
 
 /* Runs the thread. */
-SIDEF siError si_threadRun(siThread* thread);
+SIDEF siSystemError si_threadRun(
+	siThread* thread,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_threadRun(...) SI_DARG_IMPL(si_threadRun, 1, (nil), __VA_ARGS__)
+
 /* Suspends the parent thread until the specified thread terminates. */
-SIDEF siError si_threadJoin(siThread* thread);
+SIDEF siSystemError si_threadJoin(
+	siThread* thread,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_threadJoin(...) SI_DARG_IMPL(si_threadJoin, 1, (nil), __VA_ARGS__)
 
 /* Destroys the thread. */
-SIDEF siError si_threadDestroy(siThread* thread);
+SIDEF siSystemError si_threadDestroy(
+	siThread* thread,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_threadDestroy(...) SI_DARG_IMPL(si_threadDestroy, 1, (nil), __VA_ARGS__)
 
 #endif /* SI_NO_THREAD */
 
@@ -5289,7 +5424,7 @@ SIDEF siString si_dllError(void);
 #define SI__VARIADIC_3(name, len, ...) name##_##len(__VA_ARGS__)
 
 #define si__ma_0()  SI_TYPE_ZERO(siAny)
-#define si__ma_1(a) SI_COMP_LIT(siAny, si_typeid(typeof(a)), SI_PTR(typeof(a), a))
+#define si__ma_1(a) SI_COMP_LIT(siAny, si_typeid(typeof(a)), SI_PTR(typeof((0,a)), a), si_sizeof(a))
 #define si__ma_2(a, b) si__ma_1(a), si__ma_1(b)
 #define si__ma_3(a, b, c) si__ma_2(a, b), si__ma_1(c)
 #define si__ma_4(a, b, c, d) si__ma_3(a, b, c), si__ma_1(d)
@@ -5323,25 +5458,34 @@ SIDEF siString si_dllError(void);
 #define si__ba_15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) si__ba_14(a, b, c, d, e, f, g, h, i, j, k, l, m, n) | si__ba_2(a, o)
 #define si__ba_16(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) si__ba_15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) | si__ba_2(a, p)
 
-
+#define SI__DEXP_40(...)  SILI_Error_CheckExpansion: Missing 4 required arguments.
+#define SI__DEXP_41(...)  SILI_Error_CheckExpansion: Missing 3 required arguments.
+#define SI__DEXP_42(...)  SILI_Error_CheckExpansion: Missing 2 required arguments.
+#define SI__DEXP_43(...)  SILI_Error_CheckExpansion: Missing 1 required argument.
 #define SI__DEXP_44(...)               __VA_ARGS__
 #define SI__DEXP_45(a, ...)            __VA_ARGS__
 #define SI__DEXP_46(a, b, ...)         __VA_ARGS__
 #define SI__DEXP_47(a, b, c, ...)      __VA_ARGS__
 #define SI__DEXP_48(a, b, c, d, ...)   __VA_ARGS__
 
+#define SI__DEXP_30(...)  SILI_Error_CheckExpansion: Missing 3 required arguments.
+#define SI__DEXP_31(...)  SILI_Error_CheckExpansion: Missing 2 required arguments.
+#define SI__DEXP_32(...)  SILI_Error_CheckExpansion: Missing 1 required argument.
 #define SI__DEXP_33(...)               __VA_ARGS__
 #define SI__DEXP_34(a, ...)            __VA_ARGS__
 #define SI__DEXP_35(a, b, ...)         __VA_ARGS__
 #define SI__DEXP_36(a, b, c, ...)      __VA_ARGS__
 #define SI__DEXP_37(a, b, c, d, ...)   __VA_ARGS__
 
+#define SI__DEXP_20(...)  SILI_Error_CheckExpansion: Missing 2 required arguments.
+#define SI__DEXP_21(...)  SILI_Error_CheckExpansion: Missing 1 required argument.
 #define SI__DEXP_22(...)               __VA_ARGS__
 #define SI__DEXP_23(a, ...)            __VA_ARGS__
 #define SI__DEXP_24(a, b, ...)         __VA_ARGS__
 #define SI__DEXP_25(a, b, c, ...)      __VA_ARGS__
 #define SI__DEXP_26(a, b, c, d, ...)   __VA_ARGS__
 
+#define SI__DEXP_10(...)  SILI_Error_CheckExpansion: Missing 1 required argument.
 #define SI__DEXP_11(...)               __VA_ARGS__
 #define SI__DEXP_12(a, ...)            __VA_ARGS__
 #define SI__DEXP_13(a, b, ...)         __VA_ARGS__
@@ -5355,8 +5499,7 @@ SIDEF siString si_dllError(void);
 #define SI_COMMA_4(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 0, 1, 1, 1, 1)
 #define SI_COMMA_3(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 1, 0, 1, 1, 1)
 #define SI_COMMA_2(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 1, 1, 0, 1, 1)
-#define SI_COMMA_1(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 1, 0, 1, 0, 1)
-#define SI_COMMA_0(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 1, 0, 1, 1, 0)
+#define SI_COMMA_1(_default, required, in, ...) SI__COMMA_EX(_default, required, in, (__VA_ARGS__), __VA_ARGS__, 1, 1, 1, 1, 1, 0, 1)
 
 #define SI__COMMA_EX(_default, required, in, args, _6,_5, _4, _3, _2, _1, Count, ...) SI_IFCOMMA_##Count(args, required, in, _default)
 
@@ -5371,12 +5514,13 @@ SIDEF siString si_dllError(void);
 
 #define SI_EXP(...) __VA_ARGS__
 
-#define si__repeat_1 1
-#define si__repeat_2 si__repeat_1, 1
-#define si__repeat_3 si__repeat_2, 1
-#define si__repeat_4 si__repeat_3, 1
-#define si__repeat_5 si__repeat_4, 1
-#define si__repeat_6 si__repeat_5, 1
+#define si__repeat_0
+#define si__repeat_1 1,
+#define si__repeat_2 si__repeat_1 1,
+#define si__repeat_3 si__repeat_2 1,
+#define si__repeat_4 si__repeat_3 1,
+#define si__repeat_5 si__repeat_4 1,
+#define si__repeat_6 si__repeat_5 1,
 
 #endif
 
@@ -5387,7 +5531,6 @@ SIDEF siString si_dllError(void);
 #define si_alloc(...)                 SI_DARG_IMPL(si_alloc,                 2, (nil), __VA_ARGS__)
 #define si_allocAlign(...)            SI_DARG_IMPL(si_allocAlign,            3, (nil), __VA_ARGS__)
 
-#define si_allocNonZeroed(...)        SI_DARG_IMPL(si_allocNonZeroed,        2, (nil), __VA_ARGS__)
 #define si_allocNonZeroedAlign(...)   SI_DARG_IMPL(si_allocNonZeroedAlign,   3, (nil), __VA_ARGS__)
 
 #define si_realloc(...)               SI_DARG_IMPL(si_realloc,               4, (nil), __VA_ARGS__)
@@ -5398,40 +5541,6 @@ SIDEF siString si_dllError(void);
 
 
 #define si_allocatorMemAvailable(...) SI_DARG_IMPL(si_allocatorMemAvailable, 1, (nil), __VA_ARGS__)
-
-#endif
-
-#ifndef SI_NO_PRINT
-
-#ifndef SI_NO_IO
-
-#define si_fileCreate(...)   SI_DARG_IMPL(si_fileCreate,   1, (nil), __VA_ARGS__)
-#define si_fileOpen(...)     SI_DARG_IMPL(si_fileOpen,     1, (nil), __VA_ARGS__)
-#define si_fileOpenMode(...) SI_DARG_IMPL(si_fileOpenMode, 2, (nil), __VA_ARGS__)
-
-#define si_fileRead(...)     SI_DARG_IMPL(si_fileRead,     2, (nil), __VA_ARGS__)
-#define si_fileReadAt(...)   SI_DARG_IMPL(si_fileReadAt, 3, (nil), __VA_ARGS__)
-
-
-#define si_fileReadContents(...)    SI_DARG_IMPL(si_fileReadContents,    2, (nil), __VA_ARGS__)
-#define si_fileReadContentsStr(...) SI_DARG_IMPL(si_fileReadContentsStr, 2, (nil), __VA_ARGS__)
-#define si_fileReadlines(...)       SI_DARG_IMPL(si_fileReadlines,       2, (nil), __VA_ARGS__)
-
-#define si_fileWrite(...)     SI_DARG_IMPL(si_fileWrite,     2, (nil), __VA_ARGS__)
-#define si_fileWriteAt(...)   SI_DARG_IMPL(si_fileWriteAt,   3, (nil), __VA_ARGS__)
-#define si_fileWriteByte(...) SI_DARG_IMPL(si_fileWriteByte, 2, (nil), __VA_ARGS__)
-#define si_fileWritePtr(...)  SI_DARG_IMPL(si_fileWritePtr,  3, (nil), __VA_ARGS__)
-#define si_fileWriteStr(...)  SI_DARG_IMPL(si_fileWriteStr,  2, (nil), __VA_ARGS__)
-
-#define si_fileTell(...) SI_DARG_IMPL(si_fileTell, 1, (nil), __VA_ARGS__)
-#define si_fileSeek(...) SI_DARG_IMPL(si_fileSeek, 3, (nil), __VA_ARGS__)
-
-#define si_pathReadContents(...)    SI_DARG_IMPL(si_pathReadContents,    2, (nil), __VA_ARGS__)
-#define si_pathReadContentsStr(...) SI_DARG_IMPL(si_pathReadContentsStr, 2, (nil), __VA_ARGS__)
-#define si_pathReadlines(...)       SI_DARG_IMPL(si_pathReadlines,       2, (nil), __VA_ARGS__)
-
-
-#endif
 
 #endif
 
@@ -5552,7 +5661,6 @@ siArrayAny si__arrayMake(isize typeSizeof, void* ptr, isize len, siAllocator all
 	#define si_dynamicArraySet(...)       SI_DARG_IMPL(si_dynamicArraySet, 3, (1), __VA_ARGS__)
 
 	#define si_dynamicArrayAppend(...) SI_DARG_IMPL(si_dynamicArrayAppend,        2, (1), __VA_ARGS__)
-	#define si_dynamicArrayInsert(...) SI_DARG_IMPL(si_dynamicArrayInsert,        3, (1), __VA_ARGS__)
 #endif
 
 #ifndef SI_NO_STREAM
@@ -5861,7 +5969,7 @@ isize si_memcopy(void* restrict dst, const void* restrict src, isize size) {
 	SI_ASSERT_NOT_NEG(size);
 
 #ifndef SI_NO_CRT
-	/* NOTE(EimaMei): C99/C++ standards define 'memcpy' should do nothing if a 
+	/* NOTE(EimaMei): C99/C++ standards define 'memcpy' should do nothing if a
 	zero size is requested, meaning we don't have to check that for ourselves. */
 	memcpy(dst, src, (usize)size);
 	return size;
@@ -5989,109 +6097,102 @@ isize si_cstrLen(cstring str) {
 #ifdef SI_IMPLEMENTATION_ALLOCATOR
 
 
+
 inline
-void* si_alloc(siAllocator alloc, isize bytes, siAllocationError* outError) {
-	return si_allocAlign(alloc, bytes, SI_DEFAULT_ALIGNMENT, outError);
+void* (si_alloc)(siAllocator alloc, isize bytes, siError* out_error) {
+	return si_allocAlign(alloc, bytes, SI_ALIGNMENT_DEFAULT, out_error);
 }
 
 inline
-void* si_allocAlign(siAllocator alloc, isize bytes, isize align, siAllocationError* outError) {
+void* (si_allocAlign)(siAllocator alloc, isize bytes, isize align, siError* out_error) {
 	SI_ASSERT_NOT_NEG(bytes);
 	SI_ASSERT(si_isPowerOfTwo(align));
+	if (out_error) { out_error->code = 0; }
 
-	siAllocationError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return alloc.proc(siAllocationType_Alloc, nil, 0, bytes, align, outError, alloc.data);
+	return alloc.proc(siAllocationType_Alloc, nil, 0, bytes, align, out_error, alloc.data);
 }
 
 
 inline
-void* si_allocNonZeroed(siAllocator alloc, isize bytes, siAllocationError* outError) {
-	return si_allocNonZeroedAlign(alloc, bytes, SI_DEFAULT_ALIGNMENT, outError);
+void* (si_allocNonZeroed)(siAllocator alloc, isize bytes, siError* out_error) {
+	return si_allocNonZeroedAlign(alloc, bytes, SI_ALIGNMENT_DEFAULT, out_error);
 }
 
 inline
-void* si_allocNonZeroedAlign(siAllocator alloc, isize bytes, isize align, siAllocationError* outError) {
+void* (si_allocNonZeroedAlign)(siAllocator alloc, isize bytes, isize align, siError* out_error) {
 	SI_ASSERT_NOT_NEG(bytes);
 	SI_ASSERT(si_isPowerOfTwo(align));
+	if (out_error) { out_error->code = 0; }
 
-	siAllocationError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return alloc.proc(siAllocationType_AllocNonZeroed, nil, 0, bytes, align, outError, alloc.data);
+	return alloc.proc(siAllocationType_AllocNonZeroed, nil, 0, bytes, align, out_error, alloc.data);
 }
 
 
 inline
-siAllocationError si_free(siAllocator alloc, void* ptr) {
-	if (ptr == nil) { return siAllocationError_InvalidArg; }
+siAllocationError (si_free)(siAllocator alloc, void* ptr, siError* out_error) {
+	if (ptr == nil) {
+		si_errorDeclare(siAllocationError_InvalidArg, out_error);
+		return siAllocationError_InvalidArg;
+	}
+	if (out_error) { out_error->code = 0; }
 
-	siAllocationError err;
-	alloc.proc(siAllocationType_Free, ptr, 0, 0, 0, &err, alloc.data);
-
-	return err;
+	void* res = alloc.proc(siAllocationType_Free, ptr, 0, 0, 0, out_error, alloc.data);
+	return transmute(siAllocationError, res);
 }
 
 inline
-siAllocationError si_freeAll(siAllocator alloc) {
-	siAllocationError err;
-	alloc.proc(siAllocationType_FreeAll, nil, 0, 0, 0, &err, alloc.data);
-
-	return err;
+siAllocationError (si_freeAll)(siAllocator alloc, siError* out_error) {
+	if (out_error) { out_error->code = 0; }
+	void* res = alloc.proc(siAllocationType_FreeAll, nil, 0, 0, 0, out_error, alloc.data);
+	return transmute(siAllocationError, res);
 }
 
 
 inline
-void* si_realloc(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-		siAllocationError* outError) {
-	return si_reallocAlign(alloc, ptr, oldSize, newSize, SI_DEFAULT_ALIGNMENT, outError);
+void* (si_realloc)(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		siError* out_error) {
+	if (out_error) { out_error->code = 0; }
+	return si_reallocAlign(alloc, ptr, oldSize, newSize, SI_ALIGNMENT_DEFAULT, out_error);
 }
 
 inline
-void* si_reallocAlign(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-		isize align, siAllocationError* outError) {
+void* (si_reallocAlign)(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		isize align, siError* out_error) {
 	SI_ASSERT_NOT_NIL(ptr);
 	SI_ASSERT_NOT_NEG(oldSize);
 	SI_ASSERT_NOT_NEG(newSize);
 	SI_ASSERT(si_isPowerOfTwo(align));
+	if (out_error) { out_error->code = 0; }
 
-	siAllocationError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return alloc.proc(siAllocationType_Resize, ptr, oldSize, newSize, align, outError, alloc.data);
+	return alloc.proc(siAllocationType_Resize, ptr, oldSize, newSize, align, out_error, alloc.data);
 }
 
 
 inline
-void* si_reallocNonZeroed(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-		siAllocationError* outError) {
-	return si_reallocNonZeroedAlign(alloc, ptr, oldSize, newSize, SI_DEFAULT_ALIGNMENT, outError);
+void* (si_reallocNonZeroed)(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
+		siError* out_error) {
+	if (out_error) { out_error->code = 0; }
+	return si_reallocNonZeroedAlign(alloc, ptr, oldSize, newSize, SI_ALIGNMENT_DEFAULT, out_error);
 }
 
 inline
-void* si_reallocNonZeroedAlign(siAllocator alloc, void* ptr, isize oldSize, isize newSize,
-		isize align, siAllocationError* outError) {
+void* (si_reallocNonZeroedAlign)(siAllocator alloc, void* ptr, isize oldSize,
+		isize newSize, isize align, siError* out_error) {
 	SI_ASSERT_NOT_NIL(ptr);
 	SI_ASSERT_NOT_NEG(oldSize);
 	SI_ASSERT_NOT_NEG(newSize);
 	SI_ASSERT(si_isPowerOfTwo(align));
+	if (out_error) { out_error->code = 0; }
 
-	siAllocationError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-
-	return alloc.proc(siAllocationType_ResizeNonZeroed, ptr, oldSize, newSize, align, outError, alloc.data);
+	return alloc.proc(siAllocationType_ResizeNonZeroed, ptr, oldSize, newSize, align, out_error, alloc.data);
 }
 
 
 SIDEF
-isize si_allocatorMemAvailable(siAllocator alloc, siAllocationError* outError) {
-	siAllocationError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, 0, outError, alloc.data);
-	return (*outError == 0) ? res : -1;
+isize (si_allocatorMemAvailable)(siAllocator alloc, siError* out_error) {
+	if (out_error) { out_error->code = 0; }
+	isize res = (isize)alloc.proc(siAllocationType_MemAvailable, nil, 0, 0, 0, out_error, alloc.data);
+	return (res >= 0) ? res : -1;
 }
 
 inline
@@ -6122,73 +6223,65 @@ SIDEF
 SI_ALLOCATOR_PROC(si_allocatorHeap_proc) {
 	SI_UNUSED(allocatorData);
 
+	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
 			newSize = si_alignForward(newSize, align);
 
-			void* out = malloc((usize)newSize);
-			if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
+			out = malloc((usize)newSize);
+			if (out == nil) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
 
 			si_memset(out, 0, newSize);
-			*outError = siAllocationError_None;
-
-			return out;
-		}
+		} break;
 
 		case siAllocationType_AllocNonZeroed: {
 			newSize = si_alignForward(newSize, align);
-			void* out = malloc((usize)newSize);
 
-			*outError = (out == nil)
-				? siAllocationError_OutOfMem
-				: siAllocationError_None;
-			return out;
-		}
+			out = malloc((usize)newSize);
+			if (out == nil) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
+		} break;
 
 		case siAllocationType_Free: {
 			free(ptr);
-			*outError = 0;
-			return nil;
-		}
+			out = nil;
+		} break;
 
 		case siAllocationType_Resize: {
 			newSize = si_alignForward(newSize, align);
 
-			void* out = realloc(ptr, (usize)newSize);
-			if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
+			out = realloc(ptr, (usize)newSize);
+			if (out == nil) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
 
-			si_memset((u8*)out + oldSize, 0, newSize - oldSize);
-			*outError = 0;
-
-			return out;
-		}
+			si_memset(si_pointerAdd(out, oldSize), 0, newSize - oldSize);
+		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
 			newSize = si_alignForward(newSize, align);
-			void* out = realloc(ptr, (usize)newSize);
 
-			*outError = (out == nil)
-				? siAllocationError_OutOfMem
-				: siAllocationError_None;
-			return out;
-		}
+			out = realloc(ptr, (usize)newSize);
+			if (out == nil) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
+		} break;
 
 		case siAllocationType_GetFeatures: {
 			u8 features = SI_BITMASK_MAKE(siAllocationType,
 				Alloc, AllocNonZeroed, Resize, ResizeNonZeroed, GetFeatures
 			);
-			return transmute(void*, features);
+			out = transmute(void*, features);
+		} break;
+
+		default: {
+			si_errorDeclare(siAllocationError_NotImplemented, out_error);
+			out = nil;
 		}
 	}
 
-	*outError = siAllocationError_NotImplemented;
-	return nil;
+	return out;
 }
 #endif
 
 inline
 siArena si_arenaMake(siAllocator alloc, isize capacity) {
-	return si_arenaMakeEx(alloc, capacity, SI_DEFAULT_ALIGNMENT);
+	return si_arenaMakeEx(alloc, capacity, SI_ALIGNMENT_DEFAULT);
 }
 SIDEF
 siArena si_arenaMakeEx(siAllocator alloc, isize capacity, isize align) {
@@ -6231,23 +6324,21 @@ void si_arenaFree(siArena* arena) {
 
 
 siIntern
-void* si__arenaAlloc(siArena* arena, isize size, isize align, siAllocationError* outError) {
+void* si__arenaAlloc(siArena* arena, isize size, isize align, siError* out_error) {
 	isize bytes = si_alignForward(size, align);
 	isize newOffset = arena->offset + bytes;
 
-	if (newOffset > arena->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
-
+	if (newOffset > arena->capacity) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
 	void* out = &arena->ptr[arena->offset];
 	arena->offset = newOffset;
 
-	*outError = 0;
 	return out;
 }
 
 siIntern
 void* si__arenaResize(siArena* arena, void* ptr, isize oldSize, isize newSize,
-		isize align, siAllocationError* outError) {
-	void* out = si_allocNonZeroedAlign(si_allocatorArena(arena), newSize, align, outError);
+		isize align, siError* out_error) {
+	void* out = si_allocNonZeroedAlign(si_allocatorArena(arena), newSize, align, out_error);
 	if (out != nil) {
 		si_memcopy(out, ptr, oldSize);
 	}
@@ -6260,36 +6351,33 @@ SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 	siArena* arena = (siArena*)allocatorData;
 	SI_ASSERT_MSG(arena->ptr != nil, "You cannot use an already freed arena.");
 
+	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			void* out = si__arenaAlloc(arena, newSize, align, outError);
+			out = si__arenaAlloc(arena, newSize, align, out_error);
 			if (out) { si_memset(out, 0, newSize); }
-			return out;
-		}
+		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			return si__arenaAlloc(arena, newSize, align, outError);
-		}
+			out = si__arenaAlloc(arena, newSize, align, out_error);
+		} break;
 
 		case siAllocationType_FreeAll: {
 			arena->offset = 0;
-			*outError = 0;
-			return nil;
-		}
+			out = nil;
+		} break;
 
 		case siAllocationType_Resize: {
-			void* out = si__arenaResize(arena, ptr, oldSize, newSize, align, outError);
+			out = si__arenaResize(arena, ptr, oldSize, newSize, align, out_error);
 			if (out) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
-			return out;
-		}
+		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			return si__arenaResize(arena, ptr, oldSize, newSize, align, outError);
-		}
+			out = si__arenaResize(arena, ptr, oldSize, newSize, align, out_error);
+		} break;
 
 		case siAllocationType_MemAvailable: {
-			*outError = 0;
-			return (void*)(arena->capacity - arena->offset);
+			out = (void*)(arena->capacity - arena->offset);
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -6297,13 +6385,16 @@ SI_ALLOCATOR_PROC(si_allocatorArena_proc) {
 				Alloc, AllocNonZeroed, FreeAll, Resize, ResizeNonZeroed,
 				MemAvailable, GetFeatures
 			);
+			out = transmute(void*, features);
+		} break;
 
-			return transmute(void*, features);
+		default: {
+			si_errorDeclare(siAllocationError_NotImplemented, out_error);
+			out = nil;
 		}
 	}
 
-	*outError = siAllocationError_NotImplemented;
-	return nil;
+	return out;
 }
 
 
@@ -6323,7 +6414,7 @@ void si_arenaTmpEnd(siArenaTmp tmp) {
 
 inline
 siLifo si_lifoMake(siAllocator alloc, isize capacity) {
-	return si_lifoMakeEx(alloc, capacity, SI_DEFAULT_ALIGNMENT);
+	return si_lifoMakeEx(alloc, capacity, SI_ALIGNMENT_DEFAULT);
 }
 SIDEF
 siLifo si_lifoMakeEx(siAllocator alloc, isize capacity, isize align) {
@@ -6365,18 +6456,16 @@ void si_lifoFree(siLifo* lifo) {
 
 
 siIntern
-void* si__lifoAlloc(siLifo* lifo, isize size, isize align, siAllocationError* outError) {
+void* si__lifoAlloc(siLifo* lifo, isize size, isize align, siError* out_error) {
 	isize bytes = si_alignForward(si_sizeof(isize) + size, align);
 	isize newOffset = lifo->offset + bytes;
 
-	if (newOffset > lifo->capacity) { *outError = siAllocationError_OutOfMem; return nil; }
+	if (newOffset > lifo->capacity) { si_errorDeclare(siAllocationError_OutOfMem, out_error); return nil; }
 
 	void* out = &lifo->ptr[lifo->offset];
 	*(isize*)out = lifo->offset;
 
 	lifo->offset = newOffset;
-	*outError = 0;
-
 	return si_pointerAdd(out, si_sizeof(isize));
 }
 
@@ -6389,18 +6478,18 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = si__lifoAlloc(lifo, newSize, align, outError);
+			out = si__lifoAlloc(lifo, newSize, align, out_error);
 			if (out) { si_memset(out, 0, newSize); }
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = si__lifoAlloc(lifo, newSize, align, outError);
+			out = si__lifoAlloc(lifo, newSize, align, out_error);
 		} break;
 
 
 		case siAllocationType_Free: {
-			if (si_pointerBetween(ptr, lifo->ptr, &lifo->ptr[lifo->offset]) ) {
-				*outError = siAllocationError_InvalidPtr;
+			if (!si_pointerBetween(ptr, lifo->ptr, &lifo->ptr[lifo->offset])) {
+				si_errorDeclare(siAllocationError_InvalidPtr, out_error);
 				return nil;
 			}
 
@@ -6414,17 +6503,16 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, outError);
+			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, out_error);
 			if (out && oldSize < newSize) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, outError);
+			out = si__arenaResize(lifo, ptr, oldSize, newSize, align, out_error);
 		} break;
 
 		case siAllocationType_MemAvailable: {
 			out = (void*)(lifo->capacity - lifo->offset);
-			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -6435,6 +6523,11 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 
 			out = transmute(void*, features);
 		} break;
+
+		default: {
+			si_errorDeclare(siAllocationError_NotImplemented, out_error);
+			out = nil;
+		}
 	}
 
 	return out;
@@ -6443,7 +6536,7 @@ SI_ALLOCATOR_PROC(si_allocatorLifo_proc) {
 
 inline
 siPool si_poolMake(siAllocator alloc, isize numChunks, isize chunkSize) {
-	return si_poolMakeEx(alloc, numChunks, chunkSize, SI_DEFAULT_ALIGNMENT);
+	return si_poolMakeEx(alloc, numChunks, chunkSize, SI_ALIGNMENT_DEFAULT);
 }
 SIDEF
 siPool si_poolMakeEx(siAllocator alloc, isize numChunks, isize chunkSize, isize align) {
@@ -6490,14 +6583,17 @@ void si_poolFree(siPool* pool) {
 
 
 siIntern
-void* si__poolAlloc(siPool* pool, isize size, siAllocationError* outError) {
+void* si__poolAlloc(siPool* pool, isize size, siError* out_error) {
 	if (size > pool->chunkSize) {
-		*outError = siAllocationError_InvalidArg;
+		si_errorDeclare(siAllocationError_InvalidArg, out_error);
 		return nil;
 	}
 
 	void* out = pool->head;
-	if (out == nil) { *outError = siAllocationError_OutOfMem; return nil; }
+	if (out == nil) {
+		si_errorDeclare(siAllocationError_OutOfMem, out_error);
+		return nil;
+	}
 
 	pool->head = pool->head->next;
 	return si_pointerAdd(out, si_sizeof(siPoolFreeNode*));
@@ -6510,30 +6606,29 @@ SI_ALLOCATOR_PROC(si_allocatorPool_proc) {
 	SI_UNUSED(oldSize); SI_UNUSED(align); /* NOTE(EimaMei): Check the allocator's description. */
 
 
+	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			void* out = si__poolAlloc(pool, newSize, outError);
+			out = si__poolAlloc(pool, newSize, out_error);
 			if (out != nil) { si_memset(out, 0, newSize); }
-			return out;
-		}
+		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			return si__poolAlloc(pool, newSize, outError);
-		}
+			out = si__poolAlloc(pool, newSize, out_error);
+		} break;
 
 		case siAllocationType_Free: {
 			siPoolFreeNode* node = (siPoolFreeNode*)ptr;
 			if (!si_pointerBetween(node, pool->ptr, &pool->ptr[pool->numChunks * (pool->chunkSize + si_sizeof(siPoolFreeNode*))])) {
-				*outError = siAllocationError_InvalidPtr;
+				si_errorDeclare(siAllocationError_InvalidPtr, out_error);
 				return nil;
 			}
 
 			node->next = pool->head;
 			pool->head = node;
 
-			*outError = 0;
-			return nil;
-		}
+			out = nil;
+		} break;
 
 		case siAllocationType_FreeAll: {
 			for_range (i, 0, pool->numChunks) {
@@ -6544,32 +6639,34 @@ SI_ALLOCATOR_PROC(si_allocatorPool_proc) {
 				pool->head = node;
 			}
 
-			*outError = 0;
-			return nil;
-		}
+			out = nil;
+		} break;
 
 		case siAllocationType_MemAvailable: {
-			*outError = 0;
-			return (pool->head != nil) ? (void*)pool->chunkSize : 0;
-		}
+			out = (pool->head != nil) ? (void*)pool->chunkSize : 0;
+		} break;
 
 		case siAllocationType_GetFeatures: {
 			u8 features = SI_BITMASK_MAKE(siAllocationType,
 				Alloc, AllocNonZeroed, Free, FreeAll, MemAvailable, GetFeatures
 			);
 
-			return transmute(void*, features);
+			out = transmute(void*, features);
+		} break;
+
+		default: {
+			si_errorDeclare(siAllocationError_NotImplemented, out_error);
+			out = nil;
 		}
 	}
 
-	*outError = siAllocationError_NotImplemented;
-	return nil;
+	return out;
 }
 
 inline
 siDynamicArena si_dynamicArenaMake(siAllocator alloc, isize startingCapacity,
 		isize blockSize) {
-	return si_dynamicArenaMakeEx(alloc, startingCapacity, blockSize, SI_DEFAULT_ALIGNMENT);
+	return si_dynamicArenaMakeEx(alloc, startingCapacity, blockSize, SI_ALIGNMENT_DEFAULT);
 }
 inline
 siDynamicArena si_dynamicArenaMakeEx(siAllocator alloc, isize startingCapacity,
@@ -6651,14 +6748,14 @@ void si_dynamicArenaTmpEnd(siDynamicArenaTmp tmp) {
 
 siIntern
 void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, isize align,
-		siAllocationError* outError) {
+		siError* out_error) {
 	siArena* arena = &dyn->arena;
 	isize bytes = (isize)si_alignForward(size, align);
 	void* out = &arena->ptr[arena->offset];
 
 	if (arena->offset + bytes > arena->capacity) {
 		if (bytes > dyn->blockSize) {
-			*outError = siAllocationError_InvalidArg;
+			si_errorDeclare(siAllocationError_InvalidArg, out_error);
 			return nil;
 		}
 
@@ -6672,11 +6769,14 @@ void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, isize align,
 		if (block == nil) {
 			void* newBlockPtr = si_allocNonZeroedAlign(
 				arena->alloc, si_sizeof(siDynamicArenaBlock) + dyn->blockSize,
-				align, outError
+				align, out_error
 			);
 
 			siDynamicArenaBlock* newBlock = (siDynamicArenaBlock*)newBlockPtr;
-			if (newBlock == nil) { *outError = siAllocationError_OutOfMem; return nil; }
+			if (newBlock == nil) {
+				si_errorDeclare(siAllocationError_OutOfMem, out_error);
+				return nil;
+			}
 
 			if (head != nil) { head->next = newBlock; }
 			else { dyn->head = newBlock; }
@@ -6694,17 +6794,15 @@ void* si__dynamicArenaAlloc(siDynamicArena* dyn, isize size, isize align,
 		arena->offset += bytes;
 	}
 
-
-	*outError = 0;
 	return out;
 }
 
 siIntern
 void* si__dynamicArenaResize(siDynamicArena* arena, void* ptr, isize oldSize,
-		isize newSize, isize align, siAllocationError* outError) {
+		isize newSize, isize align, siError* out_error) {
 	if (oldSize >= newSize) { return ptr; }
 
-	void* out = si_allocNonZeroedAlign(si_allocatorDynamicArena(arena), newSize, align, outError);
+	void* out = si_allocNonZeroedAlign(si_allocatorDynamicArena(arena), newSize, align, out_error);
 	if (ptr == nil) { return out; }
 
 	si_memcopy(out, ptr, oldSize);
@@ -6718,21 +6816,15 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 	siArena* arena = &dyn->arena;
 	SI_ASSERT_MSG(arena->ptr != nil, "You cannot use an already freed arena.");
 
-	/* TODO(EimaMei): Remove out. */
 	void* out;
 	switch (type) {
 		case siAllocationType_Alloc: {
-			out = si__dynamicArenaAlloc(dyn, newSize, align, outError);
+			out = si__dynamicArenaAlloc(dyn, newSize, align, out_error);
 			if (out != nil) { si_memset(out, 0, newSize); }
 		} break;
 
 		case siAllocationType_AllocNonZeroed: {
-			out = si__dynamicArenaAlloc(dyn, newSize, align, outError);
-		} break;
-
-		case siAllocationType_Free: {
-			*outError = siAllocationError_NotImplemented;
-			out = nil;
+			out = si__dynamicArenaAlloc(dyn, newSize, align, out_error);
 		} break;
 
 		case siAllocationType_FreeAll: {
@@ -6748,12 +6840,12 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 		} break;
 
 		case siAllocationType_Resize: {
-			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, outError);
+			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, out_error);
 			if (out) { si_memset((u8*)out + oldSize, 0, newSize - oldSize); }
 		} break;
 
 		case siAllocationType_ResizeNonZeroed: {
-			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, outError);
+			out = si__dynamicArenaResize(dyn, ptr, oldSize, newSize, align, out_error);
 		} break;
 
 		case siAllocationType_MemAvailable: {
@@ -6761,7 +6853,6 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 			if (len < dyn->blockSize) { len = dyn->blockSize; }
 
 			out = (void*)len;
-			*outError = 0;
 		} break;
 
 		case siAllocationType_GetFeatures: {
@@ -6769,11 +6860,13 @@ SI_ALLOCATOR_PROC(si_allocatorDynamicArena_proc) {
 				Alloc, AllocNonZeroed, FreeAll, Resize, ResizeNonZeroed, MemAvailable, GetFeatures
 			);
 
-			return transmute(void*, features);
+			out = transmute(void*, features);
 		} break;
 
-	/* TODO(EimaMei): Remove this. */
-		default: SI_PANIC();
+		default: {
+			si_errorDeclare(siAllocationError_NotImplemented, out_error);
+			out = nil;
+		}
 	}
 
 	return out;
@@ -7039,22 +7132,28 @@ void si_dynamicArrayClear(siDynamicArrayAny* array) {
 
 
 SIDEF
-bool si_dynamicArrayInsert(siDynamicArrayAny* array, isize index, const void* data,
-		isize count) {
+bool (si_dynamicArrayInsert)(siDynamicArrayAny* array, isize index, siArray(siAny) values) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_DYN_ARR(*array);
-	SI_ASSERT_NOT_NIL(data);
 	SI_ASSERT_NOT_NEG(index);
-	SI_ASSERT_NOT_NEG(count);
+	SI_ASSERT_ARR_TYPE(values, siAny);
 	SI_ASSERT(index < array->len);
-	SI_STOPIF(count == 0, return false);
+	SI_STOPIF(values.len == 0, return false);
 
-	isize remainderLen = array->len - (index + count);
-	bool allocated = si_dynamicArrayMakeSpaceFor(array, count);
+	/* TODO(EimaMei): Make this safer like the builder functions. */
+	isize remainderLen = array->len - (index + values.len);
+	bool allocated = si_dynamicArrayMakeSpaceFor(array, values.len);
 
-	void* dst = si_dynamicArrayGet(*array, index);
-	si_memcopy(si_dynamicArrayGet(*array, index + count), dst, remainderLen * array->typeSize);
-	si_memcopy(dst, data, count * array->typeSize);
+	u8* dst = (u8*)si_dynamicArrayGet(*array, index);
+	si_memcopy(&dst[array->typeSize * values.len], dst, remainderLen * array->typeSize);
+
+	/* TODO(EimaMei): Add a SI_ARGS that is able to force singular size. */
+	siAny value;
+	for_eachArr (value, values) {
+		si_assert(value.item_sizeof <= array->typeSize);
+		si_memcopy(dst, value.ptr, value.item_sizeof);
+		dst += array->typeSize;
+	}
 
 	return allocated;
 }
@@ -7190,111 +7289,90 @@ isize si_memmove_s(siArrayAny dst, const void* src, isize sizeSrc) {
 #ifdef SI_IMPLEMENTATION_STREAM
 
 inline
-isize si_streamRead(siStream stream, siArray(u8) out, siStreamError* outError) {
-	return si_streamReadAt(stream, 0, out, outError);
+isize si_streamRead(siStream stream, siArray(u8) out, siError* out_error) {
+	return si_streamReadAt(stream, 0, out, out_error);
 }
 
 inline
-isize si_streamReadAt(siStream stream, isize offset, siArray(u8) out, siStreamError* outError) {
+isize si_streamReadAt(siStream stream, isize offset, siArray(u8) out, siError* out_error) {
 	SI_ASSERT_ARR_TYPE(out, u8);
-
-	siStreamError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return stream.proc(siStreamType_Read, out, offset, siSeekWhere_Begin, outError, stream.data);
+	return stream.proc(siStreamType_Read, out, offset, siSeekWhere_Begin, out_error, stream.data);
 }
 
 inline
-isize si_streamWrite(siStream stream, siArray(u8) ptr, siStreamError* outError) {
+isize (si_streamWrite)(siStream stream, siArray(u8) ptr, siError* out_error) {
 	SI_ASSERT_ARR_TYPE(ptr, u8);
-
-	siStreamError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return stream.proc(siStreamType_Write, ptr, 0, siSeekWhere_Begin, outError, stream.data);
-
+	return stream.proc(siStreamType_Write, ptr, 0, siSeekWhere_Begin, out_error, stream.data);
 }
 
 inline
-isize si_streamWriteStr(siStream stream, siString str, siStreamError* outError) {
-	return si_streamWrite(stream, SI_ARR_LEN((u8*)str.data, str.len), outError);
+isize (si_streamWriteStr)(siStream stream, siString str, siError* out_error) {
+	return si_streamWrite(stream, SI_ARR_LEN((u8*)str.data, str.len), out_error);
 }
 
 inline
-isize si_streamWriteByte(siStream stream, u8 byte, siStreamError* outError) {
-	return si_streamWrite(stream, SI_ARR_LEN(&byte, 1), outError);
+isize (si_streamWriteByte)(siStream stream, u8 byte, siError* out_error) {
+	return si_streamWrite(stream, SI_ARR_LEN(&byte, 1), out_error);
 }
 
 inline
-isize si_streamWriteInt(siStream stream, i64 num, siStreamError* outError) {
-	return si_streamWriteStr(stream, si_stringFromInt(SI_ARR_STACK(64), num), outError);
+isize (si_streamWriteInt)(siStream stream, i64 num, siError* out_error) {
+	return si_streamWriteStr(stream, si_stringFromInt(SI_ARR_STACK(64), num), out_error);
 }
 
 
 inline
-isize si_streamWriteAt(siStream stream, isize offset, siArray(u8) ptr, siStreamError* outError) {
+isize (si_streamWriteAt)(siStream stream, isize offset, siArray(u8) ptr, siError* out_error) {
 	SI_ASSERT_NOT_NEG(offset);
 	SI_ASSERT_ARR_TYPE(ptr, u8);
 
-	siStreamError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return stream.proc(siStreamType_WriteAt, ptr, offset, siSeekWhere_Begin, outError, stream.data);
+	return stream.proc(siStreamType_WriteAt, ptr, offset, siSeekWhere_Begin, out_error, stream.data);
 }
 
 inline
-isize si_streamWriteAtStr(siStream stream, isize offset, siString str, siStreamError* outError) {
-	return si_streamWriteAt(stream, offset, SI_ARR_LEN((u8*)str.data, str.len), outError);
+isize (si_streamWriteAtStr)(siStream stream, isize offset, siString str, siError* out_error) {
+	return si_streamWriteAt(stream, offset, SI_ARR_LEN((u8*)str.data, str.len), out_error);
 }
 
 inline
-isize si_streamWriteAtByte(siStream stream, isize offset, u8 byte, siStreamError* outError) {
-	return si_streamWriteAt(stream, offset, SI_ARR_LEN(&byte, 1), outError);
+isize (si_streamWriteAtByte)(siStream stream, isize offset, u8 byte, siError* out_error) {
+	return si_streamWriteAt(stream, offset, SI_ARR_LEN(&byte, 1), out_error);
 }
 
 inline
-isize si_streamWriteAtInt(siStream stream, isize offset, i64 num, siStreamError* outError) {
-	return si_streamWriteAtStr(stream, offset, si_stringFromInt(SI_ARR_STACK(64), num), outError);
+isize (si_streamWriteAtInt)(siStream stream, isize offset, i64 num, siError* out_error) {
+	return si_streamWriteAtStr(stream, offset, si_stringFromInt(SI_ARR_STACK(64), num), out_error);
 }
 
 inline
-isize si_streamSeek(siStream stream, isize offset, siSeekWhere whence, siStreamError* outError) {
-	siStreamError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	return stream.proc(siStreamType_Seek, SI_ARR_LEN((u8*)nil, 0), offset, whence, outError, stream.data);
+isize (si_streamSeek)(siStream stream, isize offset, siSeekWhere whence, siError* out_error) {
+	return stream.proc(siStreamType_Seek, SI_ARR_EMPTY(u8), offset, whence, out_error, stream.data);
 }
 
 inline
-isize si_streamSize(siStream stream, siStreamError* outError) {
-	siStreamError tmp;
-	if (outError == nil) { outError = &tmp; }
-
-	isize n = stream.proc(siStreamType_Size, SI_ARR_LEN((u8*)nil, 0), 0, siSeekWhere_Begin, outError, stream.data);
-	return n;
+isize (si_streamSize)(siStream stream, siError* out_error) {
+	return stream.proc(siStreamType_Size, SI_ARR_EMPTY(u8), 0, siSeekWhere_Begin, out_error, stream.data);
 }
 
 
-
 inline
-siStreamError si_streamFlush(siStream stream) {
-	siStreamError error;
-	stream.proc(siStreamType_Flush, SI_ARR_LEN((u8*)nil, 0), 0, siSeekWhere_Begin, &error, stream.data);
-	return error;
+siStreamError (si_streamFlush)(siStream stream, siError* out_error) {
+	return stream.proc(siStreamType_Flush, SI_ARR_EMPTY(u8), 0, siSeekWhere_Begin, out_error, stream.data);
 }
 
 
 siIntern
-siStreamError si__writerFlush(siIOWriter* b) {
+siStreamError si__writerFlush(siIOWriter* b, siError* out_error) {
 	if (b->len == 0) { return siStreamError_None; }
 
-	siStreamError error;
+	siError error;
 	isize n = si_streamWrite(b->stream, SI_ARR_LEN(b->data, b->len), &error);
-	if (error == 0 && n < b->len) {
-		error = siStreamError_ShortWrite;
+	if (error.code == 0 && n < b->len) {
+		si_errorDeclare(siStreamError_ShortWrite, out_error);
+		error.code = siStreamError_ShortWrite;
 	}
 
-	if (error != 0) {
+	if (error.code != 0) {
 		if (n > 0 && n < b->len) {
 			si_memcopy(b->data, &b->data[n], b->len - n);
 		}
@@ -7304,7 +7382,7 @@ siStreamError si__writerFlush(siIOWriter* b) {
 		b->len = 0;
 	}
 
-	return error;
+	return error.code;
 }
 
 SIDEF
@@ -7320,18 +7398,18 @@ SI_STREAM_PROC(si_streamWriter_proc) {
 			isize n = 0;
 			isize m;
 
-			siStreamError error = 0;
-			while (avail < ptr.len && error == 0) {
+			siError error = SI_TYPE_ZERO(siError);
+			while (avail < ptr.len && error.code == 0) {
 				if (avail == 0) {
 					m = si_streamWrite(w->stream, ptr, &error);
-					if (m < 0 && *outError == 0) {
-						*outError = siStreamError_NegativeWrite;
+					if (m < 0 && error.code == 0) {
+						si_errorDeclare(siStreamError_NegativeWrite, out_error);
 						break;
 					}
 				}
 				else {
 					m = si_memcopy(&w->data[w->len], ptr.data, avail);
-					si__writerFlush(w);
+					si__writerFlush(w, out_error);
 				}
 
 				n += m;
@@ -7346,30 +7424,36 @@ SI_STREAM_PROC(si_streamWriter_proc) {
 		}
 
 		case siStreamType_Flush: {
-			*outError = si__writerFlush(w);
-			return 0;
+			return si__writerFlush(w, out_error);
 		}
 
 		case siStreamType_Destroy: {
+			siStreamError code = 0;
 			if (w->alloc.proc) {
-				si_free(w->alloc, w->data);
+				siError alloc_err;
+				siAllocationError err = si_free(w->alloc, w->data, &alloc_err);
 				w->alloc.proc = nil;
+
+				if (err != 0) {
+					si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &alloc_err);
+					code = siStreamError_Unknown;
+				}
 			}
 			w->data = nil;
 			w->len = 0;
 			w->capacity = 0;
 
-			return 0;
+			return code;
 		}
 
 		case siStreamType_GetFeatures: {
 			return SI_BITMASK_MAKE(siStreamType, Write, Flush, Destroy);
-		} break;
+		}
 	}
 
-	*outError = siStreamError_Unimplemented;
+	si_errorDeclare(siStreamError_NotImplemented, out_error);
 	return 0;
-	SI_UNUSED(seek); SI_UNUSED(offset);
+	SI_UNUSED(offset); SI_UNUSED(seek);
 }
 
 
@@ -7541,14 +7625,15 @@ siAllocationError si_builderMakeSpaceFor(siBuilder* b, isize addLen) {
 		: b->capacity + addLen + b->grow;
 	SI_ASSERT(newLength <= newCapacity);
 
-	siAllocationError error;
+	/* TODO(EimaMei): add out_error. */
+	siError error;
 	void* data = si_reallocNonZeroed(b->alloc, b->data, b->capacity, newCapacity, &error);
 	if (data != nil) {
 		b->data = (u8*)data;
 		b->capacity = newCapacity;
 	}
 
-	return error;
+	return error.code;
 }
 
 inline
@@ -7678,38 +7763,34 @@ void si_builderFree(siBuilder* b) {
 
 siIntern
 isize si__writerBuilder_proc(siStreamType type, siArrayAny ptr, isize offset,
-	siSeekWhere seek, siStreamError* outError, void* streamData) {
+	siSeekWhere seek, siError* out_error, void* streamData) {
 		siBuilder* b = (siBuilder*)streamData;
 	SI_ASSERT_NOT_NIL(b);
 	SI_UNUSED(offset); SI_UNUSED(seek);
 
 	switch (type) {
 		case siStreamType_Write: {
-			/* TODO(EimaMei): Add errors later on. */
 			isize n = si_builderWriteArray(b, ptr);
-			*outError = (n == 0) ? siStreamError_Unknown : siStreamError_None;
+			if (n == 0) { si_errorDeclare(siStreamError_Unknown, out_error); }
 
 			return n;
-		} break;
+		}
 
 		case siStreamType_Size: {
-			*outError = 0;
 			return b->len;
-		} break;
+		}
 
 		case siStreamType_Destroy: {
 			si_builderFree(b);
-			*outError = 0;
-
 			return 0;
-		} break;
+		}
 
 		case siStreamType_GetFeatures: {
 			return SI_BITMASK_MAKE(siStreamType, Write, Size, Destroy);
-		} break;
+		}
 	}
 
-	*outError = siStreamError_Unimplemented;
+	si_errorDeclare(siStreamError_NotImplemented, out_error);
 	return 0;
 }
 
@@ -8128,7 +8209,7 @@ siArray(siString) si_stringSplitEx(siString str, siString delimiter, isize amoun
 	if (amount < 0) {
 		amount = si_stringFindCount(str, delimiter);
 	}
-	SI_STOPIF(amount == 0, return SI_ARR_LEN((u8*)nil, 0));
+	SI_STOPIF(amount == 0, return SI_ARR_EMPTY(u8));
 
 	isize len = amount + 1;
 	siArray(siString) res = si_arrayMakeReserveNonZeroed(siString, len, alloc);
@@ -8756,34 +8837,38 @@ siOsString si_stringToOsStrEx(siString str, siArray(siOsChar) out, isize* copied
 #ifdef SI_IMPLEMENTATION_OPTIONAL
 
 SIDEF
-siError si__errorDeclare(i32 error, siErrorProc proc, void* userData, siCallerLoc call) {
+isize (si_errorDeclare)(isize error, siError* out_error, siErrorProc proc,
+	void* user_data, siCallerLoc call) {
+
+#if SI_RELEASE_MODE == 0
 	siError res;
-	res.code = error;
-#ifndef SI_NO_ERROR_STRUCT
-	res.time = si_timeNowUTC();
-	res.location = call;
+	if (!out_error) { out_error = &res;  }
 #else
-	SI_UNUSED(call);
+	if (!out_error) { return error; }
 #endif
 
-#ifndef SI_NO_ERROR_LOGS
+	out_error->code = error;
+	out_error->time = si_timeNowUTC();
+	out_error->location = call;
+
 	if (proc != nil) {
-		bool status = proc(&res, userData);
-		SI_STOPIF(!status, si_exit(1));
+		i32 status = proc(out_error, user_data);
+		if (status != 0) { si_exit(status); }
 	}
-	else {
-		siPrintColor red = si_printColor3bit(siPrintColor3bit_Red, true);
-		si_eprintf(
-			SI_STR("%CError at \"%L\"%C: Number '%i'.\n"),
-			red, res.location, res.code
-		);
-	}
-#else
-	SI_UNUSED(proc); SI_UNUSED(userData);
 
-#endif
+	return error;
+}
 
-	return res;
+SIDEF
+SI_ERROR_PROC(si_errorLogDefault) {
+	siPrintColor red = si_printColor3bit(siPrintColor3bit_Red, true);
+
+	si_eprintfLn(
+		SI_STR("%CError at \"%L\"%C: Error '%i'."),
+		red, error->location, error->code
+	);
+	return 0;
+	SI_UNUSED(data);
 }
 
 #endif /* SI_IMPLEMENTATION_OPTIONAL */
@@ -9727,8 +9812,8 @@ siMapAny si_mapReserve(isize typeSize, isize capacity, siAllocator alloc) {
 	map.capacity = si_nextPow2(capacity);
 	map.typeSize = typeSize;
 
-	isize lenEntries = si_alignForward(si_sizeof(*map.entries) * map.capacity, SI_DEFAULT_ALIGNMENT),
-		  lenHashes = si_alignForward(si_sizeof(*map.hashes) * map.capacity, SI_DEFAULT_ALIGNMENT);
+	isize lenEntries = si_alignForward(si_sizeof(*map.entries) * map.capacity, SI_ALIGNMENT_DEFAULT),
+		  lenHashes = si_alignForward(si_sizeof(*map.hashes) * map.capacity, SI_ALIGNMENT_DEFAULT);
 
 	void* ptr = si_allocNonZeroed(alloc, lenEntries + lenHashes + map.typeSize * map.capacity);
 	if (ptr == nil) { return SI_TYPE_ZERO(siMapAny); }
@@ -11090,11 +11175,11 @@ void si_fmtValue(struct siFmtInfo* info, siAny arg) {
 
 		case siTypeId_string:  si_fmtStr(info, *(siString*)arg.ptr); break;
 		case siTypeId_cstring: si_fmtCstring(info,*(char**)arg.ptr); break;
-		case siTypeId_voidptr: si_fmtPtr(info, *(void**)arg.ptr); break;
+		case siTypeId_ptr: si_fmtPtr(info, *(void**)arg.ptr); break;
 
 		case siTypeId_siCallerLoc: si_fmtCallerLoc(info, *(siCallerLoc*)arg.ptr); break;
 
-		default: SI_PANIC();
+		default: SI_PANIC_FMT("Expected a type accepted by 'si_typeid', got %i (%p; %i; %i).", arg.type, arg.ptr, info->n, info->vaCount);
 	}
 }
 
@@ -11130,7 +11215,7 @@ f64 si__pow10F64(i32 exponent) {
 }
 
 SIDEF
-isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flush,
+isize (si_wprintfEx)(siStream writer, siString fmt, siArray(siAny) args, bool flush,
 		bool newLine) {
 	SI_ASSERT_STR(fmt);
 	SI_ASSERT_ARR_TYPE(args, siAny);
@@ -11173,7 +11258,7 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 			case '#': info.state |= siFmtInfoState_Hash;  i += 1; goto loop;
 			case ' ': info.state |= siFmtInfoState_Space; i += 1; goto loop;
 			case '.': info.state |= siFmtInfoState_Prec;  i += 1; goto loop;
-			case '0': 
+			case '0':
 				  if (info.state & siFmtInfoState_Prec) { goto case_zero; }
 					  info.state |= siFmtInfoState_Zero;  i += 1; goto loop;
 
@@ -11184,11 +11269,11 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 				switch (arg.type) {
 					case siTypeId_i8:  case siTypeId_u8:  value =  *(u8*)arg.ptr; break;
 					case siTypeId_i16: case siTypeId_u16: value = *(u16*)arg.ptr; break;
-					case siTypeId_i32: case siTypeId_u32: value = *(u32*)arg.ptr; break; 
+					case siTypeId_i32: case siTypeId_u32: value = *(u32*)arg.ptr; break;
 					case siTypeId_i64: case siTypeId_u64: value = *(u64*)arg.ptr; break;
 					default: SI_PANIC();
 				}
-				
+
 				if (info.state & siFmtInfoState_Prec) { info.precision = (isize)value; }
 				else { info.width = (isize)value; }
 
@@ -11241,6 +11326,11 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 				switch (arg.type) {
 					case siTypeId_string: si_fmtStr(&info, *(siString*)arg.ptr); break;
 					case siTypeId_cstring: si_fmtCstring(&info, *(char**)arg.ptr); break;
+					case siTypeId_ptr: {
+						/* TODO(EimaMei): Replace this assert with an error inside the string. */
+						si_assert(info.state & siFmtInfoState_Prec, SI_STR("Precision must be used for pointers."));
+						si_fmtStr(&info, SI_STR_LEN(*(void**)arg.ptr, info.precision));
+					} break;
 					default: SI_PANIC_FMT("Expected a string, got type '%i'", arg.type);
 				}
 			} break;
@@ -11343,7 +11433,11 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 			} break;
 
 			case 'p': si_fmtPtr(&info, si_vaNextType(&info, void*)); break;
-			case 't': si_fmtBool(&info, si_vaNextType(&info, bool)); break;
+			case 't': {
+				siAny arg = si_vaNext(&info);
+				SI_ASSERT_FMT(arg.type >= siTypeId_char && arg.type <= siTypeId_b64, "Expected an integer type, got type '%i'.", arg.type);
+				si_fmtBool(&info, arg.ptr);
+			 } break;
 			case 'L': si_fmtCallerLoc(&info, si_vaNextType(&info, siCallerLoc)); break;
 
 			case 'C': {
@@ -11422,8 +11516,8 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 	}
 
 	if (info.vaCount < args.len) {
-		if (info.n != 0) { 
-			info.n += si_streamWriteByte(info.writer, ' '); 
+		if (info.n != 0) {
+			info.n += si_streamWriteByte(info.writer, ' ');
 		}
 		info.state = 0;
 
@@ -11447,12 +11541,12 @@ isize si_wprintfEx(siStream writer, siString fmt, siArray(siAny) args, bool flus
 
 
 inline
-isize si_wprintfLnEx(siStream writer, siString fmt, siArray(siAny) args, bool flush) {
+isize (si_wprintfLnEx)(siStream writer, siString fmt, siArray(siAny) args, bool flush) {
 	return si_wprintfEx(writer, fmt, args, flush, true);
 }
 
 SIDEF
-isize si_wprintEx(siStream writer, siArray(siAny) args, bool flush, siString seperator) {
+isize (si_wprintEx)(siStream writer, siArray(siAny) args, bool flush, siString seperator) {
 	SI_ASSERT_ARR_TYPE(args, siAny);
 	SI_ASSERT(args.len <= 16);
 	SI_ASSERT_STR(seperator);
@@ -11476,7 +11570,7 @@ isize si_wprintEx(siStream writer, siArray(siAny) args, bool flush, siString sep
 }
 
 SIDEF
-isize si_wprintLnEx(siStream writer, siArray(siAny) args, bool flush, siString seperator) {
+isize (si_wprintLnEx)(siStream writer, siArray(siAny) args, bool flush, siString seperator) {
 	isize n = si_wprintEx(writer, args, false, seperator);
 	n += si_streamWriteByte(writer, '\n');
 
@@ -11781,53 +11875,44 @@ SIDEF
 SI_ERROR_PROC(si_systemErrorLog) {
 	siPrintColor red = si_printColor3bit(siPrintColor3bit_Red, true);
 
-#ifndef SI_NO_ERROR_STRUCT
-	si_fprintf(
-		si_stderr, SI_STR("%CSystem error at \"%L\"%C: %s: %s\n"),
+	si_eprintf(
+		"%CSystem error at \"%L\"%C: %s: %s",
 		red, error->location, si_systemErrorName(error->code), si_systemErrorDesc(error->code)
 	);
 
-#else
-	si_fprintf(
-		si_stderr, SI_STR("%CSystem error%C: %s: %s\n"),
-		red, si_systemErrorName(error->code), si_systemErrorDesc(error->code)
-	);
-#endif
-
-	return true;
+	return 0;
 	SI_UNUSED(data);
 }
 
 inline
-siString si_systemErrorName(siErrorSystem error) {
-	SI_ASSERT_NOT_NEG(error);
-	SI_ASSERT(error < siErrorSystem_Length);
+siString si_systemErrorName(siSystemError error) {
+	si_assert(error >= 0 && error < siSystemError_Count);
 
-	static const siString names[siErrorSystem_Length] = {
-		SI_STRC("siErrorSystem_None"),
+	static const siString names[siSystemError_Count] = {
+		SI_STRC("siSystemError_None"),
 
-		SI_STRC("siErrorSystem_Invalid"),
-		SI_STRC("siErrorSystem_InvalidFilename"),
-		SI_STRC("siErrorSystem_Exists"),
-		SI_STRC("siErrorSystem_NotExists"),
-		SI_STRC("siErrorSystem_Permission"),
-		SI_STRC("siErrorSystem_NoMemory"),
-		SI_STRC("siErrorSystem_TruncationFail"),
-		SI_STRC("siErrorSystem_Unavailable"),
-		SI_STRC("siErrorSystem_Deadlock"),
+		SI_STRC("siSystemError_Invalid"),
+		SI_STRC("siSystemError_InvalidFilename"),
+		SI_STRC("siSystemError_Exists"),
+		SI_STRC("siSystemError_NotExists"),
+		SI_STRC("siSystemError_Permission"),
+		SI_STRC("siSystemError_NoMemory"),
+		SI_STRC("siSystemError_TruncationFail"),
+		SI_STRC("siSystemError_Unavailable"),
+		SI_STRC("siSystemError_Deadlock"),
 
-		SI_STRC("siErrorSystem_Generic"),
+		SI_STRC("siSystemError_Generic"),
 	};
 
 	return names[error];
 }
 
 inline
-siString si_systemErrorDesc(siErrorSystem error) {
+siString si_systemErrorDesc(siSystemError error) {
 	SI_ASSERT_NOT_NEG(error);
-	SI_ASSERT(error < siErrorSystem_Length);
+	SI_ASSERT(error < siSystemError_Count);
 
-	static const siString descriptions[siErrorSystem_Length] = {
+	static const siString descriptions[siSystemError_Count] = {
 		SI_STRC("No error has been encountered."),
 
 		SI_STRC("Provided value is invalid."),
@@ -11862,88 +11947,96 @@ void si__wasmSetLastError(__wasi_errno_t error) {
 
 #endif
 
+
 SIDEF
-siErrorSystem si_systemGetError(void) {
+siSystemError (si_systemErrorDeclare)(siError* out_error, siSystemError error,
+	siCallerLoc call) {
+	si_assert(error >= 0 && error <= siSystemError_Count, SI_STR("Invalid system error"));
+	return si_errorDeclare(error, out_error, si_systemErrorLog, nil, call);
+}
+
+SIDEF
+siSystemError si_systemError(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	switch (GetLastError()) {
-		case ERROR_ACCESS_DENIED: return siErrorSystem_Permission;
+		case ERROR_ACCESS_DENIED: return siSystemError_Permission;
 
 		case ERROR_NO_MORE_FILES:
 		case ERROR_SUCCESS:
-			return siErrorSystem_None;
+			return siSystemError_None;
 
 		case ERROR_ALREADY_EXISTS:
 		case ERROR_FILE_EXISTS:
-			return siErrorSystem_Exists;
+			return siSystemError_Exists;
 
 		case ERROR_INVALID_NAME:
 		case ERROR_BAD_PATHNAME:
-			return siErrorSystem_InvalidFilename;
+			return siSystemError_InvalidFilename;
 
 		case ERROR_BAD_FORMAT:
 		case ERROR_INVALID_DATA:
 		case ERROR_DIRECTORY:
 		case ERROR_INVALID_ADDRESS:
-			return siErrorSystem_Invalid;
+			return siSystemError_Invalid;
 
 		case ERROR_PATH_NOT_FOUND:
 		case ERROR_FILE_NOT_FOUND:
-			return siErrorSystem_NotExists;
+			return siSystemError_NotExists;
 
 		case ERROR_OUTOFMEMORY:
 		case ERROR_NOT_ENOUGH_MEMORY:
-			return siErrorSystem_NoMemory;
+			return siSystemError_NoMemory;
 	}
 
-	return siErrorSystem_Generic;
+	return siSystemError_Generic;
 
 #elif SI_SYSTEM_IS_WASM
 	switch (si__wasmGetLastError()) {
-		case __WASI_ERRNO_SUCCESS: return siErrorSystem_None;
-		case __WASI_ERRNO_EXIST: return siErrorSystem_Exists;
-		case __WASI_ERRNO_NOENT: return siErrorSystem_NotExists;
-		case __WASI_ERRNO_NOBUFS: return siErrorSystem_NoMemory;
-		case __WASI_ERRNO_DEADLK: return siErrorSystem_Deadlock;
+		case __WASI_ERRNO_SUCCESS: return siSystemError_None;
+		case __WASI_ERRNO_EXIST: return siSystemError_Exists;
+		case __WASI_ERRNO_NOENT: return siSystemError_NotExists;
+		case __WASI_ERRNO_NOBUFS: return siSystemError_NoMemory;
+		case __WASI_ERRNO_DEADLK: return siSystemError_Deadlock;
 
 		case __WASI_ERRNO_INVAL:
 		case __WASI_ERRNO_BADF:
-			return siErrorSystem_Invalid;
+			return siSystemError_Invalid;
 
 		case __WASI_ERRNO_ISDIR:
 		case __WASI_ERRNO_NAMETOOLONG:
-			return siErrorSystem_InvalidFilename;
+			return siSystemError_InvalidFilename;
 
 		case __WASI_ERRNO_PERM:
 		case __WASI_ERRNO_ACCES:
-			return siErrorSystem_Permission;
+			return siSystemError_Permission;
 
 		case __WASI_ERRNO_AGAIN:
 		case __WASI_ERRNO_BUSY:
-			return siErrorSystem_Unavailable;
+			return siSystemError_Unavailable;
 	}
 
-	return siErrorSystem_Generic;
+	return siSystemError_Generic;
 
 #else
 	switch (errno) {
-		case 0:       return siErrorSystem_None;
-		case EEXIST:  return siErrorSystem_Exists;
-		case EINVAL:  return siErrorSystem_Invalid;
-		case ENOMEM:  return siErrorSystem_NoMemory;
-		case EAGAIN:  return siErrorSystem_Unavailable;
-		case EDEADLK: return siErrorSystem_Deadlock;
-		case ENOENT:  return siErrorSystem_NotExists;
+		case 0:       return siSystemError_None;
+		case EEXIST:  return siSystemError_Exists;
+		case EINVAL:  return siSystemError_Invalid;
+		case ENOMEM:  return siSystemError_NoMemory;
+		case EAGAIN:  return siSystemError_Unavailable;
+		case EDEADLK: return siSystemError_Deadlock;
+		case ENOENT:  return siSystemError_NotExists;
 
 		case EISDIR:
 		case ENAMETOOLONG:
-			return siErrorSystem_InvalidFilename;
+			return siSystemError_InvalidFilename;
 
 		case EPERM:
 		case EACCES:
-			return siErrorSystem_Permission;
+			return siSystemError_Permission;
 	}
 
-	return siErrorSystem_Generic;
+	return siSystemError_Generic;
 
 #endif
 }
@@ -12128,28 +12221,29 @@ siUnixDE si_unixGetDE(void) {
 #ifdef SI_IMPLEMENTATION_VIRTUAL_MEMORY
 
 SIDEF
-siResult(siVirtualMemory) si_vmAlloc(void* address, isize size) {
+siVirtualMem si_virtualMemAlloc(void* address, isize size, siError* out_error) {
 	SI_ASSERT_NOT_NEG(size);
-
-	siVirtualMemory vm;
-	vm.size = size;
 
 #if SI_SYSTEM_IS_WINDOWS
 	vm.data = VirtualAlloc(address, (usize)size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	SI_OPTION_SYS_CHECK(vm.data == nil, siVirtualMemory);
+	SI_OPTION_SYS_CHECK(vm.data == nil, siVirtualMem);
+	vm.size = size;
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	vm.data = mmap(address, (usize)size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-	SI_OPTION_SYS_CHECK(vm.data == MAP_FAILED, siVirtualMemory);
+
+	void* data = mmap(address, (usize)size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	if (data == MAP_FAILED) { si_systemErrorDeclare(out_error);  return SI_TYPE_ZERO(siVirtualMem); }
+
 #else
+	/* TODO(EimaMei): malloc here? */
 	vm.data = nil;
 	SI_UNUSED(address);
 #endif
 
-	return SI_OPT(siVirtualMemory, vm);
+	return SI_COMP_LIT(siVirtualMem, data, size);
 }
 
 SIDEF
-siError si_vmFree(siVirtualMemory vm) {
+siSystemError si_virtualMemFree(siVirtualMem vm) {
 	SI_ASSERT_NOT_NIL(vm.data);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -12171,14 +12265,19 @@ siError si_vmFree(siVirtualMemory vm) {
 	}
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = munmap(vm.data, (usize)vm.size);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res != 0) { return si_systemErrorDeclare(nil); }
+
+#else
+	/* TODO(EimaMei): free here? */
+	vm.data = nil;
+	SI_UNUSED(address);
 #endif
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
 SIDEF
-siError si_vmDiscard(siVirtualMemory vm) {
+siSystemError si_virtualMemDiscard(siVirtualMem vm) {
 	SI_ASSERT_NOT_NIL(vm.data);
 
 #if SI_SYSTEM_IS_WINDOWS
@@ -12187,10 +12286,11 @@ siError si_vmDiscard(siVirtualMemory vm) {
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = madvise(vm.data, (usize)vm.size, MADV_DONTNEED);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res != 0) { return si_systemErrorDeclare(nil); }
+
 #endif
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
 
@@ -12227,8 +12327,9 @@ bool si_pathExistsOS(siOsString path) {
 	SI_UNUSED(path);
 #endif
 }
+
 SIDEF
-siResult(isize) si_pathCopy(siString pathSrc, siString pathDst) {
+isize (si_pathCopy)(siString pathSrc, siString pathDst, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX * 2];
 	siOsString_2x strs = si_pathToOSMul(pathSrc, pathDst, stack, countof(stack));
 	siOsString* paths = strs.v;
@@ -12242,26 +12343,27 @@ siResult(isize) si_pathCopy(siString pathSrc, siString pathDst) {
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int src = open(paths[0], O_RDONLY, 0);
-	SI_OPTION_SYS_CHECK(src == -1, isize);
+	if (src == -1) { si_systemErrorDeclare(out_error); return -1; }
 
 	int dst = open(paths[1], O_WRONLY | O_CREAT, 0666);
-	SI_OPTION_SYS_CHECK(dst == -1, isize);
+	if (dst == -1) { si_systemErrorDeclare(out_error); return -1; }
 
 	struct stat stat;
 	int res = fstat(src, &stat);
-	SI_OPTION_SYS_CHECK(res == -1, isize);
+	if (res == -1) { si_systemErrorDeclare(out_error); return -1; }
 
 	#if SI_SYSTEM_IS_UNIX
 		isize size = sendfile64(dst, src, 0, (usize)stat.st_size);
 	#else
 		isize size = sendfile(dst, src, 0, &stat.st_size, nil, 0);
 	#endif
-	SI_OPTION_SYS_CHECK(size == -1, isize);
+	if (size == -1) { si_systemErrorDeclare(out_error); return -1; }
 
 	close(src);
 	close(dst);
 
-	return SI_OPT(isize, size);
+	return size;
+
 #else
 	return SI_OPT_NIL(isize);
 	SI_UNUSED(paths);
@@ -12270,12 +12372,12 @@ siResult(isize) si_pathCopy(siString pathSrc, siString pathDst) {
 
 }
 SIDEF
-siResult(i32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
+isize (si_pathItemsCopy)(siString pathSrc, siString pathDst, siError* out_error) {
 	/* TODO(EimaMei): Rework this mess one day. */
 	SI_ASSERT(pathDst.len <= SI_PATH_MAX);
 
 	siDirectory dir = si_directoryOpen(pathSrc);
-	i32 itemsCopied = 0;
+	isize itemsCopied = 0;
 
 	u8 dst[SI_PATH_MAX];
 	u8* dstBuffer;
@@ -12291,24 +12393,27 @@ siResult(i32) si_pathItemsCopy(siString pathSrc, siString pathDst) {
 		si_memcopyStr(dstBuffer, path);
 
 		if (entry.type == siIoType_Directory) {
-			siError err = si_pathCreateFolder(dstStr);
-			SI_STOPIF(err.code != 0, return SI_OPT_ERR(i32, err));
+			siSystemError code = si_pathCreateFolder(dstStr, out_error);
+			if (code != 0) { return itemsCopied; }
 
-			siResult(i32) res = si_pathItemsCopy(entry.path, dstStr);
-			SI_STOPIF(!res.hasValue, return res);
-			itemsCopied += res.value;
+			isize size = si_pathItemsCopy(entry.path, dstStr, out_error);
+			if (size == -1) { return itemsCopied; }
+
+			itemsCopied += 1;
 			continue;
 		}
 
-		si_pathCopy(entry.path, dstStr);
+		siSystemError code = si_pathCopy(entry.path, dstStr, out_error);
+		if (code != 0) { return itemsCopied; }
+
 		itemsCopied += 1;
 	}
 
-	return SI_OPT(i32, itemsCopied);
+	return itemsCopied;
 }
 
 SIDEF
-siError si_pathMove(siString pathSrc, siString pathDst) {
+siSystemError (si_pathMove)(siString pathSrc, siString pathDst, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX * 2];
 	siOsString_2x strs = si_pathToOSMul(pathSrc, pathDst, stack, countof(stack));
 	siOsString* paths = strs.v;
@@ -12318,91 +12423,89 @@ siError si_pathMove(siString pathSrc, siString pathDst) {
 	SI_ERROR_SYS_CHECK_RET(res == 0);
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = link(paths[0], paths[1]);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res == -1) { return si_systemErrorDeclare(out_error); }
 
 	res = unlink(paths[0]);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res != 0 ) { return si_systemErrorDeclare(out_error); }
+
 #else
 	SI_UNUSED(paths);
 #endif
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
-inline
-siError si_pathRename(siString path, siString newPath) {
-	return si_pathMove(path, newPath);
-}
 
 SIDEF
-siError si_pathCreateFolder(siString path) {
+siSystemError (si_pathCreateFolder)(siString path, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX];
 	si_pathToOS(path, stack, countof(stack));
 
-	#if SI_SYSTEM_IS_WINDOWS
-		i32 res = CreateDirectoryW(stack, nil);
-		SI_ERROR_SYS_CHECK_RET(res == 0);
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-		i32 res = mkdir(stack, 0777);
-		SI_ERROR_SYS_CHECK_RET(res != 0);
-	#endif
+#if SI_SYSTEM_IS_WINDOWS
+	i32 res = CreateDirectoryW(stack, nil);
+	SI_ERROR_SYS_CHECK_RET(res == 0);
 
-	return SI_ERROR_NIL;
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	i32 res = mkdir(stack, 0777);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
+
+#endif
+
+	return 0;
 }
 
 SIDEF
-siError si_pathRemove(siString path) {
+siSystemError (si_pathRemove)(siString path, siError* out_error) {
 	/* TODO(EimaMei): Check the performance of this, rewrite it. */
 	siOsChar stack[SI_PATH_MAX];
 	si_pathToOS(path, stack, countof(stack));
 
-	#if SI_SYSTEM_IS_WINDOWS
-		u32 attrs = GetFileAttributesW(stack);
-		SI_ERROR_SYS_CHECK_RET(attrs == INVALID_FILE_ATTRIBUTES);
+#if SI_SYSTEM_IS_WINDOWS
+	u32 attrs = GetFileAttributesW(stack);
+	SI_ERROR_SYS_CHECK_RET(attrs == INVALID_FILE_ATTRIBUTES);
 
-		i32 res;
-		if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-			siDirectoryIterator entry;
-			siDirectory dir = si_directoryOpen(path);
-			while (si_directoryIterate(&dir, &entry)) {
-				siError err = si_pathRemove(entry.path);
-				SI_STOPIF(err.code != 0, return err);
-			}
-
-			res = RemoveDirectoryW(stack);
+	i32 res;
+	if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+		siDirectoryIterator entry;
+		siDirectory dir = si_directoryOpen(path);
+		while (si_directoryIterate(&dir, &entry)) {
+			siError err = si_pathRemove(entry.path);
+			SI_STOPIF(err.code != 0, return err);
 		}
-		else {
-			res = DeleteFileW(stack);
-		}
-		SI_ERROR_SYS_CHECK_RET(res == 0);
 
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-		struct stat tmp;
-		i32 res = stat(stack, &tmp);
-		SI_ERROR_SYS_CHECK_RET(res != 0);
+		res = RemoveDirectoryW(stack);
+	}
+	else {
+		res = DeleteFileW(stack);
+	}
+	SI_ERROR_SYS_CHECK_RET(res == 0);
 
-		if (S_ISDIR(tmp.st_mode)) {
-			siDirectoryIterator entry;
-			siDirectory dir = si_directoryOpen(path);
-			while (si_directoryIterate(&dir, &entry)) {
-				siError err = si_pathRemove(entry.path);
-				SI_STOPIF(err.code != 0, return err);
-			}
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+	struct stat tmp;
+	i32 res = stat(stack, &tmp);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
 
-			res = rmdir(stack);
-		}
-		else {
-			res = unlink(stack);
-		}
-		SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (!S_ISDIR(tmp.st_mode)) {
+		res = unlink(stack);
+		return (res == 0) ? 0 : si_systemErrorDeclare(out_error);
+	}
 
-	#endif
+	siDirectoryIterator entry;
+	siDirectory dir = si_directoryOpen(path);
 
-	return SI_ERROR_NIL;
+	while (si_directoryIterate(&dir, &entry)) {
+		siSystemError code = si_pathRemove(entry.path);
+		if (code != 0) { return si_systemErrorDeclare(out_error); }
+	}
+
+	res = rmdir(stack);
+	return (res == 0) ? 0 : si_systemErrorDeclare(out_error);
+#endif
+
 }
 
 SIDEF
-siError si_pathCreateHardLink(siString path, siString pathLink) {
+siSystemError (si_pathCreateHardLink)(siString path, siString pathLink, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX * 2];
 	siOsString_2x strs = si_pathToOSMul(path, pathLink, stack, countof(stack));
 	siOsString* paths = strs.v;
@@ -12412,16 +12515,17 @@ siError si_pathCreateHardLink(siString path, siString pathLink) {
 	SI_ERROR_SYS_CHECK_RET(res == 0);
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = link(paths[0], paths[1]);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
+
 #else
 	SI_UNUSED(paths);
 #endif
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
 SIDEF
-siError si_pathCreateSoftLink(siString path, siString pathLink) {
+siSystemError (si_pathCreateSoftLink)(siString path, siString pathLink, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX * 2];
 	siOsString_2x strs = si_pathToOSMul(path, pathLink, stack, countof(stack));
 	siOsString* paths = strs.v;
@@ -12434,13 +12538,14 @@ siError si_pathCreateSoftLink(siString path, siString pathLink) {
 	SI_ERROR_SYS_CHECK_RET(res == 0);
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = symlink(paths[0], paths[1]);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
+
 #else
 	SI_UNUSED(paths);
 
 #endif
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
 inline
@@ -12529,7 +12634,7 @@ siString si_pathShortStem(siString path) {
 
 
 SIDEF
-siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
+siString (si_pathGetFullName)(siString path, siAllocator alloc, siError* out_error) {
 	siOsChar stack[SI_PATH_MAX * 2];
 	isize pathLen = si_pathToOS(path, stack, countof(stack));
 
@@ -12549,9 +12654,10 @@ siResult(siString) si_pathGetFullName(siString path, siAllocator alloc) {
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	siOsChar* out = &stack[pathLen];
 	out = realpath(stack, out);
-	SI_OPTION_SYS_CHECK(out == nil, siString);
+	if (out == nil) { si_systemErrorDeclare(out_error); return SI_STR_EMPTY; }
 
-	return SI_OPT(siString, si_stringFromCStr(out, alloc));
+	return si_stringFromCStr(out, alloc);
+
 #else
 	return SI_OPT_NIL(siString);
 	SI_UNUSED(pathLen); SI_UNUSED(alloc);
@@ -12682,26 +12788,26 @@ siString si_pathGetTmp(void) {
 
 
 inline
-siArray(u8) si_pathReadContents(siString path, siAllocator alloc, siErrorSystem* outError) {
+siArray(u8) si_pathReadContents(siString path, siAllocator alloc, siError* out_error) {
 	siFile file = si_fileOpen(path);
 	if (file == -1) { return SI_ARR_EMPTY(u8); }
 
-	siArray(u8) res = si_fileReadContents(file, alloc, outError);
+	siArray(u8) res = si_fileReadContents(file, alloc, out_error);
 	si_fileClose(file);
 
 	return res;
 }
 
 inline
-siString si_pathReadContentsStr(siString path, siAllocator alloc, siErrorSystem* outError) {
-	siArray(u8) res = si_pathReadContents(path, alloc, outError);
+siString si_pathReadContentsStr(siString path, siAllocator alloc, siError* out_error) {
+	siArray(u8) res = si_pathReadContents(path, alloc, out_error);
 	return SI_STR_LEN(res.data, res.len);
 }
 
 
 inline
-siArray(siString) si_pathReadlines(siString path, siAllocator alloc, siErrorSystem* outError) {
-	siString str = si_pathReadContentsStr(path, alloc, outError);
+siArray(siString) si_pathReadlines(siString path, siAllocator alloc, siError* out_error) {
+	siString str = si_pathReadContentsStr(path, alloc, out_error);
 	siArray(siString) res = si_stringSplitLines(str, alloc);
 
 	return res;
@@ -12755,16 +12861,16 @@ siFile si_fileGetStdFile(siStdFile type) {
 
 
 inline
-siFile si_fileCreate(siString path, siError* outError) {
-	return si_fileOpenMode(path, siFileMode_Write | siFileMode_Plus, outError);
+siFile (si_fileCreate)(siString path, siError* out_error) {
+	return si_fileOpenMode(path, siFileMode_Write | siFileMode_Plus, out_error);
 }
 
 inline
-siFile si_fileOpen(siString path, siError* outError) {
-	return si_fileOpenMode(path, siFileMode_Read | siFileMode_Plus, outError);
+siFile (si_fileOpen)(siString path, siError* out_error) {
+	return si_fileOpenMode(path, siFileMode_Read | siFileMode_Plus, out_error);
 }
 SIDEF
-siFile si_fileOpenMode(siString path, siFileMode mode, siError* outError) {
+siFile (si_fileOpenMode)(siString path, siFileMode mode, siError* out_error) {
 	SI_ASSERT(path.len <= SI_PATH_MAX);
 	SI_ASSERT((mode & ~(u32)siFileMode_All) == 0);
 
@@ -12850,14 +12956,13 @@ siFile si_fileOpenMode(siString path, siFileMode mode, siError* outError) {
 			SI_PANIC_MSG("Invalid file mode.");
 	}
 
-	isize handle;
-	{
-		siOsChar stack[SI_PATH_MAX];
-		si_pathToOS(path, stack, countof(stack));
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, countof(stack));
 
-		handle = open(stack, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-	}
-	SI_ERROR_SYS_CHECK(handle == -1, if (outError != nil) { *outError = SI_ERROR_RES; });
+	isize handle = open(stack, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	if (handle == -1) { si_systemErrorDeclare(out_error); }
+
+	return handle;
 
 #else
 	cstring mode_str;
@@ -12878,12 +12983,10 @@ siFile si_fileOpenMode(siString path, siFileMode mode, siError* outError) {
 
 		handle = (isize)fopen(si_stringToCStr(path, si_allocatorArena(&arena)), mode_str);
 	}
-	SI_ERROR_SYS_CHECK(handle == 0, handle = -1; if (outError != nil) { *outError = SI_ERROR_RES; });
+	SI_ERROR_SYS_CHECK(handle == 0, handle = -1; if (out_error != nil) { *out_error = SI_ERROR_RES; });
 
 
 #endif
-
-	return handle;
 }
 
 SIDEF
@@ -12912,17 +13015,16 @@ isize si_fileSize(siFile file) {
 }
 
 inline
-isize si_fileRead(siFile file, siArray(u8) out, siErrorSystem* outError) {
-	return si_fileReadAt(file, si_fileTell(file), out, outError);
+isize (si_fileRead)(siFile file, siArray(u8) out, siError* out_error) {
+	return si_fileReadAt(file, si_fileTell(file), out, out_error);
 }
 
 SIDEF
-isize si_fileReadAt(siFile file, isize offset, siArray(u8) out, siErrorSystem* outError) {
+isize (si_fileReadAt)(siFile file, isize offset, siArray(u8) out, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 	SI_ASSERT_NOT_NEG(offset);
 	SI_ASSERT_ARR_TYPE(out, u8);
 
-	isize bytesRead;
 
 #if SI_SYSTEM_IS_WINDOWS
 	si_fileSeek(file, offset, siSeekWhere_Begin);
@@ -12937,49 +13039,51 @@ isize si_fileReadAt(siFile file, isize offset, siArray(u8) out, siErrorSystem* o
 	bytesRead = read;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	bytesRead = pread((int)file, out.data, (usize)out.len, offset);
-	if (bytesRead == -1 && outError) { *outError = si_systemGetError(); }
+	isize count = pread((int)file, out.data, (usize)out.len, offset);
+	if (count == -1) { si_systemErrorDeclare(out_error); }
+
+	return count;
 
 #else
 	si_fileSeek(file, offset, siSeekWhere_Begin);
 
 	bytesRead = (isize)fread(out.data, sizeof(u8), (usize)out.len, (FILE*)file);
-	if (bytesRead < out.len && outError) { bytesRead = -1; *outError = si_systemGetError(); }
+	if (bytesRead < out.len && out_error) { bytesRead = -1; *out_error = si_systemError(); }
 
 #endif
-
-	return bytesRead;
 }
 
 SIDEF
-siArray(u8) si_fileReadContents(siFile file, siAllocator alloc, siErrorSystem* outError) {
+siArray(u8) (si_fileReadContents)(siFile file, siAllocator alloc, siError* out_error) {
 	isize len = si_fileSize(file);
-	u8* data = si_allocArrayNonZeroed(alloc, u8, len);
+	u8* data = si_allocArrayNonZeroed(alloc, u8, len, out_error);
 	if (data == nil) { return SI_ARR_EMPTY(u8); }
 
 	isize oldOffset = si_fileTell(file);
-	len = si_fileReadAt(file, 0, SI_ARR_LEN(data, len), outError);
+	len = si_fileReadAt(file, 0, SI_ARR_LEN(data, len), out_error);
 	si_fileSeek(file, oldOffset, siSeekWhere_Begin);
 
 	return (len != -1) ? SI_ARR_LEN(data, len) : SI_ARR_EMPTY(u8);
 }
 
 SIDEF
-siString si_fileReadContentsStr(siFile file, siAllocator alloc, siErrorSystem* outError) {
-	siArray(u8) res = si_fileReadContents(file, alloc, outError);
+siString (si_fileReadContentsStr)(siFile file, siAllocator alloc, siError* out_error) {
+	siArray(u8) res = si_fileReadContents(file, alloc, out_error);
 	return SI_STR_LEN(res.data, res.len);
 }
 
 SIDEF
-siArray(siString) si_fileReadlines(siFile file, siAllocator alloc, siErrorSystem* outError) {
-	siArray(u8) str = si_fileReadContents(file, alloc, outError);
-	siArray(siString) res = si_stringSplitLines(SI_STR_LEN(str.data, str.len), alloc);
+siArray(siString) (si_fileReadlines)(siFile file, siAllocator alloc, siError* out_error) {
+	siArray(u8) str = si_fileReadContents(file, alloc, out_error);
+	siArray(siString) res = (str.data != nil)
+		? si_stringSplitLines(SI_STR_LEN(str.data, str.len), alloc)
+		: SI_ARR_EMPTY(siString);
 
 	return res;
 }
 
 inline
-isize si_fileWrite(siFile file, siArray(u8) in, siErrorSystem* outError) {
+isize (si_fileWrite)(siFile file, siArray(u8) in, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 	SI_ASSERT_ARR_TYPE(in, u8);
 
@@ -12996,10 +13100,9 @@ isize si_fileWrite(siFile file, siArray(u8) in, siErrorSystem* outError) {
 	bytesWritten = count;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	isize n = write((int)file, in.data, (usize)in.len);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
-
-	return n;
+	isize count = write((int)file, in.data, (usize)in.len);
+	if (count == -1) { si_systemErrorDeclare(out_error); }
+	return count;
 
 #elif SI_SYSTEM_IS_WASM
 	struct __wasi_ciovec_t iov;
@@ -13015,14 +13118,14 @@ isize si_fileWrite(siFile file, siArray(u8) in, siErrorSystem* outError) {
 
 #else
 	isize count = (isize)fwrite(in.data, sizeof(u8), (usize)in.len, (FILE*)file);
-	if (count < in.len && outError) { *outError = si_systemGetError(); }
+	if (count < in.len && out_error) { *out_error = si_systemError(); }
 
 	return count;
 #endif
 }
 
 SIDEF
-isize si_fileWriteAt(siFile file, isize offset, siArray(u8) in, siErrorSystem* outError) {
+isize (si_fileWriteAt)(siFile file, isize offset, siArray(u8) in, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 	SI_ASSERT_NOT_NEG(offset);
 	SI_ASSERT_ARR_TYPE(in, u8);
@@ -13040,15 +13143,16 @@ isize si_fileWriteAt(siFile file, isize offset, siArray(u8) in, siErrorSystem* o
 	bytesWritten = count;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-	isize curOffset = si_fileTell(file, outError);
+	isize curOffset = si_fileTell(file, out_error);
 	/* NOTE(EimaMei): Should we notify that a seek error occurred? */
 
-	isize n = (curOffset == offset)
+	isize count = (curOffset == offset)
 		? write((int)file, in.data, (usize)in.len)
 		: pwrite((int)file, in.data, (usize)in.len, offset);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
 
-	return n;
+	if (count == -1) { si_systemErrorDeclare(out_error); }
+	return count;
+
 #elif SI_SYSTEM_IS_WASM
 	/* TODO(EimaMei): Add offset support. */
 	struct __wasi_ciovec_t iov;
@@ -13064,41 +13168,40 @@ isize si_fileWriteAt(siFile file, isize offset, siArray(u8) in, siErrorSystem* o
 
 #else
 	si_fileSeek(file, offset, siSeekWhere_Begin);
-	return si_fileWrite(file, in, outError);
-
+	return si_fileWrite(file, in, out_error);
 
 #endif
 }
 
 inline
-isize si_fileWriteByte(siFile file, u8 byte, siErrorSystem* outError) {
-	return si_fileWritePtr(file, &byte, 1, outError);
+isize (si_fileWriteByte)(siFile file, u8 byte, siError* out_error) {
+	return si_fileWritePtr(file, &byte, 1, out_error);
 }
 
 
 inline
-isize si_fileWritePtr(siFile file, const void* ptr, isize len, siErrorSystem* outError) {
-	return si_fileWrite(file, SI_ARR_LEN((u8*)ptr, len), outError);
+isize (si_fileWritePtr)(siFile file, const void* ptr, isize len, siError* out_error) {
+	return si_fileWrite(file, SI_ARR_LEN((u8*)ptr, len), out_error);
 
 }
 
 inline
-isize si_fileWriteStr(siFile file, siString str, siErrorSystem* outError) {
-	return si_fileWritePtr(file, str.data, str.len, outError);
+isize (si_fileWriteStr)(siFile file, siString str, siError* out_error) {
+	return si_fileWritePtr(file, str.data, str.len, out_error);
 }
 
 
 
 inline
-isize si_fileTell(siFile file, siErrorSystem* outError) {
-	return si_fileSeek(file, 0, siSeekWhere_Current, outError);
+isize (si_fileTell)(siFile file, siError* out_error) {
+	return si_fileSeek(file, 0, siSeekWhere_Current, out_error);
 }
 
+
 inline
-isize si_fileSeek(siFile file, isize offset, siSeekWhere method, siErrorSystem* outError) {
+isize (si_fileSeek)(siFile file, isize offset, siSeekWhere method, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 
-	isize n;
 #if SI_SYSTEM_IS_WINDOWS
 	LARGE_INTEGER res;
 	res.QuadPart = offset;
@@ -13110,59 +13213,56 @@ isize si_fileSeek(siFile file, isize offset, siSeekWhere method, siErrorSystem* 
 
 #elif SI_SYSTEM_IS_APPLE
 	n = lseek((int)file.handle, offset, method);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
+	if (n == -1 && out_error) { *out_error = si_systemError(); }
 
 #elif SI_SYSTEM_IS_UNIX
-	n = lseek64((int)file, offset, method);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
+	isize count = lseek64((int)file, offset, method);
+	if (count == -1) { si_systemErrorDeclare(out_error); }
+	return count;
 
 #else
 	static const int POS_LUT[3] = {SEEK_SET, SEEK_CUR, SEEK_END};
 	n = fseek((FILE*)file, offset, POS_LUT[method]);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
+	if (n == -1 && out_error) { *out_error = si_systemError(); }
 	n = ftell((FILE*)file);
-	if (n == -1 && outError) { *outError = si_systemGetError(); }
+	if (n == -1 && out_error) { *out_error = si_systemError(); }
 
 #endif
-
-	return n;
 }
 
 inline
-siErrorSystem si_fileSeekFront(siFile file) {
-	siErrorSystem error = 0;
-	si_fileSeek(file, 0, siSeekWhere_Begin, &error);
-	return error;
+bool (si_fileSeekFront)(siFile file, siError* out_error) {
+	isize count = si_fileSeek(file, 0, siSeekWhere_Begin, out_error);
+	return count != -1;
 }
 
 inline
-siErrorSystem si_fileSeekBack(siFile file) {
-	siErrorSystem error = 0;
-	si_fileSeek(file, 0, siSeekWhere_End, &error);
-	return error;
+bool (si_fileSeekBack)(siFile file, siError* out_error) {
+	isize count = si_fileSeek(file, 0, siSeekWhere_End, out_error);
+	return count != -1;
 }
 
 
 SIDEF
-siErrorSystem si_fileFlush(siFile file) {
+bool (si_fileFlush)(siFile file, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 
 #if SI_SYSTEM_IS_WINDOWS
 	FlushFileBuffers
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = fsync((int)file);
-	if (res == -1) { return si_systemGetError(); }
+	if (res == -1) { si_systemErrorDeclare(out_error); return false; }
 
 #else
 	isize res = fflush((FILE*)file);
-	if (res == -1) { return si_systemGetError(); }
+	if (res == -1) { return si_systemError(); }
 #endif
 
-	return 0;
+	return true;
 }
 
 SIDEF
-bool si_fileTruncate(siFile file, isize size) {
+bool (si_fileTruncate)(siFile file, isize size, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 	SI_ASSERT_NOT_NEG(size);
 
@@ -13172,12 +13272,14 @@ bool si_fileTruncate(siFile file, isize size) {
 	SI_STOPIF(res == 0, return false);
 
 	res = SetEndOfFile((HANDLE)file->handle);
-	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_SYS_EX(siErrorSystem_TruncationFail); return false);
+	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_SYS_EX(siSystemError_TruncationFail); return false);
 
 	si_fileSeek(*file, prevOffset, siSeekWhere_Begin);
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = ftruncate((int)file, size);
-	if (res == -1) { return false; }
+	if (res == -1) { si_systemErrorDeclare(out_error); return false; }
+
 #else
 	return false;
 
@@ -13237,76 +13339,62 @@ SI_STREAM_PROC(si__streamFile_proc) {
 	siFile file = (siFile)streamData;
 	SI_ASSERT_NOT_NEG(file);
 
+	siError file_err;
+	isize n;
 	switch (type) {
 		case siStreamType_Read: {
-			siErrorSystem error = 0;
-			isize n = si_fileRead(file, ptr, &error);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
-
-			return n;
+			n = si_fileRead(file, ptr);
+			if (n == -1) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 		} break;
 
 		case siStreamType_ReadAt: {
-			siErrorSystem error = 0;
-			isize n = si_fileReadAt(file, offset, ptr, &error);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
+			n = si_fileReadAt(file, offset, ptr);
+			if (n == -1) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 
-			return n;
 		} break;
 
 		case siStreamType_Write: {
-			siErrorSystem error = 0;
-			isize n = si_fileWrite(file, ptr, &error);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
-
-			return n;
+			n = si_fileWrite(file, ptr);
+			if (n == -1) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 		} break;
 
 		case siStreamType_WriteAt: {
-			siErrorSystem error;
-			isize n = si_fileWriteAt(file, offset, ptr, &error);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
-
-			return n;
+			n = si_fileWriteAt(file, offset, ptr);
+			if (n == -1) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 		} break;
 
 		case siStreamType_Seek: {
-			siErrorSystem error;
-			isize n = si_fileSeek(file, offset, seek, &error);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
-
-			return n;
+			n = si_fileSeek(file, offset, seek);
+			if (n == -1) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 		} break;
 
 		case siStreamType_Size: {
-			isize n = si_fileSize(file);
-			*outError = (n != 0) ? siStreamError_Unknown : siStreamError_None;
-			return n;
-		} break;
+			return si_fileSize(file);
+		}
 
 		case siStreamType_Flush: {
-			siErrorSystem error = si_fileFlush(file);
-			*outError = (error != 0) ? siStreamError_Unknown : siStreamError_None;
-
-			return 0;
+			n = si_fileFlush(file);
+			if (n == 0) { si_errorDeclare(siStreamError_Unknown, out_error, si_errorLogDefault, &file_err); }
 		} break;
 
 		case siStreamType_Close: {
 			si_fileClose(file);
-			*outError = 0;
-
-			return 0;
+			n = 0;
 		} break;
 
 		case siStreamType_GetFeatures: {
-			return SI_BITMASK_MAKE(siStreamType,
+			n = SI_BITMASK_MAKE(siStreamType,
 				Read, ReadAt, Write, WriteAt, Seek, Size, Flush, Close
 			);
 		} break;
+
+		default: {
+			si_errorDeclare(siStreamError_NotImplemented, out_error);
+			n = -1;
+		}
 	}
 
-	*outError = siStreamError_Unimplemented;
-	return 0;
+	return n;
 }
 
 
@@ -13319,12 +13407,12 @@ siStream si_fileStream(siFile file) {
 }
 
 SIDEF
-siDirectory si_directoryOpen(siString path) {
+siDirectory (si_directoryOpen)(siString path, siError* out_error) {
 	SI_ASSERT_NOT_NIL(path.data);
 	SI_ASSERT(path.len <= SI_PATH_MAX);
 
 	siDirectory dir;
-	dir.error = SI_ERROR_NIL;
+	dir.error = SI_TYPE_ZERO(siError);
 	dir.handle = nil;
 	dir.directoryLen = path.len;
 	si_memcopyStr(dir.buffer, path);
@@ -13356,7 +13444,7 @@ siDirectory si_directoryOpen(siString path) {
 	dir.buffer[dir.directoryLen] = '\0';
 
 	dir.handle = opendir((char*)dir.buffer);
-	SI_ERROR_SYS_CHECK(dir.handle == nil, dir.error = SI_ERROR_RES; return dir);
+	if (dir.handle == nil) { si_systemErrorDeclare(out_error); }
 
 #endif
 
@@ -13377,7 +13465,7 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 #if SI_SYSTEM_IS_WINDOWS
 	WIN32_FIND_DATAW file;
 	if (FindNextFileW(dir->handle, &file) == 0) {
-		siErrorSystem code = si_systemGetError();
+		siSystemError code = si_systemError();
 		si_directoryClose(dir);
 
 		SI_ERROR_SYS_CHECK(code != 0, dir->error = SI_ERROR_RES; return false);
@@ -13410,10 +13498,10 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 	struct dirent* dirEntry = readdir((DIR*)dir->handle);
 	if (dirEntry == nil) {
 		errno = 0;
-		siErrorSystem code = si_systemGetError();
+		siSystemError code = si_systemError();
 		si_directoryClose(dir);
 
-		SI_ERROR_SYS_CHECK(code != 0, dir->error = SI_ERROR_RES; return false);
+		if (code != 0) { si_systemErrorDeclare(&dir->error, code); }
 		return false;
 	}
 
@@ -13475,12 +13563,12 @@ void si_directoryClose(siDirectory* dir) {
 #ifdef SI_IMPLEMENTATION_PRINT_SYSTEM
 
 inline
-isize si_printEx(siArray(siAny) args, bool flush, siString seperator) {
+isize (si_printEx)(siArray(siAny) args, bool flush, siString seperator) {
 	return si_fprintEx(si_stdout, args, flush, seperator);
 }
 
 inline
-isize si_printLnEx(siArray(siAny) args, bool flush, siString seperator) {
+isize (si_printLnEx)(siArray(siAny) args, bool flush, siString seperator) {
 	return si_fprintLnEx(si_stdout, args, flush, seperator);
 }
 
@@ -13500,7 +13588,7 @@ isize (si_fprint)(siFile file, siString str) {
 }
 
 SIDEF
-isize si_fprintEx(siFile file, siArray(siAny) args, bool flush, siString seperator) {
+isize (si_fprintEx)(siFile file, siArray(siAny) args, bool flush, siString seperator) {
 	u8 buf[1024];
 
 	siIOWriter writer = si_ioWriterMakePtr(si_fileStream(file), buf, si_sizeof(buf));
@@ -13510,7 +13598,7 @@ isize si_fprintEx(siFile file, siArray(siAny) args, bool flush, siString seperat
 }
 
 SIDEF
-isize si_fprintLnEx(siFile file, siArray(siAny) args, bool flush, siString seperator) {
+isize (si_fprintLnEx)(siFile file, siArray(siAny) args, bool flush, siString seperator) {
 	u8 buf[1024];
 
 	siIOWriter writer = si_ioWriterMakePtr(si_fileStream(file), buf, si_sizeof(buf));
@@ -13537,12 +13625,12 @@ isize (si_fprintfLnEx)(siFile file, siString fmt, siArray(siAny) args, bool flus
 
 
 inline
-isize si_eprintEx(siArray(siAny) args, bool flush, siString seperator) {
+isize (si_eprintEx)(siArray(siAny) args, bool flush, siString seperator) {
 	return si_fprintEx(si_stderr, args, flush, seperator);
 }
 
 inline
-isize si_eprintLnEx(siArray(siAny) args, bool flush, siString seperator) {
+isize (si_eprintLnEx)(siArray(siAny) args, bool flush, siString seperator) {
 	return si_fprintEx(si_stderr, args, flush, seperator);
 }
 
@@ -13599,6 +13687,13 @@ void si_panic(siString condition, siString fmt, siArray(siAny) args, siCallerLoc
 	SI_DEBUG_TRAP();
 }
 
+SIDEF
+void (si_assert)(bool condition, siString message, siCallerLoc loc) {
+	if (!condition) {
+		si_panic(message, SI_STR_EMPTY, SI_ARR_EMPTY(siAny), loc);
+	}
+}
+
 #endif /* SI_IMPLEMENTATION_PRINT_SYSTEM */
 
 #ifdef SI_IMPLEMENTATION_THREAD
@@ -13623,7 +13718,7 @@ void* si__threadProc(void* arg) {
 	#endif
 
 	siThread* t = (siThread*)arg;
-	t->returnValue = t->func(t->arg);
+	t->ret_value = t->func(t->arg);
 	t->state = siThreadState_Initialized;
 
 	return nil;
@@ -13632,96 +13727,107 @@ void* si__threadProc(void* arg) {
 
 
 inline
-siThread si_threadMake(siThreadFunction function, void* arg) {
-	return si_threadMakeEx(function, arg, 0);
-}
-
-inline
-siThread si_threadMakeEx(siThreadFunction function, void* arg, usize stackSize) {
+siThread (si_threadMake)(siThreadFunction function, void* arg, isize stack_size) {
 	SI_ASSERT_NOT_NIL(function);
+	SI_ASSERT_NOT_NEG(stack_size);
 
 	siThread thread = SI_STRUCT_ZERO;
 	thread.func = function;
 	thread.arg = arg;
-	thread.stackSize = stackSize;
+	thread.stack_size = stack_size;
 	thread.state = siThreadState_Initialized;
 
 	return thread;
 }
 
 SIDEF
-siError si_threadMakeAndRun(siThreadFunction function, void* arg, siThread* out) {
-	*out = si_threadMake(function, arg);
-	return si_threadRun(out);
+siSystemError (si_threadMakeAndRun)(siThread* out, siThreadFunction function, void* arg,
+		isize stack_size, siError* out_error) {
+	SI_ASSERT_NOT_NIL(out);
+
+	*out = si_threadMake(function, arg, stack_size);
+	return si_threadRun(out, out_error);
 }
 
 SIDEF
-siError si_threadRun(siThread* thread) {
+siSystemError (si_threadRun)(siThread* thread, siError* out_error) {
 	SI_ASSERT_NOT_NIL(thread);
-	SI_ASSERT(thread->state == siThreadState_Initialized);
+	if (thread->state != siThreadState_Closed) { return 0; }
 
-	#if SI_SYSTEM_IS_WINDOWS
-		thread->id = CreateThread(nil, thread->stackSize, si__threadProc, thread, 0, nil);
-		SI_ERROR_SYS_CHECK_RET(thread->id == nil);
 
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
-		pthread_attr_t attr;
-		pthread_attr_t* attrPtr = nil;
-		if (thread->stackSize != 0) {
-			int res = pthread_attr_init(&attr);
-			if (res != 0) {
-				pthread_attr_setstacksize(&attr, thread->stackSize);
-				attrPtr = &attr;
-			}
+#if SI_SYSTEM_IS_WINDOWS
+	thread->id = CreateThread(nil, thread->stackSize, si__threadProc, thread, 0, nil);
+	SI_ERROR_SYS_CHECK_RET(thread->id == nil);
+
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
+	pthread_attr_t attr;
+	pthread_attr_t* attrPtr = nil;
+	if (thread->stack_size != 0) {
+		int res = pthread_attr_init(&attr);
+		if (res != 0) {
+			pthread_attr_setstacksize(&attr, (usize)thread->stack_size);
+			attrPtr = &attr;
 		}
+	}
 
-		pthread_t id;
-		{
-			int res = pthread_create(&id, attrPtr, si__threadProc, thread);
-			SI_ERROR_SYS_CHECK_RET(res != 0);
-		}
-		thread->id = id;
+	pthread_t id;
+	int res = pthread_create(&id, attrPtr, si__threadProc, thread);
 
-		if (attrPtr) {
-			pthread_attr_destroy(&attr);
-		}
-	#else
-		return SI_ERROR_NIL;
-	#endif
+	if (res != 0) {
+		si_systemErrorDeclare(out_error);
+		id = 0;
+	}
+	else {
+		thread->state = siThreadState_Running;
+	}
 
-	thread->state = siThreadState_Running;
+	thread->id = id;
+	if (attrPtr) {
+		pthread_attr_destroy(&attr);
+	}
+
+#else
 	return SI_ERROR_NIL;
+#endif
+
+	return 0;
 }
 
 SIDEF
-siError si_threadJoin(siThread* thread) {
+siSystemError (si_threadJoin)(siThread* thread, siError* out_error) {
 	SI_ASSERT_NOT_NIL(thread);
 	SI_ASSERT_NOT_NIL((void*)thread->id);
 
-	#if SI_SYSTEM_IS_WINDOWS
-		DWORD res = WaitForSingleObject(thread->id, INFINITE);
-		SI_ERROR_SYS_CHECK_RET(res != 0);
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
-		int res = pthread_join(thread->id, nil);
-		SI_ERROR_SYS_CHECK_RET(res != 0);
-	#endif
 
-	return SI_ERROR_NIL;
+#if SI_SYSTEM_IS_WINDOWS
+	DWORD res = WaitForSingleObject(thread->id, INFINITE);
+	SI_ERROR_SYS_CHECK_RET(res != 0);
+
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
+	int res = pthread_join(thread->id, nil);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
+
+#endif
+
+	return 0;
 }
 
 SIDEF
-siError si_threadDestroy(siThread* thread) {
+siSystemError (si_threadDestroy)(siThread* thread, siError* out_error) {
 	SI_ASSERT_NOT_NIL(thread);
-	SI_STOPIF(thread->id == 0, return SI_ERROR_NIL);
+	if (thread->id == 0) { return 0; }
+
 
 #if SI_SYSTEM_IS_WINDOWS
 	i32 res = CloseHandle(thread->id);
 	SI_ERROR_SYS_CHECK_RET(!res);
+	SI_UNUSED(out_error);
 #endif
+
 	thread->id = 0;
 	thread->state = siThreadState_Closed;
 
-	return SI_ERROR_NIL;
+	return 0;
 }
 
 #endif /* SI_IMPLEMENTATION_THREAD */
@@ -13897,7 +14003,7 @@ SIDEF
 siString si_dllError(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	/* TODO(EimaMei): Possibly use 'FormatMessage' instead. */
-	i32 err = si_systemGetError();
+	i32 err = si_systemError();
 	return (err) ? si_systemErrorName(err) : SI_STR_EMPTY;
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	char* error = dlerror();

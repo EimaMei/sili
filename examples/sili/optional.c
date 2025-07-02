@@ -63,19 +63,7 @@ void example1(void) {
 	str = create(true);
 	SI_ASSERT(str.hasValue);
 
-	/* For C11 and above targets, you can access any opional variable's value
-	 * via '.data' (or '.error' if it's an error).
-	 *
-	 * However, if you need to keep your code C99/C++20 compliant, you have to
-	 * use '.data.value' internally. for it to work on
-	 * multiple standards. */
-#if SI_STANDARD_CHECK_MIN(C, C11)
 	si_printfLn("create2(true) returned '%s'", str.value);
-
-#else
-	si_printfLn("create2(true) returned '%s'", str.data.value);
-
-#endif
 }
 
 /* Creates an optional object from the specified type and writes it into the
@@ -102,21 +90,21 @@ void example2(void) {
 		createOptional((Type)i, opt_array[i], alloc);
 	}
 
-	si_printfLn("Element 1: '%X'", opt_i32.data.value);
-	si_printfLn("Element 2: '%s'", opt_string.data.value);
-	si_printfLn("Element 3: '%s'", si_stringFromArray(opt_buffer.data.value, "%i", SI_ARR_STACK(64)));
-	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.data.value.high, opt_u128.data.value.low);
-	si_printfLn("Element 5: '%zd'", opt_type.data.value);
-	si_printfLn("Element 6: '%p'", opt_ptr.data.value);
+	si_printfLn("Element 1: '%X'", opt_i32.value);
+	si_printfLn("Element 2: '%s'", opt_string.value);
+	si_printfLn("Element 3: '%s'", si_stringFromArray(opt_buffer.value, "%i", SI_ARR_STACK(64)));
+	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.value.high, opt_u128.value.low);
+	si_printfLn("Element 5: '%zd'", opt_type.value);
+	si_printfLn("Element 6: '%p'", opt_ptr.value);
 }
 
 #define INVALID_ID 1
 #define ACCESS_DENIED 2
 
-/* Returns user information from the given index. If the identification is over
- * the total user count, 'INVALID_ID' is returned. If the user is an administrator,
- * 'ACCESS_DENIED' is returned. */
+/* Returns user information from the given index. */
 siResult(userInfo) get_name(isize identification);
+/* TODO */
+SI_ERROR_PROC(custom_error_log);
 
 void example3(void) {
 	si_print("==============\n\n==============\nExample 3:\n");
@@ -125,27 +113,17 @@ void example3(void) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
-			si_printfLn("ID %u: %s moneis - %u cents", id, res.data.value.name, res.data.value.moneis);
+			si_printfLn("ID %u: %s moneis - %u cents", id, res.value.name, res.value.moneis);
 		}
 		else {
-			#ifndef SI_NO_ERROR_STRUCT
-				siError err = res.data.error;
-				siString time = si_timeToString(si_timeToCalendar(err.time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64));
-				si_printfLn(
-					"Couldn't get info on ID '%u': Error '%u' ('%L', occurred on '%s')",
-					id, err.code, err.location, time
-				);
-			#else 
-				siError err = res.data.error;
-				si_printfLn("Couldn't get info on ID '%u': Error '%u'", id, err.code);
-			#endif
+			si_printLn("Something happened, I don't know.");
 		}
 	}
 }
 
 
 siOption(cstring) create(bool value) {
-	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_NIL(cstring);
+	return value ? SI_OPT(cstring, "Godzilla") : SI_OPT_ERR(cstring);
 }
 
 void createOptional(Type type, void* out, siAllocator alloc) {
@@ -176,10 +154,8 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 		} break;
 
 		case Type_funcPtr: {
-			typedef void (create_optional_type)(Type, void*, siAllocator);
-
 			siOptionPtr(void)* res = (siOptionPtr(void)*)out;
-			*res = SI_OPT_PTR(void, si_transmute(void*, createOptional, create_optional_type*));
+			*res = SI_OPT_PTR(void, transmute(void*, (typeof(createOptional)*)createOptional));
 		} break;
 
 		default: SI_PANIC();
@@ -193,11 +169,26 @@ siResult(userInfo) get_name(isize identification) {
 	};
 
 	if (identification >= countof(database)) {
-		return SI_OPT_ERR(userInfo, SI_ERROR(INVALID_ID));
+		si_errorDeclare(INVALID_ID, nil, custom_error_log, &identification);
+		return SI_OPT_ERR(userInfo);
 	}
 	else if (database[identification].isAdmin) {
-		return SI_OPT_ERR(userInfo, SI_ERROR(ACCESS_DENIED));
+		return SI_OPT_ERR(userInfo);
 	}
 
 	return SI_OPT(userInfo, database[identification]);
+}
+
+
+SI_ERROR_PROC(custom_error_log) {
+	siString time = si_timeToString(
+		si_timeToCalendar(error->time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
+	);
+			
+	si_printfLn(
+		"Couldn't get info on ID '%i': Error '%i' ('%L', occurred on '%s')",
+		*(isize*)data, error->code, error->location, time
+	);
+
+	return 0;
 }
