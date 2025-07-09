@@ -69,8 +69,8 @@ jobs:
         make static CC=clang EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
         
         # Build sili x86_64 & arm64 dynamic
-        make dynamic CC=clang -target x86_64-apple-macos10.12" NAME="sili_x86_64"
-        make dynamic CC=clang -target arm64-apple-macos11"     NAME="sili_arm64"
+        make dynamic CC=clang EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
+        make dynamic CC=clang EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
   
     - name: Generate Artifacts
       run: |
