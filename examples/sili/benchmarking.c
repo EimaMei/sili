@@ -36,7 +36,7 @@ int main(void) {
 }
 
 void function_regular(void) {
-	for_range (i, 0, countof(res)) {
+	for_range (i, 0, si_countof(res)) {
 		res[i] = first[i] + second[i];
 	}
 }

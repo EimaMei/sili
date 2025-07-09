@@ -9,7 +9,7 @@ int test_on = false;
 
 #define TEST_COMPLETE() \
 	test_on = false; \
-	si_printfLn("%CTest '%s' has been completed!%C", si_printColor3bit(siPrintColor3bit_Yellow, true), SI_FUNC);
+	si_printfLn("%CTest '%s' has been completed!%C", si_printColor3bit(siPrintColor3bit_Yellow, siPrintColorAnsiBits_Bold), SI_FUNC);
 
 
 #define ASSERT_FMT(condition, message, .../* fmt */) SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message), SI_ARGS(__VA_ARGS__)))
@@ -30,7 +30,7 @@ int test_on = false;
 #define TEST_EQ_CHAR(arg1, arg2) \
 	TEST_EQ(arg1, arg2, "%c")
 #define TEST_EQ_PTR(arg1, arg2) \
-	TEST_EQ((void*)arg1, (void*)arg2, "%p")
+	TEST_EQ(si_transmute(void*, arg1), si_transmute(void*, arg2), "%p")
 #define TEST_EQ_STR(arg1, arg2) \
 	ASSERT_FMT( \
 		si_stringEqual(arg1, arg2), \

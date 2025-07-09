@@ -20,7 +20,7 @@ typedef struct {
 typedef struct {
 	siString name;
 	bool isAdmin;
-	u32 moneis;
+	i64 moneis;
 } userInfo;
 
 /* For additional siOptional(<TYPE>) types, you need to define them once beforehand. */
@@ -92,9 +92,9 @@ void example2(void) {
 
 	si_printfLn("Element 1: '%X'", opt_i32.value);
 	si_printfLn("Element 2: '%s'", opt_string.value);
-	si_printfLn("Element 3: '%s'", si_stringFromArray(opt_buffer.value, "%i", SI_ARR_STACK(64)));
-	si_printfLn("Element 4: '0x%016lX|%016lX'", opt_u128.value.high, opt_u128.value.low);
-	si_printfLn("Element 5: '%zd'", opt_type.value);
+	si_printfLn("Element 3: '%s'", si_stringFromArray(SI_ARR_STACK(64), opt_buffer.value, SI_STR("%i"), si_typeid(i32)));
+	si_printfLn("Element 4: '0x%016X|%016X'", opt_u128.value.high, opt_u128.value.low);
+	si_printfLn("Element 5: '%d'", opt_type.value);
 	si_printfLn("Element 6: '%p'", opt_ptr.value);
 }
 
@@ -113,10 +113,10 @@ void example3(void) {
 		siResult(userInfo) res = get_name(id);
 
 		if (res.hasValue) {
-			si_printfLn("ID %u: %s moneis - %u cents", id, res.value.name, res.value.moneis);
+			si_printfLn("ID %i: %s moneis - %i cents", id, res.value.name, res.value.moneis);
 		}
 		else {
-			si_printLn("Something happened, I don't know.");
+			si_printLn("Something bad happened — I don't know what, tho.");
 		}
 	}
 }
@@ -155,7 +155,7 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 
 		case Type_funcPtr: {
 			siOptionPtr(void)* res = (siOptionPtr(void)*)out;
-			*res = SI_OPT_PTR(void, transmute(void*, (typeof(createOptional)*)createOptional));
+			*res = SI_OPT_PTR(void, si_transmute(void*, (typeof(createOptional)*)createOptional));
 		} break;
 
 		default: SI_PANIC();
@@ -165,14 +165,15 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 siResult(userInfo) get_name(isize identification) {
 	static userInfo database[] = {
 		{SI_STRC("Joe"), false, 4000 * 100},
-		{SI_STRC("Gitanas Nausėda"), true, UINT32_MAX}
+		{SI_STRC("Gitanas Nausėda"), true, INT64_MAX}
 	};
 
-	if (identification >= countof(database)) {
+	if (identification >= si_countof(database)) {
 		si_errorDeclare(INVALID_ID, nil, custom_error_log, &identification);
 		return SI_OPT_ERR(userInfo);
 	}
 	else if (database[identification].isAdmin) {
+		si_errorDeclare(ACCESS_DENIED, nil, custom_error_log, &identification);
 		return SI_OPT_ERR(userInfo);
 	}
 
@@ -184,9 +185,10 @@ SI_ERROR_PROC(custom_error_log) {
 	siString time = si_timeToString(
 		si_timeToCalendar(error->time), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
 	);
-			
+
 	si_printfLn(
-		"Couldn't get info on ID '%i': Error '%i' ('%L', occurred on '%s')",
+		"%CCouldn't get info on ID '%i':%C Error '%i' ('%L', occurred on '%s')",
+		si_printColor3bit(siPrintColor3bit_Red, siPrintColorAnsiBits_Bold),
 		*(isize*)data, error->code, error->location, time
 	);
 

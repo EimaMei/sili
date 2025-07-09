@@ -115,7 +115,7 @@ SIDEF bool sifig_iniIterateEx(siIniIterator* it, siString comment);
 
 inline
 siIniFile sifig_iniMake(siString path, siAllocator alloc) {
-	siString tmp = si_pathReadContents(path, si_allocatorHeap());
+	siString tmp = si_pathReadContentsStr(path, si_allocatorHeap());
 	siIniFile res = sifig_iniMakeStr(tmp, alloc);
 	si_mfree((void*)tmp.data);
 

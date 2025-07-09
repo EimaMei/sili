@@ -14,7 +14,7 @@ int main(void) {
 
 #define bit__test(func, check, bit) { \
 	u64 tests[] = {UINT64_MAX, SI_BIT(63), 1, 0xAAAAAAA, 0x22041}; \
-	for_range (j, 0, countof(tests)) { \
+	for_range (j, 0, si_countof(tests)) { \
 		for_range (k, 0, 2) { \
 			u64 test_in = tests[j]; \
 			for_range (i, 0, 65) { \

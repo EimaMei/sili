@@ -12,25 +12,40 @@ usize cpu_archBit(void) {
 	#endif
 }
 
-
 force_inline
 cstring standard(void) {
 	static char res[] =
 		#if SI_LANGUAGE_IS_C
-			#if SI_STANDARD_VERSION == SI_STANDARD_C99
-				"C99";
+			#if   SI_STANDARD_VERSION == SI_STANDARD_C89
+				"C89";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C99
+				"C89";
 			#elif SI_STANDARD_VERSION == SI_STANDARD_C11
 				"C11";
 			#elif SI_STANDARD_VERSION == SI_STANDARD_C17
 				"C17";
-			#elif SI_STANDARD_VERSION > SI_STANDARD_C17
-				"C2x";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_C23
+				"C23";
+			#elif SI_STANDARD_VERSION > SI_STANDARD_C23
+				"C2y";
 			#endif
 		#elif SI_LANGUAGE_IS_CPP
-			#if SI_STANDARD_VERSION == SI_STANDARD_CPP20
+			#if   SI_STANDARD_VERSION == SI_STANDARD_CPP98
+				"C++98";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP03
+				"C++03";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP11
+				"C++11";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP14
+				"C++14";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP17
+				"C++17";
+			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP20
 				"C++20";
 			#elif SI_STANDARD_VERSION == SI_STANDARD_CPP23
 				"C++23";
+			#elif SI_STANDARD_VERSION >= SI_STANDARD_CPP26
+				"C++26";
 			#endif
 		#endif
 
@@ -47,7 +62,7 @@ int main(void) {
 	si_printf(
 		"Information about the system:\n\t"
 			"Operating System - '%s'\n\t"
-			"CPU Architecture - '%s' (%zd-bit)\n\t"
+			"CPU Architecture - '%s' (%d-bit)\n\t"
 			"Target endian - '%s'\n"
 		"Compilation info:\n\t"
 			"Compiler - '%s'\n\t"
@@ -58,15 +73,15 @@ int main(void) {
 		SI_ENDIAN_STR, SI_COMPILER_STR, SI_LANGUAGE_STR, standard()
 	);
 
-	si_printfLn("'usize' contains '%zi' bits on this CPU architecture.", si_sizeof(usize) * 8);
+	si_printfLn("'usize' contains '%i' bits on this architecture.", si_sizeof(usize) * 8);
 
-	u16 adr = 0xFFFE;
+	u16 adr = 0b1111111111111110;
 	si_printfLn(
 		"Number of 1s in 'adr': '%i', number of 0s: '%d'",
-		si_countOnes(u32, adr), si_countZeros(u32, adr)
+		si_countOnes(u16, adr), si_countZeros(u16, adr)
 	);
 
-	u8 leadTrailNum = 248;
+	u8 leadTrailNum = 0b11111000;
 	si_printfLn(
 		 "Leading 1s of '%#b': '%i', trailing 0s: '%i'",
 		 leadTrailNum,
@@ -74,16 +89,16 @@ int main(void) {
 	);
 
 	u32 rotateAdr = si_bitsRotateLeft(u32, 0x00001234, 24);
-	si_printfLn("Rotating '0x00001234' left by 24 bits: '%#08X'", rotateAdr);
+	si_printfLn("Rotating '0x00001234'  left by 24 bits: '%#08X'", rotateAdr);
 
 	rotateAdr = si_bitsRotateRight(u32, rotateAdr, 24);
 	si_printfLn("Rotating '0x34000012' right by 24 bits: '%#08X'", rotateAdr);
 
 	u64 val = 0x1234567890123456;
-	si_printfLn("Reversing the bits of '%#lX' gives us: '%#lX'", val, si_bitsReverse(u64, val));
+	si_printfLn("Reversing the bits of '%#X' gives us: '%#X'", val, si_bitsReverse(u64, val));
 
 	siArray(u8) buffer = si_bytesToArray(u32, 0xFF00EEAA, alloc);
-	si_printfLn("buffer: %s, (len: %zd)", si_stringFromArray(buffer, "%#hhX", SI_ARR_STACK(64)), buffer.len);
+	si_printfLn("buffer: %s, (len: %d)", si_stringFromArray(SI_ARR_STACK(64), buffer, SI_STR("%#X"), si_typeid(u8)), buffer.len);
 
 	u32 newNum = (u32)si_bytesFromArray(buffer);
 	si_printfLn("Combining them all back, we get '%#X'", newNum);

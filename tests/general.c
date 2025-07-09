@@ -27,7 +27,7 @@ int main(void) {
 		TEST_EQ_INT(SI_BIT(63), 0x8000000000000000);
 		TEST_EQ_INT(nil, (void*)0);
 
-		isize m = transmute(isize, USIZE_MAX);
+		isize m = si_transmute(isize, USIZE_MAX);
 		TEST_EQ_INT(m, (isize)-1);
 
 #if SI_ENDIAN_IS_LITTLE
@@ -71,7 +71,7 @@ int main(void) {
 
 	{
 		siAllocator alloc = si_allocatorHeap();
-		TEST_EQ_PTR(alloc.proc, si_allocatorHeap_proc);
+		TEST_EQ_PTR(alloc.proc, &si_allocatorHeap_proc);
 		TEST_EQ_NIL(alloc.data);
 
 		void* ptr = si_alloc(alloc, SI_KILO(1));
@@ -79,18 +79,18 @@ int main(void) {
 		si_free(alloc, ptr);
 
 		isize avail = si_allocatorMemAvailable(alloc);
-		TEST_EQ_INT(avail, -1);
+		TEST_EQ_INT(avail, 0);
 	} SUCCEEDED();
 
 	{
 		siArena aData = si_arenaMake(si_allocatorHeap(), SI_MEGA(1));
-		TEST_EQ_PTR((void*)aData.alloc.proc, (void*)si_allocatorHeap_proc);
+		TEST_EQ_PTR(aData.alloc.proc, &si_allocatorHeap_proc);
 		TEST_EQ_INT(aData.offset, 0);
 		TEST_EQ_INT(aData.capacity, SI_MEGA(1));
 		TEST_NEQ_NIL(aData.ptr);
 
 		siAllocator alloc = si_allocatorArena(&aData);
-		TEST_EQ_PTR(alloc.proc, si_allocatorArena_proc);
+		TEST_EQ_PTR(alloc.proc, &si_allocatorArena_proc);
 		TEST_EQ_PTR(alloc.data, &aData);
 
 		void* ptr = si_alloc(alloc, SI_KILO(1));
@@ -111,14 +111,14 @@ int main(void) {
 
 	{
 		siPool pData = si_poolMake(si_allocatorHeap(), 3, 32);
-		TEST_EQ_PTR(pData.alloc.proc, si_allocatorHeap_proc);
+		TEST_EQ_PTR(pData.alloc.proc, &si_allocatorHeap_proc);
 		TEST_EQ_INT(pData.chunkSize, 32);
 		TEST_EQ_INT(pData.numChunks, 3);
 		TEST_NEQ_NIL(pData.ptr);
 		TEST_NEQ_NIL(pData.head);
 
 		siAllocator alloc = si_allocatorPool(&pData);
-		TEST_EQ_PTR(alloc.proc, si_allocatorPool_proc);
+		TEST_EQ_PTR(alloc.proc, &si_allocatorPool_proc);
 		TEST_EQ_PTR(alloc.data, &pData);
 
 		void* previousHead = pData.head;
@@ -135,10 +135,10 @@ int main(void) {
 
 		si_allocNonZeroed(alloc, 24);
 
-		siAllocationError err;
+		siError err;
 		avail = si_allocatorMemAvailable(alloc, &err);
 		TEST_EQ_INT(avail, 0);
-		TEST_EQ_INT(err, siAllocationError_None);
+		TEST_EQ_INT(err.code, siAllocationError_None);
 
 		si_freeAll(alloc);
 		avail = si_allocatorMemAvailable(alloc);
@@ -157,7 +157,6 @@ int main(void) {
 		TEST_EQ_INT(opt.hasValue, 1);
 		TEST_EQ_INT(opt.value, 19920216ULL);
 
-		siError tmp = SI_STRUCT_ZERO;
 		opt = SI_OPT_ERR(u64);
 		TEST_EQ_INT(opt.hasValue, false);
 

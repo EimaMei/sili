@@ -42,7 +42,7 @@ int main(void) {
 	si_printf("DE: %i\n", de);
 
 #endif
-	i32 count = si_cpuProcessorCount();
+	isize count = si_cpuProcessorCount();
 	TEST_NEQ_INT(count, 0);
 
 	TEST_COMPLETE();

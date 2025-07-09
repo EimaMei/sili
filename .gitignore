@@ -18,9 +18,9 @@ lib/
 *.json
 Dockerfile
 *.mp3
+ideas_2.txt
 ideas.txt
 *.obj
-lt.txt
 
 # Later
 siarg.h 

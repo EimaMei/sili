@@ -133,7 +133,7 @@ void* thread_test(void* arg) {
 	i16 count = INT16_MIN;
 
 	if (loop) {
-		si_printfLn("The function will increment 'count' from %d to %d:", INT16_MIN, INT16_MAX);
+		si_printfLn("The function will increment 'count' from %i to %i:", INT16_MIN, INT16_MAX);
 		si_sleep(SI_TIME_SEC(2));
 		while (count < INT16_MAX) {
 			count += 1;
@@ -145,7 +145,7 @@ void* thread_test(void* arg) {
 		si_printLn("Exiting the thread now.");
 	}
 
-	return transmute(void*, count);
+	return si_transmute(void*, count);
 }
 
 void* thread_matrix(void* mData) {

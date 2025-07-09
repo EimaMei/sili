@@ -64,11 +64,11 @@ int main(void) {
 	TEST_PRINT("qwertyuiop\n", "%s\n", SI_STR("qwertyuiop"));
 
 	si_printLn(SI_STR("================\nPrint colour tests:\nANSI/3-bit colour:"));
-	for_rangeEx (u8, id, siPrintColor3bit_Black, siPrintColor3bit_White + 1) {
+	for_range (id, siPrintColor3bit_Black, (u8)8) {
 		siPrintColor clr = si_printColor3bit(id),
-					 bold = si_printColor3bit(id, true),
-					 light = si_printColor3bit(id, false, true),
-					 both = si_printColor3bit(id, true, true);
+					 bold = si_printColor3bit(id, siPrintColorAnsiBits_Bold),
+					 light = si_printColor3bit(id, siPrintColorAnsiBits_Light),
+					 both = si_printColor3bit(id, siPrintColorAnsiBits_Bold | siPrintColorAnsiBits_Light);
 		si_printfLn("\t%CColor %i:%C %CBold%C %CLight%C %CAll%C", clr, id, bold, light, both);
 	}
 
@@ -83,10 +83,10 @@ int main(void) {
 	}
 	si_printf("\n24-bit colour (%t):\n\t", si_printHas24bitColor());
 
-    for_rangeEx (i32, column, 0, 77) {
-        i32 r = 255 - (column * 255 / 76);
-        i32 g = (column * 510 / 76);
-        i32 b = (column * 255 / 76);
+    for_range (column, 0, 77) {
+        isize r = 255 - (column * 255 / 76);
+        isize g = (column * 510 / 76);
+        isize b = (column * 255 / 76);
 
         if (g > 255) {
             g = 510 - g;

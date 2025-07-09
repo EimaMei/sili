@@ -51,11 +51,11 @@ jobs:
       
     - name: Tests
       run: |
-        make compile_tests CC=clang
+        make compile_tests CC=clang MODE=DEBUG
 
     - name: Examples
       run: |
-        make compile_examples CC=clang
+        make compile_examples CC=clang MODE=DEBUG
 
     - name: Build Library
       run: |
@@ -65,20 +65,12 @@ jobs:
         brew install grep
         
         # Build sili x86_64 & arm64 static
-        make static CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-target x86_64-apple-macos10.12" NAME="sili_x86_64"
-        make static CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-target arm64-apple-macos11" NAME="sili_arm64"
-        
-        # Join x86_64 and arm64 static
-        lipo -create -output build/${{ env.RELEASE_NAME }}/lib/libsili.a /tmp/libsili_x86_64.a /tmp/libsili_arm64.a
+        make static CC=clang EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
+        make static CC=clang EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
         
         # Build sili x86_64 & arm64 dynamic
-        make dynamic CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-fPIC -target x86_64-apple-macos10.12" NAME="sili_x86_64"
-        make dynamic CC=clang OUTPUT="/tmp" EXTRA_FLAGS="-fPIC -target arm64-apple-macos11" NAME="sili_arm64"
-        
-        # Join sili and arm64 dynamic
-        rm -f ./build/lib/*
-        lipo -create -output libsili.dylib /tmp/libsili_x86_64.dylib /tmp/libsili_arm64.dylib
-        ln -sv libsili.dylib  build/${{ env.RELEASE_NAME }}/lib/libsili.dylib
+        make dynamic CC=clang -target x86_64-apple-macos10.12" NAME="sili_x86_64"
+        make dynamic CC=clang -target arm64-apple-macos11"     NAME="sili_arm64"
   
     - name: Generate Artifacts
       run: |
@@ -86,6 +78,10 @@ jobs:
         mkdir -p build/include
         mkdir -p build/lib
         cp -v ./sili.h ./build/${{ env.RELEASE_NAME }}/include
+        cp -v ./build/libsili_x86_64.a ./build/${{ env.RELEASE_NAME }}/lib/libsili_x86_64.a
+        cp -v ./build/libsili_arm64.a ./build/${{ env.RELEASE_NAME }}/lib/libsili_arm64.a
+        cp -v ./build/libsili_x86_64.dylib ./build/${{ env.RELEASE_NAME }}/lib/libsili_x86_64.dylib
+        cp -v ./build/libsili_arm64.dylib ./build/${{ env.RELEASE_NAME }}/lib/libsili_arm64.dylib
         cp -v ./README.md ./build/${{ env.RELEASE_NAME }}/README.md
         cp -v ./LICENSE ./build/${{ env.RELEASE_NAME }}/LICENSE
         cd build

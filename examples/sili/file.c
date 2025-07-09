@@ -33,7 +33,7 @@ void example1(siAllocator alloc) {
 	siArena aData = si_arenaMakePtr(si_stackAlloc(SI_KILO(4)));
 	siAllocator stack = si_allocatorArena(&aData);
 
-	si_printf("==============\n\n==============\nExample 1:\n");
+	si_printfLn("==============\n\n==============\nExample 1:");
 	siString file_random = SI_STR("random.txt");
 	siString file_examples_file = SI_STR("examples/sili/file.c");
 
@@ -41,7 +41,7 @@ void example1(siAllocator alloc) {
 	 * get an assertion error. */
 	{
 		siFile newFile = si_fileCreate(file_random);
-		si_fileWriteStr(newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else."));
+		si_fileWriteStr(newFile, SI_STR("A silly file\nwith three sili newlines\nbut not much else.\n"));
 
 		siString content = si_fileReadContentsStr(newFile, alloc);
 		content = si_stringReplaceAll(content, SI_STR("\n"), SI_STR("\\n"), alloc);
@@ -49,7 +49,7 @@ void example1(siAllocator alloc) {
 		si_printf(
 			"About 'random.txt':\n\t"
 				"Full path - '%s'\n\t"
-				"Size - '%zu' bytes\n\t"
+				"Size - '%i' bytes\n\t"
 				"Content - '%s'\n\n",
 			si_pathGetFullName(file_random, stack), content.len, content
 		);
@@ -62,19 +62,19 @@ void example1(siAllocator alloc) {
 		si_printfLn(
 			"About 'examples/sili/file.c':\n\t"
 				"Full path - '%s'\n\t"
-				"Size - '%zu' bytes",
+				"Size - '%i' bytes",
 			si_pathGetFullName(file_examples_file, stack), si_fileSize(file)
 		);
 
 		siArray(siString) lines = si_fileReadlines(file, alloc);
 		si_printfLn(
-			"Contents of '%s' ('%zd' lines in total):",
+			"Contents of '%s' ('%i' lines in total):",
 			si_pathBaseName(file_examples_file), lines.len
 		);
 
 		siString line;
 		for_eachArrEx (line, i, lines) {
-			si_printfLn("\tLine %zu (%zu bytes): '%s'", i + 1, line.len, line);
+			si_printfLn("\tLine %2i (%3i bytes): '%s'", i + 1, line.len, line);
 		}
 		si_fileClose(file);
 	}
@@ -100,15 +100,15 @@ void example2(void)	{
 		}
 
 		isize error = si_pathCopy(str_random, str_random2);
-		si_printf(
-			"Does 'random-2.txt' exist: %t (returned bytes: '%i')\n\n",
+		si_printfLn(
+			"Does 'random-2.txt' exist: %t (returned bytes: '%i')",
 			si_pathExists(str_random2), error
 		);
 
 		siSystemError res = si_pathMove(str_random, str_renamed); // 'si_pathRename' does the same thiing as well.
-		si_printf(
+		si_printfLn(
 			"Does 'random.txt' exist: %t\n"
-			"'renamed.txt' outputs a %t (%s)\n\n",
+			"'renamed.txt' outputs a %t (%s)",
 			si_pathExists(str_random), si_pathExists(str_renamed), si_systemErrorName(res)
 		);
 
@@ -120,15 +120,20 @@ void example2(void)	{
 
 		res = si_pathRemove(str_renamed);
 		si_printfLn(
-			"Does 'renamed.txt' exist: '%t' (res: res)",
+			"Does 'renamed.txt' exist: '%t', ",
 			si_pathExists(str_renamed), si_systemErrorName(res)
 		);
 	}
 
 	{
-		siString path = SI_STR("example.tar.gz");
+		si_pathCreateFolder(SI_STR("some_si_folder"));
+		siString path = SI_STR("some_si_folder/example.tar.gz");
+	
+		siFile file = si_fileCreate(path);
+		si_fileClose(file);
+
 		si_printfLn(
-			"Information about '%s':\n\t"
+			"\nInformation about '%s':\n\t"
 				"Base name - '%s'\n\t"
 				"Full path - '%s'\n\t"
 				"Stem - '%s'\n\t"
@@ -137,11 +142,13 @@ void example2(void)	{
 				"Long extension - '%s'\n\t"
 				"Is relative: %t",
 			path,
-			si_pathBaseName(path),  si_pathGetFullName(path, stack), 
-			si_pathStem(path), si_pathShortStem(path), 
-			si_pathExtension(path), si_pathLongExtension(path), 
+			si_pathBaseName(path),  si_pathGetFullName(path, stack),
+			si_pathStem(path), si_pathShortStem(path),
+			si_pathExtension(path), si_pathLongExtension(path),
 			si_pathIsRelative(path)
 		);
+
+		si_pathRemove(SI_STR("some_si_folder"));
 	}
 }
 
@@ -160,16 +167,26 @@ void example3(void)	{
 		siFile file_handle = si_fileCreate(file_path);
 
 		lastWriteTime = si_fileLastWriteTime(file_handle);
-		si_printfLn("Last write time: %lu", lastWriteTime);
+		si_printfLn(
+			"Last write time: %s - %i",
+			si_timeToString(
+				si_timeToCalendar(lastWriteTime), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
+			), 
+			lastWriteTime
+		);
 
 		si_sleep(SI_TIME_SEC(1));
 		si_fileWriteStr(file_handle, SI_STR("random garbage"));
 
 		curWriteTime = si_pathLastWriteTime(file_path);
 		si_printfLn(
+			"Last write time: %s - %i\n"
 			"Has the file been changed?: %t (%i difference)",
-			lastWriteTime != curWriteTime,
-			curWriteTime - lastWriteTime
+			si_timeToString(
+				si_timeToCalendar(curWriteTime), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
+			), 
+			curWriteTime, 
+			lastWriteTime != curWriteTime, curWriteTime - lastWriteTime
 		);
 
 		si_fileClose(file_handle);
@@ -204,8 +221,8 @@ void example4(void) {
 		siFile file = si_fileCreate(SI_STR(ROOT_PATH "/secret.txt"));
 		si_fileWriteStr(file, SI_STR(ROOT_PATH));
 		si_fileClose(file);
-		si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret.link"));
-		si_pathCreateHardLink(SI_STR(ROOT_PATH "/hardLinkToSecret.link"), SI_STR(ROOT_PATH "/softLinkToHardLink.link"));
+		si_pathCreateHardLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/hardLinkToSecret"));
+		si_pathCreateSoftLink(SI_STR(ROOT_PATH "/secret.txt"), SI_STR(ROOT_PATH "/softLinkToSecret"));
 	}
 
 	siDirectory dir = si_directoryOpen(SI_STR(ROOT_PATH));
@@ -214,7 +231,7 @@ void example4(void) {
 	usize count = 0;
 	while (si_directoryIterate(&dir, &it)) {
 		si_printfLn(
-			"%zu: %s ('%zu' bytes, type '%i')",
+			"%i: %s ('%i' bytes, type '%i')",
 			count, it.path, it.path.len, it.type
 		);
 		count += 1;
@@ -227,20 +244,19 @@ void example5(siAllocator* alloc) {
 	si_printLn("==============\n\n==============\nExample 5:\n");
 
 	si_printfLn("Characters: %c %c", 'a', 65);
-	si_printfLn("Decimals: %d %d %lu", 1977, 65000L, UINT64_MAX);
+	si_printfLn("Decimals: %d %d %i", 1977, 65000L, UINT64_MAX);
 	si_printfLn("Preceding with blanks: %10d", 1977);
-	si_printfLn("Preceding with zeros: %010d", 1977);
+	si_printfLn("Preceding with  zeros: %010d", 1977);
 	si_printfLn("Some different radices: %d %x %o %#x %#o", 100, 100, 100, 100, 100);
 	si_printfLn("Floats: %4.2f %+.0e %E %g", 3.1416, 3333333333333.1416, 3.1416, 1234.062400);
 	si_printfLn("Width trick: %*d", 5, 10);
 	si_printfLn("%.5s", SI_STR("A string"));
 	si_printfLn("%t - %t (%#b, %#b)", true, false, true, false);
 	si_printfLn("Pointer to the heap: %p", alloc);
-	si_printfLn("This will print nothing: '%n', 100%%.", nil);
 	si_printfLn(
 		"%CThis text will be displayed in red%C, while this - %Cin blue%C!\n"
 		"%CSome terminals might support 8-bit color%C, %Csome may even have 24-bit color support.%C",
-		si_printColor3bit(siPrintColor3bit_Red), si_printColor3bit(siPrintColor3bit_Blue, true, true),
+		si_printColor3bit(siPrintColor3bit_Red), si_printColor3bit(siPrintColor3bit_Blue, siPrintColorAnsiBits_Bold | siPrintColorAnsiBits_Light),
 		si_printColor8bit(202), si_printColor24bit(90, 242, 166)
 	);
 	si_fprintfLn(

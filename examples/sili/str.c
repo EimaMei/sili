@@ -42,24 +42,24 @@ void example1(siAllocator alloc) {
 		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
 
 		si_builderWriteByte(&b, '.');
-		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		si_builderWriteRune(&b, u'й');
-		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		si_builderWriteStrQuoted(&b, SI_STR("Hello world."));
-		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"),  u'„', u'“');
-		si_printfLn("\tstr: '%.*s', len: '%i'", b.len, b.data, b.len);
+		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		siString str = si_builderToStr(b);
-		i32 front = si_stringAtFront(str);
-		i32 back = si_stringAtBack(str);
-		si_printfLn("\tfront: '%lc', back: '%lc'", front, back);
+		siRune front = si_stringAtFront(str);
+		siRune back = si_stringAtBack(str);
+		si_printfLn("\tfront: '%r', back: '%c'", front, back);
 	}
 
-	si_printf("Scope 3:");
+	si_printfLn("Scope 3:");
 	{
 		siString str = SI_STR("Geri vyrai geroj girioj gerą girą gėrė ir gerdami gyrė: geriems vyrams geroj girioj gerą girą gera gert.");
 		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
@@ -86,7 +86,7 @@ void example1(siAllocator alloc) {
 		str = si_stringTrim(str, SI_STR("s"));
 		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
-		str = si_stringInsert(str, SI_STR("the "), countof_str("maug "), alloc);
+		str = si_stringInsert(str, SI_STR("the "), si_countof_str("maug "), alloc);
 		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		str = si_stringRemoveAll(str, SI_STR("gigant"), alloc);
@@ -100,7 +100,7 @@ void example1(siAllocator alloc) {
 		si_printfLn("\tstr: '%s', len: '%i'", str, str.len);
 
 		siArray(siString) list = si_stringSplit(str, SI_STR("."), alloc);
-		si_printfLn("\tElements: %s", si_stringFromArray(list, "%s", SI_ARR_STACK(64)));
+		si_printfLn("\tElements: %s", si_stringFromArray(SI_ARR_STACK(64), list, "%s", si_typeid(siString)));
 	}
 
 	si_printLn("Scope 6:");
@@ -140,9 +140,9 @@ void example2(siAllocator alloc) {
 		si_printfLn("str: \"%s\"", str);
 
 		i64 num = si_stringToInt(SI_STR("  9300  "));
-		si_printfLn("num: %li", num);
+		si_printfLn("num: %i", num);
 
-		str = si_stringFromFloat((f64)FLOAT32_MAX, si_arrayMakeReserve(u8, 128, alloc));
+		str = si_stringFromFloat(si_arrayMakeReserve(u8, 128, alloc), (f64)FLOAT32_MAX);
 		si_printfLn("str: %s", str);
 
 		siArray(siString) arr = SI_ARR(siString, SI_STR("/home"), SI_STR("user"), SI_STR("Desktop"), SI_STR("RANDOM-ąčęėįšųū-òàèéç-йцукенвыамсч.txt"));
@@ -173,8 +173,8 @@ void example2(siAllocator alloc) {
 		si_mapClear(&m);
 		print_map(SI_STR("4) After clear: "), m);
 
-		si_mapFree(m); /* We don't need to call free here (in fact this results in 
-						a printed error), since the allocator is an arena and free 
+		si_mapFree(m); /* We don't need to call free here (in fact this results in
+						a printed error), since the allocator is an arena and free
 						cannot be implemented. */
 	}
 }

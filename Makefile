@@ -5,9 +5,9 @@
 # WIN32_MSVC, OS_X, LINUX, WASM_WASI, WASM_EMCC, DEFAULT. Selecting 'DEFAULT' 
 # makes the Makefile automatically guess which platform to target.
 #
-# 	MODE - sets the release mode to compile for. Current values: FAST, MODE, 
+# 	MODE - sets the release mode to compile for. Current values: FAST, DEBUG, 
 # RELEASE. 'FAST' disables all flags and enables ones requires for fast compilation. 
-# 'MODE' turns on all warnings as well as flags to help with MODEging/finding 
+# 'DEBUG' turns on all warnings as well as flags to help with debugging/finding 
 # problematic code. 'RELEASE' turns on all optimisations as well as warnings.
 # 
 # 	LANGUAGE - selects which programming language to target. Currently C and C++ 
@@ -18,13 +18,38 @@ PLATFORM  = DEFAULT
 MODE      = FAST
 LANGUAGE  = C
 
-# Building options:
-#	NAME   - the executable name.
-#	SRC    - source file to target.
-#	OUTPUT - the directory where all of the output goes to.
+
+# General building options:
+#	EXTRA_FLAGS - any additional compiler flags to use.
+#
+#	OUTPUT      - the directory where all of the output goes to.
+
+EXTRA_FLAGS =
+OUTPUT      = build
+
+
+# Building executable options:
+#	NAME - the executable name.
+#
+#	SRC  - source file to target.
+
 NAME   = basic
-SRC    = examples/sili/optional.c
-OUTPUT = build
+SRC    = examples/sili/array.c
+
+
+# Building library options:
+#	LIB_NAME   - the library name.
+#
+#	LIB_AR     - the executable used for creating a static library. If this 
+# argument is set to 'DEFAULT', a program will be automatically picked out.
+#
+#   LIB_LINKER - exexcutable used for creating a dynamic library. If this 
+# argument is set to 'DEFAULT', a program will be automatically picked out.
+
+LIB_NAME   = sili
+LIB_AR     = DEFAULT
+LIB_LINKER = DEFAULT
+
 
 
 ifeq ($(PLATFORM),DEFAULT)
@@ -58,7 +83,11 @@ endif
 
 
 ifeq ($(MODE),FAST)
-	GNU_FLAGS += -O0 -flto 
+	GNU_FLAGS += -O0 
+	
+	ifneq ($(MAKECMDGOALS),dynamic)
+	GNU_FLAGS += -flto
+	endif
 
 else
 	GNU_FLAGS += \
@@ -99,8 +128,11 @@ else
 			-D SI_RELEASE_MODE \
 			-fno-delete-null-pointer-checks \
 			-fno-strict-aliasing \
-			-ftrivial-auto-var-init=zero \
-			-flto
+			-ftrivial-auto-var-init=zero
+
+		ifneq ($(MAKECMDGOALS),dynamic)
+		GNU_FLAGS += -flto
+		endif
 	endif
 endif
 
@@ -137,6 +169,12 @@ ifeq ($(PLATFORM),WIN32_GNU)
 	LIBS = -lkernel32 -lole32 -lopengl32
 	EXE_OUT = .exe
 
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif
+	DLL_OUT = .dll
+
 else ifeq ($(PLATFORM),WIN32_MSVC)
 	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
 	INCLUDES = -I"." -I"include"
@@ -147,12 +185,25 @@ else ifeq ($(PLATFORM),WIN32_MSVC)
 	LIBS =
 	EXE_OUT = .exe
 
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif
+	DLL_OUT = .dll
+
 else ifeq ($(PLATFORM),OS_X)
 	FLAGS = $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS    = -lpthread -ldl
 	EXE_OUT =
+
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif 
+	DLL_FLAGS = -fPIC
+	DLL_OUT   = .dylib
 
 else ifeq ($(PLATFORM),LINUX)
 	FLAGS = $(GNU_FLAGS)
@@ -161,12 +212,25 @@ else ifeq ($(PLATFORM),LINUX)
 	LIBS    = -lpthread -ldl -lX11 -lXrandr -lGL
 	EXE_OUT =
 
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif
+	DLL_FLAGS = -fPIC
+	DLL_OUT   = .so
+
 else ifeq ($(PLATFORM),WASM_WASI)
 	FLAGS = --target=wasm32-wasi $(GNU_FLAGS)
 	INCLUDES = $(GNU_INCLUDES)
 
 	LIBS =
 	EXE_OUT = .wasm
+
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif
+	DLL_FLAGS = -fPIC
 
 else ifeq ($(PLATFORM),WASM_EMCC)
 	FLAGS = --target=wasm32-unknown-emscripten -s WASM=1 -s ASYNCIFY -s PTHREAD_POOL_SIZE=4 \
@@ -175,6 +239,13 @@ else ifeq ($(PLATFORM),WASM_EMCC)
 
 	LIBS    = -pthread
 	EXE_OUT = .html
+
+	ifeq ($(LIB_AR),DEFAULT)
+	LIB_AR     = ar
+	LIB_LINKER = $(CC)
+	endif
+	DLL_FLAGS = -fPIC
+	DLL_OUT   = .so
 
 else
 	$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
@@ -197,7 +268,19 @@ clean:
 
 
 $(EXE): $(SRC) sili.h Makefile examples/*
-	$(CC) $(FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
+	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
+
+static:
+    ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
+		$(CC) $(FLAGS) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
+		$(LIB_AR) rcs "$(OUTPUT)/lib$(LIB_NAME).a" "$(OUTPUT)/$(LIB_NAME).o"
+    endif
+
+dynamic:
+    ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
+		$(CC) $(FLAGS) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) $(DLL_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
+    endif
+	$(LIB_LINKER) $(LIBS) $(EXTRA_FLAGS) $(DLL_FLAGS) -shared -o "$(OUTPUT)/lib$(LIB_NAME)$(DLL_OUT)" "$(OUTPUT)/$(LIB_NAME).o"
 
 
 # Compile and run every example.
