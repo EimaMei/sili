@@ -76,7 +76,11 @@ endif
 
 
 ifeq ($(LANGUAGE),C)
-	GNU_FLAGS = -std=c23 -x c -Wvla
+	ifneq ($(PLATFORM),OS_X) 
+		GNU_FLAGS = -std=c23 -x c -Wvla
+	else 
+		GNU_FLAGS = -std=c2x -x c -Wvla
+	endif
 else ifeq ($(LANGUAGE),CPP)
 	GNU_FLAGS = -std=c++11 -x c++ -fno-exceptions
 endif
@@ -110,7 +114,11 @@ else
 		-Wmissing-noreturn \
 		\
 		-fwrapv -fstrict-aliasing \
-		-fstrict-flex-arrays=3 -fno-omit-frame-pointer
+		-fno-omit-frame-pointer
+
+	ifneq ($(PLATFORM),OS_X) 
+		GNU_FLAGS += -fstrict-flex-arrays=3
+	endif
 
 	ifneq (,$(filter $(CC),gcc g++))
 		GNU_FLAGS += -Wcast-align=strict -Wlogical-op
