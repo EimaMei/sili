@@ -13212,8 +13212,9 @@ isize (si_fileSeek)(siFile file, isize offset, siSeekWhere method, siError* out_
 		: (isize)res.QuadPart;
 
 #elif SI_SYSTEM_IS_APPLE
-	n = lseek((int)file.handle, offset, method);
-	if (n == -1 && out_error) { *out_error = si_systemError(); }
+	isize count = lseek((int)file, offset, (i32)method);
+	if (count == -1) { si_systemErrorDeclare(out_error); }
+	return count;
 
 #elif SI_SYSTEM_IS_UNIX
 	isize count = lseek64((int)file, offset, (i32)method);
