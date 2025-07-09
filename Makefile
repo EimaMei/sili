@@ -76,7 +76,7 @@ endif
 
 
 ifeq ($(LANGUAGE),C)
-	ifneq ($(PLATFORM),OS_X) 
+	ifeq ($(or $(filter OS_X,$(PLATFORM)),$(USE_C2X_FLAG)),)
 		GNU_FLAGS = -std=c23 -x c -Wvla
 	else 
 		GNU_FLAGS = -std=c2x -x c -Wvla

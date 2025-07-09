@@ -9,7 +9,7 @@ siIntern
 void TEST_PRINT_EX(siString fmt, siArray(siAny) args, siString expected) {
 	siArray(u8) buffer = SI_ARR_STACK(SI_KILO(8));
 	ASSERT(expected.len <= buffer.len);
-	
+
 	siString received = SI_STR_LEN(buffer.data, si_bprintfEx(buffer, fmt, args));
 	TEST_EQ_STR(expected, received);
 }
@@ -18,7 +18,7 @@ void TEST_PRINT_EX(siString fmt, siArray(siAny) args, siString expected) {
 #define TEST_PRINT_REG(expected) TEST_PRINT(expected, "", SI_STR(expected))
 
 int main(void) {
-	/* TODO(EimaMei): Make C-string string literals somehow usable and not make 
+	/* TODO(EimaMei): Make C-string string literals somehow usable and not make
 	 * the app crash. */
 	TEST_START();
 

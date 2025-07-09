@@ -52,21 +52,11 @@ jobs:
     - name: Setup Environment
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y software-properties-common
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y gcc-15 g++-15 gcc-15-multilib g++-15-multilib
-
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 150 \
-                                   --slave /usr/bin/g++ g++ /usr/bin/g++-15
-
-        sudo apt-get install -y --no-install-recommends \
-          libx11-dev mesa-common-dev libglx-dev libxcursor-dev \
-          mesa-vulkan-drivers libxrandr-dev libxinerama-dev \
-          libxi-dev libxext-dev libxfixes-dev libwayland-dev \
-          libxkbcommon-dev libgles2-mesa-dev libasound2-dev \
-          libvulkan-dev
-            
+        sudo apt-get install gcc-multilib
+        sudo apt-get install -y --no-install-recommends libx11-dev mesa-common-dev \
+            libglx-dev libxcursor-dev mesa-vulkan-drivers libxcursor-dev libxrandr-dev \
+            libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev \
+            libxkbcommon-dev libgles2-mesa-dev libasound2-dev libvulkan-dev
         mkdir build
         cd build
         mkdir ${{ env.RELEASE_NAME }}
@@ -78,16 +68,16 @@ jobs:
 
     - name: Tests
       run: |
-        make compile_tests CC=gcc MODE=DEBUG
+        make compile_tests CC=gcc MODE=DEBUG USE_C2X_FLAG=1
 
     - name: Examples
       run: |
-        make compile_examples CC=gcc MODE=DEBUG
+        make compile_examples CC=gcc MODE=DEBUG USE_C2X_FLAG=1
 
     - name: Build Library
       run: |
-        make static CC=gcc MODE=RELEASE
-        make dynamic CC=gcc MODE=RELEASE
+        make static  CC=gcc MODE=RELEASE USE_C2X_FLAG=1
+        make dynamic CC=gcc MODE=RELEASE USE_C2X_FLAG=1
       if: matrix.bits == 64
 
     - name: Generate Artifacts

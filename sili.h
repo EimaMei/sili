@@ -1732,7 +1732,7 @@ SIDEF isize si_memmoveStr_s(siArrayAny dst, siString src);
 
 
 
-/* Returns the length of a NULL-terminated C-string. Guaranteed to return zero 
+/* Returns the length of a NULL-terminated C-string. Guaranteed to return zero
  * if string is NULL. */
 SIDEF isize si_cstrLen(cstring str);
 
@@ -2416,7 +2416,7 @@ SIDEF siArrayAny si_sliceLen(siArrayAny array, isize offset1, isize len);
 #if SI_RELEASE_MODE
 /* Returns a pointer to the specified index. */
 SIDEF void* si_arrayGet(siArrayAny array, isize index);
-#else 
+#else
 /* Returns a pointer to the specified index. */
 SIDEF void* si_arrayGet(
 	siArrayAny array, isize index,
@@ -4005,7 +4005,7 @@ SIDEF u64 si_RDTSCP(isize* proc);
 /* TODO */
 SIDEF siTime si_timeFromRDTSC(u64 rdtsc_counter);
 
-/* Returns the current clock in nanoseconds. This function works on any platform 
+/* Returns the current clock in nanoseconds. This function works on any platform
  * where `si_RDTSC()` is supported (making this function architecture-dependent). */
 SIDEF siTime si_clock(void);
 /* Starts the current time in nanoseconds. */
@@ -4032,8 +4032,8 @@ SIDEF siTime si_timePrintSince(
 SIDEF void si_sleep(siTime time);
 
 
-/* Returns the current time in nanoseconds (UTC+0). Unlike 'si_clock()' this 
- * function relies on the Operating System to return the correct information, 
+/* Returns the current time in nanoseconds (UTC+0). Unlike 'si_clock()' this
+ * function relies on the Operating System to return the correct information,
  * however in turn this functions is architecture-independent. */
 SIDEF siTime si_timeNowUTC(void);
 /* Returns the current time in local time. */
@@ -4230,7 +4230,7 @@ SI_ENUM(u32, siPrintColorAnsiBits) {
 	siPrintColorAnsiBits_Light     = SI_BIT(1),
 	siPrintColorAnsiBits_Italic    = SI_BIT(2),
 
-	siPrintColorAnsiBits_Mask      = siPrintColorAnsiBits_Bold 
+	siPrintColorAnsiBits_Mask      = siPrintColorAnsiBits_Bold
 		| siPrintColorAnsiBits_Light |siPrintColorAnsiBits_Italic
 };
 
@@ -10537,7 +10537,7 @@ u64 si_RDTSCP(isize* proc) {
 #endif
 }
 
-inline 
+inline
 siTime si_timeFromRDTSC(u64 rdtsc_counter) {
 	u64 clock_hz  = (u64)si_cpuClockSpeed();
 	u64 seconds = rdtsc_counter / clock_hz;
@@ -10974,7 +10974,7 @@ inline
 f64 (si_timeToUnit)(i64 nanoseconds, siString* out_unit_str) {
 	siTimeUnitScale scale = si_timeGetUnit(nanoseconds);
 	if (out_unit_str) { *out_unit_str = si_timeUnitStr(scale.unit); }
-	
+
 	return (f64)nanoseconds / (f64)scale.threshold;
 }
 
@@ -11310,7 +11310,7 @@ void si_fmtPointer(siFmtInfo* info, const void* ptr, siRune verb) {
 				si_fmtString(info, SI_STR_LEN(ptr, info->precision), verb);
 				break;
 			}
-			
+
 			siFallthrough;
 		};
 
@@ -11490,7 +11490,7 @@ isize (si_wprintfEx)(siStream writer, siString fmt, siArray(siAny) args, bool fl
 
 			case '*': {
 				siAny arg = si_vaNext(&info);
-				
+
 				if (arg.ptr == nil) {
 					SI_PANIC_MSG("TODO: Errror here. Missing argument.");
 				}
@@ -11791,14 +11791,14 @@ void si_benchmarkLoopsAvgCmpPrint(siString names[2], siArray(u64) array[2], u64 
 			clr[0] = clr[1] = si_printColor3bit(siPrintColor3bit_Yellow);
 		}
 
-		
+
 		si_printfLn(
 			"\t%*i %s - %C%9.4f%C %2s vs %C%9.4f%C %2s (%4.4f ratio, %*i vs %*i cycles)",
 			pad_runs, runs, (runs != 1) ? SI_STR("runs") : SI_STR(" run"),
 			clr[0], time[0], unit[0],
 			clr[1], time[1], unit[1],
-			ratio, 
-			pad_cycles[0], cycles[0], 
+			ratio,
+			pad_cycles[0], cycles[0],
 			pad_cycles[1], cycles[1]
 		);
 
@@ -11836,7 +11836,7 @@ void si_benchmarkLoopsAvgCmpPrint(siString names[2], siArray(u64) array[2], u64 
 		clr[0], pad_cycles[0], time[0], unit[0],
 		clr[1], pad_cycles[1], time[1], unit[1],
 		ratio,
-		pad_cycles[0], cycles_median[0], 
+		pad_cycles[0], cycles_median[0],
 		pad_cycles[1], cycles_median[1]
 	);
 }
@@ -13309,7 +13309,7 @@ siTime si_fileLastWriteTime(siFile file) {
 
 #elif SI_SYSTEM_IS_BSD
 	struct stat fs;
-	int res = fstat((int)file.handle, &fs);
+	int res = fstat((int)file, &fs);
 	return (res == 0) ? SI_TIME_SEC(fs.st_mtimespec.tv_sec) + fs.st_mtimespec.tv_nsec : 0;
 
 #else

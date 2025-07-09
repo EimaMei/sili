@@ -128,7 +128,7 @@ void example2(void)	{
 	{
 		si_pathCreateFolder(SI_STR("some_si_folder"));
 		siString path = SI_STR("some_si_folder/example.tar.gz");
-	
+
 		siFile file = si_fileCreate(path);
 		si_fileClose(file);
 
@@ -171,7 +171,7 @@ void example3(void)	{
 			"Last write time: %s - %i",
 			si_timeToString(
 				si_timeToCalendar(lastWriteTime), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
-			), 
+			),
 			lastWriteTime
 		);
 
@@ -184,8 +184,8 @@ void example3(void)	{
 			"Has the file been changed?: %t (%i difference)",
 			si_timeToString(
 				si_timeToCalendar(curWriteTime), SI_STR("yyyy-MM-dd hh:mm:ss"), SI_ARR_STACK(64)
-			), 
-			curWriteTime, 
+			),
+			curWriteTime,
 			lastWriteTime != curWriteTime, curWriteTime - lastWriteTime
 		);
 

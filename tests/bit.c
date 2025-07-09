@@ -125,6 +125,6 @@ void test_overflow(void) {
 	test(i32, INT32_MIN, INT32_MAX);
 	test(i64, INT64_MIN, INT64_MAX);
 	test(isize, ISIZE_MIN, ISIZE_MAX);
-	
+
 	TEST_COMPLETE();
 }
