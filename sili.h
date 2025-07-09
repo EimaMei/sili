@@ -1434,13 +1434,6 @@ typedef struct siAny {
 
 #if SI_LANGUAGE_IS_C
 
-#include <limits.h>
-#if LONG_MAX == INT64_MAX
-	#define __SI_TYPEID_LONG unsigned long long : siTypeId_u64, long long : siTypeId_i64
-#else
-	#define __SI_TYPEID_LONG unsigned long : siTypeId_u32, long : siTypeId_i64
-#endif
-
 #define si_typeid(type) _Generic(SI_TYPE_ZERO(type), \
 	default       : _Generic(&(char[1 + !!(sizeof(type) == sizeof(type*))]){0}, \
 		char(*)[2]: siTypeId_ptr, \
@@ -1466,8 +1459,7 @@ typedef struct siAny {
 	siArrayAny    : siTypeId_array, \
 	siAny         : siTypeID_any, \
 	siPrintColor  : siTypeID_printColor, \
-	siCallerLoc   : siTypeId_siCallerLoc, \
-	__SI_TYPEID_LONG)
+	siCallerLoc   : siTypeId_siCallerLoc)
 
 
 #define SI__TYPEINFO_LUT(type) {si_sizeof(type), si_alignof(type), {{0}}}

@@ -52,7 +52,7 @@ jobs:
     - name: Setup Environment
       run: |
         sudo apt-get update -qq
-        sudo apt-get install clang gcc-multilib
+        sudo apt-get install gcc-multilib
         sudo apt-get install -y --no-install-recommends libx11-dev mesa-common-dev \
             libglx-dev libxcursor-dev mesa-vulkan-drivers libxcursor-dev libxrandr-dev \
             libxinerama-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev \
@@ -68,16 +68,16 @@ jobs:
 
     - name: Tests
       run: |
-        make compile_tests CC=clang MODE=DEBUG
+        make compile_tests CC=gcc MODE=DEBUG
 
     - name: Examples
       run: |
-        make compile_examples CC=clang MODE=DEBUG
+        make compile_examples CC=gcc MODE=DEBUG
 
     - name: Build Library
       run: |
-        make static CC=clang MODE=RELEASE
-        make dynamic CC=clang MODE=RELEASE
+        make static CC=gcc MODE=RELEASE
+        make dynamic CC=gcc MODE=RELEASE
       if: matrix.bits == 64
 
     - name: Generate Artifacts
