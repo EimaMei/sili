@@ -155,7 +155,7 @@ void createOptional(Type type, void* out, siAllocator alloc) {
 
 		case Type_funcPtr: {
 			siOptionPtr(void)* res = (siOptionPtr(void)*)out;
-			*res = SI_OPT_PTR(void, si_transmute(void*, (typeof(createOptional)*)createOptional));
+			*res = SI_OPT_PTR(void, si_transmute(void*, (si_typeof(createOptional)*)createOptional));
 		} break;
 
 		default: SI_PANIC();

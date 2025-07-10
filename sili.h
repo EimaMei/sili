@@ -86,6 +86,9 @@ MACROS
 	(such as logging, error reporting, assertions, etc). Defining "NDEBUG" does
 	the same thing.
 
+	- SI_NO_ERROR_PRINTS - disables error printing. Enabled automatically by 
+	'SI_RELEASE_MODE'.
+
 	- SI_NO_ASSERTIONS - all 'SI_ASSERT' functions get disabled entirely. 'SI_PANIC'
 	functions still function.
 
@@ -220,7 +223,7 @@ extern "C" {
 	#define SI_COMPILER_MSVC 1
 	#define SI_COMPILER_STR "MSVC"
 
-	#define SI_COMPILER_VERSION SI_VERSION(_MSC_VER / 100, _MSC_VER % 100, 0)
+	#define SI_COMPILER_VERSION SI_VERSION(_MSC_VER / 100, _MSC_VER % 100, _MSC_FULL_VER % 100000)
 
 #elif defined(__clang__)
 	#define SI_COMPILER_CLANG 1
@@ -535,14 +538,12 @@ extern "C" {
 	#ifndef SI_NO_WINDOWS_H
 		#define NOMINMAX            1
 		#define WIN32_LEAN_AND_MEAN 1
-		#define WIN32_MEAN_AND_LEAN 1
 		#define VC_EXTRALEAN        1
 		#include <windows.h>
 		#include <aclapi.h>
 		#include <shellapi.h>
 		#undef NOMINMAX
 		#undef WIN32_LEAN_AND_MEAN
-		#undef WIN32_MEAN_AND_LEAN
 		#undef VC_EXTRALEAN
 	#endif
 
@@ -593,7 +594,10 @@ extern "C" {
 
 #if defined(SI_RELEASE_MODE) || defined(NDEBUG)
 	#undef SI_NO_ASSERTIONS
+	#undef SI_NO_ERROR_PRINTS
+
 	#define SI_NO_ASSERTIONS
+	#define SI_NO_ERROR_PRINTS
 #endif
 
 #ifndef SI_NO_TYPE_DEFS
@@ -958,14 +962,26 @@ SI_STATIC_ASSERT(false == 0);
 #endif
 
 #ifndef si_alignof
-	#if SI_STANDARD_CHECK_MAX(C, C17)
+	#if SI_STANDARD_CHECK_MIN(C, C23) || SI_STANDARD_CHECK_MIN(CPP, CPP11)
+			/* type - TYPE
+		* Gets the alignment of a type. */
+		#define si_alignof(type) (isize)alignof(type)
+	#elif SI_STANDARD_CHECK_MIN(C, C11)
 		/* type - TYPE
 		* Gets the alignment of a type. */
 		#define si_alignof(type) (isize)_Alignof(type)
+	#elif SI_COMPILER_GCC || SI_COMPILER_CLANG 
+		/* type - TYPE
+		* Gets the alignment of a type. */
+		#define si_alignof(type) (isize)__alignof__(type)
+	#elif SI_COMPILER_MSVC
+		/* type - TYPE
+		* Gets the alignment of a type. */
+		#define si_alignof(type) (isize)__alignof(type)
 	#else
 		/* type - TYPE
 		* Gets the alignment of a type. */
-		#define si_alignof(type) (isize)alignof(type)
+		#define si_alignof(type) si_offsetof(struct { char c; type member; }, member)
 	#endif
 #endif
 
@@ -1033,8 +1049,6 @@ SI_STATIC_ASSERT(false == 0);
 		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message)))
 	/* condition - EXPRESSION | message - siString | ...fmt - VARIADIC
 	 * Terminates the program with a formatted message if the condition is not met. */
-	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
-		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message), SI_ARGS(__VA_ARGS__)))
 	#define SI_ASSERT_FMT(condition, message, .../* fmt */) \
 		SI_STOPIF(!(condition), si_panic(SI_STR(#condition), SI_STR(message), SI_ARGS(__VA_ARGS__)))
 
@@ -1439,7 +1453,6 @@ typedef struct siAny {
 		char(*)[2]: siTypeId_ptr, \
 		char(*)[1]: siTypeId_Unknown \
 	), \
-	char          : siTypeId_char, \
 	u8            : siTypeId_u8, \
 	u16           : siTypeId_u16, \
 	u32           : siTypeId_u32, \
@@ -2541,20 +2554,29 @@ SIDEF void si_dynamicArrayFree(siDynamicArrayAny array);
 #define si_dynamicArrayEqual(lhs, rhs) si_arrayEqual((lhs).arr, (rhs).arr)
 
 
-/* Appends the values to the array. Returns true if the array was reallocated. */
-SIDEF bool si_dynamicArrayAppend(siDynamicArrayAny* array, siArray(siAny) values);
-#define si_dynamicArrayAppend(array, ...) si_dynamicArrayAppend(array, SI_ARGS(__VA_ARGS__))
+/* TODO */
+#define si_dynamicArrayAppend(array, ...) si_dynamicArrayAppendEx(array, SI_ARGS(__VA_ARGS__))
+/* TODO */
+SIDEF bool si_dynamicArrayAppendEx(
+	siDynamicArrayAny* array, siArray(siAny) values,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_dynamicArrayAppendEx(...) SI_DARG_IMPL(si_dynamicArrayAppendEx, 2, (nil), __VA_ARGS__)
 
 /* Erases the last item in the array. */
 SIDEF void si_dynamicArrayPop(siDynamicArrayAny* array);
 /* Sets the array's length to zero. */
 SIDEF void si_dynamicArrayClear(siDynamicArrayAny* array);
 
+/* TODO */
+#define si_dynamicArrayInsert(array, index, ...) si_dynamicArrayInsertEx(array, index, SI_ARGS(__VA_ARGS__))
 /* Inserts the specified pointer's value at the given index of the array. Returns
  * true if the array was reallocated. */
-SIDEF bool si_dynamicArrayInsert(siDynamicArrayAny* array, isize index,
-	siArray(siAny) values);
-#define si_dynamicArrayInsert(array, index, ...) si_dynamicArrayInsert(array, index, SI_ARGS(__VA_ARGS__))
+SIDEF bool si_dynamicArrayInsertEx(
+	siDynamicArrayAny* array, isize index, siArray(siAny) values,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_dynamicArrayInsertEx(...) SI_DARG_IMPL(si_dynamicArrayInsertEx, 3, (nil), __VA_ARGS__)
 
 
 /* Erases the specified pointer's value at the given index of the array. */
@@ -2562,10 +2584,16 @@ SIDEF void si_dynamicArrayErase(siDynamicArrayAny* array, isize index, isize cou
 
 /* Reverses the contents of the array. */
 SIDEF void si_dynamicArrayReverse(siDynamicArrayAny array);
+
+/* TODO */
+#define si_dynamicArrayFill(array, index, count, ...) si_dynamicArrayFillEx(array, index, count, SI_ANY(__VA_ARGS__))
 /* Fills the contents of the array with the specified pointer's value. Returns
  * true if the array was reallocated. */
-SIDEF bool si_dynamicArrayFill(siDynamicArrayAny* array, isize index, siArray(siAny) values);
-#define si_dynamicArrayFill(array, index, ...) si_dynamicArrayFill(array, index, SI_ARGS(__VA_ARGS__))
+SIDEF bool si_dynamicArrayFillEx(
+	siDynamicArrayAny* array, isize index, isize count, siAny value,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_dynamicArrayFillEx(...) SI_DARG_IMPL(si_dynamicArrayFillEx, 4, (nil), __VA_ARGS__)
 
 /* Replaces all occurences of the firstly specified pointer's value with the
  * secondly specified one. */
@@ -2578,10 +2606,13 @@ SIDEF void si_dynamicArrayReplace(siDynamicArrayAny array, siAny old_value,
 #define si_dynamicArrayReplace(array, old_value, new_value, amount) \
 	si_dynamicArrayReplace(array, SI_ANY(old_value), SI_ANY(new_value), amount)
 
-/* If needed, reallocates the array for the added space. Returns true if the
- * array was reallocated. Used internally. */
-SIDEF bool si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize add_len);
 
+/* TODO */
+bool si_dynamicArrayMakeSpaceFor(
+	siDynamicArrayAny* array, isize add_len,
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_dynamicArrayMakeSpaceFor(...) SI_DARG_IMPL(si_dynamicArrayMakeSpaceFor, 2, (nil), __VA_ARGS__)
 
 
 #endif /* SI_NO_ARRAY */
@@ -4002,14 +4033,17 @@ SIDEF u64 si_RDTSC(void);
 /* Reads the current value of the processor’s time-stamp counter and writes the
  * current processor ID to the pointer. */
 SIDEF u64 si_RDTSCP(isize* proc);
-/* TODO */
-SIDEF siTime si_timeFromRDTSC(u64 rdtsc_counter);
 
 /* Returns the current clock in nanoseconds. This function works on any platform
  * where `si_RDTSC()` is supported (making this function architecture-dependent). */
 SIDEF siTime si_clock(void);
 /* Starts the current time in nanoseconds. */
 #define si_timeStart() si_clock()
+
+/* TODO */
+SIDEF siTime si_timeFromRDTSC(u64 rdtsc_counter);
+/* TODO */
+SIDEF siTime si_timeFromWin32(u64 time);
 
 
 /* Prints the time */
@@ -4486,7 +4520,7 @@ SIDEF i32 si_float64IsInf(f64 num);
 		\
 		siString funcs[] = {SI_STR(#function1), SI_STR(#function2)}; \
 		siArray(u64) arrays[] = {SI_ARR_LEN(array[0], len), SI_ARR_LEN(array[1], len)}; \
-		usize range[] = {start, end}; \
+		u64 range[] = {start, end}; \
 		si_benchmarkLoopsAvgCmpPrint(funcs, arrays, range); \
 	} while(0)
 
@@ -4552,8 +4586,6 @@ SI_ENUM(isize, siSystemError) {
 	siSystemError_Permission,
 	/* Not enough memory in the memory card. */
 	siSystemError_NoMemory,
-	/* Failed to truncate the file. */
-	siSystemError_TruncationFail,
 	/* System has insufficient resources to complete the action. */
 	siSystemError_Unavailable,
 	/* A thread deadlock occurred. */
@@ -4563,14 +4595,11 @@ SI_ENUM(isize, siSystemError) {
 	siSystemError_Generic,
 	/* Total amount of valid errors. */
 	siSystemError_Count,
-
-	/* Sili reserves its errors to span from 0 to (INT32_MAX / 2). Every other
-	 * value won't be touched by sili. */
-	SI_ERROR_SYSTEM_END = (INT32_MAX / 2),
 };
 
 SI_ENUM(isize, siWindowsVersion) {
-	siWindowsVersion_XP = 1,
+	siWindowsVersion_Unknown = 0,
+	siWindowsVersion_XP,
 	siWindowsVersion_Vista,
 	siWindowsVersion_7,
 	siWindowsVersion_8,
@@ -5073,7 +5102,6 @@ typedef struct siDirectoryIterator {
 } siDirectoryIterator;
 
 typedef struct siDirectory {
-	siError error;
 	void* handle;
 	isize directoryLen;
 	u8 buffer[SI_PATH_MAX];
@@ -5087,17 +5115,7 @@ SIDEF siDirectory si_directoryOpen(
 );
 #define si_directoryOpen(...) SI_DARG_IMPL(si_directoryOpen, 1, (nil), __VA_ARGS__)
 
-/* Iterates through the next file, folder or link inside the directory. Information
- * about it is written into the specified 'out' and true is returned, otherwise
- * the _stream automatically gets closed_ and false is returned.
- *
- * NOTE 1: If an error occurred, 'false' is returned, the stream is closed and an
- * error is written into 'dir->error'.
- * NOTE 2: If you decide to end the iteration process early, you mustcall
- * 'si_directoryClose'. */
-SIDEF bool si_directoryIterate(siDirectory* dir, siDirectoryIterator* out);
-
-/* Iterates through the next file, folder or link inside the directory. Information
+/* TODO(EimaMei): Reword this. Iterates through the next file, folder or link inside the directory. Information
  * about it is written into the specified 'out' and true is returned, otherwise
  * the _stream automatically gets closed_ and false is returned. There is also
  * the option for the returned path to contain the base directory.
@@ -5106,7 +5124,12 @@ SIDEF bool si_directoryIterate(siDirectory* dir, siDirectoryIterator* out);
  * error is written into 'dir->error'.
  * NOTE 2: If you decide to end the polling process early, make sure to call
  * 'si_directoryClose'. */
-SIDEF bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator* out);
+SIDEF bool si_directoryIterate(
+	siDirectory* dir, siDirectoryIterator* out, 
+	bool full_path SI_DEFAULT(false), 
+	siError* out_error SI_DEFAULT(nil)
+);
+#define si_directoryIterate(...) SI_DARG_IMPL(si_directoryIterate, 2, (true, nil), __VA_ARGS__)
 
 /* Closes the directory stream. */
 SIDEF void si_directoryClose(siDirectory* dir);
@@ -5325,13 +5348,7 @@ SI_ENUM(u32, siThreadState) {
 };
 
 typedef struct siThread {
-	#if SI_SYSTEM_IS_WINDOWS
-		HANDLE id;
-	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
-		pthread_t id;
-	#else
-		isize id;
-	#endif
+	isize id;
 
 	siThreadFunction* func;
 	void* arg;
@@ -5382,11 +5399,7 @@ SIDEF siSystemError si_threadJoin(
 #define si_threadJoin(...) SI_DARG_IMPL(si_threadJoin, 1, (nil), __VA_ARGS__)
 
 /* Destroys the thread. */
-SIDEF siSystemError si_threadDestroy(
-	siThread* thread,
-	siError* out_error SI_DEFAULT(nil)
-);
-#define si_threadDestroy(...) SI_DARG_IMPL(si_threadDestroy, 1, (nil), __VA_ARGS__)
+SIDEF bool si_threadDestroy(siThread* thread);
 
 #endif /* SI_NO_THREAD */
 
@@ -5468,21 +5481,10 @@ SIDEF siDllProc si_dllProcAddress(siDllHandle dll, siString name);
 SIDEF siString si_dllError(void);
 
 
-#ifndef siDllProcType
-	/* function - FUNCTION
-	 * The type format used for 'si_dllProcAddressFunc'. */
-	#define siDllProcType(function) si__##function##_Proc
-#endif
-
 /* dll - siDllHandle | function - FUNCTION
  * Returns a pointer to the specified processor and casts it to the set function
  * load format type in a ISO-C comapatible way. */
-#define si_dllProcAddressFunc(dll, function) si_dllProcAddressFuncEx(dll, SI_STR(#function), siDllProcType(function))
-/* dll - siDllHandle | function - siString | type - TYPE
- * Returns a pointer to the specified processor and casts it to the specified
- * type in a ISO-C comapatible way. */
-#define si_dllProcAddressFuncEx(dll, function, type) \
-	si_transmute(type, si_dllProcAddress(dll, function), siDllProc)
+#define si_dllProcAddressFunc(dll, function) si_transmute(si_typeof(function), si_dllProcAddress(dll, SI_STR(#function)))
 
 #endif /* SI_NO_DLL */
 
@@ -7276,17 +7278,19 @@ void si_dynamicArrayFree(siDynamicArrayAny array) {
 
 
 SIDEF
-bool (si_dynamicArrayAppend)(siDynamicArrayAny* array, siArray(siAny) values) {
+bool (si_dynamicArrayAppendEx)(siDynamicArrayAny* array, siArray(siAny) values, 
+		siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_DYN_ARR(*array);
 	SI_ASSERT_ARR_TYPE(values, siAny);
 
-	/* TODO(EimaMei): Make this safer like the builder functions. */
-	isize oldLen = array->len;
-	bool allocated = si_dynamicArrayMakeSpaceFor(array, values.len);
+	bool has_space = si_dynamicArrayMakeSpaceFor(array, values.len, out_error);
+	if (!has_space) { return false; }
+
+	u8* dst = si_dynamicArrayBack(*array);
+	array->len += values.len;
 
 	/* TODO(EimaMei): Add a SI_ARGS that is able to force singular size. */
-	u8* dst = si_dynamicArrayGet(*array, oldLen);
 	siAny value;
 	for_eachArr (value, values) {
 		si_assert(value.item_sizeof <= array->typeSize);
@@ -7294,7 +7298,7 @@ bool (si_dynamicArrayAppend)(siDynamicArrayAny* array, siArray(siAny) values) {
 		dst += array->typeSize;
 	}
 
-	return allocated;
+	return true;
 }
 
 inline
@@ -7314,7 +7318,8 @@ void si_dynamicArrayClear(siDynamicArrayAny* array) {
 
 
 SIDEF
-bool (si_dynamicArrayInsert)(siDynamicArrayAny* array, isize index, siArray(siAny) values) {
+bool (si_dynamicArrayInsertEx)(siDynamicArrayAny* array, isize index, siArray(siAny) values,
+		siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_DYN_ARR(*array);
 	SI_ASSERT_NOT_NEG(index);
@@ -7323,11 +7328,15 @@ bool (si_dynamicArrayInsert)(siDynamicArrayAny* array, isize index, siArray(siAn
 	SI_STOPIF(values.len == 0, return false);
 
 	/* TODO(EimaMei): Make this safer like the builder functions. */
-	isize remainderLen = array->len - (index + values.len);
-	bool allocated = si_dynamicArrayMakeSpaceFor(array, values.len);
+	bool has_space = si_dynamicArrayMakeSpaceFor(array, values.len, out_error);
+	if (!has_space) { return false; }
 
 	u8* dst = (u8*)si_dynamicArrayGet(*array, index);
-	si_memcopy(&dst[array->typeSize * values.len], dst, remainderLen * array->typeSize);
+	si_memmove(
+		&dst[array->typeSize * values.len],
+		dst, 
+		array->typeSize * (array->len - (index + values.len))
+	);
 
 	/* TODO(EimaMei): Add a SI_ARGS that is able to force singular size. */
 	siAny value;
@@ -7337,7 +7346,8 @@ bool (si_dynamicArrayInsert)(siDynamicArrayAny* array, isize index, siArray(siAn
 		dst += array->typeSize;
 	}
 
-	return allocated;
+	array->len += values.len;
+	return true;
 }
 
 inline
@@ -7401,51 +7411,54 @@ void si_dynamicArrayReverse(siDynamicArrayAny array) {
 }
 
 SIDEF
-bool (si_dynamicArrayFill)(siDynamicArrayAny* array, isize index, siArray(siAny) values) {
+bool (si_dynamicArrayFillEx)(siDynamicArrayAny* array, isize index, isize count, 
+		siAny value, siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_ARR(*array);
 	SI_ASSERT_NOT_NEG(index);
-	SI_ASSERT_ARR_TYPE(values, siAny);
+	si_assert(value.item_sizeof == array->typeSize);
 
-	isize add_len = (index + values.len) - array->len;
-	bool allocated = (add_len > 0)
-		? si_dynamicArrayMakeSpaceFor(array, add_len)
-		: false;
+	isize add_len = si_max(isize, 0, (index + count) - array->len);
+	bool has_space = si_dynamicArrayMakeSpaceFor(array, add_len, out_error);
+	if (!has_space) { return false; }
 
-	/* TODO(EimaMei): Add a SI_ARGS that is able to force singular size. */
+	array->len += add_len;
 	u8* dst = (u8*)si_dynamicArrayGet(*array, index);
-	siAny value;
-	for_eachArr (value, values) {
-		si_assert(value.item_sizeof <= array->typeSize);
+
+	for_range (i, 0, count) {
 		dst += si_memcopy(dst, value.ptr, value.item_sizeof);
 	}
 
-	return allocated;
+	return true;
 }
 
 
 
 SIDEF
-bool si_dynamicArrayMakeSpaceFor(siDynamicArrayAny* array, isize add_len) {
+bool (si_dynamicArrayMakeSpaceFor)(siDynamicArrayAny* array, isize add_len,
+		siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
-	SI_ASSERT_NOT_NIL(array->alloc.proc);
+	SI_ASSERT_NOT_NEG(add_len);
 
 	isize newLength = array->len + add_len;
 	if (newLength <= array->capacity) {
-		array->len = newLength;
+		return true;
+	}
+	if (array->alloc.proc == nil) {
+		si_errorDeclare(siAllocationError_OutOfMem, out_error);
 		return false;
 	}
 
 	isize newCapacity = (array->grow <= 0)
-		? SI_DYNAMIC_ARRAY_NEW_CAP(array, add_len)
+		? SI_BUILDER_NEW_CAPACITY(array, add_len)
 		: array->capacity + add_len + array->grow;
-	array->data = si_realloc(
-		array->alloc, array->data,
-		array->capacity * array->typeSize, newCapacity * array->typeSize
-	);
-	array->len = newLength;
-	array->capacity = newCapacity;
+	SI_ASSERT(newLength <= newCapacity);
 
+	void* data = si_reallocNonZeroed(array->alloc, array->data, array->capacity, newCapacity, out_error);
+	if (data == nil) { return false; }
+
+	array->data = (u8*)data;
+	array->capacity = newCapacity;
 	return true;
 }
 
@@ -7807,7 +7820,7 @@ bool (si_builderMakeSpaceFor)(siBuilder* b, isize add_len, siError* out_error) {
 	SI_ASSERT(newLength <= newCapacity);
 
 	void* data = si_reallocNonZeroed(b->alloc, b->data, b->capacity, newCapacity, out_error);
-	if (data == nil) {  return false; }
+	if (data == nil) { return false; }
 
 	b->data = (u8*)data;
 	b->capacity = newCapacity;
@@ -8917,14 +8930,17 @@ isize (si_errorDeclare)(isize error, siError* out_error, siErrorProc proc,
 
 SIDEF
 SI_ERROR_PROC(si_errorLogDefault) {
+#ifndef SI_NO_ERROR_PRINTS
 	siPrintColor red = si_printColor3bit(siPrintColor3bit_Red, siPrintColorAnsiBits_Bold);
 
 	si_eprintfLn(
 		SI_STR("%CError at \"%L\"%C: Error '%i'."),
 		red, error->location, error->code
 	);
+#endif
+
 	return 0;
-	SI_UNUSED(data);
+	SI_UNUSED(error); SI_UNUSED(data);
 }
 
 #endif /* SI_IMPLEMENTATION_OPTIONAL */
@@ -10378,13 +10394,7 @@ siString* SI_NAMES_DAYS_SHRT = si__timeWeekNamesShrt;
 siString* SI_NAMES_AM_PM = si__timeAM_PM_Names;
 siString* SI_NAMES_TIME_UNITS = si__timeTimeUnits;
 
-#if SI_SYSTEM_IS_WINDOWS
-siIntern
-siTime si__win32ToSili(i64 time) {
-	return (siTime)(((time) - 116444736000000000) * 100);
-}
-
-#elif SI_ARCH_IS_WASM
+#if SI_ARCH_IS_WASM
 siIntern
 u64 si__wasiRdtsc(void) {
 	__wasi_timestamp_t time;
@@ -10537,6 +10547,13 @@ u64 si_RDTSCP(isize* proc) {
 #endif
 }
 
+
+inline
+siTime si_clock(void) {
+	return si_timeFromRDTSC(si_RDTSC());
+}
+
+
 inline
 siTime si_timeFromRDTSC(u64 rdtsc_counter) {
 	u64 clock_hz  = (u64)si_cpuClockSpeed();
@@ -10546,11 +10563,11 @@ siTime si_timeFromRDTSC(u64 rdtsc_counter) {
 	return (i64)(seconds * SI_SECOND + (rem_cycles * SI_SECOND) / clock_hz);
 }
 
-
 inline
-siTime si_clock(void) {
-	return si_timeFromRDTSC(si_RDTSC());
+siTime si_timeFromWin32(u64 time) {
+	return (siTime)(((time) - 116444736000000000) * 100);
 }
+
 
 inline
 void (si_timePrint)(siTime time, siString label, siCallerLoc loc) {
@@ -10581,7 +10598,7 @@ void si_sleep(siTime time) {
 	if (time < SI_MILLISECOND) { return; }
 
 	/* TODO(EimaMei): Replace this with a high-precision timer later on. */
-	Sleep((u32)time / SI_MILLISECOND);
+	Sleep((u32)(time / SI_MILLISECOND));
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	if (time == 0) { return; }
@@ -10623,7 +10640,7 @@ siTime si_timeNowUTC(void) {
 	FILETIME time;
 	GetSystemTimePreciseAsFileTime(&time);
 
-	return si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime);
+	return si_timeFromWin32((u64)time.dwHighDateTime << 32 | (u64)time.dwLowDateTime);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	struct timespec spec;
@@ -10642,11 +10659,12 @@ siTime si_timeNowLocal(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	FILETIME utc;
 	GetSystemTimePreciseAsFileTime(&utc);
+
 	FILETIME time;
 	int res = FileTimeToLocalFileTime(&utc, &time);
 
 	return (res)
-		? si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime)
+		? si_timeFromWin32((u64)time.dwHighDateTime << 32 | (u64)time.dwLowDateTime)
 		: 0;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
@@ -11070,9 +11088,9 @@ siAny si_vaNext(struct siFmtInfo* info) {
 
 SIDEF
 void (si_fmtError)(siFmtInfo* info, siRune verb, siString message) {
-	info->n += si_streamWriteStr(info->writer, SI_STR("%!"));
+	info->n += si_streamWriteStr(info->writer, SI_STR("%!("));
 	info->n += si_streamWriteRune(info->writer, verb);
-	info->n += si_streamWriteByte(info->writer, '(');
+	info->n += si_streamWriteByte(info->writer, ':');
 	info->n += si_streamWriteInt(info->writer, info->vaCount);
 	info->n += si_streamWriteByte(info->writer, ':');
 	info->n += si_streamWriteInt(info->writer, info->args.len);
@@ -11127,7 +11145,7 @@ void si_fmtInt(siFmtInfo* info, u64 value, isize bit_size, bool is_signed, siRun
 		case 'v': si__fmtInt(info, value, bit_size, is_signed, 10, options, SI_NUM_TABLE_LOWER); break;
 		case 'c':
 		case 'r': si_fmtRune(info, (siRune)value, verb); break;
-		case 'p': si_fmtPointer(info, (void*)value, verb); break;
+		case 'p': si_fmtPointer(info, si_transmute(void*, value), verb); break;
 		case 't': si_fmtBool(info, (bool)value, verb); break;
 
 		case 'x': si__fmtInt(info, value, bit_size, is_signed, 16, options, SI_NUM_TABLE_LOWER); break;
@@ -11512,11 +11530,14 @@ isize (si_wprintfEx)(siStream writer, siString fmt, siArray(siAny) args, bool fl
 			case '8': case '9': case_zero: {
 				isize countEnd;
 				i64 count = si_stringToInt(si_substrFrom(fmt, i), 10, &countEnd);
-				if (count > ISIZE_MAX) { count = ISIZE_MAX; }
+				if (count > ISIZE_MAX) { 
+					info.n += si_streamWriteStr(info.writer, SI_STR("!%(BAD PRECISION/WIDTH)"));
+					continue;
+				}
 				SI_ASSERT(countEnd != -1);
 
-				if (info.state & siFmtInfoState_Prec) { info.precision = count; }
-				else { info.width = count; info.state |= siFmtInfoState_Width; }
+				if (info.state & siFmtInfoState_Prec) { info.precision = (isize)count; }
+				else { info.width = (isize)count; info.state |= siFmtInfoState_Width; }
 
 				i += countEnd;
 				goto loop;
@@ -11872,6 +11893,7 @@ void* si__benchmarkThread(void* arg) {
 
 SIDEF
 SI_ERROR_PROC(si_systemErrorLog) {
+#ifndef SI_NO_ERROR_PRINTS
 	siPrintColor red = si_printColor3bit(siPrintColor3bit_Red, siPrintColorAnsiBits_Bold);
 
 	si_eprintfLn(
@@ -11879,8 +11901,10 @@ SI_ERROR_PROC(si_systemErrorLog) {
 		red, error->location, si_systemErrorName(error->code), si_systemErrorDesc(error->code)
 	);
 
+#endif
+
 	return 0;
-	SI_UNUSED(data);
+	SI_UNUSED(error); SI_UNUSED(data);
 }
 
 inline
@@ -11896,7 +11920,6 @@ siString si_systemErrorName(siSystemError error) {
 		SI_STRC("siSystemError_NotExists"),
 		SI_STRC("siSystemError_Permission"),
 		SI_STRC("siSystemError_NoMemory"),
-		SI_STRC("siSystemError_TruncationFail"),
 		SI_STRC("siSystemError_Unavailable"),
 		SI_STRC("siSystemError_Deadlock"),
 
@@ -11920,7 +11943,6 @@ siString si_systemErrorDesc(siSystemError error) {
 		SI_STRC("File or directory doesn't exist."),
 		SI_STRC("User doesn't have sufficient permissions."),
 		SI_STRC("Out of memory."),
-		SI_STRC("Failed to truncate the file."),
 		SI_STRC("System has insufficient resources to complete the action."),
 		SI_STRC("A thread deadlock occurred."),
 
@@ -12133,12 +12155,15 @@ siString si_envVarGetData(siString name, siArray(u8) out) {
 SIDEF
 siWindowsVersion si_windowsGetVersion(void) {
 #if SI_SYSTEM_IS_WINDOWS
+	static siWindowsVersion ver = -1;
+	if (ver != -1) { return ver; }
+
 	OSVERSIONINFOEXW info = SI_STRUCT_ZERO;
 	{
 		siDllHandle ntdll = si_dllLoad(SI_STR("ntdll.dll"));
 
-		typedef LONG(WINAPI* siDllProcType(RtlGetVersion))(POSVERSIONINFOEXW);
-		siDllProcType(RtlGetVersion) _RtlGetVersion = si_dllProcAddressFunc(ntdll, RtlGetVersion);
+		typedef LONG(WINAPI* RtlGetVersion)(POSVERSIONINFOEXW);
+		RtlGetVersion _RtlGetVersion = si_dllProcAddressFunc(ntdll, RtlGetVersion);
 
 		info.dwOSVersionInfoSize = si_sizeof(OSVERSIONINFOEXW);
 		_RtlGetVersion(&info);
@@ -12147,19 +12172,25 @@ siWindowsVersion si_windowsGetVersion(void) {
 
 	/* Windows 10 and 11. */
 	if (info.dwMajorVersion == 10 && info.dwMinorVersion == 0) {
-		return (info.dwBuildNumber >= 22000) ? siWindowsVersion_11 : siWindowsVersion_10;
+		ver = (info.dwBuildNumber >= 22000) ? siWindowsVersion_11 : siWindowsVersion_10;
 	}
 	/* Windows 8.1, 8, 7 and Vista. */
 	else if (info.dwMajorVersion == 6) {
-		return siWindowsVersion_Vista + (i32)info.dwMinorVersion;
+		ver = siWindowsVersion_Vista + (i32)info.dwMinorVersion;
+	}
+	/* Windows XP. */
+	else if (info.dwMajorVersion == 5 && (info.dwMinorVersion == 1 || info.dwMinorVersion == 2)) {
+		ver = siWindowsVersion_XP;
+	}
+	/* Other/Older versions of Windows. */
+	else {
+		ver = siWindowsVersion_Unknown;
 	}
 
-	return (info.dwMajorVersion == 5 && (info.dwMinorVersion == 1 || info.dwMinorVersion == 2))
-		? siWindowsVersion_XP
-		: 0;
+	return ver;
 
 #else
-	return -1;
+	return siWindowsVersion_Unknown;
 #endif
 }
 
@@ -12220,13 +12251,13 @@ siUnixDE si_unixGetDE(void) {
 #ifdef SI_IMPLEMENTATION_VIRTUAL_MEMORY
 
 SIDEF
-siVirtualMem si_virtualMemAlloc(void* address, isize size, siError* out_error) {
+siVirtualMem (si_virtualMemAlloc)(void* address, isize size, siError* out_error) {
 	SI_ASSERT_NOT_NEG(size);
 
 #if SI_SYSTEM_IS_WINDOWS
-	vm.data = VirtualAlloc(address, (usize)size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	SI_OPTION_SYS_CHECK(vm.data == nil, siVirtualMem);
-	vm.size = size;
+	void* data = VirtualAlloc(address, (usize)size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	if (data == nil) { si_systemErrorDeclare(out_error);  return SI_TYPE_ZERO(siVirtualMem); }
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 
 	void* data = mmap(address, (usize)size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -12249,7 +12280,7 @@ siSystemError si_virtualMemFree(siVirtualMem vm) {
 	MEMORY_BASIC_INFORMATION info;
 	while (vm.size > 0) {
 		isize res = (isize)VirtualQuery(vm.data, &info, si_sizeof(info));
-		SI_ERROR_SYS_CHECK_RET(res == 0);
+		if (res == 0) { return si_systemErrorDeclare(nil); }
 
 		if (info.BaseAddress != vm.data || info.AllocationBase != vm.data ||
 			info.State != MEM_COMMIT || info.RegionSize > (usize)vm.size) {
@@ -12257,7 +12288,7 @@ siSystemError si_virtualMemFree(siVirtualMem vm) {
 		}
 
 		res = VirtualFree(vm.data, 0, MEM_RELEASE);
-		SI_ERROR_SYS_CHECK_RET(res == 0);
+		if (res == 0) { return si_systemErrorDeclare(nil); }
 
 		vm.data = si_pointerAdd(vm.data, (isize)info.RegionSize);
 		vm.size -= (isize)info.RegionSize;
@@ -12281,7 +12312,7 @@ siSystemError si_virtualMemDiscard(siVirtualMem vm) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	void* res = VirtualAlloc(vm.data, (usize)vm.size, MEM_RESET, PAGE_READWRITE);
-	SI_ERROR_SYS_CHECK_RET(res == nil);
+	if (res == nil) { return si_systemErrorDeclare(nil); }
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = madvise(vm.data, (usize)vm.size, MADV_DONTNEED);
@@ -12336,9 +12367,9 @@ isize (si_pathCopy)(siString pathSrc, siString pathDst, siError* out_error) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	isize size = CopyFileW(paths[0], paths[1], true);
-	SI_OPTION_SYS_CHECK(size == 0, isize);
+	if (size == 0) { si_systemErrorDeclare(out_error); return -1; }
 
-	return SI_OPT(isize, size);
+	return size;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int src = open(paths[0], O_RDONLY, 0);
@@ -12387,7 +12418,7 @@ isize (si_pathItemsCopy)(siString pathSrc, siString pathDst, siError* out_error)
 	dstBuffer = &dst[pathDst.len + 1];
 
 	siDirectoryIterator entry;
-	while (si_directoryIterateEx(&dir, false, &entry)) {
+	while (si_directoryIterate(&dir, &entry, out_error)) {
 		siString path = si_pathBaseName(entry.path);
 		si_memcopyStr(dstBuffer, path);
 
@@ -12418,8 +12449,9 @@ siSystemError (si_pathMove)(siString pathSrc, siString pathDst, siError* out_err
 	siOsString* paths = strs.v;
 
 #if SI_SYSTEM_IS_WINDOWS
-	i32 res = MoveFileW(paths[0], paths[1]);
-	SI_ERROR_SYS_CHECK_RET(res == 0);
+	BOOL res = MoveFileW(paths[0], paths[1]);
+	if (res == false) { return si_systemErrorDeclare(out_error); }
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = link(paths[0], paths[1]);
 	if (res == -1) { return si_systemErrorDeclare(out_error); }
@@ -12441,8 +12473,8 @@ siSystemError (si_pathCreateFolder)(siString path, siError* out_error) {
 	si_pathToOS(path, stack, si_countof(stack));
 
 #if SI_SYSTEM_IS_WINDOWS
-	i32 res = CreateDirectoryW(stack, nil);
-	SI_ERROR_SYS_CHECK_RET(res == 0);
+	BOOL res = CreateDirectoryW(stack, nil);
+	if (res == false) { return si_systemErrorDeclare(out_error); }
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = mkdir(stack, 0777);
@@ -12461,26 +12493,14 @@ siSystemError (si_pathRemove)(siString path, siError* out_error) {
 
 #if SI_SYSTEM_IS_WINDOWS
 	u32 attrs = GetFileAttributesW(stack);
-	SI_ERROR_SYS_CHECK_RET(attrs == INVALID_FILE_ATTRIBUTES);
+	if (attrs == INVALID_FILE_ATTRIBUTES) { return si_systemErrorDeclare(out_error); }
 
-	i32 res;
-	if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-		siDirectoryIterator entry;
-		siDirectory dir = si_directoryOpen(path);
-		while (si_directoryIterate(&dir, &entry)) {
-			siError err = si_pathRemove(entry.path);
-			SI_STOPIF(err.code != 0, return err);
-		}
-
-		res = RemoveDirectoryW(stack);
+	if ((attrs & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+		BOOL res = DeleteFileW(stack);
+		return res ? 0 : si_systemErrorDeclare(out_error);
 	}
-	else {
-		res = DeleteFileW(stack);
-	}
-	SI_ERROR_SYS_CHECK_RET(res == 0);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
-
 	struct stat tmp;
 	i32 res = stat(stack, &tmp);
 	if (res == -1 && lstat(stack, &tmp) == -1) { return si_systemErrorDeclare(out_error); }
@@ -12490,6 +12510,10 @@ siSystemError (si_pathRemove)(siString path, siError* out_error) {
 		return (res == 0) ? 0 : si_systemErrorDeclare(out_error);
 	}
 
+#else
+	#warning "TODO(EimaMei): Incomplete function."
+#endif
+
 	siDirectoryIterator entry;
 	siDirectory dir = si_directoryOpen(path);
 
@@ -12498,10 +12522,17 @@ siSystemError (si_pathRemove)(siString path, siError* out_error) {
 		if (code != 0) { si_systemErrorDeclare(out_error); }
 	}
 
+#if SI_SYSTEM_IS_WINDOWS
+	BOOL res = RemoveDirectoryW(stack);
+	return res ? 0 : si_systemErrorDeclare(out_error);
+
+#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	res = rmdir(stack);
 	return (res == 0) ? 0 : si_systemErrorDeclare(out_error);
-#endif
 
+#else
+	#warning "TODO(EimaMei): Incomplete function."
+#endif
 }
 
 SIDEF
@@ -12511,8 +12542,9 @@ siSystemError (si_pathCreateHardLink)(siString path, siString pathLink, siError*
 	siOsString* paths = strs.v;
 
 #if SI_SYSTEM_IS_WINDOWS
-	i32 res = CreateHardLinkW(paths[1], paths[0], nil);
-	SI_ERROR_SYS_CHECK_RET(res == 0);
+	BOOL res = CreateHardLinkW(paths[1], paths[0], nil);
+	if (res == false) { return si_systemErrorDeclare(out_error); }
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = link(paths[0], paths[1]);
 	if (res != 0) { return si_systemErrorDeclare(out_error); }
@@ -12532,10 +12564,11 @@ siSystemError (si_pathCreateSoftLink)(siString path, siString pathLink, siError*
 
 #if SI_SYSTEM_IS_WINDOWS
 	u32 attrs = GetFileAttributesW(paths[0]);
-	SI_ERROR_SYS_CHECK_RET(attrs == INVALID_FILE_ATTRIBUTES);
+	if (attrs == INVALID_FILE_ATTRIBUTES) { return si_systemErrorDeclare(out_error); }
 
-	i32 res = CreateSymbolicLinkW(paths[1], paths[0], attrs & FILE_ATTRIBUTE_DIRECTORY);
-	SI_ERROR_SYS_CHECK_RET(res == 0);
+	BOOL res = CreateSymbolicLinkW(paths[1], paths[0], attrs & FILE_ATTRIBUTE_DIRECTORY);
+	if (res == false) { return si_systemErrorDeclare(out_error); }
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 res = symlink(paths[0], paths[1]);
 	if (res != 0) { return si_systemErrorDeclare(out_error); }
@@ -12639,17 +12672,18 @@ siString (si_pathGetFullName)(siString path, siAllocator alloc, siError* out_err
 	isize pathLen = si_pathToOS(path, stack, si_countof(stack));
 
 #if SI_SYSTEM_IS_WINDOWS
-	SI_OPTION_SYS_CHECK(!si_pathExistsOS(stack), siString);
+	if (!si_pathExistsOS(stack)) { si_systemErrorDeclare(out_error); return SI_STR_EMPTY; }
+
 	DWORD dif = (u32)(si_countof(stack) - pathLen);
 
 	isize len = (isize)GetFullPathNameW(stack, dif, &stack[pathLen], nil);
-	SI_OPTION_SYS_CHECK(len == 0, siString);
+	if (len == 0) { si_systemErrorDeclare(out_error); return SI_STR_EMPTY; }
 
 	siUtf16String str = SI_ARR_LEN(&stack[pathLen], len);
 	isize utf8Len = si_utf16ToUtf8StrLen(str);
 
-	siString res = si_utf16ToUtf8Str(str, si_arrayMakeReserve(u8, utf8Len, alloc));
-	return SI_OPT(siString, res);
+	siArray(u8) res = si_arrayMakeReserve(u8, utf8Len, alloc);
+	return res.data ? si_utf16ToUtf8Str(str, res) : SI_STR_EMPTY;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	siOsChar* out = &stack[pathLen];
@@ -12750,7 +12784,7 @@ siTime si_pathLastWriteTime(siString path) {
 	if (!res) { return 0; }
 
 	FILETIME time = data.ftLastWriteTime;
-	return si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime);
+	return si_timeFromWin32((u64)time.dwHighDateTime << 32 | (u64)time.dwLowDateTime);
 
 #elif SI_SYSTEM_IS_UNIX
 	struct stat fs;
@@ -12826,9 +12860,9 @@ siFile si_fileGetStdFile(siStdFile type) {
 	}
 
 	#if SI_SYSTEM_IS_WINDOWS
-		SI_STD_FILE_ARR[0] = (isize)GetStdHandle(STD_INPUT_HANDLE));
-		SI_STD_FILE_ARR[1] = (isize)GetStdHandle(STD_OUTPUT_HANDLE));
-		SI_STD_FILE_ARR[2] = (isize)GetStdHandle(STD_ERROR_HANDLE));
+		SI_STD_FILE_ARR[0] = (isize)GetStdHandle(STD_INPUT_HANDLE);
+		SI_STD_FILE_ARR[1] = (isize)GetStdHandle(STD_OUTPUT_HANDLE);
+		SI_STD_FILE_ARR[2] = (isize)GetStdHandle(STD_ERROR_HANDLE);
 
 		/* TODO(EimaMei): All fallback code that writes UTF-16 instead of UTF-8. */
 		if (IsValidCodePage(CP_UTF8)) {
@@ -12842,9 +12876,9 @@ siFile si_fileGetStdFile(siStdFile type) {
 
 		for_range (i, 1, 2) {
 			DWORD mode;
-			GetConsoleMode((HANDLE)SI_STD_FILE_ARR[i].handle, &mode);
+			GetConsoleMode((HANDLE)SI_STD_FILE_ARR[i], &mode);
 			mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-			SetConsoleMode((HANDLE)SI_STD_FILE_ARR[i].handle, mode);
+			SetConsoleMode((HANDLE)SI_STD_FILE_ARR[i], mode);
 		}
 	#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
 		for_range (i, 0, 3) { SI_STD_FILE_ARR[i] = i; }
@@ -12906,30 +12940,27 @@ siFile (si_fileOpenMode)(siString path, siFileMode mode, siError* out_error) {
 			SI_PANIC_MSG("Invalid file mode.");
 	}
 
-	void* handle;
-	{
-		siOsChar stack[SI_PATH_MAX];
-		si_pathToOS(path, stack, si_countof(stack));
+	siOsChar stack[SI_PATH_MAX];
+	si_pathToOS(path, stack, si_countof(stack));
 
-		handle = CreateFileW(
-			stack, access, FILE_SHARE_READ | FILE_SHARE_DELETE, nil,
-			disposition, FILE_ATTRIBUTE_NORMAL, nil
-		);
-	}
-	SI_ERROR_SYS_CHECK(handle == INVALID_HANDLE_VALUE, res.error = SI_ERROR_RES; return res);
+	HANDLE handle = CreateFileW(
+		stack, access, FILE_SHARE_READ | FILE_SHARE_DELETE, nil,
+		disposition, FILE_ATTRIBUTE_NORMAL, nil
+	);
+	if (handle == INVALID_HANDLE_VALUE) { si_systemErrorDeclare(out_error); return -1; }
 
 	if (mode & siFileMode_Append) {
 		LARGE_INTEGER offset = SI_STRUCT_ZERO;
+		BOOL res = SetFilePointerEx(handle, offset, nil, FILE_END);
 
-		i32 status = SetFilePointerEx(handle, offset, nil, FILE_END);
-		if (!status) {
+		if (res == false) {
 			CloseHandle(handle);
-			res.error = SI_ERROR_SYS();
-			return res;
+			si_systemErrorDeclare(out_error);
+			return -1;
 		}
 	}
-	res.handle = (isize)handle;
-	res.size = si_fileSize(res);
+
+	return (isize)handle;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	i32 flags;
@@ -12997,7 +13028,7 @@ isize si_fileSize(siFile file) {
 	ULARGE_INTEGER res = SI_STRUCT_ZERO;
 
 	BY_HANDLE_FILE_INFORMATION data;
-	if (GetFileInformationByHandle((HANDLE)file.handle, &data)) {
+	if (GetFileInformationByHandle((HANDLE)file, &data)) {
 		res.HighPart = data.nFileSizeHigh;
 		res.LowPart = data.nFileSizeLow;
 	}
@@ -13029,14 +13060,15 @@ isize (si_fileReadAt)(siFile file, isize offset, siArray(u8) out, siError* out_e
 #if SI_SYSTEM_IS_WINDOWS
 	si_fileSeek(file, offset, siSeekWhere_Begin);
 
+	/* TODO(EimaMei): Make it possible to read more than UINT32_MAX. */
 	DWORD read;
-	i32 res = ReadFile(
-		(HANDLE)file.handle, out, (len > UINT32_MAX) ? UINT32_MAX : (u32)len,
+	BOOL res = ReadFile(
+		(HANDLE)file, out.data, (out.len > UINT32_MAX) ? UINT32_MAX : (u32)out.len,
 		&read, nil
 	);
-	SI_OPTION_SYS_CHECK(res == 0, siArray(u8));
-
-	bytesRead = read;
+	if (res == false) { si_systemErrorDeclare(out_error); return -1; }
+	
+	return (isize)read;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	isize count = pread((int)file, out.data, (usize)out.len, offset);
@@ -13088,16 +13120,15 @@ isize (si_fileWrite)(siFile file, siArray(u8) in, siError* out_error) {
 	SI_ASSERT_ARR_TYPE(in, u8);
 
 #if SI_SYSTEM_IS_WINDOWS
-	si_fileSeek(*file, offset, siSeekWhere_Begin);
-
-	/* TODO(EimaMei): Fix this. */
+	/* TODO(EimaMei): Make it possible to write more than UINT32_MAX. */
 	DWORD count;
-	i32 res = WriteFile(
-		(HANDLE)file->handle, content.data, (content.len > UINT32_MAX) ? UINT32_MAX : (u32)content.len,
+	BOOL res = WriteFile(
+		(HANDLE)file, in.data, (in.len > UINT32_MAX) ? UINT32_MAX : (u32)in.len,
 		&count, nil
 	);
-	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_RES; return -1);
-	bytesWritten = count;
+	if (res == false) { si_systemErrorDeclare(out_error); return -1; }
+
+	return (isize)count;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	isize count = write((int)file, in.data, (usize)in.len);
@@ -13130,19 +13161,7 @@ isize (si_fileWriteAt)(siFile file, isize offset, siArray(u8) in, siError* out_e
 	SI_ASSERT_NOT_NEG(offset);
 	SI_ASSERT_ARR_TYPE(in, u8);
 
-#if SI_SYSTEM_IS_WINDOWS
-	si_fileSeek(*file, offset, siSeekWhere_Begin);
-
-	/* TODO(EimaMei): Fix this. */
-	DWORD count;
-	i32 res = WriteFile(
-		(HANDLE)file->handle, content.data, (content.len > UINT32_MAX) ? UINT32_MAX : (u32)content.len,
-		&count, nil
-	);
-	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_RES; return -1);
-	bytesWritten = count;
-
-#elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
+#if SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	isize curOffset = si_fileTell(file, out_error);
 	/* NOTE(EimaMei): Should we notify that a seek error occurred? */
 
@@ -13203,13 +13222,15 @@ isize (si_fileSeek)(siFile file, isize offset, siSeekWhere method, siError* out_
 	SI_ASSERT_NOT_NEG(file);
 
 #if SI_SYSTEM_IS_WINDOWS
-	LARGE_INTEGER res;
-	res.QuadPart = offset;
+	LARGE_INTEGER seek;
+	seek.QuadPart = offset;
 
-	SetFilePointerEx((HANDLE)file.handle, res, &res, (u32)method);
-	return (ISIZE_MAX < res.QuadPart)
+	BOOL res = SetFilePointerEx((HANDLE)file, seek, &seek, (u32)method);
+	if (res == false) { si_systemErrorDeclare(out_error); }
+
+	return (ISIZE_MAX < seek.QuadPart)
 		? ISIZE_MAX
-		: (isize)res.QuadPart;
+		: (isize)seek.QuadPart;
 
 #elif SI_SYSTEM_IS_APPLE
 	isize count = lseek((int)file, offset, (i32)method);
@@ -13249,7 +13270,9 @@ bool (si_fileFlush)(siFile file, siError* out_error) {
 	SI_ASSERT_NOT_NEG(file);
 
 #if SI_SYSTEM_IS_WINDOWS
-	FlushFileBuffers
+	BOOL res = FlushFileBuffers((HANDLE)file);
+	if (res == false) { si_systemErrorDeclare(out_error); return false; }
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = fsync((int)file);
 	if (res == -1) { si_systemErrorDeclare(out_error); return false; }
@@ -13268,20 +13291,21 @@ bool (si_fileTruncate)(siFile file, isize size, siError* out_error) {
 	SI_ASSERT_NOT_NEG(size);
 
 #if SI_SYSTEM_IS_WINDOWS
-	isize prevOffset = si_fileTell(*file);
-	isize res = si_fileSeek(*file, size, siSeekWhere_Begin);
-	SI_STOPIF(res == 0, return false);
+	isize prevOffset = si_fileTell(file);
+	isize res = si_fileSeek(file, size, siSeekWhere_Begin);
+	if (res == 0) { return false; }
 
-	res = SetEndOfFile((HANDLE)file->handle);
-	SI_ERROR_SYS_CHECK(res == 0, file->error = SI_ERROR_SYS_EX(siSystemError_TruncationFail); return false);
+	res = SetEndOfFile((HANDLE)file);
+	if (res == false) { si_systemErrorDeclare(out_error); }
 
-	si_fileSeek(*file, prevOffset, siSeekWhere_Begin);
+	si_fileSeek(file, prevOffset, siSeekWhere_Begin);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	int res = ftruncate((int)file, size);
 	if (res == -1) { si_systemErrorDeclare(out_error); return false; }
 
 #else
+	#warning "TODO(EimaMei): Unfinished function."
 	return false;
 
 #endif
@@ -13296,11 +13320,11 @@ siTime si_fileLastWriteTime(siFile file) {
 #if SI_SYSTEM_IS_WINDOWS
 	BY_HANDLE_FILE_INFORMATION data;
 
-	i32 res = GetFileInformationByHandle((HANDLE)file.handle, &data);
+	i32 res = GetFileInformationByHandle((HANDLE)file, &data);
 	if (!res) { return 0; }
 
 	FILETIME time = data.ftLastWriteTime;
-	return si__win32ToSili((i64)time.dwHighDateTime << 32 | (i64)time.dwLowDateTime);
+	return si_timeFromWin32((u64)time.dwHighDateTime << 32 | (u64)time.dwLowDateTime);
 
 #elif SI_SYSTEM_IS_UNIX
 	struct stat fs;
@@ -13326,7 +13350,7 @@ void si_fileClose(siFile file) {
 	SI_ASSERT_NOT_NEG(file);
 
 #if SI_SYSTEM_IS_WINDOWS
-	CloseHandle((HANDLE)file->handle);
+	CloseHandle((HANDLE)file);
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	close((int)file);
 #else
@@ -13413,7 +13437,6 @@ siDirectory (si_directoryOpen)(siString path, siError* out_error) {
 	SI_ASSERT(path.len <= SI_PATH_MAX);
 
 	siDirectory dir;
-	dir.error = SI_TYPE_ZERO(siError);
 	dir.handle = nil;
 	dir.directoryLen = path.len;
 	si_memcopyStr(dir.buffer, path);
@@ -13435,7 +13458,7 @@ siDirectory (si_directoryOpen)(siString path, siError* out_error) {
 
 	WIN32_FIND_DATAW tmp;
 	HANDLE handle = FindFirstFileW(stack, &tmp);
-	SI_ERROR_SYS_CHECK(handle == INVALID_HANDLE_VALUE, dir.error = SI_ERROR_RES; return dir);
+	if (handle == INVALID_HANDLE_VALUE) { si_systemErrorDeclare(out_error); return dir; }
 
 	dir.handle = handle;
 	SI_DISCARD(FindNextFileW(handle, &tmp));
@@ -13452,13 +13475,9 @@ siDirectory (si_directoryOpen)(siString path, siError* out_error) {
 	return dir;
 }
 
-inline
-bool si_directoryIterate(siDirectory* dir, siDirectoryIterator* out) {
-	return si_directoryIterateEx(dir, true, out);
-}
-
 SIDEF
-bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator* out) {
+bool (si_directoryIterate)(siDirectory* dir, siDirectoryIterator* out, bool full_path, 
+		siError* out_error) {
 	SI_ASSERT_NOT_NIL(dir);
 	SI_ASSERT_NOT_NIL(out);
 	SI_ASSERT_NOT_NIL(dir->handle);
@@ -13469,7 +13488,7 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 		siSystemError code = si_systemError();
 		si_directoryClose(dir);
 
-		SI_ERROR_SYS_CHECK(code != 0, dir->error = SI_ERROR_RES; return false);
+		if (code != 0) { si_systemErrorDeclare(out_error, code); }
 		return false;
 	}
 
@@ -13488,7 +13507,7 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 		SI_ARR_LEN(&dir->buffer[dir->directoryLen], si_sizeof(dir->buffer) - dir->directoryLen)
 	);
 
-	out->path = (fullPath)
+	out->path = (full_path)
 		? SI_STR_LEN(dir->buffer, dir->directoryLen + data.len)
 		: data;
 
@@ -13502,7 +13521,7 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 		siSystemError code = si_systemError();
 		si_directoryClose(dir);
 
-		if (code != 0) { si_systemErrorDeclare(&dir->error, code); }
+		if (code != 0) { si_systemErrorDeclare(out_error, code); }
 		return false;
 	}
 
@@ -13520,12 +13539,16 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 
 	isize len = si_cstrLen(dirEntry->d_name);
 	switch (len) {
-		case 1:
-			if (dirEntry->d_name[0] == '.') { return si_directoryIterateEx(dir, fullPath, out); }
-			break;
-		case 2:
-			if (dirEntry->d_name[0] == '.' && dirEntry->d_name[1] == '.') { return si_directoryIterateEx(dir, fullPath, out); }
-			break;
+		case 1: {
+			if (dirEntry->d_name[0] == '.') {
+				return si_directoryIterate(dir, out, full_path, out_error);
+			}
+		} break;
+		case 2: {
+			if (dirEntry->d_name[0] == '.' && dirEntry->d_name[1] == '.') {
+				return si_directoryIterate(dir, out, full_path, out_error);
+			}
+		} break;
 	}
 
 	u8* data = &dir->buffer[dir->directoryLen];
@@ -13534,7 +13557,7 @@ bool si_directoryIterateEx(siDirectory* dir, bool fullPath, siDirectoryIterator*
 		dirEntry->d_name, len
 	);
 
-	out->path = (fullPath)
+	out->path = (full_path)
 		? SI_STR_LEN(dir->buffer, dir->directoryLen + len)
 		: SI_STR_LEN(data, len);
 
@@ -13704,7 +13727,7 @@ void (si_assertEx)(bool condition, siString message, siCallerLoc loc) {
 siIntern
 DWORD WINAPI si__threadProc(LPVOID arg) {
 	siThread* t = (siThread*)arg;
-	t->returnValue = t->func(t->arg);
+	t->ret_value = t->func(t->arg);
 	t->state = siThreadState_Initialized;
 
 	return 0;
@@ -13757,8 +13780,9 @@ siSystemError (si_threadRun)(siThread* thread, siError* out_error) {
 
 
 #if SI_SYSTEM_IS_WINDOWS
-	thread->id = CreateThread(nil, thread->stackSize, si__threadProc, thread, 0, nil);
-	SI_ERROR_SYS_CHECK_RET(thread->id == nil);
+	thread->id = (isize)CreateThread(nil, (usize)thread->stack_size, si__threadProc, thread, 0, nil);
+	if (thread->id == 0) { return si_systemErrorDeclare(out_error); }
+	thread->state = siThreadState_Running;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
 	pthread_attr_t attr;
@@ -13773,21 +13797,15 @@ siSystemError (si_threadRun)(siThread* thread, siError* out_error) {
 
 	pthread_t id;
 	int res = pthread_create(&id, attrPtr, si__threadProc, thread);
+	if (attrPtr) { pthread_attr_destroy(&attr); }
+	if (res != 0) { thread->id = 0; return si_systemErrorDeclare(out_error); }
 
-	if (res != 0) {
-		si_systemErrorDeclare(out_error);
-		id = 0;
-	}
-	else {
-		thread->state = siThreadState_Running;
-	}
-
-	thread->id = id;
-	if (attrPtr) {
-		pthread_attr_destroy(&attr);
-	}
+		
+	thread->state = siThreadState_Running;
+	thread->id = (isize)id;
 
 #else
+	#error "TODO(EimaMei): Unfinished function."
 	return SI_ERROR_NIL;
 #endif
 
@@ -13801,11 +13819,11 @@ siSystemError (si_threadJoin)(siThread* thread, siError* out_error) {
 
 
 #if SI_SYSTEM_IS_WINDOWS
-	DWORD res = WaitForSingleObject(thread->id, INFINITE);
-	SI_ERROR_SYS_CHECK_RET(res != 0);
+	DWORD res = WaitForSingleObject((HANDLE)thread->id, INFINITE);
+	if (res != 0) { return si_systemErrorDeclare(out_error); }
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE || SI_SYSTEM_EMSCRIPTEN
-	int res = pthread_join(thread->id, nil);
+	int res = pthread_join((pthread_t)thread->id, nil);
 	if (res != 0) { return si_systemErrorDeclare(out_error); }
 
 #endif
@@ -13814,23 +13832,19 @@ siSystemError (si_threadJoin)(siThread* thread, siError* out_error) {
 }
 
 SIDEF
-siSystemError (si_threadDestroy)(siThread* thread, siError* out_error) {
+bool si_threadDestroy(siThread* thread) {
 	SI_ASSERT_NOT_NIL(thread);
-	if (thread->id == 0) { return 0; }
-
-
-#if SI_SYSTEM_IS_WINDOWS
-	i32 res = CloseHandle(thread->id);
-	SI_ERROR_SYS_CHECK_RET(!res);
-	SI_UNUSED(out_error);
-#else
-	SI_UNUSED(out_error);
-#endif
+	if (thread->id == 0) { return false; }
 
 	thread->id = 0;
 	thread->state = siThreadState_Closed;
 
-	return 0;
+#if SI_SYSTEM_IS_WINDOWS
+	BOOL res = CloseHandle((HANDLE)thread->id);
+	if (res != 0) { si_systemErrorDeclare(nil); return false; }
+#endif
+
+	return true;
 }
 
 #endif /* SI_IMPLEMENTATION_THREAD */
@@ -13989,7 +14003,7 @@ siDllProc si_dllProcAddress(siDllHandle dll, siString name) {
 	src[len] = '\0';
 
 	PROC proc = GetProcAddress((HMODULE)dll, src);
-	return si_transmute(siDllProc, *proc, PROC);
+	return si_transmute(siDllProc, proc);
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	siArray(siOsChar) src = SI_ARR_STACK_EX(siOsChar, SI_PATH_MAX);
@@ -14006,8 +14020,9 @@ SIDEF
 siString si_dllError(void) {
 #if SI_SYSTEM_IS_WINDOWS
 	/* TODO(EimaMei): Possibly use 'FormatMessage' instead. */
-	i32 err = si_systemError();
+	isize err = si_systemError();
 	return (err) ? si_systemErrorName(err) : SI_STR_EMPTY;
+
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
 	char* error = dlerror();
 	return (error) ? SI_CSTR(error) : SI_STR_EMPTY;

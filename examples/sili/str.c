@@ -44,13 +44,13 @@ void example1(siAllocator alloc) {
 		si_builderWriteByte(&b, '.');
 		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
-		si_builderWriteRune(&b, u'й');
+		si_builderWriteRune(&b, U'й');
 		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		si_builderWriteStrQuoted(&b, SI_STR("Hello world."));
 		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
-		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"),  u'„', u'“');
+		si_builderWriteStrQuotedRune(&b, SI_STR("Labas, pasauli!"),  U'„', U'“');
 		si_printfLn("\tstr: '%s', len: '%i'", si_builderToStr(b), b.len);
 
 		siString str = si_builderToStr(b);

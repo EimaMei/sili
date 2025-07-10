@@ -35,8 +35,8 @@ int main(void) {
 #else
 		u32 value = 0x41424344;
 #endif
-		TEST_EQ_INT(offsetof(randomStruct, three), 4 + si_sizeof(usize));
-		TEST_EQ_INT(alignof(randomStruct), si_sizeof(usize));
+		TEST_EQ_INT(si_offsetof(randomStruct, three), 4 + si_sizeof(usize));
+		TEST_EQ_INT(si_alignof(randomStruct), si_sizeof(usize));
 
 		int buf1 = 8;
 		int buf2 = 4;

@@ -127,9 +127,13 @@ else
 	ifeq ($(MODE),DEBUG)
 		GNU_FLAGS += \
 			-fstack-clash-protection \
+			-ftrivial-auto-var-init=pattern
+
+		ifneq (,$(filter $(PLATFORM), OS_X LINUX WASM_WASI WASM_EMCC))
+		GNU_FLAGS += \
 			-fstack-protector-strong \
-			-ftrivial-auto-var-init=pattern \
 			-fsanitize=undefined -fsanitize=address
+		endif
 	else ifeq ($(MODE),RELEASE)
 		GNU_FLAGS += \
 			-O3 \
@@ -184,7 +188,7 @@ ifeq ($(PLATFORM),WIN32_GNU)
 	DLL_OUT = .dll
 
 else ifeq ($(PLATFORM),WIN32_MSVC)
-	FLAGS = -nologo -std:c11 -Wall -wd4668 -wd4820 -wd5045
+	FLAGS = /nologo /std:c17 /utf-8 /Wall /wd4668 /wd4820 /wd5045 /wd5110 /wd4189
 	INCLUDES = -I"." -I"include"
 	ifeq ($(MODE),0)
 		FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
@@ -194,7 +198,7 @@ else ifeq ($(PLATFORM),WIN32_MSVC)
 	EXE_OUT = .exe
 
 	ifeq ($(LIB_AR),DEFAULT)
-	LIB_AR     = ar
+	LIB_AR     = lib
 	LIB_LINKER = $(CC)
 	endif
 	DLL_OUT = .dll
@@ -280,15 +284,21 @@ $(EXE): $(SRC) sili.h Makefile examples/*
 
 static:
     ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
-		$(CC) $(FLAGS) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
+		$(CC) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
 		$(LIB_AR) rcs "$(OUTPUT)/lib$(LIB_NAME).a" "$(OUTPUT)/$(LIB_NAME).o"
+    else ifneq (,$(filter $(PLATFORM),WIN32_MSVC))
+		$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(LIB_NAME).obj"
+		$(LIB_AR) /nologo /out:"$(OUTPUT)/lib$(LIB_NAME).lib" "$(OUTPUT)/$(LIB_NAME).obj"
     endif
 
 dynamic:
     ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
-		$(CC) $(FLAGS) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) $(DLL_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
+		$(CC) $(INCLUDES) $(FLAGS) $(EXTRA_FLAGS) $(DLL_FLAGS) -x c -D SI_IMPLEMENTATION -c sili.h -o "$(OUTPUT)/$(LIB_NAME).o"
+		$(LIB_LINKER) $(LIBS) $(EXTRA_FLAGS) $(DLL_FLAGS) -shared -o "$(OUTPUT)/lib$(LIB_NAME)$(DLL_OUT)" "$(OUTPUT)/$(LIB_NAME).o"
+    else ifneq (,$(filter $(PLATFORM),WIN32_MSVC))
+		$(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(LIB_NAME).obj"
+		$(CC) /nologo /LD /Fe:"$(OUTPUT)/lib$(LIB_NAME)$(DLL_OUT)" "$(OUTPUT)/$(LIB_NAME).obj"
     endif
-	$(LIB_LINKER) $(LIBS) $(EXTRA_FLAGS) $(DLL_FLAGS) -shared -o "$(OUTPUT)/lib$(LIB_NAME)$(DLL_OUT)" "$(OUTPUT)/$(LIB_NAME).o"
 
 
 # Compile and run every example.
