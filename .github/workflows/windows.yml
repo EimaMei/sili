@@ -43,7 +43,6 @@ jobs:
 
     env:
       RELEASE_NAME: sili-dev_win${{ matrix.bits }}_${{ matrix.compiler }}
-      GNUTARGET: default
 
     steps:
     - name: Checkout
@@ -65,6 +64,9 @@ jobs:
         mkdir include
         mkdir lib
         cd ../../../sili
+        iwr -useb get.scoop.sh | iex
+        scoop install make
+        where make
 
     # Setup MSBuild.exe path if required
     - name: Setup MSBuild
@@ -113,7 +115,6 @@ jobs:
     - name: Tests (MSVC16 64-bit)
       shell: cmd
       run: |
-        where make
         make compile_tests LANGUAGE=c17 MODE=DEBUG CC=cl.exe
       if: |
         matrix.compiler == 'msvc16' &&
@@ -122,7 +123,6 @@ jobs:
     - name: Examples (MSVC16 64-bit)
       shell: cmd
       run: |
-        where make
         make compile_examples LANGUAGE=c17 MODE=DEBUG CC=cl.exe
       if: |
         matrix.compiler == 'msvc16' &&
@@ -131,7 +131,6 @@ jobs:
     - name: Build Library (MSVC16 64-bit)
       shell: cmd
       run: |
-        where make
         windres.exe --version
         make static  CC=cl.exe LANGUAGE=c17 MODE=RELEASE
         make dynamic CC=cl.exe LANGUAGE=c17 MODE=RELEASE

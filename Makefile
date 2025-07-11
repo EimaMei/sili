@@ -77,16 +77,11 @@ endif
 
 ifneq (,$(filter cpp%,$(LANGUAGE)))
 	GNU_FLAGS = -std=$(LANGUAGE) -x c++ -fno-exceptions
-ifeq ($(LANGUAGE),C)
-	ifeq ($(or $(filter OS_X,$(PLATFORM)),$(USE_C2X_FLAG)),)
-		GNU_FLAGS = -std=$(LANGUAGE) -x c -Wvla
-	else 
-		GNU_FLAGS = -std=c2x -x c -Wvla
-	endif
-else ifeq ($(LANGUAGE),CPP)
-	GNU_FLAGS = -std=c++11 -x c++ -fno-exceptions
+else
+	GNU_FLAGS = -std=$(LANGUAGE) -x c -Wvla
 endif
 
+ifneq ($(PLATFORM),WIN32_MSVC)
 
 ifeq ($(MODE),FAST)
 	GNU_FLAGS += -O0 
@@ -148,27 +143,6 @@ endif
 
 GNU_INCLUDES = -I"." -I"include"
 
-
-ifeq ($(PLATFORM),DEFAULT)
-	ifneq (,$(filter $(CC),mingw32-gcc x86_64-w64-mingw32-g++ w64gcc w32gcc))
-		PLATFORM = WIN32_GNU
-	else ifneq (,$(filter $(CC),cl))
-		PLATFORM = WIN32_MSVC
-	else ifneq (,$(filter $(CC), wasi))
-		PLATFORM = WASM_WASI
-	else ifneq (,$(filter $(CC), emcc))
-		PLATFORM = WASM_EMCC
-	else
-		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-
-		ifeq ($(DETECTED_OS),Darwin)
-			PLATFORM = OS_X
-		else ifeq ($(DETECTED_OS),Linux)
-			PLATFORM = LINUX
-		else
-			$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
-		endif
-	endif
 endif
 
 
