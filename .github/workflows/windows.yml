@@ -111,28 +111,31 @@ jobs:
 
     # MSVC  
     - name: Tests (MSVC16 64-bit)
+      shell: cmd
       run: |
+        where make
         make compile_tests LANGUAGE=c17 MODE=DEBUG CC=cl.exe
-      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
 
     - name: Examples (MSVC16 64-bit)
+      shell: cmd
       run: |
+        where make
         make compile_examples LANGUAGE=c17 MODE=DEBUG CC=cl.exe
-      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
 
     - name: Build Library (MSVC16 64-bit)
+      shell: cmd
       run: |
+        where make
         windres.exe --version
         make static  CC=cl.exe LANGUAGE=c17 MODE=RELEASE
         make dynamic CC=cl.exe LANGUAGE=c17 MODE=RELEASE
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
-      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
