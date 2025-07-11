@@ -52,7 +52,7 @@ LIB_LINKER = DEFAULT
 INCLUDES = /I"." /I"include"
 FLAGS = /nologo /std:$(LANGUAGE) /utf-8 /Wall /wd4668 /wd4820 /wd5045 /wd5110 /wd4189
 !IF "$(MODE)" == "RELEASE"
-	FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
+FLAGS = $(FLAGS) -O2 -wd4711 -D SI_RELEASE_MODE
 !ENDIF
 
 LIBS =
