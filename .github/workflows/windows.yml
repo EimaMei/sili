@@ -77,7 +77,6 @@ jobs:
     - name: Build app for release
       run: |
         set "vs_path=%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-        call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
     # MinGW
     - name: Tests (MinGW-w64 64-bit)
