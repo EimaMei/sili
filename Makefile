@@ -55,7 +55,7 @@ LIB_LINKER = DEFAULT
 ifeq ($(PLATFORM),DEFAULT)
 	ifneq (,$(filter %-mingw32-gcc %-mingw32-g++ w64gcc w32gcc,$(CC)))
 		PLATFORM = WIN32_GNU
-	else ifneq (,$(findstring cl,$(CC)))
+	else ifneq (,$(filter $(CC),cl cl.exe))
 		PLATFORM = WIN32_MSVC
 	else ifneq (,$(filter $(CC), wasi))
 		PLATFORM = WASM_WASI
