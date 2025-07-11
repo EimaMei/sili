@@ -81,7 +81,7 @@ jobs:
     # MinGW
     - name: Tests (MinGW-w64 64-bit)
       run: |
-        make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc USE_C2X_FLAG=1
+        make compile_tests CC=${{ matrix.ARCH }}-w64-mingw32-gcc LANGUAGE=c17 MODE=DEBUG
       shell: cmd
       if: |
         matrix.compiler == 'mingw-w64' &&
@@ -89,7 +89,7 @@ jobs:
 
     - name: Examples (MinGW-w64 64-bit)
       run: |
-        make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc USE_C2X_FLAG=1
+        make compile_examples CC=${{ matrix.ARCH }}-w64-mingw32-gcc LANGUAGE=c17 MODE=DEBUG
       shell: cmd
       if: |
         matrix.compiler == 'mingw-w64' &&
@@ -100,8 +100,8 @@ jobs:
         ${{ matrix.ARCH }}-w64-mingw32-gcc.exe --version
         windres.exe --version
         dir C:\msys64\mingw64\bin
-        make static CC=${{ matrix.ARCH }}-w64-mingw32-gcc USE_C2X_FLAG=1
-        make dynamic CC=${{ matrix.ARCH }}-w64-mingw32-gcc USE_C2X_FLAG=1
+        make static  CC=${{ matrix.ARCH }}-w64-mingw32-gcc LANGUAGE=c17 MODE=RELEASE
+        make dynamic CC=${{ matrix.ARCH }}-w64-mingw32-gcc LANGUAGE=c17 MODE=RELEASE
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
       shell: cmd
       if: |
@@ -112,14 +112,16 @@ jobs:
     # MSVC  
     - name: Tests (MSVC16 64-bit)
       run: |
-        make compile_tests CC=cl.exe
+        make compile_tests LANGUAGE=c17 MODE=DEBUG CC=cl.exe
+      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
 
     - name: Examples (MSVC16 64-bit)
       run: |
-        make compile_examples CC=cl.exe
+        make compile_examples LANGUAGE=c17 MODE=DEBUG CC=cl.exe
+      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64
@@ -127,9 +129,10 @@ jobs:
     - name: Build Library (MSVC16 64-bit)
       run: |
         windres.exe --version
-        make static CC=cl.exe AR=lib
-        make dynamic CC=cl.exe
+        make static  CC=cl.exe LANGUAGE=c17 MODE=RELEASE
+        make dynamic CC=cl.exe LANGUAGE=c17 MODE=RELEASE
         copy /Y .\build\libsili.dll .\build\${{ env.RELEASE_NAME }}\lib
+      shell: powershell
       if: |
         matrix.compiler == 'msvc16' &&
         matrix.bits == 64

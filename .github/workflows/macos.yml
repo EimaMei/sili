@@ -51,11 +51,11 @@ jobs:
       
     - name: Tests
       run: |
-        make compile_tests CC=clang MODE=DEBUG
+        make compile_tests CC=clang LANGUAGE=c2x MODE=DEBUG
 
     - name: Examples
       run: |
-        make compile_examples CC=clang MODE=DEBUG
+        make compile_examples CC=clang LANGUAGE=c2x MODE=DEBUG
 
     - name: Build Library
       run: |
@@ -65,12 +65,12 @@ jobs:
         brew install grep
         
         # Build sili x86_64 & arm64 static
-        make static CC=clang EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
-        make static CC=clang EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
+        make static CC=clang MODE=RELEASE LANGUAGE=c2x EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
+        make static CC=clang MODE=RELEASE LANGUAGE=c2x EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
         
         # Build sili x86_64 & arm64 dynamic
-        make dynamic CC=clang EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
-        make dynamic CC=clang EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
+        make dynamic CC=clang MODE=RELEASE LANGUAGE=c2x EXTRA_FLAGS="-target x86_64-apple-macos10.12" LIB_NAME="sili_x86_64"
+        make dynamic CC=clang MODE=RELEASE LANGUAGE=c2x EXTRA_FLAGS="-target arm64-apple-macos11"     LIB_NAME="sili_arm64"
   
     - name: Generate Artifacts
       run: |

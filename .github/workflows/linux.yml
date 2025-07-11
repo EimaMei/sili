@@ -68,16 +68,16 @@ jobs:
 
     - name: Tests
       run: |
-        make compile_tests CC=gcc MODE=DEBUG USE_C2X_FLAG=1
+        make compile_tests CC=gcc LANGUAGE=c2x MODE=DEBUG
 
     - name: Examples
       run: |
-        make compile_examples CC=gcc MODE=DEBUG USE_C2X_FLAG=1
+        make compile_examples CC=gcc LANGUAGE=c2x MODE=DEBUG
 
     - name: Build Library
       run: |
-        make static  CC=gcc MODE=RELEASE USE_C2X_FLAG=1
-        make dynamic CC=gcc MODE=RELEASE USE_C2X_FLAG=1
+        make static  CC=gcc LANGUAGE=c2x MODE=RELEASE
+        make dynamic CC=gcc LANGUAGE=c2x MODE=RELEASE
       if: matrix.bits == 64
 
     - name: Generate Artifacts

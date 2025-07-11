@@ -10,13 +10,13 @@
 # 'DEBUG' turns on all warnings as well as flags to help with debugging/finding 
 # problematic code. 'RELEASE' turns on all optimisations as well as warnings.
 # 
-# 	LANGUAGE - selects which programming language to target. Currently C and C++ 
-# are the only valid options.
+# 	LANGUAGE - selects which programming language (and standard) to use. Available 
+# values: c99, c11, c17, c18, c2x/c23, c++11, c++14, c++17, c++20, etc.
 
 CC        = clang
 PLATFORM  = DEFAULT
 MODE      = FAST
-LANGUAGE  = C
+LANGUAGE  = c23
 
 
 # General building options:
@@ -75,14 +75,15 @@ ifeq ($(PLATFORM),DEFAULT)
 endif
 
 
-ifeq ($(LANGUAGE),C)
-	ifeq ($(or $(filter OS_X,$(PLATFORM)),$(USE_C2X_FLAG)),)
-		GNU_FLAGS = -std=c23 -x c -Wvla
-	else 
-		GNU_FLAGS = -std=c2x -x c -Wvla
-	endif
-else ifeq ($(LANGUAGE),CPP)
-	GNU_FLAGS = -std=c++11 -x c++ -fno-exceptions
+#
+# GNU compiler configurations
+#
+ifneq ($(PLATFORM),WIN32_MSVC)
+
+ifneq (,$(filter cpp%,$(LANGUAGE)))
+	GNU_FLAGS = -std=$(LANGUAGE) -x c++ -fno-exceptions
+else
+	GNU_FLAGS = -std=$(LANGUAGE) -x c -Wvla
 endif
 
 
@@ -150,29 +151,7 @@ endif
 
 GNU_INCLUDES = -I"." -I"include"
 
-
-ifeq ($(PLATFORM),DEFAULT)
-	ifneq (,$(filter $(CC),mingw32-gcc x86_64-w64-mingw32-g++ w64gcc w32gcc))
-		PLATFORM = WIN32_GNU
-	else ifneq (,$(filter $(CC),cl))
-		PLATFORM = WIN32_MSVC
-	else ifneq (,$(filter $(CC), wasi))
-		PLATFORM = WASM_WASI
-	else ifneq (,$(filter $(CC), emcc))
-		PLATFORM = WASM_EMCC
-	else
-		DETECTED_OS := $(shell uname 2>/dev/null || echo Unknown)
-
-		ifeq ($(DETECTED_OS),Darwin)
-			PLATFORM = OS_X
-		else ifeq ($(DETECTED_OS),Linux)
-			PLATFORM = LINUX
-		else
-			$(error Unsupported platform. Please refer to the Makefile for supported platofmrs.)
-		endif
-	endif
 endif
-
 
 ifeq ($(PLATFORM),WIN32_GNU)
 	FLAGS = $(GNU_FLAGS)
@@ -280,7 +259,11 @@ clean:
 
 
 $(EXE): $(SRC) sili.h Makefile examples/*
-	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
+    ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
+		$(CC) $(FLAGS) $(EXTRA_FLAGS) $(SRC) $(INCLUDES) $(LIBS) -o "$@"
+    else ifneq (,$(filter $(PLATFORM),WIN32_MSVC))
+		$(CC) $(FLAGS) $(EXTRA_FLAGS) $(SRC) $(INCLUDES) $(LIBS) /Fe"$@"
+    endif
 
 static:
     ifneq (,$(filter $(PLATFORM),WIN32_GNU OS_X LINUX WASM_WASI WASM_EMCC))
