@@ -111,7 +111,11 @@ else
 		-Wmissing-noreturn \
 		\
 		-fwrapv -fstrict-aliasing \
-		-fno-omit-frame-pointer -fstrict-flex-arrays
+		-fno-omit-frame-pointer
+		
+	ifneq (,$(filter $(PLATORM),OS_X WIN32_GNU))
+		GNU_FLAGS += -fstrict-flex-arrays
+	endif
 
 	ifneq (,$(filter $(CC),gcc g++))
 		GNU_FLAGS += -Wcast-align=strict -Wlogical-op
