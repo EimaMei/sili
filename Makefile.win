@@ -1,0 +1,103 @@
+# Parameter explanations:
+#   CC - compiler used by the Makefile. Can be whatever you desire.
+#
+# 	MODE - sets the release mode to compile for. Current values: FAST, DEBUG, 
+# RELEASE. 'FAST' disables all flags and enables ones requires for fast compilation. 
+# 'DEBUG' turns on all warnings as well as flags to help with debugging/finding 
+# problematic code. 'RELEASE' turns on all optimisations as well as warnings.
+# 
+# 	LANGUAGE - selects which programming language (and standard) to use. Available 
+# values: c11, c17, clatest, c++14, c++17, c++20, c++latest.
+
+CC        = cl
+MODE      = FAST
+LANGUAGE  = c17
+
+
+# General building options:
+#	EXTRA_FLAGS - any additional compiler flags to use.
+#
+#	OUTPUT      - the directory where all of the output goes to.
+
+EXTRA_FLAGS =
+OUTPUT      = build
+
+
+# Building executable options:
+#	NAME - the executable name.
+#
+#	SRC  - source file to target.
+
+NAME   = basic
+SRC    = examples\sili\array.c
+
+
+# Building library options:
+#	LIB_NAME   - the library name.
+#
+#   LIB_LINKER - exexcutable used for creating a static library. If this 
+# argument is set to 'DEFAULT', a program will be automatically picked out.
+
+LIB_NAME   = sili
+LIB_LINKER = DEFAULT
+
+
+#
+#
+# ===================
+# MSVC configurations
+# ===================
+#
+#
+INCLUDES = /I"." /I"include"
+FLAGS = /nologo /std:$(LANGUAGE) /utf-8 /Wall /wd4668 /wd4820 /wd5045 /wd5110 /wd4189
+!IF "$(MODE)" == "RELEASE"
+	FLAGS += -O2 -wd4711 -D SI_RELEASE_MODE
+!ENDIF
+
+LIBS =
+
+!IF "$(LIB_LINKER)" == "DEFAULT"
+LIB_LINKER = lib
+!ENDIF
+
+
+EXE = $(OUTPUT)\$(NAME).exe
+
+
+# 'make'
+all: $(OUTPUT) $(EXE) run
+
+# Run the executable.
+run: $(EXE)
+    $(EXE)
+
+# Clean the 'build' folder.
+clean:
+	@if exist $(OUTPUT)\* del /q $(OUTPUT)\*
+
+
+$(EXE): $(SRC) sili.h Makefile examples/*
+	$(CC) $(FLAGS) $(EXTRA_FLAGS) $(SRC) $(INCLUDES) $(LIBS) /Fe"$@"
+
+static:
+    $(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(LIB_NAME).obj"
+	$(LIB_LINKER) /nologo /out:"$(OUTPUT)/lib$(LIB_NAME).lib" "$(OUTPUT)/$(LIB_NAME).obj"
+
+dynamic:
+    $(CC) $(FLAGS) $(INCLUDES) $(EXTRA_FLAGS) /c /D SI_IMPLEMENTATION /Tc sili.h /Fo"$(OUTPUT)/$(LIB_NAME).obj"
+	$(CC) /nologo /LD /Fe:"$(OUTPUT)/lib$(LIB_NAME).dll" "$(OUTPUT)/$(LIB_NAME).obj"
+
+
+# Compile and run every example.
+compile_examples:
+	@for /R examples %%f in (*.c) do nmake /nologo /f Makefile.win SRC=%%f && del /q $(EXE)
+
+
+# Compile and run every example.
+compile_tests:
+	@for /R tests %%f in (*.c) do nmake /nologo /f Makefile.win SRC=%%f && del /q $(EXE)
+
+# If 'build' doesn't exist, create it
+$(OUTPUT):
+	mkdir $(OUTPUT)
