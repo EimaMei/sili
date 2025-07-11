@@ -86,7 +86,7 @@ MACROS
 	(such as logging, error reporting, assertions, etc). Defining "NDEBUG" does
 	the same thing.
 
-	- SI_NO_ERROR_PRINTS - disables error printing. Enabled automatically by 
+	- SI_NO_ERROR_PRINTS - disables error printing. Enabled automatically by
 	'SI_RELEASE_MODE'.
 
 	- SI_NO_ASSERTIONS - all 'SI_ASSERT' functions get disabled entirely. 'SI_PANIC'
@@ -970,7 +970,7 @@ SI_STATIC_ASSERT(false == 0);
 		/* type - TYPE
 		* Gets the alignment of a type. */
 		#define si_alignof(type) (isize)_Alignof(type)
-	#elif SI_COMPILER_GCC || SI_COMPILER_CLANG 
+	#elif SI_COMPILER_GCC || SI_COMPILER_CLANG
 		/* type - TYPE
 		* Gets the alignment of a type. */
 		#define si_alignof(type) (isize)__alignof__(type)
@@ -5125,8 +5125,8 @@ SIDEF siDirectory si_directoryOpen(
  * NOTE 2: If you decide to end the polling process early, make sure to call
  * 'si_directoryClose'. */
 SIDEF bool si_directoryIterate(
-	siDirectory* dir, siDirectoryIterator* out, 
-	bool full_path SI_DEFAULT(false), 
+	siDirectory* dir, siDirectoryIterator* out,
+	bool full_path SI_DEFAULT(false),
 	siError* out_error SI_DEFAULT(nil)
 );
 #define si_directoryIterate(...) SI_DARG_IMPL(si_directoryIterate, 2, (true, nil), __VA_ARGS__)
@@ -7278,7 +7278,7 @@ void si_dynamicArrayFree(siDynamicArrayAny array) {
 
 
 SIDEF
-bool (si_dynamicArrayAppendEx)(siDynamicArrayAny* array, siArray(siAny) values, 
+bool (si_dynamicArrayAppendEx)(siDynamicArrayAny* array, siArray(siAny) values,
 		siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_DYN_ARR(*array);
@@ -7334,7 +7334,7 @@ bool (si_dynamicArrayInsertEx)(siDynamicArrayAny* array, isize index, siArray(si
 	u8* dst = (u8*)si_dynamicArrayGet(*array, index);
 	si_memmove(
 		&dst[array->typeSize * values.len],
-		dst, 
+		dst,
 		array->typeSize * (array->len - (index + values.len))
 	);
 
@@ -7411,7 +7411,7 @@ void si_dynamicArrayReverse(siDynamicArrayAny array) {
 }
 
 SIDEF
-bool (si_dynamicArrayFillEx)(siDynamicArrayAny* array, isize index, isize count, 
+bool (si_dynamicArrayFillEx)(siDynamicArrayAny* array, isize index, isize count,
 		siAny value, siError* out_error) {
 	SI_ASSERT_NOT_NIL(array);
 	SI_ASSERT_ARR(*array);
@@ -11530,7 +11530,7 @@ isize (si_wprintfEx)(siStream writer, siString fmt, siArray(siAny) args, bool fl
 			case '8': case '9': case_zero: {
 				isize countEnd;
 				i64 count = si_stringToInt(si_substrFrom(fmt, i), 10, &countEnd);
-				if (count > ISIZE_MAX) { 
+				if (count > ISIZE_MAX) {
 					info.n += si_streamWriteStr(info.writer, SI_STR("!%(BAD PRECISION/WIDTH)"));
 					continue;
 				}
@@ -13067,7 +13067,7 @@ isize (si_fileReadAt)(siFile file, isize offset, siArray(u8) out, siError* out_e
 		&read, nil
 	);
 	if (res == false) { si_systemErrorDeclare(out_error); return -1; }
-	
+
 	return (isize)read;
 
 #elif SI_SYSTEM_IS_UNIX || SI_SYSTEM_IS_APPLE
@@ -13476,7 +13476,7 @@ siDirectory (si_directoryOpen)(siString path, siError* out_error) {
 }
 
 SIDEF
-bool (si_directoryIterate)(siDirectory* dir, siDirectoryIterator* out, bool full_path, 
+bool (si_directoryIterate)(siDirectory* dir, siDirectoryIterator* out, bool full_path,
 		siError* out_error) {
 	SI_ASSERT_NOT_NIL(dir);
 	SI_ASSERT_NOT_NIL(out);
@@ -13800,7 +13800,7 @@ siSystemError (si_threadRun)(siThread* thread, siError* out_error) {
 	if (attrPtr) { pthread_attr_destroy(&attr); }
 	if (res != 0) { thread->id = 0; return si_systemErrorDeclare(out_error); }
 
-		
+
 	thread->state = siThreadState_Running;
 	thread->id = (isize)id;
 

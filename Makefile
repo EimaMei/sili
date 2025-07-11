@@ -1,16 +1,16 @@
 # Parameter explanations:
 #   CC - compiler used by the Makefile. Can be whatever you desire.
 #
-#   PLATFORM - sets the platform target to compile for. Current values: WIN32_GNU, 
-# WIN32_MSVC, OS_X, LINUX, WASM_WASI, WASM_EMCC, DEFAULT. Selecting 'DEFAULT' 
+#   PLATFORM - sets the platform target to compile for. Current values: WIN32_GNU,
+# WIN32_MSVC, OS_X, LINUX, WASM_WASI, WASM_EMCC, DEFAULT. Selecting 'DEFAULT'
 # makes the Makefile automatically guess which platform to target.
 #
-# 	MODE - sets the release mode to compile for. Current values: FAST, DEBUG, 
-# RELEASE. 'FAST' disables all flags and enables ones requires for fast compilation. 
-# 'DEBUG' turns on all warnings as well as flags to help with debugging/finding 
+# 	MODE - sets the release mode to compile for. Current values: FAST, DEBUG,
+# RELEASE. 'FAST' disables all flags and enables ones requires for fast compilation.
+# 'DEBUG' turns on all warnings as well as flags to help with debugging/finding
 # problematic code. 'RELEASE' turns on all optimisations as well as warnings.
-# 
-# 	LANGUAGE - selects which programming language (and standard) to use. Available 
+#
+# 	LANGUAGE - selects which programming language (and standard) to use. Available
 # values: c99, c11, c17, c2x/c23, c++11, c++14, c++17, c++20, etc.
 
 CC        = clang
@@ -40,7 +40,7 @@ SRC    = examples/sili/array.c
 # Building library options:
 #	LIB_NAME   - the library name.
 #
-#   LIB_LINKER - exexcutable used for creating a static library. If this 
+#   LIB_LINKER - exexcutable used for creating a static library. If this
 # argument is set to 'DEFAULT', a program will be automatically picked out.
 
 LIB_NAME   = sili
@@ -78,8 +78,8 @@ else
 endif
 
 ifeq ($(MODE),FAST)
-	GNU_FLAGS += -O0 
-	
+	GNU_FLAGS += -O0
+
 	ifneq ($(MAKECMDGOALS),dynamic)
 	GNU_FLAGS += -flto
 	endif
@@ -106,7 +106,7 @@ else
 		\
 		-fwrapv -fstrict-aliasing \
 		-fno-omit-frame-pointer
-		
+
 	ifneq (,$(filter $(PLATORM),OS_X WIN32_GNU))
 		GNU_FLAGS += -fstrict-flex-arrays
 	endif
@@ -163,7 +163,7 @@ else ifeq ($(PLATFORM),OS_X)
 
 	ifeq ($(LIB_LINKER),DEFAULT)
 	LIB_LINKER = ar
-	endif 
+	endif
 	DLL_FLAGS = -fPIC
 	DLL_OUT   = .dylib
 
@@ -202,7 +202,7 @@ else ifeq ($(PLATFORM),WASM_EMCC)
 
 	ifeq ($(LIB_LINKER),DEFAULT)
 	LIB_LINKER = ar
-	
+
 	endif
 	DLL_FLAGS = -fPIC
 	DLL_OUT   = .so

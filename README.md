@@ -6,9 +6,9 @@ Sili
 ---
 
 <p align="center">
-Sili is a collection of cross-platform single-header libraries for modern C99/C11 
+Sili is a collection of cross-platform single-header libraries for modern C99/C11
 and C++20 programming. It focuses on providing a more modern developer experience
-whilst adhering to the main principles and appeals of C: simplicity, performance 
+whilst adhering to the main principles and appeals of C: simplicity, performance
 and portability.
 </p>
 
@@ -30,14 +30,18 @@ and portability.
 |  Name                | Version | Description |
 |----------------------|:-------:|:-----------:|
 |  [sili.h](sili.h)    | v0.4.0  | A general-purpose library that utilizes modern programming concepts. An alternative to C/C++ standard libraries.
-|  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration (.ini).
+|  [sifig.h](sifig.h)  | v0.0.0  | A sili library for reading various configuration files (.ini).
 
-# Contact
-You can join the [semi-offical Discord server](https://discord.gg/MSfSmNanF2) for 
-any questions related to Sili.
+# Building
+On Unix platforms/GNU targets, use `make static/dynamic` to compile a static
+and/or dynamic library. For MSVC you have to use `nmake /nologo /f Makefile.win <static/dynamic>`.
 
 # Versioning systems
 - Format: `v<main>.<minor>.<patch>`.
-- A main release on github guarantees that the library will have working examples 
-and tests that fufill their checks. Complete documentation is guaranteed, as well 
+- A main release on github guarantees that the library will have working examples
+and tests that fufill their checks. Complete documentation is guaranteed, as well
 as compiled binaries being available for all platforms.
+
+# Contact
+You can join the [semi-offical Discord server](https://discord.gg/MSfSmNanF2) for
+any questions related to Sili.

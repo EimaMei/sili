@@ -82,8 +82,8 @@ int main(void) {
 		typedef struct { u8 r, g, b, a; } siColor;
 
 		siDynamicArray(u32) array = si_dynamicArrayMake(
-			alloc, siColor, 
-			{255,   0,   0, 255}, {128, 128, 128, 255}, 
+			alloc, siColor,
+			{255,   0,   0, 255}, {128, 128, 128, 255},
 			{ 96, 255, 186, 255}, { 23, 204,   2, 255}
 		);
 		si_printfLn("\tarray: \"%s\"", print_arr_clr(array));
